@@ -1,0 +1,50 @@
+.header {
+  background-color: #ffd699;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  flex-wrap: wrap; /* permite que los items se muevan */
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+}
+.logo-container .logo{
+  width: 100px;
+  height: 100px;
+}
+.logo-container h1 {
+  color: #b35600;
+  margin-left: 10px; /* separación entre logo y nombre */
+  font-size: 1.5rem;
+}
+
+.header nav a {
+  margin-left: 15px;
+  color: #b35600;
+  font-weight: bold;
+}
+
+.header nav a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive para pantallas menores a 500px */
+@media (max-width: 500px) {
+  .header {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .logo-container {
+    margin-bottom: 10px;
+  }
+
+  .header nav a {
+    margin-left: 0;
+    margin-right: 10px;
+  }
+}

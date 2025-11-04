@@ -1,0 +1,21 @@
+.cart {
+  max-width: 400px;
+  margin: 20px auto;
+  padding: 15px;
+  border: 1px solid #ffd699;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid #ffd699;
+}
+
+.cart-item button {
+  background-color: transparent;
+  color: red;
+  font-size: 16px;
+}
