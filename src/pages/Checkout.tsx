@@ -19,7 +19,7 @@ export default function Checkout() {
   };
 
   try {
-    const response = await fetch("https://elfaropanaderia-backend.up.railway.app/api", {
+    const response = await fetch("elfaropanaderia-backend-production.up.railway.app/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(orderData),
