@@ -3,6 +3,8 @@ import { useContext } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png"; 
+import { useAuth } from "../context/AuthContext";
+
 export default function Header() {
   const { cart } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
@@ -17,7 +19,30 @@ export default function Header() {
         <Link to="/">Inicio</Link>
         <Link to="/carrito">Carrito {totalItems > 0 && `(${totalItems})`}</Link>
         <Link to="/checkout">Ir a pagar</Link>
+        <div>
+        {user ? (
+          <button onClick={logout}>
+            Cerrar sesión ({user.displayName})
+          </button>
+        ) : (
+          <button onClick={() => document.dispatchEvent(new CustomEvent("openLogin"))}>
+            Iniciar sesión
+          </button>
+        )}
+      </div>
       </nav>
+    </header>
+  );
+}
+
+export default function Header() {
+  const { user, logout } = useAuth();
+
+  return (
+    <header className="header">
+      <h1>El Faro Panadería</h1>
+
+      <
     </header>
   );
 }

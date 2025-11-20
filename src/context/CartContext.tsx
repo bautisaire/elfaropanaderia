@@ -1,4 +1,6 @@
-import { createContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
+
+import { useAuth } from "../context/AuthContext"; // 👈 IMPORTANTE
 
 export interface Product {
   id: number;
@@ -14,6 +16,8 @@ interface CartContextType {
   removeFromCart: (id: number) => void;
   clearCart: () => void;
   total: number;
+  showLoginModal: boolean;
+  setShowLoginModal: (value: boolean) => void;
 }
 
 export const CartContext = createContext<CartContextType>({
@@ -22,6 +26,8 @@ export const CartContext = createContext<CartContextType>({
   removeFromCart: () => {},
   clearCart: () => {},
   total: 0,
+  showLoginModal: false,
+  setShowLoginModal: () => {},
 });
 
 interface Props {
@@ -30,13 +36,26 @@ interface Props {
 
 export const CartProvider = ({ children }: Props) => {
   const [cart, setCart] = useState<Product[]>([]);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const { user } = useAuth(); // 👈 Para saber si está logueado
 
   const addToCart = (product: Product) => {
+    // 🔐 Si NO está logueado → mostrar modal
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    // ✔ Logueado → agregar al carrito normal
     const exists = cart.find((item) => item.id === product.id);
+
     if (exists) {
       setCart(
         cart.map((item) =>
-          item.id === product.id ? { ...item, quantity: (item.quantity || 1) + 1 } : item
+          item.id === product.id
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item
         )
       );
     } else {
@@ -44,13 +63,31 @@ export const CartProvider = ({ children }: Props) => {
     }
   };
 
-  const removeFromCart = (id: number) => setCart(cart.filter((item) => item.id !== id));
+  const removeFromCart = (id: number) =>
+    setCart(cart.filter((item) => item.id !== id));
+
   const clearCart = () => setCart([]);
-  const total = cart.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0);
+
+  const total = cart.reduce(
+    (acc, item) => acc + item.price * (item.quantity || 1),
+    0
+  );
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, total }}>
+    <CartContext.Provider
+      value={{
+        cart,
+        addToCart,
+        removeFromCart,
+        clearCart,
+        total,
+        showLoginModal,
+        setShowLoginModal,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
 };
+
+export const useCart = () => useContext(CartContext);
