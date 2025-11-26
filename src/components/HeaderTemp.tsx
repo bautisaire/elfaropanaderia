@@ -22,11 +22,11 @@ export default function Header() {
         <Link to="/checkout">Ir a pagar</Link>
         <div>
           {user ? (
-            <button onClick={logout}>
+            <button hidden onClick={logout}> {/* Hidden button for logout */}
               Cerrar sesión ({user.displayName})
             </button>
           ) : (
-            <button onClick={() => document.dispatchEvent(new CustomEvent("openLogin"))}>
+            <button hidden onClick={() => document.dispatchEvent(new CustomEvent("openLogin"))}>  {/* Hidden button for login */}
               Iniciar sesión
             </button>
           )}
