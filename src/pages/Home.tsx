@@ -11,7 +11,7 @@ import matera from "../assets/matera.jpg";
 import matera2 from "../assets/matera2.jpg";
 import matera3 from "../assets/matera3.jpg";
 import matera4 from "../assets/matera4.jpg";
-import alfajoresSantafesinos1 from "../assets/alfajoressantafesinos.jpg";
+import alfajoresSantafesinos1 from "../assets/alfajoresSantafesinos.jpg";
 import alfajoresSantafesinos2 from "../assets/alfajoresSantafesinos2.jpg";
 import alfajoresSantafesinos3 from "../assets/alfajoresSantafesinos3.jpg";
 
