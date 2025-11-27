@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useMemo } from "react";
 
-import { useAuth } from "../context/AuthContext"; // 👈 IMPORTANTE
+//import { useAuth } from "../context/AuthContext"; // 👈 IMPORTANTE
 
 export interface Product {
   id: number;
@@ -47,7 +47,7 @@ export const CartProvider = ({ children }: Props) => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBottomModal, setShowBottomModal] = useState(false);
 
-  const { user } = useAuth(); // 👈 Para saber si está logueado
+  //const { user } = useAuth(); // 👈 Para saber si está logueado
 
   // helpers para cantidad y total
   const cartQuantity = useMemo(
