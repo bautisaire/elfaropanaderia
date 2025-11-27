@@ -1,29 +1,211 @@
+/* --- ESTILOS BASE (Igual que antes) --- */
 .product-card {
-  background-color: #fff;
-  border: 1px solid #ffd699;
-  border-radius: 8px;
-  padding: 15px;
-  text-align: center;
-  width: 180px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+  border: 1px solid transparent; /* Preparado para la animación */
 }
 
-.product-card img {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  margin-bottom: 10px;
-  border-radius: 5px;
+/* Área de imagen */
+.card-header {
+  position: relative;
+  background-color: #f8f9fa;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.product-card button {
-  background-color: #ff9f43;
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+}
+
+/* Botones de navegación */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  color: #333;
+  transition: all 0.2s;
+  z-index: 10;
+  /* Por defecto visibles (para móvil) luego lo ocultamos en PC */
+  opacity: 1; 
+}
+
+.nav-btn.left { left: 0; }
+.nav-btn.right { right: 0; }
+
+/* Dots */
+.carousel-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.dot.active {
+  background: #ff8d0b; /* Ajustado a tu color naranja */
+  transform: scale(1.1);
+}
+
+/* Textos y botones */
+.card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-price {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff8d0b;
+}
+
+.btn-add {
+  width: 100%;
+  padding: 10px;
+  background-color: #1a1a1a;
   color: white;
-  padding: 5px 10px;
-  border-radius: 5px;
-  margin-top: 5px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.product-card button:hover {
-  background-color: #ff7f00;
+/* Control de cantidad */
+.quantity-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f1f3f5;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.btn-qty {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+
+.btn-qty.minus {
+  background: #fff;
+  color: #a73500;
+  border: 1px solid #ffccc7;
+}
+
+.btn-qty.plus {
+  background: #fca503;
+  color: white;
+}
+
+.quantity-display {
+  font-weight: 700;
+  color: #333;
+  width: 30px;
+  text-align: center;
+}
+
+/* --- LOGICA DIFERENCIADA PC vs MÓVIL --- */
+
+/* 1. ANIMACIÓN SUTIL (Se activa con la clase .animate-add) */
+@keyframes soft-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.98); border-color: #ff8d0b; background-color: #fffbf5;}
+  100% { transform: scale(1); border-color: transparent; background-color: #ffffff;}
+}
+
+.product-card.animate-add {
+  animation: soft-pop 0.4s ease-out forwards;
+}
+
+/* 2. REGLAS SOLO PARA PC (Dispositivos con cursor/mouse) */
+@media (hover: hover) {
+  /* Ocultar flechas por defecto en PC */
+  .nav-btn {
+    opacity: 0;
+  }
+  
+  /* Mostrar flechas al hacer hover */
+  .product-card:hover .nav-btn {
+    opacity: 1;
+  }
+
+  /* Efecto de elevación solo en PC */
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .btn-add:hover {
+    background-color: #333;
+  }
+  
+  .nav-btn:hover {
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  
+  .btn-qty.minus:hover { background: #fff1f0; }
+  .btn-qty.plus:hover { background: #ac4103; }
 }
