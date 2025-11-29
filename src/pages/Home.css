@@ -74,7 +74,7 @@
   background: #ddd;
   cursor: pointer;
 }
-.product-card .dot.active { background: #0b74ff; }
+.product-card .dot.active { background: #ff810b; }
 
 /* título y precio compactos */
 .product-card h3 { margin: 6px 0 2px; font-size: 14px; line-height: 1.1; }

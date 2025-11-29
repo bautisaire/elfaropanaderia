@@ -5,6 +5,8 @@ import Checkout from "./pages/Checkout";
 import Header from "./components/HeaderTemp";
 import LoginModal from "./components/LoginModal";
 import { useCart } from "./context/CartContext";
+import Editor from "./pages/Editor";
+import Proximamente from "./pages/Proximamente";
 
 export default function App() {
   const { showLoginModal, setShowLoginModal } = useCart();
@@ -19,9 +21,11 @@ export default function App() {
       )}
 
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/carrito" element={<Carrito />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/editor" element={<Editor />} />
+        <Route path="/" element={<Proximamente />} />
       </Routes>
     </Router>
   );

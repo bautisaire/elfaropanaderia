@@ -71,7 +71,7 @@ export default function Carrito() {
     setTimeout(() => {
       setShowConfirmation(false);
       navigate("/");
-    }, 2000);
+    }, 5000);
   };
 
   return (
@@ -111,7 +111,7 @@ export default function Carrito() {
                 Proceder al pago
               </button>
               <button className="btn-clear" onClick={clearCart}>
-                Vaciar carrito
+                Vaciar carrito 🗑️
               </button>
             </div>
           ) : (

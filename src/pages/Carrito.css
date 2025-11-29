@@ -101,22 +101,22 @@
 }
 
 .btn-checkout {
-  background: #0b74ff;
+  background: #f86707;
   color: #fff;
 }
 
 .btn-checkout:hover {
-  background: #0557d9;
+  background: #964a04;
   transform: translateY(-2px);
 }
 
 .btn-clear {
-  background: #ff9800;
+  background: #ff0606;
   color: #fff;
 }
 
 .btn-clear:hover {
-  background: #e68900;
+  background: #910303;
 }
 
 /* Formulario de checkout */
@@ -222,7 +222,7 @@
 .btn-confirm,
 .btn-cancel {
   flex: 1;
-  padding: 7px 8px;
+  padding: 7px 8px; 
   border: none;
   border-radius: 8px;
   font-weight: 700;
