@@ -1,33 +1,40 @@
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import BottomCartModal from "../components/BottomCartModal";
 import "./Home.css";
-
-// Define el tipo Product para tipado
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  image?: string;
-  images?: string[];
-}
+import { db } from "../firebase/firebaseConfig";
+import { collection, getDocs } from "firebase/firestore";
+import { Product } from "../context/CartContext";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cargar productos desde el backend
+  // Cargar productos desde Firebase
   useEffect(() => {
-    fetch("http://localhost:3001/api/productos", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const prods: Product[] = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.nombre,
+            price: data.precio,
+            image: data.img || "",
+            quantity: 0
+          } as Product;
+        });
+        setProducts(prods);
+      } catch (error) {
+        console.error("Error loading products:", error);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   return (
@@ -39,11 +46,7 @@ export default function Home() {
           products.map((p) => (
             <ProductCard
               key={p.id}
-              product={{
-                ...p,
-                image: p.image ?? "", // <-- asegura que image sea string
-                images: p.images ?? [], // <-- asegura que images sea array
-              }}
+              product={p}
             />
           ))
         )}

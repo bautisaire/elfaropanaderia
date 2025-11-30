@@ -32,7 +32,6 @@
 
 .header-content {
   max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -58,7 +57,8 @@
 }
 
 .brand-name {
-  font-family: 'Playfair Display', serif; /* Assuming a serif font is available or fallback */
+  font-family: 'Playfair Display', serif;
+  /* Assuming a serif font is available or fallback */
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--primary-color);
@@ -149,11 +149,12 @@
   .header-container {
     padding: 1rem;
   }
-  
+
   .brand-name {
-    display: none; /* Hide text on very small screens if needed, or adjust size */
+    display: none;
+    /* Hide text on very small screens if needed, or adjust size */
   }
-  
+
   .nav-menu {
     gap: 1rem;
   }

@@ -1,9 +1,7 @@
 import React, { createContext, useState, useContext, useMemo } from "react";
 
-//import { useAuth } from "../context/AuthContext"; // 👈 IMPORTANTE
-
 export interface Product {
-  id: number;
+  id: string | number;
   name: string;
   price: number;
   image: string;
@@ -13,11 +11,9 @@ export interface Product {
 interface CartContextType {
   cart: Product[];
   addToCart: (product: Product) => void;
-  removeFromCart: (id: number) => void;
+  removeFromCart: (id: string | number) => void;
   clearCart: () => void;
   total: number;
-  showLoginModal: boolean;
-  setShowLoginModal: (value: boolean) => void;
   showBottomModal: boolean;
   setShowBottomModal: (value: boolean) => void;
   cartQuantity: number;
@@ -26,14 +22,12 @@ interface CartContextType {
 
 export const CartContext = createContext<CartContextType>({
   cart: [],
-  addToCart: () => {},
-  removeFromCart: () => {},
-  clearCart: () => {},
+  addToCart: () => { },
+  removeFromCart: () => { },
+  clearCart: () => { },
   total: 0,
-  showLoginModal: false,
-  setShowLoginModal: () => {},
   showBottomModal: false,
-  setShowBottomModal: () => {},
+  setShowBottomModal: () => { },
   cartQuantity: 0,
   cartTotal: 0,
 });
@@ -44,10 +38,7 @@ interface Props {
 
 export const CartProvider = ({ children }: Props) => {
   const [cartItems, setCartItems] = useState<any[]>([]);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBottomModal, setShowBottomModal] = useState(false);
-
-  //const { user } = useAuth(); // 👈 Para saber si está logueado
 
   // helpers para cantidad y total
   const cartQuantity = useMemo(
@@ -60,13 +51,6 @@ export const CartProvider = ({ children }: Props) => {
   );
 
   const addToCart = (product: any) => {
-    // 🔐 Si NO está logueado → mostrar modal
-    // if (!user) {
-    //   setShowLoginModal(true);
-    //   return;
-    // }
-
-    // ✔ Logueado → agregar al carrito normal
     const exists = cartItems.find((item) => item.id === product.id);
 
     if (exists) {
@@ -81,11 +65,9 @@ export const CartProvider = ({ children }: Props) => {
       setCartItems([...cartItems, { ...product, quantity: 1 }]);
     }
     setShowBottomModal(true);
-    // auto-ocultar después de X ms
-    // window.setTimeout(() => setShowBottomModal(false), 3500);
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: string | number) => {
     setCartItems(
       cartItems
         .map((item) =>
@@ -112,8 +94,6 @@ export const CartProvider = ({ children }: Props) => {
         removeFromCart,
         clearCart,
         total,
-        showLoginModal,
-        setShowLoginModal,
         showBottomModal,
         setShowBottomModal,
         cartQuantity,

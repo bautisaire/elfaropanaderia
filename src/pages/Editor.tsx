@@ -1,12 +1,18 @@
+
 import React, { useEffect, useState } from "react";
 import "./Editor.css";
+import { db } from "../firebase/firebaseConfig";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import OrdersManager from "../components/OrdersManager";
 
 interface Product {
-  id: number;
-  name: string;
-  price: number;
-  image?: string;
-  images?: string[];
+  id?: string;
+  nombre: string;
+  precio: number;
+  categoria: string;
+  descripcion: string;
+  img: string;
+  stock: boolean;
 }
 
 const AUTH_USER = "misa";
@@ -21,22 +27,15 @@ export default function Editor() {
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
 
-  // Cargar productos desde el backend al iniciar
+  // Cargar productos desde Firebase
   useEffect(() => {
     if (!logged) return;
-    setLoading(true);
-    fetch("http://localhost:3001/api/productos", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [logged]);
+    if (activeTab === "products") {
+      reloadProducts();
+    }
+  }, [logged, activeTab]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,53 +55,74 @@ export default function Editor() {
     setPass("");
   };
 
-  const addProduct = async () => {
-    const newId = products.length ? Math.max(...products.map(p => p.id)) + 1 : 1;
-    const newProd: Product = { id: newId, name: "Nuevo producto", price: 0, image: "", images: [] };
-    await fetch("http://localhost:3001/api/productos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newProd),
-    });
-    reloadProducts();
-  };
-
-  const updateProduct = async (id: number, patch: Partial<Product>) => {
-    const prod = products.find(p => p.id === id);
-    if (!prod) return;
-    const updated = { ...prod, ...patch };
-    await fetch(`http://localhost:3001/api/productos/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
-    });
-    reloadProducts();
-  };
-
-  const removeProduct = async (id: number) => {
-    if (!confirm("Eliminar producto?")) return;
-    await fetch(`http://localhost:3001/api/productos/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
-    reloadProducts();
-  };
-
-  const reloadProducts = () => {
+  const reloadProducts = async () => {
     setLoading(true);
-    fetch("http://localhost:3001/api/productos")
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-        setMessage("Cambios guardados");
-        setTimeout(() => setMessage(null), 2000);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const prods: Product[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Product));
+      setProducts(prods);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading products:", error);
+      setLoading(false);
+      setMessage("Error al cargar productos");
+    }
+  };
+
+  const addProduct = async () => {
+    const newProd: Product = {
+      nombre: "Nuevo Producto",
+      precio: 0,
+      categoria: "General",
+      descripcion: "Descripción...",
+      img: "https://via.placeholder.com/150",
+      stock: true
+    };
+    try {
+      await addDoc(collection(db, "products"), newProd);
+      reloadProducts();
+      setMessage("Producto agregado");
+      setTimeout(() => setMessage(null), 2000);
+    } catch (error) {
+      console.error("Error adding product:", error);
+      setMessage("Error al agregar");
+    }
+  };
+
+  const updateProduct = async (id: string, patch: Partial<Product>) => {
+    // Optimistic update
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+
+    try {
+      const docRef = doc(db, "products", id);
+      await updateDoc(docRef, patch);
+      // No need to reload full list if optimistic update worked, but good for sync
+      // reloadProducts(); 
+    } catch (error) {
+      console.error("Error updating product:", error);
+      setMessage("Error al actualizar");
+      reloadProducts(); // Revert on error
+    }
+  };
+
+  const removeProduct = async (id: string) => {
+    if (!confirm("Eliminar producto?")) return;
+    try {
+      await deleteDoc(doc(db, "products", id));
+      reloadProducts();
+      setMessage("Producto eliminado");
+      setTimeout(() => setMessage(null), 2000);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      setMessage("Error al eliminar");
+    }
   };
 
   return (
-    <div className="editor-page">
+    <div className="editor-page" style={{ marginTop: '100px' }}>
       {!logged ? (
         <form className="editor-login" onSubmit={handleLogin}>
           <h2>Editor (acceso restringido)</h2>
@@ -118,61 +138,116 @@ export default function Editor() {
             <button type="submit" className="btn-primary">Entrar</button>
           </div>
           {message && <div className="editor-msg">{message}</div>}
-          <p className="hint">Usuario: <strong>misa</strong> / Pass: <strong>litux741</strong></p>
         </form>
       ) : (
-        <div className="editor-panel">
-          <header className="editor-header">
-            <h2>Editor de Productos</h2>
-            <div>
-              <button onClick={addProduct} className="btn-secondary">Agregar producto</button>
-              <button onClick={reloadProducts} className="btn-primary">Recargar</button>
-              <button onClick={handleLogout} className="btn-plain">Salir</button>
-            </div>
-          </header>
+        <div className="editor-layout">
+          <aside className="editor-sidebar">
+            <h3>Panel Admin</h3>
+            <nav>
+              <button
+                className={activeTab === "products" ? "active" : ""}
+                onClick={() => setActiveTab("products")}
+              >
+                📦 Productos
+              </button>
+              <button
+                className={activeTab === "orders" ? "active" : ""}
+                onClick={() => setActiveTab("orders")}
+              >
+                📋 Pedidos
+              </button>
+              <button onClick={handleLogout} className="btn-logout">
+                🚪 Salir
+              </button>
+            </nav>
+          </aside>
 
-          {message && <div className="editor-msg">{message}</div>}
-          {loading ? (
-            <div>Cargando productos...</div>
-          ) : (
-            <div className="product-list">
-              {products.map((p) => (
-                <div className="product-edit-card" key={p.id}>
-                  <div className="prod-row">
-                    <label>Id</label>
-                    <input value={p.id} readOnly />
+          <main className="editor-content">
+            {activeTab === "orders" ? (
+              <OrdersManager />
+            ) : (
+              <div className="editor-panel">
+                <header className="editor-header">
+                  <h2>Editor de Productos</h2>
+                  <div>
+                    <button onClick={addProduct} className="btn-secondary">Agregar producto</button>
+                    <button onClick={reloadProducts} className="btn-primary">Recargar</button>
                   </div>
+                </header>
 
-                  <div className="prod-row">
-                    <label>Nombre</label>
-                    <input value={p.name} onChange={e => updateProduct(p.id, { name: e.target.value })} />
-                  </div>
+                {message && <div className="editor-msg">{message}</div>}
+                {loading ? (
+                  <div>Cargando productos...</div>
+                ) : (
+                  <div className="product-list">
+                    {products.map((p) => (
+                      <div className="product-edit-card" key={p.id}>
+                        <div className="prod-row">
+                          <label>ID: {p.id}</label>
+                        </div>
 
-                  <div className="prod-row">
-                    <label>Precio</label>
-                    <input type="number" value={p.price} onChange={e => updateProduct(p.id, { price: Number(e.target.value || 0) })} />
-                  </div>
+                        <div className="prod-row">
+                          <label>Nombre</label>
+                          <input
+                            value={p.nombre}
+                            onChange={e => p.id && updateProduct(p.id, { nombre: e.target.value })}
+                          />
+                        </div>
 
-                  <div className="prod-row">
-                    <label>Imagen principal (URL)</label>
-                    <input value={p.image || ""} onChange={e => updateProduct(p.id, { image: e.target.value })} />
-                  </div>
+                        <div className="prod-row">
+                          <label>Precio</label>
+                          <input
+                            type="number"
+                            value={p.precio}
+                            onChange={e => p.id && updateProduct(p.id, { precio: Number(e.target.value || 0) })}
+                          />
+                        </div>
 
-                  <div className="prod-row">
-                    <label>Imágenes (separadas por coma)</label>
-                    <input value={(p.images || []).join(",")} onChange={e => {
-                      const arr = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
-                      updateProduct(p.id, { images: arr });
-                    }} />
-                  </div>
+                        <div className="prod-row">
+                          <label>Categoría</label>
+                          <input
+                            value={p.categoria}
+                            onChange={e => p.id && updateProduct(p.id, { categoria: e.target.value })}
+                          />
+                        </div>
 
-                  <div className="prod-actions">
-                    <button onClick={() => removeProduct(p.id)} className="btn-danger">Eliminar</button>
+                        <div className="prod-row">
+                          <label>Descripción</label>
+                          <textarea
+                            value={p.descripcion}
+                            onChange={e => p.id && updateProduct(p.id, { descripcion: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="prod-row">
+                          <label>Imagen (URL)</label>
+                          <input
+                            value={p.img}
+                            onChange={e => p.id && updateProduct(p.id, { img: e.target.value })}
+                          />
+                          {p.img && <img src={p.img} alt="preview" style={{ height: '50px', objectFit: 'cover', marginTop: '5px' }} />}
+                        </div>
+
+                        <div className="prod-row" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                          <label style={{ width: 'auto' }}>En Stock:</label>
+                          <input
+                            type="checkbox"
+                            checked={p.stock}
+                            onChange={e => p.id && updateProduct(p.id, { stock: e.target.checked })}
+                            style={{ width: 'auto' }}
+                          />
+                        </div>
+
+                        <div className="prod-actions">
+                          <button onClick={() => p.id && removeProduct(p.id)} className="btn-danger">Eliminar</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </main>
         </div>
       )}
     </div>

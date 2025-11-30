@@ -3,11 +3,11 @@ import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png";
-import { useAuth } from "../context/AuthContext";
+
 
 export default function Header() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+
   const { cart } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -48,18 +48,7 @@ export default function Header() {
             )}
           </Link>
 
-          {user ? (
-            <button className="auth-btn" onClick={logout}>
-              Salir
-            </button>
-          ) : (
-            <button
-              className="auth-btn"
-              onClick={() => document.dispatchEvent(new CustomEvent("openLogin"))}
-            >
-              Ingresar
-            </button>
-          )}
+
         </nav>
       </div>
     </header>

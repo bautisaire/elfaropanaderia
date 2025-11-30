@@ -2,6 +2,8 @@ import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
+import { db } from "../firebase/firebaseConfig";
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 export default function Carrito() {
   const { cart, removeFromCart, clearCart, cartTotal } = useContext(CartContext);
@@ -48,30 +50,45 @@ export default function Carrito() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     // enviar o procesar pedido...
-    console.log("Pedido:", { items: cart, total: cartTotal, cliente: formData });
+    const orderData = {
+      items: cart,
+      total: cartTotal,
+      cliente: formData,
+      date: Timestamp.now(),
+      status: "pending"
+    };
 
-    // limpiar carrito y formulario
-    clearCart();
-    setShowCheckout(false);
-    setFormData({
-      nombre: "",
-      direccion: "",
-      telefono: "",
-      indicaciones: "",
-      metodoPago: "efectivo",
-    });
+    try {
+      await addDoc(collection(db, "Orders"), orderData);
+      console.log("Pedido enviado:", orderData);
 
-    // mostrar modal de confirmación y volver al home después
-    setShowConfirmation(true);
-    setTimeout(() => {
-      setShowConfirmation(false);
-      navigate("/");
-    }, 5000);
+      // limpiar carrito y formulario
+      clearCart();
+      setShowCheckout(false);
+      setFormData({
+        nombre: "",
+        direccion: "",
+        telefono: "",
+        indicaciones: "",
+        metodoPago: "efectivo",
+      });
+
+      // mostrar modal de confirmación y volver al home después
+      setShowConfirmation(true);
+      setTimeout(() => {
+        setShowConfirmation(false);
+        navigate("/");
+      }, 5000);
+
+    } catch (error) {
+      console.error("Error al enviar el pedido:", error);
+      // Podríamos mostrar un error aquí si fuera necesario
+    }
   };
 
   return (
