@@ -1,0 +1,48 @@
+.checkout {
+  max-width: 500px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #fff;
+  border: 1px solid #ffd699;
+  border-radius: 8px;
+}
+
+.checkout h2 {
+  color: #b35600;
+  text-align: center;
+}
+
+.checkout-products {
+  margin: 15px 0;
+  border-top: 1px solid #ffd699;
+  border-bottom: 1px solid #ffd699;
+}
+
+.checkout-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.payment-method {
+  margin: 15px 0;
+}
+
+.payment-method label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.confirm-btn {
+  background-color: #ff9f43;
+  color: white;
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.confirm-btn:hover {
+  background-color: #ff7f00;
+}
