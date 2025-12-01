@@ -1,7 +1,6 @@
 
-// Reemplaza con tus credenciales reales o usa variables de entorno
-const BOT_TOKEN = "8084232974:AAH6cwmtA69yER_oIyTh0vyMBuSmmO6RdhQ";
-const CHAT_ID = "8360789801";
+const BOT_TOKEN = import.meta.env.VITE_BOT_TOKEN;
+const CHAT_ID = import.meta.env.VITE_CHAT_ID;
 
 export const sendTelegramNotification = async (orderData: any) => {
     const { cliente, items, total } = orderData;
