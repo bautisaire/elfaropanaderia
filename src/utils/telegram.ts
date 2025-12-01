@@ -8,13 +8,16 @@ export const sendTelegramNotification = async (orderData: any) => {
         .map((item: any) => `- ${item.quantity}x ${item.name} ($${Math.floor(item.price)})`)
         .join("\n");
 
+    // Limpiar número para el link (quitar espacios, guiones, etc)
+    const cleanPhone = cliente.telefono.replace(/\D/g, "");
+
     // Mensaje 1: Para el comercio (Datos copiables)
     const adminMessage = `
 📦 *NUEVO PEDIDO RECIBIDO* 📦
 
 👤 *Cliente:* ${cliente.nombre}
 📍 *Dirección:* \`${cliente.direccion}\`
-📞 *Teléfono:* \`${cliente.telefono}\`
+📞 *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
 💰 *Método de Pago:* ${cliente.metodoPago}
 📝 *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
 
