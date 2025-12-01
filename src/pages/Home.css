@@ -18,7 +18,7 @@
   display: grid;
   /* Responsive grid: minimum 160px per card, filling available space */
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
+  gap: 10px;
   padding: 0 16px;
   box-sizing: border-box;
 }
@@ -32,8 +32,8 @@
   .home {
     grid-template-columns: repeat(2, 1fr);
     /* Force 2 columns on mobile */
-    gap: 20px;
-    padding: 0 16px;
+    gap: 4px;
+    padding: 0 2px;
   }
 
   .home-title {

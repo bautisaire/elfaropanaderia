@@ -7,7 +7,7 @@ export default function BottomCartModal() {
   const navigate = useNavigate();
 
   return (
-    <div className={`bottom-modal-container ${showBottomModal ? "visible" : ""}`}>
+    <div className={`bottom-modal-container ${showBottomModal && cartQuantity > 0 ? "visible" : ""}`}>
       <div className="bottom-modal-content">
         <div className="modal-info">
           <div className="modal-quantity">
