@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { CartContext, Product } from "../context/CartContext";
 import "./ProductCard.css";
 
@@ -31,6 +31,14 @@ export default function ProductCard({ product }: Props) {
   // Image handling
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
   const currentImage = images[currentImageIndex];
+
+  // Preload images for smoother navigation
+  useEffect(() => {
+    images.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [images]);
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
