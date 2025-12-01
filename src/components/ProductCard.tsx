@@ -8,11 +8,24 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   const { addToCart, removeFromCart, cart } = useContext(CartContext);
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Check if item is in cart
-  const cartItem = cart.find((item) => item.id === product.id);
+  // Initialize selectedVariant with the first in-stock variant
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(() => {
+    if (product.variants && product.variants.length > 0) {
+      const firstInStock = product.variants.find(v => v.stock);
+      return firstInStock ? firstInStock.name : product.variants[0].name;
+    }
+    return null;
+  });
+
+  // Determine the effective ID for the cart (base ID or variant ID)
+  const cartItemId = selectedVariant
+    ? `${product.id}-${selectedVariant}`
+    : product.id;
+
+  // Check if item is in cart using the effective ID
+  const cartItem = cart.find((item) => item.id === cartItemId);
   const quantity = cartItem?.quantity ?? 0;
 
   // Image handling
@@ -34,10 +47,19 @@ export default function ProductCard({ product }: Props) {
       alert("Por favor selecciona una opción");
       return;
     }
-    // If variants exist, we might want to include the selected variant in the product object
-    // For now, just adding the product as is, assuming the context handles it or we need to modify context later.
-    // Based on previous conversation, we just need to add it.
-    addToCart(product);
+
+    // Create a product object for the cart
+    const productToAdd = {
+      ...product,
+      id: cartItemId,
+      name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name
+    };
+
+    addToCart(productToAdd);
+  };
+
+  const handleRemoveOne = () => {
+    removeFromCart(cartItemId);
   };
 
   return (
@@ -70,7 +92,6 @@ export default function ProductCard({ product }: Props) {
 
         {product.variants && product.variants.length > 0 && (
           <div className="variants-section">
-            <span className="variants-label">Opciones:</span>
             <div className="variants-bubbles">
               {product.variants.map((variant, idx) => (
                 <button
@@ -87,6 +108,8 @@ export default function ProductCard({ product }: Props) {
         )}
 
         <div className="card-footer">
+          <span className="product-price">${product.price}</span>
+
           {quantity === 0 ? (
             <button
               className="btn-add"
@@ -96,9 +119,9 @@ export default function ProductCard({ product }: Props) {
             </button>
           ) : (
             <div className="quantity-controls">
-              <button className="btn-qty minus" onClick={() => removeFromCart(product.id)}>−</button>
+              <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
               <span className="quantity-display">{quantity}</span>
-              <button className="btn-qty plus" onClick={() => addToCart(product)}>+</button>
+              <button className="btn-qty plus" onClick={handleAddToCart}>+</button>
             </div>
           )}
         </div>

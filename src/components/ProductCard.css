@@ -194,6 +194,12 @@
   color: #333;
 }
 
+.product-price {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
 /* Mobile Optimizations */
 @media (max-width: 480px) {
   .product-card {
