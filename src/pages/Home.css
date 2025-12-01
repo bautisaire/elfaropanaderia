@@ -1,46 +1,58 @@
+.home-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: calc(var(--header-height, 70px) + 20px);
+  padding-bottom: 100px;
+}
+
+.home-title {
+  text-align: center;
+  font-size: 1.8rem;
+  color: #333;
+  margin: 0 16px 24px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .home {
   display: grid;
   /* Responsive grid: minimum 160px per card, filling available space */
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
-  padding: 16px;
-  padding-top: calc(var(--header-height, 70px) + 20px);
-  /* Add padding for fixed header */
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 0 16px;
   box-sizing: border-box;
-  margin-bottom: 100px;
+}
 
+.home-title span {
+  color: #ff9100;
 }
 
 /* Mobile adjustments */
 @media (max-width: 480px) {
   .home {
-
     grid-template-columns: repeat(2, 1fr);
     /* Force 2 columns on mobile */
     gap: 20px;
-    /* Increased gap */
-    padding: 16px;
-    padding-top: calc(var(--header-height, 70px) + 16px);
+    padding: 0 16px;
+  }
+
+  .home-title {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
   }
 }
 
 /* Tablet and larger */
 @media (min-width: 768px) {
   .home {
-
     gap: 24px;
-    padding: 24px;
-    padding-top: calc(var(--header-height, 70px) + 32px);
+    padding: 0 24px;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
   .home {
-    margin-top: 100px;
-
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
 }
@@ -48,10 +60,8 @@
 /* ajuste para pantallas más grandes */
 @media (min-width: 600px) {
   .home {
-    margin-top: 100px;
-
     gap: 12px;
-    padding: 10px;
+    padding: 0 10px;
   }
 }
 

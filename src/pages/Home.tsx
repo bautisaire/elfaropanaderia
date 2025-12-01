@@ -41,7 +41,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div>
+    <div className="home-container">
+      <h1 className="home-title">Elegí, pedí y disfrutá. <br /> Envíos a todo <span>Senillosa</span></h1>
       <div className="home">
         {loading ? (
           // Mostrar 6 esqueletos mientras carga
