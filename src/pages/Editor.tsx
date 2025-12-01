@@ -25,7 +25,7 @@ interface Product {
 }
 
 // 🔴 CONFIGURACIÓN: Reemplaza esto con tu email real de Google
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL;
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
 export default function Editor() {
   // 3. Reemplazamos el estado "logged" por "currentUser"
@@ -41,7 +41,7 @@ export default function Editor() {
   // 4. EFECTO: Escuchar cambios de sesión en Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === ADMIN_EMAIL) {
+      if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
         setCurrentUser(user);
         // Si entra, cargamos productos automáticamente
       } else {
@@ -63,7 +63,7 @@ export default function Editor() {
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      if (result.user.email !== ADMIN_EMAIL) {
+      if (!result.user.email || !ADMIN_EMAILS.includes(result.user.email)) {
         await signOut(auth);
         alert("⛔ Acceso denegado: Este email no tiene permisos de administrador.");
       }

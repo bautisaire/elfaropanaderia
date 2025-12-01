@@ -39,24 +39,31 @@ ${itemsList}
 
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
-    const sendMessage = async (text: string) => {
-        try {
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: CHAT_ID,
-                    text: text,
-                    parse_mode: "Markdown",
-                }),
-            });
-            if (!response.ok) console.error("Telegram Error:", await response.text());
-        } catch (error) {
-            console.error("Telegram Network Error:", error);
-        }
+    // Obtener lista de IDs (separados por coma en .env)
+    const chatIds = CHAT_ID ? CHAT_ID.split(",") : [];
+
+    const sendMessageToAll = async (text: string) => {
+        const promises = chatIds.map(async (id: string) => {
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        chat_id: id.trim(),
+                        text: text,
+                        parse_mode: "Markdown",
+                    }),
+                });
+                if (!response.ok) console.error(`Telegram Error (ID: ${id}):`, await response.text());
+            } catch (error) {
+                console.error(`Telegram Network Error (ID: ${id}):`, error);
+            }
+        });
+
+        await Promise.all(promises);
     };
 
-    // Enviar ambos mensajes
-    await sendMessage(adminMessage);
-    await sendMessage(clientMessage);
+    // Enviar ambos mensajes a todos los destinatarios
+    await sendMessageToAll(adminMessage);
+    await sendMessageToAll(clientMessage);
 };

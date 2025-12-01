@@ -239,7 +239,8 @@ export default function Carrito() {
         <div className="order-modal" role="dialog" aria-modal="true">
           <div className="order-modal-content">
             <div className="order-emoji" aria-hidden>🛵</div>
-            <h3>Su pedido está en camino</h3>
+            <h3>Pedido realizado! 🎉</h3>
+            <p>En breves nos comunicaremos con usted</p>
             <p>¡Gracias por su compra!</p>
           </div>
         </div>
