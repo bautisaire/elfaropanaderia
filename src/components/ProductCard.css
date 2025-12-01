@@ -198,6 +198,42 @@
   font-size: 1rem;
 }
 
+/* --- VARIANTES --- */
+.product-variants {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.variants-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.variants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.variant-chip {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  color: #333;
+  border: 1px solid #e0e0e0;
+}
+
+.variant-chip.out-of-stock {
+  text-decoration: line-through;
+  opacity: 0.6;
+  background-color: #eee;
+  color: #999;
+}
+
 /* --- LOGICA DIFERENCIADA PC vs MÓVIL --- */
 
 /* 1. ANIMACIÓN SUTIL */

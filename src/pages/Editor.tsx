@@ -18,6 +18,10 @@ interface Product {
   img: string;
   images?: string[];
   stock: boolean;
+  variants?: {
+    name: string;
+    stock: boolean;
+  }[];
 }
 
 // 🔴 CONFIGURACIÓN: Reemplaza esto con tu email real de Google
@@ -104,7 +108,8 @@ export default function Editor() {
       descripcion: "Descripción...",
       img: "https://via.placeholder.com/150",
       images: ["https://via.placeholder.com/150"],
-      stock: true
+      stock: true,
+      variants: []
     };
     try {
       await addDoc(collection(db, "products"), newProd);
@@ -352,6 +357,60 @@ export default function Editor() {
                             onChange={e => p.id && updateProduct(p.id, { stock: e.target.checked })}
                             style={{ width: 'auto' }}
                           />
+                        </div>
+
+                        {/* SECCIÓN DE VARIANTES */}
+                        <div className="prod-row">
+                          <label>Variantes (Opcional)</label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {p.variants?.map((v, idx) => (
+                              <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                  placeholder="Nombre (ej. Vainilla)"
+                                  value={v.name}
+                                  onChange={(e) => {
+                                    const newVariants = [...(p.variants || [])];
+                                    newVariants[idx].name = e.target.value;
+                                    p.id && updateProduct(p.id, { variants: newVariants });
+                                  }}
+                                  style={{ flex: 1 }}
+                                />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', width: 'auto' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={v.stock}
+                                    onChange={(e) => {
+                                      const newVariants = [...(p.variants || [])];
+                                      newVariants[idx].stock = e.target.checked;
+                                      p.id && updateProduct(p.id, { variants: newVariants });
+                                    }}
+                                    style={{ width: 'auto' }}
+                                  />
+                                  Stock
+                                </label>
+                                <button
+                                  className="btn-danger"
+                                  style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                  onClick={() => {
+                                    const newVariants = p.variants?.filter((_, i) => i !== idx);
+                                    p.id && updateProduct(p.id, { variants: newVariants });
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              className="btn-secondary"
+                              style={{ width: 'fit-content', fontSize: '0.9rem', padding: '6px 12px' }}
+                              onClick={() => {
+                                const newVariants = [...(p.variants || []), { name: "", stock: true }];
+                                p.id && updateProduct(p.id, { variants: newVariants });
+                              }}
+                            >
+                              + Agregar Variante
+                            </button>
+                          </div>
                         </div>
 
                         <div className="prod-actions">

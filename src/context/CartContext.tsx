@@ -6,6 +6,10 @@ export interface Product {
   price: number;
   image: string;
   images?: string[]; // Array opcional de imágenes
+  variants?: {
+    name: string;
+    stock: boolean;
+  }[];
   quantity?: number;
 }
 

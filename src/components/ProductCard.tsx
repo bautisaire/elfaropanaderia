@@ -36,7 +36,7 @@ export default function ProductCard({ product }: Props) {
   const handleAddToCart = () => {
     setIsAnimating(true);
     addToCart(product);
-    
+
     // Resetea la animación después de 600ms
     setTimeout(() => {
       setIsAnimating(false);
@@ -75,9 +75,26 @@ export default function ProductCard({ product }: Props) {
         )}
       </div>
 
-     <div className="card-body">
+      <div className="card-body">
         <h3 className="product-title">{product.name}</h3>
         <p className="product-price">${product.price.toFixed(2)}</p>
+
+        {product.variants && product.variants.length > 0 && (
+          <div className="product-variants">
+            <span className="variants-label">Opciones:</span>
+            <div className="variants-list">
+              {product.variants.map((v, idx) => (
+                <span
+                  key={idx}
+                  className={`variant-chip ${!v.stock ? "out-of-stock" : ""}`}
+                  title={!v.stock ? "Sin stock" : "Disponible"}
+                >
+                  {v.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="card-actions">
           {quantity === 0 ? (
@@ -88,13 +105,13 @@ export default function ProductCard({ product }: Props) {
           ) : (
             <div className="quantity-control">
               <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
-              
+
               <span className="quantity-display">{quantity}</span>
-              
-              {/* Botón "+": CAMBIADO para evitar la animación */ }
-              <button 
-                className="btn-qty plus" 
-                onClick={() => addToCart(product)} 
+
+              {/* Botón "+": CAMBIADO para evitar la animación */}
+              <button
+                className="btn-qty plus"
+                onClick={() => addToCart(product)}
               >
                 +
               </button>
