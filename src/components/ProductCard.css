@@ -1,108 +1,215 @@
 .product-card {
-  border: 1px solid #eee;
-  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: white;
   transition: transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.product-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 75%;
+  /* 4:3 Aspect Ratio (more horizontal) */
+  overflow: hidden;
+  background-color: #f8f9fa;
 }
 
 .product-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 200px;
+  height: 100%;
   object-fit: cover;
 }
 
+/* Carousel Controls */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: #333;
+  z-index: 2;
+}
+
+.nav-btn.left {
+  left: 8px;
+}
+
+.nav-btn.right {
+  right: 8px;
+}
+
+.dots {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.dot.active {
+  background: #ff8d0b;
+  transform: scale(1.2);
+}
+
 .card-body {
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  flex-grow: 1;
 }
 
 .product-title {
   font-size: 1.1rem;
+  /* Larger title */
   margin: 0;
-  color: #333;
-  font-weight: 600;
+  color: #222;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
+/* Variants */
 .variants-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .variants-label {
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.75rem;
+  /* Smaller label */
+  color: #888;
   font-weight: 500;
 }
 
 .variants-bubbles {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .variant-bubble {
-  padding: 6px 14px;
-  border-radius: 50px;
-  border: 1px solid #e0e0e0;
+  padding: 4px 10px;
+  /* Smaller bubbles */
+  border-radius: 20px;
+  border: 1px solid #eee;
   background: #f8f9fa;
-  color: #333;
-  font-size: 0.85rem;
+  color: #444;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
-}
-
-.variant-bubble:hover:not(:disabled) {
-  background: #e9ecef;
 }
 
 .variant-bubble.selected {
   background: #ff8d0b;
   color: white;
   border-color: #ff8d0b;
+  box-shadow: 0 2px 4px rgba(255, 141, 11, 0.2);
 }
 
 .variant-bubble:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
   text-decoration: line-through;
 }
 
+/* Footer & Controls */
 .card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   margin-top: auto;
-}
-
-.product-price {
-  font-weight: bold;
-  font-size: 1.2rem;
-  color: #333;
+  padding-top: 8px;
 }
 
 .btn-add {
+  width: 100%;
   background-color: #ff8d0b;
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 8px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
-.btn-add:hover {
-  background-color: #e67e0a;
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.btn-qty {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-qty.plus {
+  background: #333;
+  color: white;
+}
+
+.quantity-display {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 480px) {
+  .product-card {
+    border-radius: 10px;
+  }
+
+  .product-title {
+    font-size: 1rem;
+  }
+
+  .card-body {
+    padding: 8px;
+  }
+
+  .btn-add {
+    padding: 6px;
+    font-size: 0.9rem;
+  }
 }
