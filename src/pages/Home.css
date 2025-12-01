@@ -10,11 +10,13 @@
   margin: 0 auto;
   box-sizing: border-box;
   margin-bottom: 100px;
+
 }
 
 /* Mobile adjustments */
 @media (max-width: 480px) {
   .home {
+
     grid-template-columns: repeat(2, 1fr);
     /* Force 2 columns on mobile */
     gap: 20px;
@@ -27,6 +29,7 @@
 /* Tablet and larger */
 @media (min-width: 768px) {
   .home {
+
     gap: 24px;
     padding: 24px;
     padding-top: calc(var(--header-height, 70px) + 32px);
@@ -36,6 +39,8 @@
 
 @media (min-width: 1024px) {
   .home {
+    margin-top: 100px;
+
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
 }
@@ -43,6 +48,8 @@
 /* ajuste para pantallas más grandes */
 @media (min-width: 600px) {
   .home {
+    margin-top: 100px;
+
     gap: 12px;
     padding: 10px;
   }

@@ -173,6 +173,43 @@
   height: 28px;
   border: none;
   background: white;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* Footer & Controls */
+.card-footer {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.btn-add {
+  width: 100%;
+  background-color: #ff8d0b;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.btn-qty {
+  width: 28px;
+  height: 28px;
+  border: none;
+
+  background: white;
   border-radius: 6px;
   display: flex;
   align-items: center;

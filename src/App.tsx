@@ -14,11 +14,11 @@ export default function App() {
         <Header />
         <div style={{ flex: 1 }}>
           <Routes>
-            <Route path="/home" element={<Home />} />
+            <Route path="/" element={<Home />} />
             <Route path="/carrito" element={<Carrito />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/editor" element={<Editor />} />
-            <Route path="/" element={<Proximamente />} />
+            <Route path="/Proximamente" element={<Proximamente />} />
           </Routes>
         </div>
         <Footer />
