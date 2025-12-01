@@ -83,7 +83,7 @@ export default function OrdersManager() {
                                 <ul>
                                     {order.items.map((item, index) => (
                                         <li key={index}>
-                                            {item.quantity}x {item.name} (${item.price})
+                                            {item.quantity}x {item.name} (${Math.floor(item.price)})
                                         </li>
                                     ))}
                                 </ul>

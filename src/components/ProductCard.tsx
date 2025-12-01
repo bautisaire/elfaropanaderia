@@ -116,7 +116,7 @@ export default function ProductCard({ product }: Props) {
         )}
 
         <div className="card-footer">
-          <span className="product-price">${product.price}</span>
+          <span className="product-price">${Math.floor(product.price)}</span>
 
           {quantity === 0 ? (
             <button

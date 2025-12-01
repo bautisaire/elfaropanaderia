@@ -12,10 +12,10 @@ export default function BottomCartModal() {
         <div className="modal-info">
           <div className="modal-quantity">
             <span className="badge">{cartQuantity}</span>
-            <span>Ver pedido</span>
+            <span>Pedidos</span>
           </div>
           <div className="modal-total">
-            Total: <span>${cartTotal.toFixed(2)}</span>
+            Total: <span>${Math.floor(cartTotal)}</span>
           </div>
         </div>
 

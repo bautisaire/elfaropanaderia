@@ -105,7 +105,7 @@ export default function Carrito() {
                 <div className="item-info">
                   <h4>{item.name}</h4>
                   <p>Cantidad: {item.quantity}</p>
-                  <p className="item-price">${(item.price * (item.quantity || 1)).toFixed(2)}</p>
+                  <p className="item-price">${Math.floor(item.price * (item.quantity || 1))}</p>
                 </div>
                 <button
                   className="btn-remove"
@@ -119,7 +119,7 @@ export default function Carrito() {
           </div>
 
           <div className="cart-summary">
-            <h3>Total: ${cartTotal.toFixed(2)}</h3>
+            <h3>Total: ${Math.floor(cartTotal)}</h3>
           </div>
 
           {!showCheckout ? (
