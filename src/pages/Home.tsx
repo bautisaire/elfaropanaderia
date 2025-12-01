@@ -30,6 +30,21 @@ export default function Home() {
             stock: data.stock // Mapear stock
           } as Product;
         });
+
+        // Ordenar: Primero con stock, al final sin stock
+        prods.sort((a, b) => {
+          const aOutOfStock = a.variants && a.variants.length > 0
+            ? a.variants.every(v => !v.stock)
+            : a.stock === false;
+
+          const bOutOfStock = b.variants && b.variants.length > 0
+            ? b.variants.every(v => !v.stock)
+            : b.stock === false;
+
+          if (aOutOfStock === bOutOfStock) return 0;
+          return aOutOfStock ? 1 : -1;
+        });
+
         setProducts(prods);
       } catch (error) {
         console.error("Error loading products:", error);
