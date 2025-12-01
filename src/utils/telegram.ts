@@ -1,47 +1,51 @@
 
-// Configuración del Bot de Telegram
-const TELEGRAM_BOT_TOKEN = "8084232974:AAH6cwmtA69yER_oIyTh0vyMBuSmmO6RdhQ";
-const TELEGRAM_CHAT_ID = "8360789801";
+// Reemplaza con tus credenciales reales o usa variables de entorno
+const BOT_TOKEN = "8084232974:AAH6cwmtA69yER_oIyTh0vyMBuSmmO6RdhQ";
+const CHAT_ID = "8360789801";
 
-/**
- * Envía una notificación a Telegram con los detalles del pedido.
- */
 export const sendTelegramNotification = async (orderData: any) => {
+    const { cliente, items, total } = orderData;
+
+    const itemsList = items
+        .map((item: any) => `- ${item.quantity}x ${item.name} ($${Math.floor(item.price)})`)
+        .join("\n");
+
+    const message = `
+📦 *NUEVO PEDIDO RECIBIDO* 📦
+
+👤 *Cliente:* ${cliente.nombre}
+📍 *Dirección:* ${cliente.direccion}
+📞 *Teléfono:* ${cliente.telefono}
+💰 *Método de Pago:* ${cliente.metodoPago}
+📝 *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
+
+🛒 *Productos:*
+${itemsList}
+
+💵 *Total:* $${Math.floor(total)}
+  `.trim();
+
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
     try {
-        const message = `
-🔔 *NUEVO PEDIDO RECIBIDO* 🔔
-
-👤 *Cliente:* ${orderData.customerName || 'Cliente'}
-💰 *Total:* $${orderData.total || 0}
-📞 *Teléfono:* ${orderData.phone || 'No especificado'}
-📍 *Dirección:* ${orderData.address || 'Retiro en local'}
-
-📝 *Detalle:*
-${orderData.items?.map((item: any) => `- ${item.quantity}x ${item.name} ${item.selectedVariant ? `(${item.selectedVariant})` : ''}`).join('\n')}
-
-🔗 _Revisa el panel para más detalles._
-    `;
-
-        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
         const response = await fetch(url, {
-            method: 'POST',
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                chat_id: TELEGRAM_CHAT_ID,
+                chat_id: CHAT_ID,
                 text: message,
-                parse_mode: 'Markdown',
+                parse_mode: "Markdown",
             }),
         });
 
         if (!response.ok) {
-            console.error('Error enviando a Telegram:', await response.text());
+            console.error("Error sending Telegram notification:", await response.text());
         } else {
-            console.log('Notificación enviada a Telegram correctamente.');
+            console.log("Telegram notification sent successfully.");
         }
     } catch (error) {
-        console.error('Error de red al enviar a Telegram:', error);
+        console.error("Network error sending Telegram notification:", error);
     }
 };

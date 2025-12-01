@@ -4,6 +4,7 @@ import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { sendTelegramNotification } from "../utils/telegram";
 
 export default function Carrito() {
   const { cart, removeFromCart, clearCart, cartTotal } = useContext(CartContext);
@@ -66,6 +67,9 @@ export default function Carrito() {
     try {
       await addDoc(collection(db, "orders"), orderData);
       console.log("Pedido enviado:", orderData);
+
+      // Enviar notificación a Telegram (no bloqueante)
+      sendTelegramNotification(orderData).catch(console.error);
 
       // limpiar carrito y formulario
       clearCart();
