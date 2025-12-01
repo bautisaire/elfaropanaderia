@@ -12,6 +12,7 @@ export interface Product {
   }[];
   quantity?: number;
   stock?: boolean;
+  discount?: number;
 }
 
 interface CartContextType {

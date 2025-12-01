@@ -50,16 +50,23 @@ export default function ProductCard({ product }: Props) {
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  // Calculate Discount
+  const hasDiscount = (product.discount || 0) > 0;
+  const finalPrice = hasDiscount
+    ? product.price * (1 - (product.discount! / 100))
+    : product.price;
+
   const handleAddToCart = () => {
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
       alert("Por favor selecciona una opción");
       return;
     }
 
-    // Create a product object for the cart
+    // Create a product object for the cart with the FINAL PRICE
     const productToAdd = {
       ...product,
       id: cartItemId,
+      price: finalPrice, // Use discounted price
       name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name
     };
 
@@ -85,6 +92,12 @@ export default function ProductCard({ product }: Props) {
           loading="lazy"
           decoding="async"
         />
+
+        {hasDiscount && !isOutOfStock && (
+          <div className="discount-badge">
+            -{product.discount}% OFF
+          </div>
+        )}
 
         {images.length > 1 && !isOutOfStock && (
           <>
@@ -127,7 +140,14 @@ export default function ProductCard({ product }: Props) {
         )}
 
         <div className="card-footer">
-          <span className="product-price">${Math.floor(product.price)}</span>
+          <div className="price-container">
+            {hasDiscount && (
+              <span className="original-price">${Math.floor(product.price)}</span>
+            )}
+            <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
+              ${Math.floor(finalPrice)}
+            </span>
+          </div>
 
           {quantity === 0 ? (
             <button

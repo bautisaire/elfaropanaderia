@@ -18,6 +18,7 @@ interface Product {
   img: string;
   images?: string[];
   stock: boolean;
+  discount?: number;
   variants?: {
     name: string;
     stock: boolean;
@@ -88,6 +89,7 @@ export default function Editor() {
         return {
           id: doc.id,
           ...data,
+          discount: data.discount || 0,
           images: data.images || (data.img ? [data.img] : [])
         } as Product;
       });
@@ -109,6 +111,7 @@ export default function Editor() {
       img: "https://via.placeholder.com/150",
       images: ["https://via.placeholder.com/150"],
       stock: true,
+      discount: 0,
       variants: []
     };
     try {
@@ -292,6 +295,16 @@ export default function Editor() {
                             type="number"
                             value={p.precio}
                             onChange={e => p.id && updateProduct(p.id, { precio: Number(e.target.value || 0) })}
+                          />
+                        </div>
+
+                        <div className="prod-row">
+                          <label>Descuento (%)</label>
+                          <input
+                            type="number"
+                            value={p.discount || 0}
+                            onChange={e => p.id && updateProduct(p.id, { discount: Number(e.target.value || 0) })}
+                            placeholder="0"
                           />
                         </div>
 

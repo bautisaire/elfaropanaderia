@@ -27,7 +27,8 @@ export default function Home() {
             images: data.images || (data.img ? [data.img] : []), // Mapear array de imágenes
             variants: data.variants || [], // Mapear variantes
             quantity: 0,
-            stock: data.stock // Mapear stock
+            stock: data.stock, // Mapear stock
+            discount: data.discount || 0 // Mapear descuento
           } as Product;
         });
 
