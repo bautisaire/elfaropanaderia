@@ -5,12 +5,13 @@ export interface Product {
   name: string;
   price: number;
   image: string;
-  images?: string[]; // Array opcional de imágenes
+  images?: string[];
   variants?: {
     name: string;
     stock: boolean;
   }[];
   quantity?: number;
+  stock?: boolean;
 }
 
 interface CartContextType {

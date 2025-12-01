@@ -70,12 +70,23 @@ export default function ProductCard({ product }: Props) {
     removeFromCart(cartItemId);
   };
 
-  return (
-    <div className="product-card">
-      <div className="image-wrapper">
-        <img src={currentImage} alt={product.name} className="product-image" />
+  // Determine if the product is out of stock
+  const isOutOfStock = product.variants && product.variants.length > 0
+    ? product.variants.every(v => !v.stock)
+    : product.stock === false;
 
-        {images.length > 1 && (
+  return (
+    <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
+      <div className="image-wrapper">
+        <img
+          src={currentImage}
+          alt={product.name}
+          className={`product-image ${isOutOfStock ? "grayscale" : ""}`}
+          loading="lazy"
+          decoding="async"
+        />
+
+        {images.length > 1 && !isOutOfStock && (
           <>
             <button className="nav-btn left" onClick={handlePrevImage}>‹</button>
             <button className="nav-btn right" onClick={handleNextImage}>›</button>
@@ -122,8 +133,13 @@ export default function ProductCard({ product }: Props) {
             <button
               className="btn-add"
               onClick={handleAddToCart}
+              disabled={isOutOfStock}
             >
-              Agregar <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px' }}><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+              {isOutOfStock ? "Sin Stock" : (
+                <>
+                  Agregar <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px' }}><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                </>
+              )}
             </button>
           ) : (
             <div className="quantity-controls">

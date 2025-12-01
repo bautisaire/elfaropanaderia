@@ -26,7 +26,8 @@ export default function Home() {
             image: data.img || "",
             images: data.images || (data.img ? [data.img] : []), // Mapear array de imágenes
             variants: data.variants || [], // Mapear variantes
-            quantity: 0
+            quantity: 0,
+            stock: data.stock // Mapear stock
           } as Product;
         });
         setProducts(prods);
