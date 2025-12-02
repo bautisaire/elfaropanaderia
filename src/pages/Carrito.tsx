@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
@@ -12,6 +12,10 @@ export default function Carrito() {
 
   const [showCheckout, setShowCheckout] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showStickyCheckout, setShowStickyCheckout] = useState(false);
+  const checkoutBtnRef = useRef<HTMLButtonElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
   const [formData, setFormData] = useState({
     nombre: "",
     direccion: "",
@@ -20,6 +24,40 @@ export default function Carrito() {
     metodoPago: "efectivo",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // Scroll to form when showCheckout becomes true
+  useEffect(() => {
+    if (showCheckout && formRef.current) {
+      // Small timeout to ensure render is complete and layout is stable
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [showCheckout]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Show sticky button when main button is NOT intersecting (not visible)
+        setShowStickyCheckout(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        threshold: 0,
+        rootMargin: "0px"
+      }
+    );
+
+    if (checkoutBtnRef.current) {
+      observer.observe(checkoutBtnRef.current);
+    }
+
+    return () => {
+      if (checkoutBtnRef.current) {
+        observer.unobserve(checkoutBtnRef.current);
+      }
+    };
+  }, [showCheckout, cart]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -128,7 +166,11 @@ export default function Carrito() {
 
           {!showCheckout ? (
             <div className="cart-actions">
-              <button className="btn-checkout" onClick={() => setShowCheckout(true)}>
+              <button
+                ref={checkoutBtnRef}
+                className="btn-checkout"
+                onClick={() => setShowCheckout(true)}
+              >
                 Proceder al pago
               </button>
               <button className="btn-clear" onClick={clearCart}>
@@ -136,7 +178,7 @@ export default function Carrito() {
               </button>
             </div>
           ) : (
-            <form className="checkout-form" onSubmit={handleSubmit}>
+            <form ref={formRef} className="checkout-form" onSubmit={handleSubmit}>
               <h3>Detalles del pedido</h3>
 
               <div className="form-group">
@@ -231,6 +273,26 @@ export default function Carrito() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* Sticky Checkout Button */}
+          {showStickyCheckout && !showCheckout && (
+            <div className="sticky-checkout-container">
+              <div className="sticky-content">
+                <div className="sticky-total">
+                  <span>Total:</span>
+                  <strong>${Math.floor(cartTotal)}</strong>
+                </div>
+                <button
+                  className="btn-sticky-checkout"
+                  onClick={() => {
+                    setShowCheckout(true);
+                  }}
+                >
+                  Proceder al pago
+                </button>
+              </div>
+            </div>
           )}
         </>
       )}
