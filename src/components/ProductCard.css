@@ -297,4 +297,9 @@
     padding: 4px 10px;
     font-size: 0.8rem;
   }
+
+  .variant-bubble:hover:not(:disabled) {
+    border-color: #ff8c00;
+    color: #ffffff;
+  }
 }
