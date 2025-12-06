@@ -13,6 +13,7 @@ export interface Product {
   quantity?: number;
   stock?: boolean;
   discount?: number;
+  categoria?: string;
 }
 
 interface CartContextType {

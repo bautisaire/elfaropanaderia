@@ -28,7 +28,8 @@ export default function Home() {
             variants: data.variants || [], // Mapear variantes
             quantity: 0,
             stock: data.stock, // Mapear stock
-            discount: data.discount || 0 // Mapear descuento
+            discount: data.discount || 0, // Mapear descuento
+            categoria: data.categoria || "General" // Mapear categoría
           } as Product;
         });
 
@@ -67,12 +68,27 @@ export default function Home() {
             <ProductSkeleton key={index} />
           ))
         ) : (
-          products.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-            />
-          ))
+          Object.entries(
+            products.reduce((acc, product) => {
+              const category = product.categoria || "General";
+              if (!acc[category]) {
+                acc[category] = [];
+              }
+              acc[category].push(product);
+              return acc;
+            }, {} as Record<string, Product[]>)
+          )
+            .sort(([catA], [catB]) => catA.localeCompare(catB))
+            .map(([category, categoryProducts]) => (
+              <div key={category} className="category-section">
+                <h2 className="category-title">{category}</h2>
+                <div className="products-grid">
+                  {categoryProducts.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              </div>
+            ))
         )}
       </div>
       <BottomCartModal />
