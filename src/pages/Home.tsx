@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ProductCard from "../components/ProductCard";
 import BottomCartModal from "../components/BottomCartModal";
 import ProductSkeleton from "../components/ProductSkeleton";
+import CategorySlider from "../components/CategorySlider";
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
@@ -24,12 +25,12 @@ export default function Home() {
             name: data.nombre,
             price: data.precio,
             image: data.img || "",
-            images: data.images || (data.img ? [data.img] : []), // Mapear array de imágenes
-            variants: data.variants || [], // Mapear variantes
+            images: data.images || (data.img ? [data.img] : []),
+            variants: data.variants || [],
             quantity: 0,
-            stock: data.stock, // Mapear stock
-            discount: data.discount || 0, // Mapear descuento
-            categoria: data.categoria || "General" // Mapear categoría
+            stock: data.stock,
+            discount: data.discount || 0,
+            categoria: (data.categoria || "Otros").trim()
           } as Product;
         });
 
@@ -68,11 +69,22 @@ export default function Home() {
             <ProductSkeleton key={index} />
           ))
         ) : (
-          <div className="products-grid">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          Object.entries(
+            products.reduce((acc, product) => {
+              const category = product.categoria || "Otros";
+              if (!acc[category]) acc[category] = [];
+              acc[category].push(product);
+              return acc;
+            }, {} as Record<string, Product[]>)
+          )
+            .sort(([a], [b]) => {
+              if (a === 'Otros') return 1;
+              if (b === 'Otros') return -1;
+              return a.localeCompare(b);
+            })
+            .map(([category, categoryProducts]) => (
+              <CategorySlider key={category} category={category} products={categoryProducts} />
+            ))
         )}
       </div>
       <BottomCartModal />

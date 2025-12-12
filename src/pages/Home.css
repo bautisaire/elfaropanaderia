@@ -26,45 +26,105 @@
 
 
 
-.products-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
-  padding-bottom: 20px;
+/* Category Sections */
+.category-section {
+  margin-bottom: 40px;
 }
 
+.category-title {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 1rem;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 4px solid #ff9100;
+  font-weight: 700;
+  text-transform: capitalize;
+}
 
+/* Products Container (Slider on Mobile, Grid on Desktop) */
+.products-slider {
+  display: flex;
+  gap: 16px;
+  padding: 10px 4px 20px 4px;
+  /* Bottom padding for shadow/scrollbar */
+}
 
-/* Ensure product cards don't shrink */
-.products-grid>* {
+/* Base card sizing */
+.products-slider>* {
   flex: 0 0 auto;
   width: 160px;
-  /* Minimum width for cards */
+  /* Default mobile width */
 }
 
-/* Mobile adjustments */
-@media (max-width: 480px) {
-  .home-title {
-    font-size: 1.5rem;
+/* Mobile: Horizontal Scrolling (The "Slider") */
+@media (max-width: 1023px) {
+  .products-slider {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+
+    /* Ensure padding at ends for scroll */
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-left: -16px;
+    /* Negative margin to pull to edge of screen */
+    margin-right: -16px;
+    width: calc(100% + 32px);
+    /* Compensate for negative margin */
+  }
+
+  .products-slider>* {
+    scroll-snap-align: center;
+    /* Snap to center looks nice on mobile */
+  }
+
+  /* Stylish Scrollbar */
+  .products-slider::-webkit-scrollbar {
+    height: 6px;
+    /* Horizontal scrollbar height */
+  }
+
+  .products-slider::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 10px;
+    margin: 0 16px;
+    /* Indent track */
+  }
+
+  .products-slider::-webkit-scrollbar-thumb {
+    background: #ff9100;
+    /* Brand color */
+    border-radius: 10px;
+  }
+}
+
+/* Desktop: Grid Layout */
+@media (min-width: 1024px) {
+  .products-slider {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    overflow-x: visible;
+    /* No scroll needed usually */
+  }
+
+  .products-slider>* {
+    width: 220px;
     margin-bottom: 20px;
   }
 
-  .products-grid>* {
-    width: 150px;
-    /* Slightly smaller on mobile */
+  .category-title {
+    font-size: 2rem;
+    margin-left: 0;
   }
 }
 
-/* Tablet and larger */
-@media (min-width: 768px) {
-  .products-grid>* {
-    width: 220px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .products-grid>* {
-    width: 250px;
+@media (min-width: 1200px) {
+  .products-slider>* {
+    width: 260px;
   }
 }
