@@ -24,36 +24,17 @@
   padding: 0 16px;
 }
 
-.category-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 
-.category-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #333;
-  margin: 0;
-  padding-left: 0.5rem;
-  border-left: 4px solid #ff9100;
-}
 
 .products-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  overflow-x: auto;
-  padding-bottom: 0;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  /* Firefox */
+  justify-content: center;
+  padding-bottom: 20px;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.products-grid::-webkit-scrollbar {
-  display: none;
-}
+
 
 /* Ensure product cards don't shrink */
 .products-grid>* {

@@ -68,27 +68,11 @@ export default function Home() {
             <ProductSkeleton key={index} />
           ))
         ) : (
-          Object.entries(
-            products.reduce((acc, product) => {
-              const category = product.categoria || "General";
-              if (!acc[category]) {
-                acc[category] = [];
-              }
-              acc[category].push(product);
-              return acc;
-            }, {} as Record<string, Product[]>)
-          )
-            .sort(([catA], [catB]) => catA.localeCompare(catB))
-            .map(([category, categoryProducts]) => (
-              <div key={category} className="category-section">
-                <h2 className="category-title">{category}</h2>
-                <div className="products-grid">
-                  {categoryProducts.map((p) => (
-                    <ProductCard key={p.id} product={p} />
-                  ))}
-                </div>
-              </div>
-            ))
+          <div className="products-grid">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
         )}
       </div>
       <BottomCartModal />
