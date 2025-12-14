@@ -10,15 +10,29 @@ import { Product } from "../context/CartContext";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  // Cargar productos desde Firebase
+  // Cargar productos y categorías desde Firebase
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        const prods: Product[] = querySnapshot.docs.map(doc => {
+        const [productsSnapshot, categoriesSnapshot] = await Promise.all([
+          getDocs(collection(db, "products")),
+          getDocs(collection(db, "categories"))
+        ]);
+
+        // Procesar Categorías para obtener orden
+        const orders: Record<string, number> = {};
+        categoriesSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          orders[data.name] = data.order ?? 9999;
+        });
+        setCategoryOrder(orders);
+
+        // Procesar Productos
+        const prods: Product[] = productsSnapshot.docs.map(doc => {
           const data = doc.data();
           return {
             id: doc.id,
@@ -34,7 +48,7 @@ export default function Home() {
           } as Product;
         });
 
-        // Ordenar: Primero con stock, al final sin stock
+        // Ordenar productos: Primero con stock, al final sin stock
         prods.sort((a, b) => {
           const aOutOfStock = a.variants && a.variants.length > 0
             ? a.variants.every(v => !v.stock)
@@ -50,13 +64,13 @@ export default function Home() {
 
         setProducts(prods);
       } catch (error) {
-        console.error("Error loading products:", error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchData();
   }, []);
 
   return (
@@ -78,6 +92,11 @@ export default function Home() {
             }, {} as Record<string, Product[]>)
           )
             .sort(([a], [b]) => {
+              const orderA = categoryOrder[a] ?? 9999;
+              const orderB = categoryOrder[b] ?? 9999;
+
+              if (orderA !== orderB) return orderA - orderB;
+
               if (a === 'Otros') return 1;
               if (b === 'Otros') return -1;
               return a.localeCompare(b);

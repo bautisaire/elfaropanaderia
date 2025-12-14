@@ -1,0 +1,153 @@
+.category-manager {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.cat-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.category-manager h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.msg-banner {
+    padding: 10px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.cat-form-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.add-cat-form {
+    display: flex;
+    gap: 10px;
+}
+
+.add-cat-form input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.cat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cat-item {
+    background: #fff;
+    border: 1px solid #eee;
+    padding: 12px 15px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    transition: box-shadow 0.2s;
+}
+
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cat-drag-handle {
+    cursor: grab;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    color: #ccc;
+}
+
+.cat-drag-handle:active {
+    cursor: grabbing;
+}
+
+.cat-view-mode {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+
+.cat-view-mode span {
+    font-weight: 600;
+    color: #4b5563;
+    font-size: 1.05rem;
+}
+
+.cat-edit-mode {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+}
+
+.cat-edit-mode input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    outline: none;
+}
+
+.cat-actions,
+.cat-edit-mode button {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-edit,
+.btn-delete,
+.btn-save,
+.btn-cancel {
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 1.1rem;
+}
+
+.btn-edit:hover {
+    background: #eff6ff;
+}
+
+.btn-delete:hover {
+    background: #fef2f2;
+}
+
+.btn-save {
+    background: #d1fae5;
+    border-color: #10b981;
+}
+
+.btn-cancel {
+    background: #fee2e2;
+    border-color: #ef4444;
+}
+
+.empty-msg {
+    text-align: center;
+    color: #9ca3af;
+    font-style: italic;
+    margin-top: 20px;
+}
