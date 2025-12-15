@@ -54,12 +54,12 @@
     }
 }
 
-.hero-image.zoom-in {
-    animation: zoomIn 15s linear infinite;
+.hero-slide.active .hero-image.zoom-in {
+    animation: zoomIn 20s linear forwards;
 }
 
-.hero-image.zoom-out {
-    animation: zoomOut 15s linear infinite;
+.hero-slide.active .hero-image.zoom-out {
+    animation: zoomOut 20s linear forwards;
 }
 
 /* Content Overlay */
