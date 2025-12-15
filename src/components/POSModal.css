@@ -1,0 +1,93 @@
+.pos-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.pos-modal {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    width: 90%;
+    max-width: 350px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.pos-modal-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.pos-modal-icon.success {
+    color: #10b981;
+}
+
+.pos-modal-icon.error {
+    color: #ef4444;
+}
+
+.pos-modal h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.pos-modal-content {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.pos-modal-total {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin: 10px 0 20px 0;
+    color: #000;
+}
+
+.pos-modal-btn {
+    background: #000;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s;
+}
+
+.pos-modal-btn:hover {
+    background: #333;
+}
+
+.pos-modal-btn.error {
+    background: #ef4444;
+}
+
+.pos-modal-btn.error:hover {
+    background: #dc2626;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

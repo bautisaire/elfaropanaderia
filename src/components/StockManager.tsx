@@ -327,6 +327,7 @@ export default function StockManager() {
                                                 <td>
                                                     <input
                                                         type="number"
+                                                        step="0.001"
                                                         min="0"
                                                         placeholder="0"
                                                         className="bulk-input"
@@ -345,6 +346,7 @@ export default function StockManager() {
                                                 <td>
                                                     <input
                                                         type="number"
+                                                        step="0.001"
                                                         min="0"
                                                         placeholder="0"
                                                         className="bulk-input"
@@ -430,10 +432,11 @@ export default function StockManager() {
                                 <label>Cantidad</label>
                                 <input
                                     type="number"
+                                    step="0.001"
                                     value={amount}
                                     onChange={e => setAmount(e.target.value)}
-                                    placeholder="0"
-                                    min="1"
+                                    placeholder="0.000"
+                                    min="0.001"
                                 />
                             </div>
 

@@ -24,6 +24,7 @@ export interface FirestoreProduct {
         stockQuantity?: number;
     }[];
     isVisible?: boolean;
+    unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -37,7 +38,8 @@ const INITIAL_STATE: FirestoreProduct = {
     stockQuantity: 0,
     discount: 0,
     variants: [],
-    isVisible: true
+    isVisible: true,
+    unitType: 'unit'
 };
 
 export default function ProductManager() {
@@ -81,7 +83,8 @@ export default function ProductManager() {
                     id: doc.id,
                     ...data,
                     discount: data.discount || 0,
-                    isVisible: data.isVisible !== false, // Default to true if undefined
+                    isVisible: data.isVisible !== false,
+                    unitType: data.unitType || 'unit',
                     images: data.images || (data.img ? [data.img] : [])
                 } as FirestoreProduct;
             });
@@ -100,6 +103,7 @@ export default function ProductManager() {
         const checked = e.target.checked;
 
         setFormData(prev => ({
+            ...prev,
             ...prev,
             [name]: type === 'checkbox' ? checked : (type === 'number' ? Number(value) : value)
         }));
@@ -278,6 +282,13 @@ export default function ProductManager() {
                                 <div className="form-group quarter">
                                     <label>Precio ($)</label>
                                     <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
+                                </div>
+                                <div className="form-group quarter">
+                                    <label>Tipo de Unidad</label>
+                                    <select name="unitType" value={formData.unitType || 'unit'} onChange={handleInputChange}>
+                                        <option value="unit">Unidad (u)</option>
+                                        <option value="weight">Peso (kg)</option>
+                                    </select>
                                 </div>
                                 <div className="form-group quarter">
                                     <label>Descuento (%)</label>

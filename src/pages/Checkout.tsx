@@ -21,6 +21,9 @@ export default function Checkout() {
       items: cart,
       total,
       paymentMethod,
+      source: 'online', // Tag as online order
+      status: 'pendiente',
+      date: new Date()
     };
 
     try {

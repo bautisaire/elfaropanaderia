@@ -9,7 +9,12 @@ export default function Dashboard() {
         totalSales: 0,
         totalOrders: 0,
         totalStock: 0,
-        visits: 0
+        visits: 0,
+        // New Metrics
+        onlineSales: 0,
+        onlineCount: 0,
+        localSales: 0,
+        localCount: 0
     });
     const [loading, setLoading] = useState(true);
 
@@ -27,7 +32,33 @@ export default function Dashboard() {
                     const validOrders = orders.filter((o: any) => o.status !== 'cancelado');
                     const totalSales = validOrders.reduce((acc, order: any) => acc + (Number(order.total) || 0), 0);
 
-                    setStats(prev => ({ ...prev, totalOrders, totalSales }));
+                    // Split Logic
+                    let onlineSales = 0;
+                    let onlineCount = 0;
+                    let localSales = 0;
+                    let localCount = 0;
+
+                    validOrders.forEach((order: any) => {
+                        const amount = Number(order.total) || 0;
+                        if (order.source === 'pos') {
+                            localSales += amount;
+                            localCount++;
+                        } else {
+                            // Default to online if source is 'online' or undefined (legacy)
+                            onlineSales += amount;
+                            onlineCount++;
+                        }
+                    });
+
+                    setStats(prev => ({
+                        ...prev,
+                        totalOrders,
+                        totalSales,
+                        onlineSales,
+                        onlineCount,
+                        localSales,
+                        localCount
+                    }));
                 });
 
                 // 2. Products Listener (Stock)
@@ -84,7 +115,7 @@ export default function Dashboard() {
                 <div className="stat-card sales">
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Ventas Totales</h3>
+                        <h3>Ingresos</h3>
                         <p>${Math.floor(stats.totalSales).toLocaleString('es-AR')}</p>
                     </div>
                 </div>
@@ -93,8 +124,26 @@ export default function Dashboard() {
                 <div className="stat-card orders">
                     <div className="stat-icon"><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Pedidos Totales</h3>
+                        <h3>Ventas Totales</h3>
                         <p>{stats.totalOrders}</p>
+                    </div>
+                </div>
+
+                {/* Sub-Card: Ventas Online */}
+                <div className="stat-card online-sales" style={{ borderLeft: '4px solid #3b82f6' }}>
+                    <div className="stat-info">
+                        <h3>Ventas Online</h3>
+                        <p>${Math.floor(stats.onlineSales).toLocaleString('es-AR')}</p>
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>({stats.onlineCount} pedidos)</span>
+                    </div>
+                </div>
+
+                {/* Sub-Card: Ventas Local */}
+                <div className="stat-card local-sales" style={{ borderLeft: '4px solid #10b981' }}>
+                    <div className="stat-info">
+                        <h3>Ventas Local</h3>
+                        <p>${Math.floor(stats.localSales).toLocaleString('es-AR')}</p>
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>({stats.localCount} pedidos)</span>
                     </div>
                 </div>
 
