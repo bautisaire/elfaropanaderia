@@ -2,7 +2,6 @@
   max-width: 1200px;
   margin: 0 auto;
   padding-top: calc(var(--header-height, 70px) + 20px);
-  padding-bottom: 100px;
 }
 
 .home-title {
@@ -21,20 +20,19 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  padding: 0 16px;
+  padding: 0 10px;
 }
 
 
 
 /* Category Sections */
-.category-section {
-  margin-bottom: 40px;
-}
+
 
 .category-title {
   font-size: 1.5rem;
   color: #333;
-  margin-bottom: 1rem;
+  margin-top: 0rem;
+  margin-bottom: 0rem;
   margin-left: 10px;
   padding-left: 10px;
   border-left: 4px solid #ff9100;

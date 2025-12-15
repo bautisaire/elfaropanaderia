@@ -12,7 +12,7 @@ export default function CategorySlider({ category, products }: CategorySliderPro
     const sliderRef = useRef<HTMLDivElement>(null);
 
     return (
-        <div className="category-section">
+        <div className="category-section" id={category.replace(/\s+/g, '-')}>
             <h2 className="category-title">{category}</h2>
             <div
                 className="products-slider"

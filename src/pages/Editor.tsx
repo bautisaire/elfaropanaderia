@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./Editor.css";
 import { auth, googleProvider } from "../firebase/firebaseConfig";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt } from "react-icons/fa";
+import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import CategoryManager from "../components/CategoryManager";
+import HeroManager from "../components/HeroManager";
 
 // 🔴 CONFIGURACIÓN: Reemplaza esto con tu email real de Google
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -15,7 +16,7 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "categories">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "categories" | "hero">("products");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -109,6 +110,12 @@ export default function Editor() {
               >
                 <FaClipboardList /> Pedidos
               </button>
+              <button
+                className={activeTab === "hero" ? "active" : ""}
+                onClick={() => setActiveTab("hero")}
+              >
+                <FaImages /> Portadas (Hero)
+              </button>
               <button onClick={() => navigate("/")}>
                 <FaHome /> Ir al Inicio
               </button>
@@ -123,6 +130,8 @@ export default function Editor() {
               <OrdersManager />
             ) : activeTab === "categories" ? (
               <CategoryManager />
+            ) : activeTab === "hero" ? (
+              <HeroManager />
             ) : (
               <ProductManager />
             )}

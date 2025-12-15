@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import BottomCartModal from "../components/BottomCartModal";
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
+import Hero from "../components/Hero"; // Import Hero
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
@@ -75,7 +76,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <h1 className="home-title">Elegí, pedí y disfrutá. <br /> <br />Envíos <span>GRATIS</span> a todo Senillosa</h1>
+      <Hero />
       <div className="home">
         {loading ? (
           // Mostrar 6 esqueletos mientras carga

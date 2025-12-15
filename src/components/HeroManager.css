@@ -1,0 +1,125 @@
+.hero-manager {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.hero-form-section {
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px solid #eee;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #374151;
+}
+
+.form-group input,
+.form-group select {
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.checkbox-group {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 25px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-primary {
+    background: #d35400;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.btn-plain {
+    background: transparent;
+    color: #666;
+    padding: 10px 20px;
+}
+
+.hero-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.hero-list-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    gap: 15px;
+}
+
+.hero-thumb {
+    width: 100px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.hero-info {
+    flex: 1;
+}
+
+.hero-info h4 {
+    margin: 0 0 5px 0;
+    color: #111827;
+}
+
+.hero-info p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.current-img-preview {
+    margin-top: 10px;
+    border: 1px dashed #ccc;
+    padding: 5px;
+    display: inline-block;
+}
