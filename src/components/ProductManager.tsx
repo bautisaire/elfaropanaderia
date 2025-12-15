@@ -254,7 +254,19 @@ export default function ProductManager() {
     };
 
     const handleEditClick = (product: FirestoreProduct) => {
-        setFormData(product);
+        let p = { ...product };
+
+        // Recalcular stock derivado al editar para asegurar consistencia
+        if (p.stockDependency && p.stockDependency.productId) {
+            const parent = products.find(prod => prod.id === p.stockDependency?.productId);
+            if (parent) {
+                const calculated = Math.floor((parent.stockQuantity || 0) / (p.stockDependency.unitsToDeduct || 1));
+                p.stockQuantity = calculated;
+                p.stock = calculated > 0;
+            }
+        }
+
+        setFormData(p);
         setIsEditing(true);
         formRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -330,154 +342,170 @@ export default function ProductManager() {
                                     <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
                                 </div>
                                 <div className="form-group quarter">
+                                    <label>Stock</label>
+                                    <input
+                                        type="number"
+                                        name="stockQuantity"
+                                        value={formData.stockQuantity || 0}
+                                        onChange={handleInputChange}
+                                        className={formData.stockDependency ? "input-disabled-highlight" : ""}
+                                        disabled={!!formData.stockDependency || (formData.variants && formData.variants.length > 0)}
+                                        placeholder={!!formData.stockDependency ? "Calculado autom." : "0"}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <div className="form-group half">
                                     <label>Tipo de Unidad</label>
                                     <select name="unitType" value={formData.unitType || 'unit'} onChange={handleInputChange}>
                                         <option value="unit">Unidad (u)</option>
                                         <option value="weight">Peso (kg)</option>
                                     </select>
                                 </div>
+                                <div className="form-group half">
+                                    <label>Descuento (%)</label>
+                                    <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
+                                </div>
                             </div>
 
-                            <div className="form-group quarter">
-                                <label>Descuento (%)</label>
-                                <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
-                            </div>
-                        </div>
 
-                        {/* Stock Dependency Section */}
-                        <div className="pm-dependency-section" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #eee' }}>
-                            <div className="checkbox-group-styled">
+
+                            {/* Stock Dependency Section */}
+                            <div className="pm-dependency-section" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #eee' }}>
+                                <div className="checkbox-group-styled">
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            checked={!!formData.stockDependency}
+                                            onChange={toggleDependency}
+                                        />
+                                        <strong>Dependencia de Stock (Es Pack o Derivado)</strong>
+                                    </label>
+                                </div>
+
+                                {formData.stockDependency && (
+                                    <div className="form-row" style={{ marginTop: '10px' }}>
+                                        <div className="form-group half">
+                                            <label>Producto Padre (Origen del Stock)</label>
+                                            <select
+                                                value={formData.stockDependency.productId}
+                                                onChange={(e) => handleDependencyChange('productId', e.target.value)}
+                                                className="input-sm"
+                                            >
+                                                <option value="" disabled>Seleccionar Producto...</option>
+                                                {products
+                                                    .filter(p => p.id !== formData.id && !p.stockDependency) // Prevent circular and chains for simplicity
+                                                    .map(p => (
+                                                        <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stockQuantity})</option>
+                                                    ))}
+                                            </select>
+                                        </div>
+                                        <div className="form-group half">
+                                            <label>Consume (cantidad/peso del padre)</label>
+                                            <input
+                                                type="number"
+                                                step="0.001"
+                                                value={formData.stockDependency.unitsToDeduct}
+                                                onChange={(e) => handleDependencyChange('unitsToDeduct', e.target.value)}
+                                                placeholder="Ej: 6 para media docena, 0.5 para 500g"
+                                            />
+                                            <small className="text-muted">
+                                                Este producto descontará {formData.stockDependency.unitsToDeduct} uni/kg del padre por cada venta.
+                                            </small>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="form-group quarter checkbox-group-styled">
                                 <label>
                                     <input
                                         type="checkbox"
-                                        checked={!!formData.stockDependency}
-                                        onChange={toggleDependency}
+                                        name="isVisible"
+                                        checked={formData.isVisible !== false}
+                                        onChange={handleInputChange}
                                     />
-                                    <strong>Dependencia de Stock (Es Pack o Derivado)</strong>
+                                    Visible en Home
                                 </label>
                             </div>
 
-                            {formData.stockDependency && (
-                                <div className="form-row" style={{ marginTop: '10px' }}>
-                                    <div className="form-group half">
-                                        <label>Producto Padre (Origen del Stock)</label>
-                                        <select
-                                            value={formData.stockDependency.productId}
-                                            onChange={(e) => handleDependencyChange('productId', e.target.value)}
-                                            className="input-sm"
-                                        >
-                                            <option value="" disabled>Seleccionar Producto...</option>
-                                            {products
-                                                .filter(p => p.id !== formData.id && !p.stockDependency) // Prevent circular and chains for simplicity
-                                                .map(p => (
-                                                    <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stockQuantity})</option>
-                                                ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group half">
-                                        <label>Consume (cantidad/peso del padre)</label>
-                                        <input
-                                            type="number"
-                                            step="0.001"
-                                            value={formData.stockDependency.unitsToDeduct}
-                                            onChange={(e) => handleDependencyChange('unitsToDeduct', e.target.value)}
-                                            placeholder="Ej: 6 para media docena, 0.5 para 500g"
-                                        />
-                                        <small className="text-muted">
-                                            Este producto descontará {formData.stockDependency.unitsToDeduct} uni/kg del padre por cada venta.
-                                        </small>
+                            <div className="form-group">
+                                <label>Descripción</label>
+                                <textarea
+                                    name="descripcion"
+                                    value={formData.descripcion}
+                                    onChange={handleInputChange}
+                                    placeholder="Describe los ingredientes y detalles del producto..."
+                                    rows={4}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Columna Derecha: Multimedia y Variantes */}
+                        <div className="pm-col-sidebar">
+                            <div className="form-group">
+                                <label>Imágenes del Producto</label>
+                                <div className="image-upload-area">
+                                    <label className="btn-upload">
+                                        {uploading ? <FaSync className="spin" /> : <FaCamera />}
+                                        <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
+                                        <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} />
+                                    </label>
+
+                                    <div className="image-previews">
+                                        {formData.images?.map((img, idx) => (
+                                            <div key={idx} className="img-preview-item">
+                                                <img src={img} alt="preview" />
+                                                <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
+                                            </div>
+                                        ))}
+                                        {(!formData.images || formData.images.length === 0) && (
+                                            <div className="no-images">Sin imágenes</div>
+                                        )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
 
-                        <div className="form-group quarter checkbox-group-styled">
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    name="isVisible"
-                                    checked={formData.isVisible !== false}
-                                    onChange={handleInputChange}
-                                />
-                                Visible en Home
-                            </label>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Descripción</label>
-                            <textarea
-                                name="descripcion"
-                                value={formData.descripcion}
-                                onChange={handleInputChange}
-                                placeholder="Describe los ingredientes y detalles del producto..."
-                                rows={4}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Columna Derecha: Multimedia y Variantes */}
-                    <div className="pm-col-sidebar">
-                        <div className="form-group">
-                            <label>Imágenes del Producto</label>
-                            <div className="image-upload-area">
-                                <label className="btn-upload">
-                                    {uploading ? <FaSync className="spin" /> : <FaCamera />}
-                                    <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
-                                    <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} />
-                                </label>
-
-                                <div className="image-previews">
-                                    {formData.images?.map((img, idx) => (
-                                        <div key={idx} className="img-preview-item">
-                                            <img src={img} alt="preview" />
-                                            <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
+                            <div className="form-group variants-wrapper">
+                                <div className="variants-header">
+                                    <label>Variantes</label>
+                                    <button type="button" className="btn-text" onClick={addVariant}><FaPlus /> Agregar</button>
+                                </div>
+                                <div className="variants-list">
+                                    {formData.variants?.map((v, idx) => (
+                                        <div key={idx} className="variant-row">
+                                            <input
+                                                placeholder="Ej. Frutilla"
+                                                value={v.name}
+                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Stock"
+                                                value={v.stockQuantity ?? 0}
+                                                onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
+                                                className="input-stock"
+                                            />
+                                            <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
+                                                <FaTimes />
+                                            </button>
                                         </div>
                                     ))}
-                                    {(!formData.images || formData.images.length === 0) && (
-                                        <div className="no-images">Sin imágenes</div>
+                                    {(!formData.variants || formData.variants.length === 0) && (
+                                        <p className="text-muted text-sm">Este producto no tiene variantes.</p>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="form-group variants-wrapper">
-                            <div className="variants-header">
-                                <label>Variantes</label>
-                                <button type="button" className="btn-text" onClick={addVariant}><FaPlus /> Agregar</button>
-                            </div>
-                            <div className="variants-list">
-                                {formData.variants?.map((v, idx) => (
-                                    <div key={idx} className="variant-row">
-                                        <input
-                                            placeholder="Ej. Frutilla"
-                                            value={v.name}
-                                            onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Stock"
-                                            value={v.stockQuantity ?? 0}
-                                            onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
-                                            className="input-stock"
-                                        />
-                                        <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
-                                            <FaTimes />
-                                        </button>
-                                    </div>
-                                ))}
-                                {(!formData.variants || formData.variants.length === 0) && (
-                                    <p className="text-muted text-sm">Este producto no tiene variantes.</p>
-                                )}
-                            </div>
+                        <div className="pm-card-footer">
+                            <button type="button" className="btn-secondary" onClick={handleReset}>Cancelar</button>
+                            <button type="submit" className="btn-primary" disabled={loading || uploading}>
+                                {loading ? <FaSync className="spin" /> : <FaSave />}
+                                {isEditing ? "Guardar Cambios" : "Crear Producto"}
+                            </button>
                         </div>
-                    </div>
-
-                    <div className="pm-card-footer">
-                        <button type="button" className="btn-secondary" onClick={handleReset}>Cancelar</button>
-                        <button type="submit" className="btn-primary" disabled={loading || uploading}>
-                            {loading ? <FaSync className="spin" /> : <FaSave />}
-                            {isEditing ? "Guardar Cambios" : "Crear Producto"}
-                        </button>
                     </div>
                 </form>
             </div>
