@@ -16,6 +16,7 @@ export interface FirestoreProduct {
     img: string;
     images?: string[];
     stock: boolean;
+    stockQuantity?: number;
     discount?: number;
     variants?: {
         name: string;
@@ -352,7 +353,10 @@ export default function ProductManager() {
                                     <div className="admin-card-price">${product.precio}</div>
                                     <div className="admin-card-stock">
                                         <span className={`stock-badge ${product.stock ? 'in-stock' : 'out-stock'}`}>
-                                            {product.stock ? 'Stock' : 'Sin Stock'}
+                                            {product.stock ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                        <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#333' }}>
+                                            Stock: {product.stockQuantity || 0}
                                         </span>
                                         {product.variants && product.variants.length > 0 && (
                                             <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#888' }}>
