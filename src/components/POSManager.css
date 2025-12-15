@@ -65,7 +65,7 @@
 .pos-product-card {
     border: 1px solid #eee;
     border-radius: 10px;
-    min-height: 200px;
+    min-height: 220px;
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.1s, box-shadow 0.1s;

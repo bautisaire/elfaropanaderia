@@ -341,18 +341,7 @@ export default function ProductManager() {
                                     <label>Precio ($)</label>
                                     <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
                                 </div>
-                                <div className="form-group quarter">
-                                    <label>Stock</label>
-                                    <input
-                                        type="number"
-                                        name="stockQuantity"
-                                        value={formData.stockQuantity || 0}
-                                        onChange={handleInputChange}
-                                        className={formData.stockDependency ? "input-disabled-highlight" : ""}
-                                        disabled={!!formData.stockDependency || (formData.variants && formData.variants.length > 0)}
-                                        placeholder={!!formData.stockDependency ? "Calculado autom." : "0"}
-                                    />
-                                </div>
+
                             </div>
 
                             <div className="form-row">

@@ -8,6 +8,8 @@ interface Product {
     id: string;
     nombre: string;
     stockQuantity?: number;
+    stockDependency?: any; // Added for check
+    unitType?: 'unit' | 'weight';
     variants?: {
         name: string;
         stock: boolean;
@@ -92,6 +94,7 @@ export default function StockManager() {
     };
 
     const openAdjustmentModal = (product: Product) => {
+        if (product.stockDependency) return; // Prevent opening for derived products
         setSelectedProduct(product);
         setSelectedVariantIdx(null);
         setAdjustmentType('IN');
@@ -276,19 +279,32 @@ export default function StockManager() {
                                     ? p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
                                     : (p.stockQuantity || 0);
 
+                                const isWeight = p.unitType === 'weight';
+                                const stockLabel = totalStock + (isWeight ? ' kg' : '');
+                                const isLowStock = isWeight ? totalStock < 1 : totalStock < 5;
+
                                 return (
                                     <tr key={p.id}>
-                                        <td>{p.nombre}</td>
                                         <td>
-                                            <span className={`stock-number ${totalStock < 5 ? 'low-stock' : 'good-stock'}`}>
-                                                {totalStock}
+                                            {p.nombre}
+                                            {p.stockDependency && <span className="pill-derived"> (Derivado)</span>}
+                                        </td>
+                                        <td>
+                                            <span className={`stock-number ${isLowStock ? 'low-stock' : 'good-stock'}`}>
+                                                {stockLabel}
                                                 {(p.variants && p.variants.length > 0) && <span style={{ fontSize: '0.8em', color: '#666' }}> (Total Vars)</span>}
                                             </span>
                                         </td>
                                         <td>
-                                            <button className="btn-adjust" onClick={() => openAdjustmentModal(p)}>
-                                                <FaEdit /> Ajustar
-                                            </button>
+                                            {p.stockDependency ? (
+                                                <button className="btn-adjust disabled" disabled title="Stock automático">
+                                                    <FaEdit /> Auto
+                                                </button>
+                                            ) : (
+                                                <button className="btn-adjust" onClick={() => openAdjustmentModal(p)}>
+                                                    <FaEdit /> Ajustar
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -348,17 +364,21 @@ export default function StockManager() {
                                         // Simple product row
                                         return (
                                             <tr key={p.id}>
-                                                <td><strong>{p.nombre}</strong></td>
+                                                <td>
+                                                    <strong>{p.nombre}</strong>
+                                                    {p.stockDependency && <span className="text-xs-gray"> (Calc. Auto)</span>}
+                                                </td>
                                                 <td>{p.stockQuantity || 0}</td>
                                                 <td>
                                                     <input
                                                         type="number"
                                                         step="0.001"
                                                         min="0"
-                                                        placeholder="0"
+                                                        placeholder={p.stockDependency ? "Auto" : "0"}
                                                         className="bulk-input"
                                                         value={bulkUpdates[p.id] || ''}
                                                         onChange={e => handleBulkChange(p.id, e.target.value)}
+                                                        disabled={!!p.stockDependency}
                                                     />
                                                 </td>
                                             </tr>
