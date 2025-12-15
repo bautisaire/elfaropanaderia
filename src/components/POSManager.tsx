@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
-import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
 
@@ -44,6 +44,9 @@ export default function POSManager() {
     const [weightModalOpen, setWeightModalOpen] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<{ product: Product, variant?: string } | null>(null);
     const [weightInput, setWeightInput] = useState("");
+
+    // Mobile View Toggle
+    const [showMobileCart, setShowMobileCart] = useState(false);
 
     // Generic Modal State
     const [modalConfig, setModalConfig] = useState<ModalState>({
@@ -311,6 +314,7 @@ export default function POSManager() {
             );
 
             setCart([]);
+            setShowMobileCart(false); // Return to products after sale on mobile
             fetchProducts();
         } catch (error) {
             console.error("Checkout error:", error);
@@ -329,7 +333,7 @@ export default function POSManager() {
     return (
         <div className="pos-container">
             {/* Products Section */}
-            <div className="pos-products-section">
+            <div className={`pos-products-section ${showMobileCart ? 'mobile-hidden' : ''}`}>
                 <div className="pos-search-bar">
                     <input
                         placeholder="Buscar productos..."
@@ -387,11 +391,31 @@ export default function POSManager() {
                         );
                     })}
                 </div>
+
+
+                {/* Mobile Footer Summary (Only visible on mobile when viewing products) */}
+                <div className="pos-mobile-footer-summary" onClick={() => setShowMobileCart(true)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FaShoppingCart />
+                        <span>{cart.reduce((a, b) => a + b.quantity, 0)} items</span>
+                    </div>
+                    <div style={{ fontWeight: 'bold' }}>
+                        ${total}
+                    </div>
+                    <button className="pos-mobile-view-cart-btn">
+                        Ver Carrito
+                    </button>
+                </div>
             </div>
 
             {/* Cart Section */}
-            <div className="pos-cart-section">
+            <div className={`pos-cart-section ${!showMobileCart ? 'mobile-hidden' : ''}`}>
                 <div className="pos-cart-header">
+                    {showMobileCart && (
+                        <button className="pos-back-btn" onClick={() => setShowMobileCart(false)}>
+                            <FaArrowLeft /> Volver
+                        </button>
+                    )}
                     <h3>Ticket de Venta</h3>
                 </div>
 
@@ -462,84 +486,86 @@ export default function POSManager() {
             </POSModal>
 
             {/* Weight Input Modal */}
-            {weightModalOpen && (
-                <div className="pos-modal-overlay">
-                    <div className="pos-modal">
-                        <h3>Cantidad (Kg)</h3>
-                        <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <input
-                                    type="number"
-                                    autoFocus
-                                    value={weightInput}
-                                    onChange={(e) => setWeightInput(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') confirmWeight(); }}
-                                    placeholder="0.000"
-                                    step="0.005"
-                                    min="0"
-                                    style={{ fontSize: '2rem', width: '150px', padding: '10px', textAlign: 'center', borderRadius: '10px', border: '1px solid #ddd' }}
-                                />
-                                <span style={{ fontSize: '1.2rem', color: '#666' }}>Kg</span>
-                            </div>
+            {
+                weightModalOpen && (
+                    <div className="pos-modal-overlay">
+                        <div className="pos-modal">
+                            <h3>Cantidad (Kg)</h3>
+                            <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <input
+                                        type="number"
+                                        autoFocus
+                                        value={weightInput}
+                                        onChange={(e) => setWeightInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') confirmWeight(); }}
+                                        placeholder="0.000"
+                                        step="0.005"
+                                        min="0"
+                                        style={{ fontSize: '2rem', width: '150px', padding: '10px', textAlign: 'center', borderRadius: '10px', border: '1px solid #ddd' }}
+                                    />
+                                    <span style={{ fontSize: '1.2rem', color: '#666' }}>Kg</span>
+                                </div>
 
-                            <div style={{ width: '100%', padding: '0 20px' }}>
-                                {(() => {
-                                    let maxStock = 10;
-                                    if (pendingProduct) {
-                                        const { product, variant } = pendingProduct;
-                                        if (variant && product.variants) {
-                                            const v = product.variants.find((v: any) => v.name === variant);
-                                            maxStock = v ? (v.stockQuantity || 0) : 0;
-                                        } else {
-                                            maxStock = product.stockQuantity || 0;
+                                <div style={{ width: '100%', padding: '0 20px' }}>
+                                    {(() => {
+                                        let maxStock = 10;
+                                        if (pendingProduct) {
+                                            const { product, variant } = pendingProduct;
+                                            if (variant && product.variants) {
+                                                const v = product.variants.find((v: any) => v.name === variant);
+                                                maxStock = v ? (v.stockQuantity || 0) : 0;
+                                            } else {
+                                                maxStock = product.stockQuantity || 0;
+                                            }
+                                            const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
+                                            if (existing) maxStock -= existing.quantity;
+                                            maxStock = Math.max(0, maxStock);
                                         }
-                                        const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
-                                        if (existing) maxStock -= existing.quantity;
-                                        maxStock = Math.max(0, maxStock);
-                                    }
 
-                                    return (
-                                        <>
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max={maxStock}
-                                                step="0.005"
-                                                value={weightInput || 0}
-                                                onChange={(e) => setWeightInput(e.target.value)}
-                                                className="pos-weight-slider"
-                                                style={{ width: '100%', cursor: 'pointer', margin: '15px 0' }}
-                                            />
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '0.8rem', marginTop: '5px' }}>
-                                                <span>0kg</span>
-                                                <span>{(maxStock * 0.25).toFixed(2)}kg</span>
-                                                <span>{(maxStock * 0.5).toFixed(2)}kg</span>
-                                                <span>{(maxStock * 0.75).toFixed(2)}kg</span>
-                                                <span>{maxStock.toFixed(2)}kg</span>
-                                            </div>
-                                        </>
-                                    );
-                                })()}
+                                        return (
+                                            <>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max={maxStock}
+                                                    step="0.005"
+                                                    value={weightInput || 0}
+                                                    onChange={(e) => setWeightInput(e.target.value)}
+                                                    className="pos-weight-slider"
+                                                    style={{ width: '100%', cursor: 'pointer', margin: '15px 0' }}
+                                                />
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '0.8rem', marginTop: '5px' }}>
+                                                    <span>0kg</span>
+                                                    <span>{(maxStock * 0.25).toFixed(2)}kg</span>
+                                                    <span>{(maxStock * 0.5).toFixed(2)}kg</span>
+                                                    <span>{(maxStock * 0.75).toFixed(2)}kg</span>
+                                                    <span>{maxStock.toFixed(2)}kg</span>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                className="pos-modal-btn"
-                                style={{ background: '#ddd', color: '#333' }}
-                                onClick={() => setWeightModalOpen(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                className="pos-modal-btn"
-                                onClick={confirmWeight}
-                            >
-                                Confirmar
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    className="pos-modal-btn"
+                                    style={{ background: '#ddd', color: '#333' }}
+                                    onClick={() => setWeightModalOpen(false)}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    className="pos-modal-btn"
+                                    onClick={confirmWeight}
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
