@@ -18,6 +18,7 @@ export interface Product {
   stockQuantity?: number;
   discount?: number;
   categoria?: string;
+  isVisible?: boolean;
 }
 
 interface CartContextType {

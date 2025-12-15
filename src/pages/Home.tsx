@@ -67,6 +67,8 @@ export default function Home() {
             variants: data.variants || [],
             quantity: 0,
             stock: data.stock,
+            stockQuantity: data.stockQuantity,
+            isVisible: data.isVisible !== false,
             discount: data.discount || 0,
             categoria: (data.categoria || "Otros").trim()
           } as Product;
@@ -76,17 +78,17 @@ export default function Home() {
         prods.sort((a, b) => {
           const aOutOfStock = a.variants && a.variants.length > 0
             ? a.variants.every(v => !v.stock)
-            : a.stock === false;
+            : (a.stockQuantity !== undefined ? a.stockQuantity <= 0 : a.stock === false);
 
           const bOutOfStock = b.variants && b.variants.length > 0
             ? b.variants.every(v => !v.stock)
-            : b.stock === false;
+            : (b.stockQuantity !== undefined ? b.stockQuantity <= 0 : b.stock === false);
 
           if (aOutOfStock === bOutOfStock) return 0;
           return aOutOfStock ? 1 : -1;
         });
 
-        setProducts(prods);
+        setProducts(prods.filter(p => p.isVisible !== false));
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {

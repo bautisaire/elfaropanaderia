@@ -1,132 +1,255 @@
-.orders-manager {
-    padding: 20px;
+/* Orders Manager Styles */
+
+/* Summary Bar */
+.orders-list-container {
+    padding: 0 10px;
 }
 
-.orders-list {
+.orders-summary-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-pill {
+    background: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.summary-pill.pending {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fcd34d;
+}
+
+/* Orders Grid */
+.orders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+}
+
+/* Order Card */
+.order-card {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-left: 5px solid transparent;
+    /* Colored based on status */
 }
 
-.order-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
-.order-card.pending {
-    border-left: 5px solid #f39c12;
+/* Status Specific Border Colors */
+.order-status-pendiente {
+    border-left-color: #f59e0b;
 }
 
-.order-card.done {
-    border-left: 5px solid #27ae60;
+.order-status-preparando {
+    border-left-color: #3b82f6;
 }
 
-.order-card.cancelled {
-    border-left: 5px solid #c0392b;
+.order-status-enviado {
+    border-left-color: #8b5cf6;
 }
 
-.order-header {
+.order-status-entregado {
+    border-left-color: #10b981;
+}
+
+.order-status-cancelado {
+    border-left-color: #ef4444;
+}
+
+
+/* Header */
+.order-card-header {
+    background: #f9fafb;
+    padding: 16px;
+    border-bottom: 1px solid #e5e7eb;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
 }
 
-.status-badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-    text-transform: uppercase;
+.order-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.order-id {
+    font-weight: 800;
+    color: #111827;
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+}
+
+.order-date {
     font-size: 0.8rem;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.status-badge.pending {
-    background: #f39c12;
-    color: white;
+/* Status Selector */
+.status-selector-wrapper {
+    position: relative;
+    border: 1px solid;
+    /* Color via inline style */
+    border-radius: 20px;
+    background: white;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 140px;
 }
 
-.status-badge.done {
-    background: #27ae60;
-    color: white;
+.status-icon {
+    font-size: 0.9rem;
 }
 
-.status-badge.cancelled {
-    background: #c0392b;
-    color: white;
+.status-dropdown {
+    border: none;
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    padding: 6px 0;
+    outline: none;
 }
 
-.order-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
+.status-dropdown option {
+    color: #1f2937;
+    background: white;
 }
 
-@media (max-width: 768px) {
-    .order-details {
+/* Body */
+.order-card-body {
+    padding: 16px;
+    /* Divide body */
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+.order-section h5 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #9ca3af;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Client Section */
+.info-row {
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #374151;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.icon-muted {
+    color: #9ca3af;
+    font-size: 0.9rem;
+    margin-top: 3px;
+    min-width: 14px;
+}
+
+.order-note {
+    margin-top: 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-style: italic;
+    border: 1px dashed #fdba74;
+}
+
+/* Items Section */
+.items-section {
+    background: #fdfdfd;
+    border: 1px solid #f3f4f6;
+    border-radius: 8px;
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.order-items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+    flex: 1;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 4px 0;
+    border-bottom: 1px dashed #f3f4f6;
+}
+
+.order-item:last-child {
+    border-bottom: none;
+}
+
+.item-qty {
+    font-weight: 700;
+    color: #0b74ff;
+    width: 30px;
+}
+
+.item-name {
+    flex: 1;
+    color: #4b5563;
+}
+
+.item-price {
+    font-weight: 600;
+    color: #374151;
+}
+
+.order-total-row {
+    margin-top: auto;
+    border-top: 2px solid #e5e7eb;
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    color: #111827;
+}
+
+.total-amount {
+    font-weight: 800;
+    color: #059669;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .orders-grid {
         grid-template-columns: 1fr;
     }
-}
-
-.client-info p,
-.items-info li {
-    margin: 5px 0;
-    color: #555;
-}
-
-.order-total {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin-top: 10px;
-    text-align: right;
-}
-
-.order-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-}
-
-.btn-pending {
-    background-color: #f39c12;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-done {
-    background-color: #27ae60;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-cancel {
-    background-color: #c0392b;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.btn-pending:hover {
-    background-color: #e67e22;
-}
-
-.btn-done:hover {
-    background-color: #2ecc71;
-}
-
-.btn-cancel:hover {
-    background-color: #e74c3c;
 }

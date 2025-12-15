@@ -1,125 +1,147 @@
-.hero-manager {
-    max-width: 800px;
-    margin: 0 auto;
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
+/* Hero Manager Specific Styles */
+/* Note: Many styles are inherited from Product Manager's global styles if loaded together, 
+   but we redefine essential ones here to ensure standalone functionality */
 
-.hero-form-section {
-    background: #f9fafb;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 30px;
-    border: 1px solid #eee;
-}
-
-.form-group {
-    margin-bottom: 15px;
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group label {
-    font-weight: 600;
-    margin-bottom: 5px;
-    color: #374151;
-}
-
-.form-group input,
-.form-group select {
-    padding: 10px;
-    border: 1px solid #d1d5db;
+.hero-preview-container {
+    margin-top: 15px;
+    position: relative;
+    border: 1px solid #e5e7eb;
     border-radius: 6px;
-    font-size: 1rem;
+    overflow: hidden;
 }
 
-.form-row {
+.hero-preview-container img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 200px;
+    object-fit: cover;
+}
+
+.preview-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: 0.75rem;
+    padding: 4px;
+    text-align: center;
+}
+
+.checkbox-group-styled label {
     display: flex;
-    gap: 20px;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #fdfdfd;
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    transition: background 0.2s;
 }
 
-.checkbox-group {
-    flex-direction: row;
-    align-items: center;
-    padding-top: 25px;
+.checkbox-group-styled label:hover {
+    background: #f3f4f6;
 }
 
-.checkbox-group label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.checkbox-group-styled input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
     cursor: pointer;
 }
 
-.form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
+/* List / Grid */
+.hero-grid-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
 }
 
-.btn-primary {
-    background: #d35400;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-weight: 600;
-}
-
-.btn-plain {
-    background: transparent;
-    color: #666;
-    padding: 10px 20px;
-}
-
-.hero-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.hero-list-item {
-    display: flex;
-    align-items: center;
+.hero-admin-card {
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-    gap: 15px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.hero-thumb {
-    width: 100px;
-    height: 60px;
+.hero-admin-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.hero-card-img {
+    height: 140px;
+    position: relative;
+    background: #eee;
+}
+
+.hero-card-img img {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 4px;
 }
 
-.hero-info {
+.hero-anim-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.hero-card-body {
+    padding: 16px;
     flex: 1;
 }
 
-.hero-info h4 {
-    margin: 0 0 5px 0;
+.hero-card-body h4 {
+    margin: 0 0 6px 0;
     color: #111827;
+    font-size: 1.05rem;
 }
 
-.hero-info p {
-    margin: 0;
-    font-size: 0.9rem;
+.hero-card-body p {
+    margin: 0 0 12px 0;
     color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.4;
 }
 
-.hero-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.current-img-preview {
-    margin-top: 10px;
-    border: 1px dashed #ccc;
-    padding: 5px;
+.hero-btn-preview {
     display: inline-block;
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.hero-card-actions {
+    display: flex;
+    border-top: 1px solid #f3f4f6;
+}
+
+.hero-card-actions button {
+    flex: 1;
+    border-radius: 0;
+    padding: 10px;
+}
+
+.hero-card-actions button:hover {
+    background-color: #f9fafb;
+}
+
+.hero-list-section {
+    margin-top: 20px;
 }

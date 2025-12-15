@@ -3,7 +3,7 @@ import { db, storage } from "../firebase/firebaseConfig";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { compressImage } from "../utils/imageUtils";
-import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaSearch, FaEyeSlash } from 'react-icons/fa';
 import "./ProductManager.css";
 
 // Interface matching Firestore data structure
@@ -23,6 +23,7 @@ export interface FirestoreProduct {
         stock: boolean;
         stockQuantity?: number;
     }[];
+    isVisible?: boolean;
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -35,23 +36,25 @@ const INITIAL_STATE: FirestoreProduct = {
     stock: true,
     stockQuantity: 0,
     discount: 0,
-    variants: []
+    variants: [],
+    isVisible: true
 };
 
 export default function ProductManager() {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
-    const [categories, setCategories] = useState<string[]>([]); // New state for categories
+    const [categories, setCategories] = useState<string[]>([]);
     const [formData, setFormData] = useState<FirestoreProduct>(INITIAL_STATE);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     const formRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         reloadProducts();
-        fetchCategories(); // Fetch categories on mount
+        fetchCategories();
     }, []);
 
     const fetchCategories = async () => {
@@ -61,10 +64,7 @@ export default function ProductManager() {
                 name: doc.data().name,
                 order: doc.data().order ?? 9999
             }));
-
-            // Sort by order, then alphabetically
             catsData.sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
-
             setCategories(catsData.map(c => c.name));
         } catch (error) {
             console.error("Error loading categories:", error);
@@ -81,6 +81,7 @@ export default function ProductManager() {
                     id: doc.id,
                     ...data,
                     discount: data.discount || 0,
+                    isVisible: data.isVisible !== false, // Default to true if undefined
                     images: data.images || (data.img ? [data.img] : [])
                 } as FirestoreProduct;
             });
@@ -95,14 +96,15 @@ export default function ProductManager() {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
+        // @ts-ignore - checked property only exists on input
+        const checked = e.target.checked;
+
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'number' ? Number(value) : value
+            [name]: type === 'checkbox' ? checked : (type === 'number' ? Number(value) : value)
         }));
     };
 
-
-    // --- Image Handling ---
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
@@ -110,7 +112,7 @@ export default function ProductManager() {
         setUploading(true);
         try {
             const newImageUrls: string[] = [];
-            const prodId = formData.id || "temp_" + Date.now(); // Use temp ID if creating new
+            const prodId = formData.id || "temp_" + Date.now();
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -149,13 +151,11 @@ export default function ProductManager() {
         });
     };
 
-    // --- Variants Handling ---
     const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity', value: string | number) => {
         setFormData(prev => {
             const newVariants = [...(prev.variants || [])];
             // @ts-ignore
             newVariants[idx][field] = value;
-            // Also keep stock boolean true if quantity > 0 for backward compat or just ignore it
             // @ts-ignore
             if (field === 'stockQuantity') newVariants[idx].stock = Number(value) > 0;
             return { ...prev, variants: newVariants };
@@ -176,27 +176,24 @@ export default function ProductManager() {
         }));
     };
 
-    // --- Submit / Reset ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.nombre) return setMessage("El nombre es obligatorio");
 
         try {
             if (isEditing && formData.id) {
-                // Update
                 const { id, ...dataToUpdate } = formData;
                 await updateDoc(doc(db, "products", id), dataToUpdate);
-                setMessage("Producto actualizado");
+                setMessage("Producto actualizado correctamente");
             } else {
-                // Create
                 await addDoc(collection(db, "products"), formData);
-                setMessage("Producto creado");
+                setMessage("Producto creado exitosamente");
             }
             reloadProducts();
             handleReset();
         } catch (error) {
             console.error("Error saving product:", error);
-            setMessage("Error al guardar");
+            setMessage("Error al guardar producto");
         }
     };
 
@@ -209,16 +206,14 @@ export default function ProductManager() {
     const handleEditClick = (product: FirestoreProduct) => {
         setFormData(product);
         setIsEditing(true);
-        // Scroll to form
         formRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("¿Seguro que deseas eliminar este producto?")) return;
+        if (!confirm("¿Seguro que deseas eliminar este producto? Esta acción no se puede deshacer.")) return;
         try {
             await deleteDoc(doc(db, "products", id));
             reloadProducts();
-            // If we were editing this product, reset form
             if (formData.id === id) {
                 handleReset();
             }
@@ -229,154 +224,222 @@ export default function ProductManager() {
         }
     };
 
+    const filteredProducts = products.filter(p =>
+        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="product-manager-container">
-            {/* --- FORMULARIO DE EDICIÓN COMPACTO --- */}
-            <div className="product-editor-form" ref={formRef}>
-                <h3>{isEditing ? `Editar: ${formData.nombre}` : "Nuevo Producto"}</h3>
+            {/* Header del Admin */}
+            <div className="pm-header">
+                <div>
+                    <h2>Administrador de Productos</h2>
+                    <p>Gestiona el inventario, precios y detalles de tus productos.</p>
+                </div>
+            </div>
 
-                {message && <div style={{ color: '#0b74ff', marginBottom: '10px', fontWeight: 'bold' }}>{message}</div>}
+            {/* Formulario Principal */}
+            <div className="pm-card form-section" ref={formRef}>
+                <div className="pm-card-header">
+                    <h3>{isEditing ? `Editar: ${formData.nombre}` : "Agregar Nuevo Producto"}</h3>
+                    {isEditing && <button className="btn-secondary btn-sm" onClick={handleReset}><FaPlus /> Nuevo</button>}
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="form-grid">
-                        {/* Fila 1: Nombre (2), Categoria (1), Precio (1) - Total 4 */}
-                        <div className="form-group col-span-2">
-                            <label>Nombre</label>
-                            <input name="nombre" value={formData.nombre} onChange={handleInputChange} placeholder="Ej. Pan Casero" required />
-                        </div>
+                {message && <div className="pm-alert">{message}</div>}
 
-                        <div className="form-group col-span-1">
-                            <label>Categoría</label>
-                            <select name="categoria" value={formData.categoria} onChange={handleInputChange}>
-                                <option value="" disabled>Seleccionar...</option>
-                                <option value="General">General</option>
-                                {categories.filter(c => c !== "General").map((cat, index) => (
-                                    <option key={index} value={cat}>{cat}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="form-group col-span-1">
-                            <label>Precio ($)</label>
-                            <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
-                        </div>
-
-                        {/* Fila 2: Descripcion (3), Metadata (1) */}
-                        <div className="form-group col-span-3">
-                            <label>Descripción</label>
-                            <textarea name="descripcion" value={formData.descripcion} onChange={handleInputChange} placeholder="Detalles del producto..." />
-                        </div>
-
-                        <div className="form-group col-span-1" style={{ justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label>Descuento (%)</label>
-                                <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
+                <form onSubmit={handleSubmit} className="pm-form">
+                    <div className="pm-grid">
+                        {/* Columna Izquierda: Detalles Básicos */}
+                        <div className="pm-col-main">
+                            <div className="form-group">
+                                <label>Nombre del Producto</label>
+                                <input
+                                    name="nombre"
+                                    value={formData.nombre}
+                                    onChange={handleInputChange}
+                                    placeholder="Ej. Tarta de Chocolate"
+                                    required
+                                    className="input-lg"
+                                />
                             </div>
-                        </div>
 
-                        {/* Fila 3: Imagenes (2) y Variantes (2) */}
-                        <div className="form-group col-span-2">
-                            <label>Imágenes</label>
-                            <div className="image-preview-area">
-                                <label className="btn-add-img">
-                                    {uploading ? "..." : <><FaCamera /> Fotos</>}
-                                    <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} />
+                            <div className="form-row">
+                                <div className="form-group half">
+                                    <label>Categoría</label>
+                                    <select name="categoria" value={formData.categoria} onChange={handleInputChange}>
+                                        <option value="" disabled>Seleccionar...</option>
+                                        <option value="General">General</option>
+                                        {categories.filter(c => c !== "General").map((cat, index) => (
+                                            <option key={index} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group quarter">
+                                    <label>Precio ($)</label>
+                                    <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
+                                </div>
+                                <div className="form-group quarter">
+                                    <label>Descuento (%)</label>
+                                    <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
+                                </div>
+                            </div>
+
+                            <div className="form-group quarter checkbox-group-styled">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="isVisible"
+                                        checked={formData.isVisible !== false}
+                                        onChange={handleInputChange}
+                                    />
+                                    Visible en Home
                                 </label>
+                            </div>
 
-                                {formData.images?.map((img, idx) => (
-                                    <div key={idx} className="img-thumbnail-wrapper">
-                                        <img src={img} alt="preview" className="img-thumbnail" />
-                                        <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
-                                    </div>
-                                ))}
+                            <div className="form-group">
+                                <label>Descripción</label>
+                                <textarea
+                                    name="descripcion"
+                                    value={formData.descripcion}
+                                    onChange={handleInputChange}
+                                    placeholder="Describe los ingredientes y detalles del producto..."
+                                    rows={4}
+                                />
                             </div>
                         </div>
 
-                        <div className="form-group col-span-2 variants-container">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <label>Variantes</label>
-                                <button type="button" className="btn-plain" onClick={addVariant} style={{ padding: '2px 5px', fontSize: '0.75rem', height: 'auto' }}>+ Agregar</button>
-                            </div>
-                            <div className="variants-list">
-                                {formData.variants?.map((v, idx) => (
-                                    <div key={idx} className="variant-item">
-                                        <input
-                                            placeholder="Nombre"
-                                            value={v.name}
-                                            onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
-                                            style={{ flex: 1 }}
-                                        />
-                                        <input
-                                            type="number"
-                                            placeholder="Stock"
-                                            value={v.stockQuantity ?? 0}
-                                            onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
-                                            style={{ width: '80px' }}
-                                            min="0"
-                                        />
-                                        <button type="button" className="btn-remove-img" style={{ position: 'static', width: '24px', height: '24px', background: '#ff4444', borderRadius: '50%', fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }} onClick={() => removeVariant(idx)}><FaTimes size={12} /></button>
+                        {/* Columna Derecha: Multimedia y Variantes */}
+                        <div className="pm-col-sidebar">
+                            <div className="form-group">
+                                <label>Imágenes del Producto</label>
+                                <div className="image-upload-area">
+                                    <label className="btn-upload">
+                                        {uploading ? <FaSync className="spin" /> : <FaCamera />}
+                                        <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
+                                        <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} />
+                                    </label>
+
+                                    <div className="image-previews">
+                                        {formData.images?.map((img, idx) => (
+                                            <div key={idx} className="img-preview-item">
+                                                <img src={img} alt="preview" />
+                                                <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
+                                            </div>
+                                        ))}
+                                        {(!formData.images || formData.images.length === 0) && (
+                                            <div className="no-images">Sin imágenes</div>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+                            </div>
+
+                            <div className="form-group variants-wrapper">
+                                <div className="variants-header">
+                                    <label>Variantes</label>
+                                    <button type="button" className="btn-text" onClick={addVariant}><FaPlus /> Agregar</button>
+                                </div>
+                                <div className="variants-list">
+                                    {formData.variants?.map((v, idx) => (
+                                        <div key={idx} className="variant-row">
+                                            <input
+                                                placeholder="Ej. Frutilla"
+                                                value={v.name}
+                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                            />
+                                            <input
+                                                type="number"
+                                                placeholder="Stock"
+                                                value={v.stockQuantity ?? 0}
+                                                onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
+                                                className="input-stock"
+                                            />
+                                            <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
+                                                <FaTimes />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!formData.variants || formData.variants.length === 0) && (
+                                        <p className="text-muted text-sm">Este producto no tiene variantes.</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
-
                     </div>
 
-                    <div className="form-actions">
-                        <button type="button" className="btn-plain" onClick={handleReset}>Limpiar</button>
+                    <div className="pm-card-footer">
+                        <button type="button" className="btn-secondary" onClick={handleReset}>Cancelar</button>
                         <button type="submit" className="btn-primary" disabled={loading || uploading}>
-                            {isEditing ? "Guardar" : "Crear"}
+                            {loading ? <FaSync className="spin" /> : <FaSave />}
+                            {isEditing ? "Guardar Cambios" : "Crear Producto"}
                         </button>
                     </div>
                 </form>
-            </div >
+            </div>
 
-            {/* --- LISTA DE INVENTARIO --- */}
-            < div className="inventory-section" >
-                <div className="inventory-header">
-                    <h3>Inventario ({products.length})</h3>
-                    <button className="btn-plain" onClick={reloadProducts} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><FaSync /> Actualizar</button>
+            {/* Barra de Herramientas de Inventario */}
+            <div className="inventory-toolbar">
+                <div className="search-bar">
+                    <FaSearch className="search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre o categoría..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
+                <div className="inventory-stats">
+                    <span className="stat-pill">Total: <strong>{products.length}</strong></span>
+                    <button className="btn-secondary btn-sm" onClick={reloadProducts}>
+                        <FaSync /> Actualizar
+                    </button>
+                </div>
+            </div>
 
-                {
-                    loading ? <p>Cargando inventario...</p> : (
-                        <div className="inventory-grid">
-                            {products.map(product => (
-                                <div key={product.id} className="admin-product-card">
-                                    <div className="admin-card-img-container">
-                                        <img src={product.img || product.images?.[0]} alt={product.nombre} className="admin-card-img" />
-                                    </div>
-                                    <div className="admin-card-body">
-                                        <h4 className="admin-card-title">{product.nombre}</h4>
-                                        <div className="admin-card-price">${product.precio}</div>
-                                        <div className="admin-card-stock">
-                                            <span className={`stock-badge ${product.stock ? 'in-stock' : 'out-stock'}`}>
-                                                {product.stock ? 'Activo' : 'Inactivo'}
-                                            </span>
-                                            <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#333' }}>
-                                                Stock: {product.stockQuantity || 0}
-                                            </span>
-                                            {product.variants && product.variants.length > 0 && (
-                                                <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#888' }}>
-                                                    {product.variants.length} var.
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="admin-card-actions">
-                                            <button className="btn-edit-card" onClick={() => handleEditClick(product)}>
-                                                <FaEdit /> Editar
-                                            </button>
-                                            <button className="btn-delete-card" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
-                                                <FaTrash />
-                                            </button>
-                                        </div>
+            {/* Grid de Productos */}
+            {loading ? (
+                <div className="loading-state">
+                    <FaSync className="spin" size={30} />
+                    <p>Cargando inventario...</p>
+                </div>
+            ) : (
+                <div className="pm-inventory-grid">
+                    {filteredProducts.map(product => (
+                        <div key={product.id} className="inventory-card">
+                            <div className="card-image">
+                                <img src={product.img || product.images?.[0]} alt={product.nombre} className={product.isVisible === false ? "opacity-50" : ""} />
+                                {product.discount ? <span className="badge-discount">-{product.discount}%</span> : null}
+                                {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /> Oculto</span>}
+                            </div>
+                            <div className="card-content">
+                                <div className="card-info">
+                                    <h4>{product.nombre}</h4>
+                                    <span className="card-category">{product.categoria}</span>
+                                    <div className="card-price-row">
+                                        <span className="price">${product.precio}</span>
+                                        <span className={`stock-status ${product.stock ? 'active' : 'inactive'}`}>
+                                            {product.stockQuantity || 0} unid.
+                                        </span>
                                     </div>
                                 </div>
-                            ))}
+                                <div className="card-actions">
+                                    <button className="btn-action edit" onClick={() => handleEditClick(product)}>
+                                        <FaEdit />
+                                    </button>
+                                    <button className="btn-action delete" onClick={() => product.id && handleDelete(product.id)}>
+                                        <FaTrash />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    )
-                }
-            </div >
-        </div >
+                    ))}
+                    {filteredProducts.length === 0 && (
+                        <div className="empty-state">
+                            <p>No se encontraron productos.</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }

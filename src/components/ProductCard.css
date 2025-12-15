@@ -36,7 +36,7 @@
 
 .product-image.grayscale {
   filter: grayscale(100%);
-  opacity: 0.8;
+  opacity: 0.6;
 }
 
 .discount-badge {
@@ -219,9 +219,12 @@
 }
 
 .btn-add:disabled {
-  background-color: #ccc;
+  background-color: #999;
+  /* Darker gray to look clearly disabled */
+  color: #fff;
   cursor: not-allowed;
-  color: #666;
+  border: 1px solid #999;
+  opacity: 0.8;
 }
 
 .quantity-controls {
