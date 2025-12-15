@@ -21,6 +21,7 @@ export interface FirestoreProduct {
     variants?: {
         name: string;
         stock: boolean;
+        stockQuantity?: number;
     }[];
 }
 
@@ -32,6 +33,7 @@ const INITIAL_STATE: FirestoreProduct = {
     img: "https://via.placeholder.com/150",
     images: [],
     stock: true,
+    stockQuantity: 0,
     discount: 0,
     variants: []
 };
@@ -99,13 +101,6 @@ export default function ProductManager() {
         }));
     };
 
-    const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: checked
-        }));
-    };
 
     // --- Image Handling ---
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,11 +150,14 @@ export default function ProductManager() {
     };
 
     // --- Variants Handling ---
-    const handleVariantChange = (idx: number, field: 'name' | 'stock', value: string | boolean) => {
+    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity', value: string | number) => {
         setFormData(prev => {
             const newVariants = [...(prev.variants || [])];
             // @ts-ignore
             newVariants[idx][field] = value;
+            // Also keep stock boolean true if quantity > 0 for backward compat or just ignore it
+            // @ts-ignore
+            if (field === 'stockQuantity') newVariants[idx].stock = Number(value) > 0;
             return { ...prev, variants: newVariants };
         });
     };
@@ -167,7 +165,7 @@ export default function ProductManager() {
     const addVariant = () => {
         setFormData(prev => ({
             ...prev,
-            variants: [...(prev.variants || []), { name: "", stock: true }]
+            variants: [...(prev.variants || []), { name: "", stock: true, stockQuantity: 0 }]
         }));
     };
 
@@ -274,10 +272,6 @@ export default function ProductManager() {
                                 <label>Descuento (%)</label>
                                 <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px' }}>
-                                <input type="checkbox" name="stock" checked={formData.stock} onChange={handleCheckboxChange} style={{ width: 'auto', height: 'auto' }} />
-                                <label style={{ margin: 0 }}>En Stock</label>
-                            </div>
                         </div>
 
                         {/* Fila 3: Imagenes (2) y Variantes (2) */}
@@ -310,14 +304,17 @@ export default function ProductManager() {
                                             placeholder="Nombre"
                                             value={v.name}
                                             onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                            style={{ flex: 1 }}
                                         />
                                         <input
-                                            type="checkbox"
-                                            checked={v.stock}
-                                            onChange={(e) => handleVariantChange(idx, 'stock', e.target.checked)}
-                                            style={{ width: 'auto', height: 'auto' }}
+                                            type="number"
+                                            placeholder="Stock"
+                                            value={v.stockQuantity ?? 0}
+                                            onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
+                                            style={{ width: '80px' }}
+                                            min="0"
                                         />
-                                        <button type="button" className="btn-remove-img" style={{ position: 'static', width: '16px', height: '16px', background: '#ff4444', borderRadius: '50%', fontSize: '10px', opacity: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => removeVariant(idx)}><FaTimes size={10} /></button>
+                                        <button type="button" className="btn-remove-img" style={{ position: 'static', width: '24px', height: '24px', background: '#ff4444', borderRadius: '50%', fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }} onClick={() => removeVariant(idx)}><FaTimes size={12} /></button>
                                     </div>
                                 ))}
                             </div>
@@ -332,52 +329,54 @@ export default function ProductManager() {
                         </button>
                     </div>
                 </form>
-            </div>
+            </div >
 
             {/* --- LISTA DE INVENTARIO --- */}
-            <div className="inventory-section">
+            < div className="inventory-section" >
                 <div className="inventory-header">
                     <h3>Inventario ({products.length})</h3>
                     <button className="btn-plain" onClick={reloadProducts} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><FaSync /> Actualizar</button>
                 </div>
 
-                {loading ? <p>Cargando inventario...</p> : (
-                    <div className="inventory-grid">
-                        {products.map(product => (
-                            <div key={product.id} className="admin-product-card">
-                                <div className="admin-card-img-container">
-                                    <img src={product.img || product.images?.[0]} alt={product.nombre} className="admin-card-img" />
-                                </div>
-                                <div className="admin-card-body">
-                                    <h4 className="admin-card-title">{product.nombre}</h4>
-                                    <div className="admin-card-price">${product.precio}</div>
-                                    <div className="admin-card-stock">
-                                        <span className={`stock-badge ${product.stock ? 'in-stock' : 'out-stock'}`}>
-                                            {product.stock ? 'Activo' : 'Inactivo'}
-                                        </span>
-                                        <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#333' }}>
-                                            Stock: {product.stockQuantity || 0}
-                                        </span>
-                                        {product.variants && product.variants.length > 0 && (
-                                            <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#888' }}>
-                                                {product.variants.length} var.
+                {
+                    loading ? <p>Cargando inventario...</p> : (
+                        <div className="inventory-grid">
+                            {products.map(product => (
+                                <div key={product.id} className="admin-product-card">
+                                    <div className="admin-card-img-container">
+                                        <img src={product.img || product.images?.[0]} alt={product.nombre} className="admin-card-img" />
+                                    </div>
+                                    <div className="admin-card-body">
+                                        <h4 className="admin-card-title">{product.nombre}</h4>
+                                        <div className="admin-card-price">${product.precio}</div>
+                                        <div className="admin-card-stock">
+                                            <span className={`stock-badge ${product.stock ? 'in-stock' : 'out-stock'}`}>
+                                                {product.stock ? 'Activo' : 'Inactivo'}
                                             </span>
-                                        )}
-                                    </div>
-                                    <div className="admin-card-actions">
-                                        <button className="btn-edit-card" onClick={() => handleEditClick(product)}>
-                                            <FaEdit /> Editar
-                                        </button>
-                                        <button className="btn-delete-card" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
-                                            <FaTrash />
-                                        </button>
+                                            <span style={{ marginLeft: '10px', fontWeight: 'bold', color: '#333' }}>
+                                                Stock: {product.stockQuantity || 0}
+                                            </span>
+                                            {product.variants && product.variants.length > 0 && (
+                                                <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#888' }}>
+                                                    {product.variants.length} var.
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="admin-card-actions">
+                                            <button className="btn-edit-card" onClick={() => handleEditClick(product)}>
+                                                <FaEdit /> Editar
+                                            </button>
+                                            <button className="btn-delete-card" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
+                                                <FaTrash />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </div >
+        </div >
     );
 }

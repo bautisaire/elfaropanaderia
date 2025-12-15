@@ -1,0 +1,109 @@
+.stock-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    padding: 20px;
+}
+
+.stock-modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    animation: fadeInScale 0.2s ease-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.stock-modal-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.stock-modal-content h3 {
+    margin-bottom: 10px;
+    color: #d32f2f;
+}
+
+.stock-error-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    text-align: left;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    border-radius: 8px;
+    background: #fffafa;
+}
+
+.stock-error-list li {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ffebee;
+    padding-bottom: 5px;
+}
+
+.stock-error-list li:last-child {
+    border-bottom: none;
+}
+
+.stock-detail {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.stock-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-shop-others {
+    background: #333;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-close-modal {
+    background: transparent;
+    color: #666;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.btn-shop-others:hover {
+    background: #111;
+}
+
+.btn-close-modal:hover {
+    background: #f5f5f5;
+}

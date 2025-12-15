@@ -3,13 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
 import { sendTelegramNotification } from "../utils/telegram";
+import { validateCartStock } from "../utils/stockValidation";
+import StockErrorModal from "../components/StockErrorModal";
 
 export default function Carrito() {
   const { cart, removeFromCart, clearCart, cartTotal } = useContext(CartContext);
   const navigate = useNavigate();
 
+  const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
   const [showCheckout, setShowCheckout] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showStickyCheckout, setShowStickyCheckout] = useState(false);
@@ -34,6 +37,19 @@ export default function Carrito() {
       }, 100);
     }
   }, [showCheckout]);
+
+  // Load saved customer info
+  useEffect(() => {
+    const saved = localStorage.getItem('customer_info');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setFormData(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error("Error loading customer info", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -89,9 +105,31 @@ export default function Carrito() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleProcederAlPago = async () => {
+    // 1. Validar Stock
+    const result = await validateCartStock(cart);
+    if (!result.isValid) {
+      setStockError({ isOpen: true, items: result.outOfStockItems });
+    } else {
+      setShowCheckout(true);
+    }
+  };
+
+  const handleStockFix = () => {
+    stockError.items.forEach(item => removeFromCart(item.id));
+    setStockError({ ...stockError, isOpen: false });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+
+    // 1. Validar Stock Antes de Proceder (Doble chequeo)
+    const validationResult = await validateCartStock(cart);
+    if (!validationResult.isValid) {
+      setStockError({ isOpen: true, items: validationResult.outOfStockItems });
+      return;
+    }
 
     // enviar o procesar pedido...
     const orderData = {
@@ -103,8 +141,87 @@ export default function Carrito() {
     };
 
     try {
-      await addDoc(collection(db, "orders"), orderData);
-      console.log("Pedido enviado:", orderData);
+      const docRef = await addDoc(collection(db, "orders"), orderData);
+      console.log("Pedido enviado, ID:", docRef.id);
+
+      // --- LOGICA DE STOCK Y SEGUIMIENTO (Restaurada) ---
+
+      // A. Guardar Order ID en LocalStorage para "Mis Pedidos"
+      try {
+        const newOrderId = docRef.id;
+        const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+
+        // Ensure we only store strings (simple IDs)
+        const cleanOrders = existingOrders.map((o: any) => typeof o === 'object' ? (o.id || o.orderId) : o);
+
+        if (!cleanOrders.includes(newOrderId)) {
+          cleanOrders.push(newOrderId);
+          localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
+          // Dispatch event so other components (Navbar) update immediately
+          window.dispatchEvent(new Event("storage"));
+        }
+
+        // Save Customer Info for next time
+        localStorage.setItem('customer_info', JSON.stringify(formData));
+
+      } catch (e) {
+        console.error("Error saving order/customer to local storage", e);
+      }
+
+      // B. Descontar Stock de Firestore y Registrar Movimientos
+      try {
+        for (const item of cart) {
+          // Check if item is a variant (format: ID-VariantName)
+          const isVariant = String(item.id).includes('-');
+          const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+          const itemRef = doc(db, "products", baseId);
+          const itemSnap = await getDoc(itemRef);
+
+          if (itemSnap.exists()) {
+            const data = itemSnap.data();
+            let variantName = "";
+
+            if (isVariant && data.variants) {
+              // Extract variant name from item name "Product (Variant)"
+              const match = item.name.match(/\(([^)]+)\)$/);
+              if (match) {
+                variantName = match[1];
+                const variants = [...data.variants];
+                const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                if (variantIdx >= 0) {
+                  const currentStock = variants[variantIdx].stockQuantity || 0;
+                  const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                  variants[variantIdx].stockQuantity = newStock;
+                  variants[variantIdx].stock = newStock > 0;
+
+                  await updateDoc(itemRef, { variants });
+                }
+              }
+            } else {
+              // Simple Product
+              const currentStock = data.stockQuantity || 0;
+              const newStock = Math.max(0, currentStock - (item.quantity || 1));
+              await updateDoc(itemRef, { stockQuantity: newStock });
+            }
+
+            // Log Movement
+            await addDoc(collection(db, "stock_movements"), {
+              productId: baseId,
+              productName: item.name,
+              type: 'OUT',
+              quantity: item.quantity || 1,
+              reason: 'Venta Online',
+              observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`,
+              date: new Date()
+            });
+          }
+        }
+      } catch (stockError) {
+        console.error("Error updating stock:", stockError);
+      }
+
+      // --- FIN LOGICA STOCK ---
 
       // Enviar notificación a Telegram (no bloqueante)
       sendTelegramNotification(orderData).catch(console.error);
@@ -135,7 +252,14 @@ export default function Carrito() {
 
   return (
     <div className="carrito-container">
-      <h2>🛒 Tu carrito</h2>
+      <h2>
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', verticalAlign: 'middle' }}>
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        Tu carrito
+      </h2>
 
       {cart.length === 0 ? (
         <p className="empty-cart">El carrito está vacío.</p>
@@ -154,7 +278,10 @@ export default function Carrito() {
                   onClick={() => removeFromCart(item.id)}
                   aria-label="Quitar producto"
                 >
-                  ❌
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
                 </button>
               </div>
             ))}
@@ -169,12 +296,16 @@ export default function Carrito() {
               <button
                 ref={checkoutBtnRef}
                 className="btn-checkout"
-                onClick={() => setShowCheckout(true)}
+                onClick={handleProcederAlPago}
               >
                 Proceder al pago
               </button>
               <button className="btn-clear" onClick={clearCart}>
-                Vaciar carrito 🗑️
+                Vaciar carrito
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
               </button>
             </div>
           ) : (
@@ -246,18 +377,48 @@ export default function Carrito() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="metodoPago">
+                <label>
                   Método de pago cuando llegue el pedido <span className="required">*</span>
                 </label>
-                <select
-                  id="metodoPago"
-                  name="metodoPago"
-                  value={formData.metodoPago}
-                  onChange={handleInputChange}
-                >
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia (al repartidor)</option>
-                </select>
+                <div className="radio-group">
+                  <label className={`radio-card ${formData.metodoPago === 'efectivo' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="metodoPago"
+                      value="efectivo"
+                      checked={formData.metodoPago === 'efectivo'}
+                      onChange={handleInputChange}
+                      className="radio-input"
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="1" x2="12" y2="23"></line>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <div>
+                      <div className="radio-label">Efectivo</div>
+                      <div className="radio-desc">Pagas al repartidor</div>
+                    </div>
+                  </label>
+
+                  <label className={`radio-card ${formData.metodoPago === 'transferencia' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="metodoPago"
+                      value="transferencia"
+                      checked={formData.metodoPago === 'transferencia'}
+                      onChange={handleInputChange}
+                      className="radio-input"
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                      <line x1="1" y1="10" x2="23" y2="10"></line>
+                    </svg>
+                    <div>
+                      <div className="radio-label">Transferencia</div>
+                      <div className="radio-desc">Al alias del repartidor</div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div className="form-actions">
@@ -285,9 +446,7 @@ export default function Carrito() {
                 </div>
                 <button
                   className="btn-sticky-checkout"
-                  onClick={() => {
-                    setShowCheckout(true);
-                  }}
+                  onClick={handleProcederAlPago}
                 >
                   Proceder al pago
                 </button>
@@ -300,13 +459,25 @@ export default function Carrito() {
       {showConfirmation && (
         <div className="order-modal" role="dialog" aria-modal="true">
           <div className="order-modal-content">
-            <div className="order-emoji" aria-hidden>🛵</div>
-            <h3>Pedido realizado! 🎉</h3>
+            <svg xmlns="http://www.w3.org/2000/svg" className="order-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            <h3>Pedido realizado!</h3>
             <p>En breves nos comunicaremos con usted</p>
             <p>¡Gracias por su compra!</p>
           </div>
         </div>
       )}
+
+      <StockErrorModal
+        isOpen={stockError.isOpen}
+        onClose={() => setStockError({ ...stockError, isOpen: false })}
+        onConfirm={handleStockFix}
+        outOfStockItems={stockError.items}
+      />
     </div>
   );
 }

@@ -6,13 +6,36 @@ import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
 import { Product } from "../context/CartContext";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+
+  // Registro de visitas
+  useEffect(() => {
+    const recordVisit = async () => {
+      const visited = sessionStorage.getItem('hasVisited');
+      if (!visited) {
+        try {
+          const statsRef = doc(db, "stats", "general");
+          await updateDoc(statsRef, {
+            visits: increment(1)
+          });
+        } catch (error: any) {
+          if (error.code === 'not-found') {
+            await setDoc(doc(db, "stats", "general"), {
+              visits: 1
+            });
+          }
+        }
+        sessionStorage.setItem('hasVisited', 'true');
+      }
+    };
+    recordVisit();
+  }, []);
 
   // Cargar productos y categorías desde Firebase
   useEffect(() => {

@@ -11,12 +11,16 @@ export const sendTelegramNotification = async (orderData: any) => {
     // Limpiar número para el link (quitar espacios, guiones, etc)
     const cleanPhone = cliente.telefono.replace(/\D/g, "");
 
+    // Generar link de maps
+    const encodedAddress = encodeURIComponent(`${cliente.direccion}, Senillosa, Neuquen`);
+    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+
     // Mensaje 1: Para el comercio (Datos copiables)
     const adminMessage = `
 📦 *NUEVO PEDIDO RECIBIDO* 📦
 
 👤 *Cliente:* ${cliente.nombre}
-📍 *Dirección:* \`${cliente.direccion}\`
+📍 *Dirección:* [${cliente.direccion}](${mapLink})
 📞 *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
 💰 *Método de Pago:* ${cliente.metodoPago}
 📝 *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
@@ -29,7 +33,7 @@ ${itemsList}
 
     // Mensaje 2: Plantilla para enviar al cliente
     const clientMessage = `
-👋 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
+ ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
 
 📝 *Resumen:*
 ${itemsList}

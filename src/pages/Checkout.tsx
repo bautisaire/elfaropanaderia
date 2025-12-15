@@ -32,29 +32,73 @@ export default function Checkout() {
       });
 
       if (response.ok) {
+        // Save Order ID to LocalStorage for "Mis Pedidos"
+        try {
+          const responseData = await response.json();
+          const newOrderId = responseData.id || responseData.orderId;
+
+          if (newOrderId) {
+            const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+            // Ensure we only store strings to avoid the bug we just fixed
+            const cleanOrders = existingOrders.map((o: any) => typeof o === 'object' ? o.id : o);
+
+            if (!cleanOrders.includes(newOrderId)) {
+              cleanOrders.push(newOrderId);
+              localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
+              window.dispatchEvent(new Event("storage"));
+            }
+          }
+        } catch (e) {
+          console.error("Error saving order to local storage", e);
+        }
+
         // 2. SUCCESS: Now Deduct Stock from Firestore (Client-side)
         // We do this individually for each product (simple approach) or batch
         // For robustness, we catch errors here but don't stop the success flow of the order (since the order is already placed).
         try {
           for (const item of cart) {
-            const itemRef = doc(db, "products", String(item.id));
+            // Check if item is a variant (format: ID-VariantName)
+            const isVariant = String(item.id).includes('-');
+            const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+            const itemRef = doc(db, "products", baseId);
             const itemSnap = await getDoc(itemRef);
 
             if (itemSnap.exists()) {
-              const currentStock = itemSnap.data().stockQuantity || 0;
-              const newStock = Math.max(0, currentStock - (item.quantity || 1));
+              const data = itemSnap.data();
+              let variantName = "";
 
-              // Update Product
-              await updateDoc(itemRef, { stockQuantity: newStock });
+              if (isVariant && data.variants) {
+                // Extract variant name from item name "Product (Variant)"
+                const match = item.name.match(/\(([^)]+)\)$/);
+                if (match) {
+                  variantName = match[1];
+                  const variants = [...data.variants];
+                  const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                  if (variantIdx >= 0) {
+                    const currentStock = variants[variantIdx].stockQuantity || 0;
+                    const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                    variants[variantIdx].stockQuantity = newStock;
+                    variants[variantIdx].stock = newStock > 0;
+
+                    await updateDoc(itemRef, { variants });
+                  }
+                }
+              } else {
+                // Simple Product
+                const currentStock = data.stockQuantity || 0;
+                const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                await updateDoc(itemRef, { stockQuantity: newStock });
+              }
 
               // Log Movement
               await addDoc(collection(db, "stock_movements"), {
-                productId: String(item.id),
+                productId: baseId,
                 productName: item.name,
                 type: 'OUT',
                 quantity: item.quantity || 1,
                 reason: 'Venta Online',
-                observation: `Pedido Web`,
+                observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`,
                 date: new Date()
               });
             }

@@ -215,5 +215,75 @@
 
 .movement-meta {
     font-size: 0.85rem;
+
     color: #6b7280;
+}
+
+/* Bulk Update Styles */
+.stock-bulk-container {
+    animation: fadeIn 0.3s ease;
+}
+
+.bulk-header {
+    background: #f0f9ff;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #bae6fd;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.bulk-header label {
+    font-weight: 600;
+    color: #0369a1;
+}
+
+.bulk-reason-select {
+    padding: 8px 12px;
+    border: 1px solid #7dd3fc;
+    border-radius: 6px;
+    flex: 1;
+    max-width: 300px;
+}
+
+.btn-save-bulk {
+    background: #0ea5e9;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: auto;
+    box-shadow: 0 2px 4px rgba(14, 165, 233, 0.2);
+}
+
+.btn-save-bulk:hover {
+    background: #0284c7;
+}
+
+.bulk-input {
+    width: 100px;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 600;
+    color: #111827;
+}
+
+.bulk-input:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.text-gray {
+    color: #6b7280;
+}
+
+.text-sm {
+    font-size: 0.875rem;
 }

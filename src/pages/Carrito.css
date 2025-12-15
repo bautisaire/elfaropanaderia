@@ -468,6 +468,107 @@
   }
 }
 
+/* Payment Method Cards */
+.radio-group {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 481px) {
+  .radio-group {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #f0f0f0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  background: #fcfcfc;
+  position: relative;
+}
+
+.radio-card:hover {
+  border-color: #e0e0e0;
+  background: white;
+}
+
+.radio-card.selected {
+  border-color: #ff8c00;
+  background: #fff8e1;
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.15);
+}
+
+.radio-input {
+  display: none;
+}
+
+.radio-icon {
+  width: 24px;
+  height: 24px;
+  color: #888;
+  flex-shrink: 0;
+}
+
+.radio-card.selected .radio-icon {
+  color: #ff8c00;
+}
+
+.radio-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.radio-desc {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* Icons */
+.icon-svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.btn-remove .icon-svg {
+  width: 20px;
+  height: 20px;
+  color: #ff4444;
+}
+
+.btn-checkout,
+.btn-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Modal Icon */
+.order-icon-large {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  color: #ff8c00;
+  animation: bounce 1s infinite;
+}
+
 @media (max-width: 480px) {
   .checkout-form {
     padding: 24px 20px;

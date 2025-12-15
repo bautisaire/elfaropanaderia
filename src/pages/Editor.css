@@ -84,16 +84,20 @@
     box-shadow: 0 4px 6px rgba(11, 116, 255, 0.2);
 }
 
-.btn-logout {
-    margin-top: auto !important;
-    /* Push to bottom */
-    border-top: 1px solid #374151 !important;
-    padding-top: 20px;
-    color: #ef4444 !important;
-    /* Red */
+.sidebar-footer {
+    margin-top: auto;
+    border-top: 1px solid #374151;
+    padding-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.btn-logout:hover {
+.btn-logout-action {
+    color: #ef4444 !important;
+}
+
+.btn-logout-action:hover {
     background-color: #372020 !important;
 }
 

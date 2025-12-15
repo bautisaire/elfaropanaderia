@@ -7,7 +7,12 @@ import './StockManager.css';
 interface Product {
     id: string;
     nombre: string;
-    stockQuantity?: number; // Numeric stock
+    stockQuantity?: number;
+    variants?: {
+        name: string;
+        stock: boolean;
+        stockQuantity?: number;
+    }[];
 }
 
 interface StockMovement {
@@ -22,18 +27,22 @@ interface StockMovement {
 }
 
 export default function StockManager() {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'history'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('inventory');
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Modal State
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null);
     const [adjustmentType, setAdjustmentType] = useState<'IN' | 'OUT'>('IN');
     const [amount, setAmount] = useState<string>('');
     const [reason, setReason] = useState<string>('Elaboración');
     const [observation, setObservation] = useState<string>('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const [bulkUpdates, setBulkUpdates] = useState<Record<string, number>>({});
+    const [bulkReason, setBulkReason] = useState<string>("Compra a Proveedor");
 
     useEffect(() => {
         fetchProducts();
@@ -84,6 +93,7 @@ export default function StockManager() {
 
     const openAdjustmentModal = (product: Product) => {
         setSelectedProduct(product);
+        setSelectedVariantIdx(null);
         setAdjustmentType('IN');
         setAmount('');
         setReason('Elaboración');
@@ -95,8 +105,21 @@ export default function StockManager() {
         if (!selectedProduct || !amount || Number(amount) <= 0) return;
 
         const qty = Number(amount);
-        const currentStock = selectedProduct.stockQuantity || 0;
-        const newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
+        let newStock = 0;
+        let variants = selectedProduct.variants ? [...selectedProduct.variants] : [];
+        let variantName = "";
+
+        if (selectedVariantIdx !== null && variants.length > 0) {
+            const currentStock = variants[selectedVariantIdx].stockQuantity || 0;
+            newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
+            variants[selectedVariantIdx].stockQuantity = newStock;
+            // Ensure stock bool matches
+            variants[selectedVariantIdx].stock = newStock > 0;
+            variantName = variants[selectedVariantIdx].name;
+        } else {
+            const currentStock = selectedProduct.stockQuantity || 0;
+            newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
+        }
 
         if (newStock < 0) {
             alert("El stock no puede ser negativo.");
@@ -104,10 +127,12 @@ export default function StockManager() {
         }
 
         try {
-            // 1. Update Product Stock
-            await updateDoc(doc(db, "products", selectedProduct.id), {
-                stockQuantity: newStock
-            });
+            // 1. Update Product
+            if (selectedVariantIdx !== null && variants.length > 0) {
+                await updateDoc(doc(db, "products", selectedProduct.id), { variants });
+            } else {
+                await updateDoc(doc(db, "products", selectedProduct.id), { stockQuantity: newStock });
+            }
 
             // 2. Log Movement
             await addDoc(collection(db, "stock_movements"), {
@@ -116,16 +141,91 @@ export default function StockManager() {
                 type: adjustmentType,
                 quantity: qty,
                 reason: reason,
-                observation: observation,
+                observation: observation + (variantName ? ` (Var: ${variantName})` : ''),
                 date: new Date()
             });
 
             alert("Stock actualizado correctamente.");
             setIsModalOpen(false);
-            fetchProducts(); // Refresh list
+            fetchProducts();
         } catch (error) {
             console.error("Error saving stock adjustment:", error);
             alert("Error al actualizar stock.");
+        }
+    };
+
+    // Bulk Update Logic
+    const handleBulkChange = (id: string, value: string) => {
+        const val = Number(value);
+        setBulkUpdates(prev => {
+            if (val <= 0) {
+                const copy = { ...prev };
+                delete copy[id];
+                return copy;
+            }
+            return { ...prev, [id]: val };
+        });
+    };
+
+    const handleBulkSave = async () => {
+        const entries = Object.entries(bulkUpdates);
+        if (entries.length === 0) return alert("No hay cambios para guardar.");
+        if (!window.confirm(`¿Confirmar carga masiva de ${entries.length} items?`)) return;
+
+        setLoading(true);
+        try {
+            for (const [key, qty] of entries) {
+                // Key format: "productId" or "productId-variantIndex"
+                const [prodId, varIdxStr] = key.split('-');
+                const product = products.find(p => p.id === prodId);
+                if (!product) continue;
+
+                if (varIdxStr !== undefined) {
+                    // Variant Update
+                    const varIdx = Number(varIdxStr);
+                    const variants = [...(product.variants || [])];
+                    if (variants[varIdx]) {
+                        const current = variants[varIdx].stockQuantity || 0;
+                        variants[varIdx].stockQuantity = current + qty;
+                        variants[varIdx].stock = (current + qty) > 0;
+
+                        await updateDoc(doc(db, "products", prodId), { variants });
+
+                        await addDoc(collection(db, "stock_movements"), {
+                            productId: prodId,
+                            productName: product.nombre,
+                            type: 'IN',
+                            quantity: qty,
+                            reason: bulkReason,
+                            observation: `Carga Masiva (Var: ${variants[varIdx].name})`,
+                            date: new Date()
+                        });
+                    }
+                } else {
+                    // Simple Product Update
+                    const current = product.stockQuantity || 0;
+                    await updateDoc(doc(db, "products", prodId), { stockQuantity: current + qty });
+
+                    await addDoc(collection(db, "stock_movements"), {
+                        productId: prodId,
+                        productName: product.nombre,
+                        type: 'IN',
+                        quantity: qty,
+                        reason: bulkReason,
+                        observation: `Carga Masiva`,
+                        date: new Date()
+                    });
+                }
+            }
+
+            setBulkUpdates({});
+            alert("Carga masiva completada exitosamente.");
+            fetchProducts();
+        } catch (error) {
+            console.error("Error in bulk update:", error);
+            alert("Error durante la carga masiva. Revise la consola.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -144,15 +244,22 @@ export default function StockManager() {
                     <FaBoxes /> Inventario
                 </button>
                 <button
+                    className={`stock-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('bulk')}
+                >
+                    <FaPlus /> Carga Masiva
+                </button>
+                <button
                     className={`stock-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
                     onClick={() => setActiveTab('history')}
                 >
-                    <FaHistory /> Historial de Movimientos
+                    <FaHistory /> Historial
                 </button>
             </div>
 
             {loading && <p>Cargando...</p>}
 
+            {/* TAB INVENTARIO */}
             {activeTab === 'inventory' && !loading && (
                 <div className="stock-table-container">
                     <table className="stock-table">
@@ -184,6 +291,78 @@ export default function StockManager() {
                 </div>
             )}
 
+            {/* TAB CARGA MASIVA */}
+            {activeTab === 'bulk' && !loading && (
+                <div className="stock-bulk-container">
+                    <div className="bulk-header">
+                        <label>Motivo de la carga:</label>
+                        <select value={bulkReason} onChange={e => setBulkReason(e.target.value)} className="bulk-reason-select">
+                            {reasonsIn.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button className="btn-save-bulk" onClick={handleBulkSave}>
+                            Guardar Carga ({Object.keys(bulkUpdates).length})
+                        </button>
+                    </div>
+
+                    <div className="stock-table-container">
+                        <table className="stock-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto / Variante</th>
+                                    <th>Stock Actual</th>
+                                    <th>Agregar Cantidad (+)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {products.map(p => {
+                                    // If product has variants, render a row for each variant
+                                    if (p.variants && p.variants.length > 0) {
+                                        return p.variants.map((v, idx) => (
+                                            <tr key={`${p.id}-${idx}`}>
+                                                <td>
+                                                    <strong>{p.nombre}</strong> <br />
+                                                    <span className="text-sm text-gray">{v.name}</span>
+                                                </td>
+                                                <td>{v.stockQuantity || 0}</td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        className="bulk-input"
+                                                        value={bulkUpdates[`${p.id}-${idx}`] || ''}
+                                                        onChange={e => handleBulkChange(`${p.id}-${idx}`, e.target.value)}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ));
+                                    } else {
+                                        // Simple product row
+                                        return (
+                                            <tr key={p.id}>
+                                                <td><strong>{p.nombre}</strong></td>
+                                                <td>{p.stockQuantity || 0}</td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        className="bulk-input"
+                                                        value={bulkUpdates[p.id] || ''}
+                                                        onChange={e => handleBulkChange(p.id, e.target.value)}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB HISTORIAL */}
             {activeTab === 'history' && !loading && (
                 <div className="history-list">
                     {movements.length === 0 && <p>No hay movimientos registrados.</p>}
@@ -211,6 +390,24 @@ export default function StockManager() {
                         <h3>Ajustar Stock: {selectedProduct.nombre}</h3>
 
                         <div className="stock-modal-form">
+                            {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                                <div className="stock-form-group">
+                                    <label>Seleccionar Variante</label>
+                                    <select
+                                        value={selectedVariantIdx ?? ''}
+                                        onChange={e => setSelectedVariantIdx(Number(e.target.value))}
+                                        className="stock-select"
+                                    >
+                                        <option value="" disabled>-- Elige una variante --</option>
+                                        {selectedProduct.variants.map((v, idx) => (
+                                            <option key={idx} value={idx}>
+                                                {v.name} (Stock: {v.stockQuantity || 0})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div className="stock-form-group">
                                 <label>Tipo de movimiento</label>
                                 <div className="stock-action-type">

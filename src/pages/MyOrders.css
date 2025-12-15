@@ -1,0 +1,198 @@
+.my-orders-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 60vh;
+    padding-top: 60px;
+}
+
+.my-orders-container h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2rem;
+    color: #333;
+}
+
+.loading-container {
+    text-align: center;
+    padding: 50px;
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.no-orders {
+    text-align: center;
+    padding: 40px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    color: #666;
+}
+
+.orders-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.my-order-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    transition: transform 0.2s ease;
+}
+
+.my-order-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.order-date {
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-items {
+    margin-bottom: 15px;
+}
+
+.order-item-row {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 4px;
+}
+
+.order-footer {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+/* --- Skeleton Loading --- */
+.skeleton-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.skeleton-line {
+    height: 15px;
+    background: #e0e0e0;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    animation: pulse 1.5s infinite;
+}
+
+.skeleton-line.short {
+    width: 40%;
+}
+
+.skeleton-line.medium {
+    width: 70%;
+}
+
+.skeleton-line.long {
+    width: 90%;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+/* --- Stepper (Progress Map) --- */
+.stepper-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    position: relative;
+    padding: 0 10px;
+}
+
+/* Line that goes behind steps */
+.stepper-line-bg {
+    position: absolute;
+    top: 15px;
+    /* Adjust based on circle size */
+    left: 20px;
+    right: 20px;
+    height: 4px;
+    background: #e0e0e0;
+    z-index: 0;
+}
+
+.step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 25%;
+    /* distribute evenly */
+}
+
+.step-circle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #ccc;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.step.active .step-circle,
+.step.completed .step-circle {
+    background: #4caf50;
+    /* Green */
+    transform: scale(1.1);
+}
+
+.step.active .step-circle {
+    box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.2);
+}
+
+.step-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
+}
+
+.step.active .step-label {
+    color: #333;
+    font-weight: bold;
+}

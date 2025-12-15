@@ -79,8 +79,8 @@ export default function ProductCard({ product }: Props) {
 
   // Determine if the product is out of stock
   const isOutOfStock = product.variants && product.variants.length > 0
-    ? product.variants.every(v => !v.stock)
-    : product.stock === false;
+    ? product.variants.every(v => (v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock))
+    : (product.stockQuantity !== undefined ? product.stockQuantity <= 0 : !product.stock);
 
   return (
     <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
@@ -129,8 +129,11 @@ export default function ProductCard({ product }: Props) {
                 <button
                   key={idx}
                   className={`variant-bubble ${selectedVariant === variant.name ? "selected" : ""}`}
-                  onClick={() => variant.stock && setSelectedVariant(variant.name)}
-                  disabled={!variant.stock}
+                  onClick={() => {
+                    const hasStock = variant.stockQuantity !== undefined ? variant.stockQuantity > 0 : variant.stock;
+                    if (hasStock) setSelectedVariant(variant.name);
+                  }}
+                  disabled={variant.stockQuantity !== undefined ? variant.stockQuantity <= 0 : !variant.stock}
                 >
                   {variant.name}
                 </button>

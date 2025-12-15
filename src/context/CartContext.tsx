@@ -11,9 +11,11 @@ export interface Product {
   variants?: {
     name: string;
     stock: boolean;
+    stockQuantity?: number;
   }[];
   quantity?: number;
   stock?: boolean;
+  stockQuantity?: number;
   discount?: number;
   categoria?: string;
 }

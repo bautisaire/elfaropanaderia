@@ -3,13 +3,14 @@ import "./Editor.css";
 import { auth, googleProvider } from "../firebase/firebaseConfig";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck } from "react-icons/fa";
+import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import CategoryManager from "../components/CategoryManager";
 import HeroManager from "../components/HeroManager";
 import StoreStatusManager from "../components/StoreStatusManager";
 import StockManager from "../components/StockManager";
+import Dashboard from "../components/Dashboard";
 
 // 🔴 CONFIGURACIÓN: Reemplaza esto con tu email real de Google
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -18,7 +19,7 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"products" | "orders" | "categories" | "hero" | "store" | "stock">("products");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "categories" | "hero" | "store" | "stock">("dashboard");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -95,6 +96,12 @@ export default function Editor() {
             </div>
             <nav>
               <button
+                className={activeTab === "dashboard" ? "active" : ""}
+                onClick={() => setActiveTab("dashboard")}
+              >
+                <FaChartPie /> Dashboard
+              </button>
+              <button
                 className={activeTab === "products" ? "active" : ""}
                 onClick={() => setActiveTab("products")}
               >
@@ -130,17 +137,21 @@ export default function Editor() {
               >
                 <FaStore /> Estado Tienda
               </button>
-              <button onClick={() => navigate("/")}>
-                <FaHome /> Ir al Inicio
-              </button>
-              <button onClick={handleLogout} className="btn-logout">
-                <FaSignOutAlt /> Cerrar Sesión
-              </button>
+              <div className="sidebar-footer">
+                <button onClick={() => navigate("/")}>
+                  <FaHome /> Ir al Inicio
+                </button>
+                <button onClick={handleLogout} className="btn-logout-action">
+                  <FaSignOutAlt /> Cerrar Sesión
+                </button>
+              </div>
             </nav>
           </aside>
 
           <main className="editor-content">
-            {activeTab === "orders" ? (
+            {activeTab === "dashboard" ? (
+              <Dashboard />
+            ) : activeTab === "orders" ? (
               <OrdersManager />
             ) : activeTab === "categories" ? (
               <CategoryManager />

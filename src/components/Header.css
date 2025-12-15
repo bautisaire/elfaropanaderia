@@ -8,7 +8,8 @@
   --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 30px rgba(0, 0, 0, 0.1);
   --transition-speed: 0.3s;
-  --header-height: 70px; /* Define header height for spacing */
+  --header-height: 70px;
+  /* Define header height for spacing */
 }
 
 .header-container {
@@ -54,21 +55,22 @@
 }
 
 .logo-img {
-  height: 40px;
+  height: 60px;
+  /* Increased from 40px */
   width: auto;
   transition: transform var(--transition-speed) ease;
 }
 
 .header-container.scrolled .logo-img {
-  height: 36px;
+  height: 45px;
+  /* Slightly smaller when scrolled */
 }
 
 .brand-name {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.25rem;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--primary-color);
-  letter-spacing: 0.5px;
   transition: font-size var(--transition-speed) ease;
 }
 
@@ -113,12 +115,17 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  position: relative;
+  /* Anchor for absolute badge */
 }
 
 .cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -12px;
   background-color: var(--primary-color);
   color: white;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
@@ -154,7 +161,7 @@
   .brand-name {
     font-size: 1.1rem;
   }
-  
+
   .nav-menu {
     gap: 1rem;
   }
@@ -165,11 +172,13 @@
 }
 
 @media (max-width: 480px) {
-  .brand-name {
-    display: none; /* Hide brand name on very small screens to save space */
+  .brand-suffix {
+    display: none;
+    /* Hide 'PANADERIA' on small screens */
   }
-  
+
   .logo-img {
-    height: 36px;
+    height: 42px;
+    /* Adjustable for mobile */
   }
 }
