@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
-import { collection, onSnapshot, updateDoc, doc, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, updateDoc, doc, orderBy, query, getDoc, addDoc } from "firebase/firestore";
 import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen } from 'react-icons/fa';
+import { syncChildProducts } from "../utils/stockUtils";
 import "./OrdersManager.css";
 
 interface Order {
@@ -53,6 +54,200 @@ export default function OrdersManager() {
 
     const updateStatus = async (id: string, status: string) => {
         try {
+            const orderToCancel = orders.find(o => o.id === id);
+
+            // 1. Si el nuevo estado es Cancelado, devolver stock
+            if (status === 'cancelado') {
+                if (orderToCancel && orderToCancel.status !== 'cancelado') {
+                    // Iterar sobre los productos y devolver stock
+                    for (const item of orderToCancel.items) {
+                        try {
+                            const isVariant = String(item.id).includes('-');
+                            const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                            const itemRef = doc(db, "products", baseId);
+                            const itemSnap = await getDoc(itemRef);
+
+                            if (itemSnap.exists()) {
+                                const data = itemSnap.data();
+
+                                // --- Lógica Derivados (Packs) ---
+                                if (data.stockDependency && data.stockDependency.productId) {
+                                    const parentId = data.stockDependency.productId;
+                                    const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                                    const qtyToRestore = (item.quantity || 1) * unitsToDeduct;
+
+                                    const parentRef = doc(db, "products", parentId);
+                                    const parentSnap = await getDoc(parentRef);
+
+                                    if (parentSnap.exists()) {
+                                        const parentData = parentSnap.data();
+                                        const currentParentStock = parentData.stockQuantity || 0;
+                                        const newParentStock = currentParentStock + qtyToRestore;
+
+                                        // Restaurar Padre
+                                        await updateDoc(parentRef, { stockQuantity: newParentStock });
+
+                                        // Movimiento de Stock (ENTRADA)
+                                        await addDoc(collection(db, "stock_movements"), {
+                                            productId: parentId,
+                                            productName: parentData.nombre,
+                                            type: 'IN',
+                                            quantity: qtyToRestore,
+                                            reason: 'Pedido Cancelado',
+                                            observation: `Cancelación Pedido derivado: ${item.name}`,
+                                            date: new Date()
+                                        });
+
+                                        // Sincronizar hijos
+                                        await syncChildProducts(parentId, newParentStock);
+                                    }
+                                }
+                                // --- Fin Lógica Derivados ---
+                                else {
+                                    // Lógica Normal
+                                    let variantName = "";
+
+                                    if (isVariant && data.variants) {
+                                        const match = item.name.match(/\(([^)]+)\)$/);
+                                        if (match) variantName = match[1];
+
+                                        if (variantName) {
+                                            const variants = [...data.variants];
+                                            const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                                            if (variantIdx >= 0) {
+                                                const currentStock = variants[variantIdx].stockQuantity || 0;
+                                                const newStock = currentStock + (item.quantity || 1);
+                                                variants[variantIdx].stockQuantity = newStock;
+                                                variants[variantIdx].stock = newStock > 0;
+
+                                                await updateDoc(itemRef, { variants });
+                                            }
+                                        }
+                                    } else {
+                                        // Producto Simple
+                                        const currentStock = data.stockQuantity || 0;
+                                        const newStock = currentStock + (item.quantity || 1);
+
+                                        await updateDoc(itemRef, { stockQuantity: newStock });
+
+                                        // Sincronizar si es padre
+                                        await syncChildProducts(baseId, newStock);
+                                    }
+
+                                    // Movimiento de Stock (ENTRADA)
+                                    await addDoc(collection(db, "stock_movements"), {
+                                        productId: baseId,
+                                        productName: item.name,
+                                        type: 'IN',
+                                        quantity: item.quantity || 1,
+                                        reason: 'Pedido Cancelado',
+                                        observation: `Cancelación Pedido #${id.slice(-4)}`,
+                                        date: new Date()
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`Error restaurando stock para ${item.name}:`, err);
+                        }
+                    }
+                }
+            }
+
+            // 2. Si el pedido estaba Cancelado y pasa a otro estado (Reactivación), descontar stock nuevamente
+            else if (orderToCancel && orderToCancel.status === 'cancelado' && status !== 'cancelado') {
+                for (const item of orderToCancel.items) {
+                    try {
+                        const isVariant = String(item.id).includes('-');
+                        const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                        const itemRef = doc(db, "products", baseId);
+                        const itemSnap = await getDoc(itemRef);
+
+                        if (itemSnap.exists()) {
+                            const data = itemSnap.data();
+
+                            // --- Lógica Derivados (Packs) ---
+                            if (data.stockDependency && data.stockDependency.productId) {
+                                const parentId = data.stockDependency.productId;
+                                const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                                const qtyToDeduct = (item.quantity || 1) * unitsToDeduct;
+
+                                const parentRef = doc(db, "products", parentId);
+                                const parentSnap = await getDoc(parentRef);
+
+                                if (parentSnap.exists()) {
+                                    const parentData = parentSnap.data();
+                                    const currentParentStock = parentData.stockQuantity || 0;
+                                    const newParentStock = Math.max(0, currentParentStock - qtyToDeduct);
+
+                                    // Actualizar Padre
+                                    await updateDoc(parentRef, { stockQuantity: newParentStock });
+
+                                    // Movimiento de Stock (SALIDA)
+                                    await addDoc(collection(db, "stock_movements"), {
+                                        productId: parentId,
+                                        productName: parentData.nombre,
+                                        type: 'OUT',
+                                        quantity: qtyToDeduct,
+                                        reason: 'Pedido Reactivado',
+                                        observation: `Reactivación Pedido derivado: ${item.name}`,
+                                        date: new Date()
+                                    });
+
+                                    // Sincronizar hijos
+                                    await syncChildProducts(parentId, newParentStock);
+                                }
+                            }
+                            // --- Fin Lógica Derivados ---
+                            else {
+                                // Lógica Normal
+                                let variantName = "";
+                                if (isVariant && data.variants) {
+                                    const match = item.name.match(/\(([^)]+)\)$/);
+                                    if (match) variantName = match[1];
+
+                                    if (variantName) {
+                                        const variants = [...data.variants];
+                                        const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                                        if (variantIdx >= 0) {
+                                            const currentStock = variants[variantIdx].stockQuantity || 0;
+                                            const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                                            variants[variantIdx].stockQuantity = newStock;
+                                            variants[variantIdx].stock = newStock > 0;
+
+                                            await updateDoc(itemRef, { variants });
+                                        }
+                                    }
+                                } else {
+                                    // Producto Simple
+                                    const currentStock = data.stockQuantity || 0;
+                                    const newStock = Math.max(0, currentStock - (item.quantity || 1));
+
+                                    await updateDoc(itemRef, { stockQuantity: newStock });
+
+                                    // Sincronizar si es padre
+                                    await syncChildProducts(baseId, newStock);
+                                }
+
+                                // Movimiento de Stock (SALIDA)
+                                await addDoc(collection(db, "stock_movements"), {
+                                    productId: baseId,
+                                    productName: item.name,
+                                    type: 'OUT',
+                                    quantity: item.quantity || 1,
+                                    reason: 'Pedido Reactivado',
+                                    observation: `Reactivación Pedido #${id.slice(-4)}`,
+                                    date: new Date()
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Error descontando stock al reactivar ${item.name}:`, err);
+                    }
+                }
+            }
+
             await updateDoc(doc(db, "orders", id), { status });
         } catch (error) {
             console.error("Error updating status:", error);

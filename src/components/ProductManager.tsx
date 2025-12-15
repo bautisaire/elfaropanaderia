@@ -3,6 +3,7 @@ import { db, storage } from "../firebase/firebaseConfig";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { compressImage } from "../utils/imageUtils";
+import { syncChildProducts } from "../utils/stockUtils";
 import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaSearch, FaEyeSlash } from 'react-icons/fa';
 import "./ProductManager.css";
 
@@ -234,6 +235,10 @@ export default function ProductManager() {
             if (isEditing && formData.id) {
                 const { id, ...dataToUpdate } = formData;
                 await updateDoc(doc(db, "products", id), dataToUpdate);
+
+                // Sync children if stock changed
+                await syncChildProducts(id, dataToUpdate.stockQuantity || 0);
+
                 setMessage("Producto actualizado correctamente");
             } else {
                 await addDoc(collection(db, "products"), formData);

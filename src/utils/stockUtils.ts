@@ -10,11 +10,6 @@ import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/fir
  */
 export const syncChildProducts = async (parentId: string, newParentStock: number) => {
     try {
-        // Buscar todos los productos que dependen de este padre
-        // Nota: Esto requiere un índice compuesto en Firestore si "stockDependency.productId" es un objeto anidado.
-        // O podemos filtrar en cliente si son pocos productos, pero lo ideal es query.
-        // Asumimos que guardamos 'stockDependency.productId' como un campo consultable o consultamos todo.
-
         // Estrategia Robustas: Consultar 'products' donde 'stockDependency.productId' == parentId
         const q = query(
             collection(db, "products"),

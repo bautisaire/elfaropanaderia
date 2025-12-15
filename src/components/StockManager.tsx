@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit } from 'firebase/firestore';
+import { syncChildProducts } from "../utils/stockUtils";
 import { FaBoxes, FaHistory, FaEdit, FaPlus, FaMinus } from 'react-icons/fa';
 import './StockManager.css';
 
@@ -133,8 +134,11 @@ export default function StockManager() {
             // 1. Update Product
             if (selectedVariantIdx !== null && variants.length > 0) {
                 await updateDoc(doc(db, "products", selectedProduct.id), { variants });
+                // We don't sync children on variant updates unless the variant IS the parent (rare case, usually parent is simple prod)
             } else {
                 await updateDoc(doc(db, "products", selectedProduct.id), { stockQuantity: newStock });
+                // Sync Children
+                await syncChildProducts(selectedProduct.id, newStock);
             }
 
             // 2. Log Movement
@@ -207,7 +211,11 @@ export default function StockManager() {
                 } else {
                     // Simple Product Update
                     const current = product.stockQuantity || 0;
-                    await updateDoc(doc(db, "products", prodId), { stockQuantity: current + qty });
+                    const newStock = current + qty;
+                    await updateDoc(doc(db, "products", prodId), { stockQuantity: newStock });
+
+                    // Sync Children
+                    await syncChildProducts(prodId, newStock);
 
                     await addDoc(collection(db, "stock_movements"), {
                         productId: prodId,

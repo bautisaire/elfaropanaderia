@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./Editor.css";
-import { auth, googleProvider } from "../firebase/firebaseConfig";
+import { auth, googleProvider, db } from "../firebase/firebaseConfig";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister } from "react-icons/fa";
@@ -22,6 +23,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "categories" | "hero" | "store" | "stock" | "pos">("dashboard");
   const navigate = useNavigate();
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,6 +36,23 @@ export default function Editor() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(collection(db, "orders"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const count = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        const status = data.status || "pendiente";
+        // Count orders that are NOT cancelled AND NOT delivered (finished)
+        return status !== "cancelado" && status !== "entregado";
+      }).length;
+      setPendingOrdersCount(count);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const handleLogin = async () => {
     try {
@@ -131,6 +150,9 @@ export default function Editor() {
                 onClick={() => setActiveTab("orders")}
               >
                 <FaClipboardList /> Pedidos
+                {pendingOrdersCount > 0 && (
+                  <span className="sidebar-badge">{pendingOrdersCount}</span>
+                )}
               </button>
               <button
                 className={activeTab === "hero" ? "active" : ""}
