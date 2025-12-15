@@ -8,7 +8,7 @@ import logo from "../assets/logo.png";
 export default function Header() {
   const navigate = useNavigate();
 
-  const { cart } = useContext(CartContext);
+  const { cart, isStoreOpen } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -33,6 +33,20 @@ export default function Header() {
         <div className="logo-section" onClick={handleLogoClick}>
           <img src={logo} alt="El Faro Panadería" className="logo-img" />
           <span className="brand-name">EL FARO PANADERIA</span>
+          {!isStoreOpen && (
+            <span className="closed-badge" style={{
+              backgroundColor: '#ef4444',
+              color: 'white',
+              fontSize: '0.7rem',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              marginLeft: '8px',
+              fontWeight: 'bold',
+              verticalAlign: 'middle'
+            }}>
+              CERRADO
+            </span>
+          )}
         </div>
 
         {/* Navigation */}

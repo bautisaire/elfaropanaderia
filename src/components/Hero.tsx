@@ -49,7 +49,7 @@ export default function Hero() {
         }, 15000); // 15 seconds
 
         return () => clearInterval(interval);
-    }, [slides]);
+    }, [slides, currentIndex]);
 
     if (slides.length === 0) return null;
 

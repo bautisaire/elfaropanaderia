@@ -1,0 +1,112 @@
+/* Modal Overlay */
+.closed-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.closed-modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 90%;
+    width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease-out;
+    position: relative;
+    border-top: 5px solid #ef4444;
+    /* Rojo alerta */
+}
+
+.closed-icon {
+    font-size: 3rem;
+    color: #ef4444;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.closed-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #1f2937;
+}
+
+.closed-message {
+    color: #4b5563;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 25px;
+}
+
+.closed-btn {
+    background-color: #ef4444;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.closed-btn:hover {
+    background-color: #dc2626;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Lights Off Theme */
+body.store-closed-theme {
+    /* Oscurecer y leve escala de grises para efecto "noche/cerrado" */
+    filter: brightness(0.85) grayscale(0.3);
+    background-color: #1a1a1a;
+    transition: filter 0.5s ease, background-color 0.5s ease;
+}
+
+/* Excluir el modal y el header del filtro para que resalten */
+/* Nota: filter en body afecta todo, para excluir habría que reestructurar. 
+   Mejor aplicamos el filtro al "root" y montamos modal afuera, 
+   o simulamos efecto con overlay global pointer-events-none */
+
+/* Alternativa mejor: Overlay global de "luces apagadas" */
+.lights-off-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    /* Dejar pasar clicks */
+    z-index: 990;
+    /* Debajo del modal y header */
+    backdrop-filter: grayscale(40%);
+}

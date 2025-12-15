@@ -1,5 +1,7 @@
-import React, { createContext, useState, useContext, useMemo } from "react";
-
+import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
+import { db } from "../firebase/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
+import ClosedModal from "../components/ClosedModal";
 export interface Product {
   id: string | number;
   name: string;
@@ -26,6 +28,8 @@ interface CartContextType {
   setShowBottomModal: (value: boolean) => void;
   cartQuantity: number;
   cartTotal: number;
+  isStoreOpen: boolean;
+  closedMessage: string;
 }
 
 export const CartContext = createContext<CartContextType>({
@@ -38,6 +42,8 @@ export const CartContext = createContext<CartContextType>({
   setShowBottomModal: () => { },
   cartQuantity: 0,
   cartTotal: 0,
+  isStoreOpen: true,
+  closedMessage: "",
 });
 
 interface Props {
@@ -47,6 +53,9 @@ interface Props {
 export const CartProvider = ({ children }: Props) => {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showBottomModal, setShowBottomModal] = useState(false);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [closedMessage, setClosedMessage] = useState("");
+  const [showClosedModal, setShowClosedModal] = useState(false); // Modal control
 
   // helpers para cantidad y total
   const cartQuantity = useMemo(
@@ -58,7 +67,30 @@ export const CartProvider = ({ children }: Props) => {
     [cartItems]
   );
 
+  // Fetch Store Status
+  useEffect(() => {
+    const fetchStoreStatus = async () => {
+      try {
+        const docRef = doc(db, "settings", "store");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setIsStoreOpen(data.isOpen);
+          setClosedMessage(data.closedMessage || "Tienda Cerrada");
+        }
+      } catch (error) {
+        console.error("Error fetching store status:", error);
+      }
+    };
+    fetchStoreStatus();
+  }, []);
+
   const addToCart = (product: any) => {
+    if (!isStoreOpen) {
+      setShowClosedModal(true); // Show custom modal instead of alert
+      return;
+    }
+
     const exists = cartItems.find((item) => item.id === product.id);
 
     if (exists) {
@@ -83,7 +115,7 @@ export const CartProvider = ({ children }: Props) => {
             ? { ...item, quantity: (item.quantity || 1) - 1 }
             : item
         )
-        .filter((item) => item.quantity > 0) // Eliminar si la cantidad es 0
+        .filter((item) => item.quantity > 0)
     );
   };
 
@@ -106,9 +138,19 @@ export const CartProvider = ({ children }: Props) => {
         setShowBottomModal,
         cartQuantity,
         cartTotal,
+        isStoreOpen,
+        closedMessage
       }}
     >
       {children}
+
+      {/* Global Elements handled by Context */}
+      <ClosedModal
+        isOpen={showClosedModal}
+        onClose={() => setShowClosedModal(false)}
+        message={closedMessage}
+      />
+
     </CartContext.Provider>
   );
 };
