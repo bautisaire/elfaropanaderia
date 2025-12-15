@@ -3,7 +3,7 @@ import { db, storage } from '../firebase/firebaseConfig';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { compressImage } from '../utils/imageUtils';
-import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaTimes, FaLink } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaLink } from 'react-icons/fa';
 import './HeroManager.css';
 
 interface HeroSlide {
