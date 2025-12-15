@@ -271,21 +271,28 @@ export default function StockManager() {
                             </tr>
                         </thead>
                         <tbody>
-                            {products.map(p => (
-                                <tr key={p.id}>
-                                    <td>{p.nombre}</td>
-                                    <td>
-                                        <span className={`stock-number ${(p.stockQuantity || 0) < 5 ? 'low-stock' : 'good-stock'}`}>
-                                            {p.stockQuantity || 0}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button className="btn-adjust" onClick={() => openAdjustmentModal(p)}>
-                                            <FaEdit /> Ajustar
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {products.map(p => {
+                                const totalStock = (p.variants && p.variants.length > 0)
+                                    ? p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
+                                    : (p.stockQuantity || 0);
+
+                                return (
+                                    <tr key={p.id}>
+                                        <td>{p.nombre}</td>
+                                        <td>
+                                            <span className={`stock-number ${totalStock < 5 ? 'low-stock' : 'good-stock'}`}>
+                                                {totalStock}
+                                                {(p.variants && p.variants.length > 0) && <span style={{ fontSize: '0.8em', color: '#666' }}> (Total Vars)</span>}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button className="btn-adjust" onClick={() => openAdjustmentModal(p)}>
+                                                <FaEdit /> Ajustar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

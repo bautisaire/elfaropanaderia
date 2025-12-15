@@ -3,6 +3,7 @@ import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, updateDoc, addDoc, getDoc } from "firebase/firestore";
+import { syncChildProducts } from "../utils/stockUtils"; // Import Syncer
 
 export default function Checkout() {
   const { cart, total, clearCart } = useContext(CartContext);
@@ -67,43 +68,91 @@ export default function Checkout() {
             const itemSnap = await getDoc(itemRef);
 
             if (itemSnap.exists()) {
+
               const data = itemSnap.data();
-              let variantName = "";
 
-              if (isVariant && data.variants) {
-                // Extract variant name from item name "Product (Variant)"
-                const match = item.name.match(/\(([^)]+)\)$/);
-                if (match) {
-                  variantName = match[1];
-                  const variants = [...data.variants];
-                  const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+              // --- Lógica de Derivados (Packs) ---
+              // Si el producto tiene dependencia, descontamos del PADRE
+              if (data.stockDependency && data.stockDependency.productId) {
+                const parentId = data.stockDependency.productId;
+                const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                const totalDeduction = (item.quantity || 1) * unitsToDeduct;
 
-                  if (variantIdx >= 0) {
-                    const currentStock = variants[variantIdx].stockQuantity || 0;
-                    const newStock = Math.max(0, currentStock - (item.quantity || 1));
-                    variants[variantIdx].stockQuantity = newStock;
-                    variants[variantIdx].stock = newStock > 0;
+                const parentRef = doc(db, "products", parentId);
+                const parentSnap = await getDoc(parentRef);
 
-                    await updateDoc(itemRef, { variants });
-                  }
+                if (parentSnap.exists()) {
+                  const parentData = parentSnap.data();
+                  const currentParentStock = parentData.stockQuantity || 0;
+
+                  // Aceptamos decimales, pero stockQuantity suele ser number.
+                  // Usamos Math.max(0, ...) para evitar negativos
+                  const newParentStock = Math.max(0, currentParentStock - totalDeduction);
+
+                  // 1. Actualizar Padre
+                  await updateDoc(parentRef, { stockQuantity: newParentStock });
+
+                  // 2. Registrar Movimiento en Padre
+                  await addDoc(collection(db, "stock_movements"), {
+                    productId: parentId,
+                    productName: parentData.nombre,
+                    type: 'OUT',
+                    quantity: totalDeduction,
+                    reason: 'Venta Online',
+                    observation: `Venta Derivado: ${item.name}`,
+                    date: new Date()
+                  });
+
+                  // 3. Sincronizar todos los hijos (incluido este mismo)
+                  await syncChildProducts(parentId, newParentStock);
                 }
-              } else {
-                // Simple Product
-                const currentStock = data.stockQuantity || 0;
-                const newStock = Math.max(0, currentStock - (item.quantity || 1));
-                await updateDoc(itemRef, { stockQuantity: newStock });
               }
+              // --- Fin Lógica Derivados ---
+              else {
+                // Lógica Normal (Sin Dependencia)
+                let variantName = "";
 
-              // Log Movement
-              await addDoc(collection(db, "stock_movements"), {
-                productId: baseId,
-                productName: item.name,
-                type: 'OUT',
-                quantity: item.quantity || 1,
-                reason: 'Venta Online',
-                observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`,
-                date: new Date()
-              });
+                if (isVariant && data.variants) {
+                  // Extract variant name from item name "Product (Variant)"
+                  const match = item.name.match(/\(([^)]+)\)$/);
+                  if (match) {
+                    variantName = match[1];
+                    const variants = [...data.variants];
+                    const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                    if (variantIdx >= 0) {
+                      const currentStock = variants[variantIdx].stockQuantity || 0;
+                      const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                      variants[variantIdx].stockQuantity = newStock;
+                      variants[variantIdx].stock = newStock > 0;
+
+                      await updateDoc(itemRef, { variants });
+
+                      // Si fuera necesario sincronizar algo (ej: si la variante fuera padre), aquí iría.
+                    }
+                  }
+                } else {
+                  // Simple Product
+                  const currentStock = data.stockQuantity || 0;
+                  const newStock = Math.max(0, currentStock - (item.quantity || 1));
+
+                  await updateDoc(itemRef, { stockQuantity: newStock });
+
+                  // IMPORTANTE: Si este producto es Padre de otros, sincronizar sus hijos
+                  await syncChildProducts(baseId, newStock);
+                }
+
+                // Log Movement (Original Item)
+                await addDoc(collection(db, "stock_movements"), {
+                  productId: baseId,
+                  productName: item.name,
+                  type: 'OUT',
+                  quantity: item.quantity || 1,
+                  reason: 'Venta Online',
+                  observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`,
+                  date: new Date()
+                });
+              }
             }
           }
         } catch (stockError) {
