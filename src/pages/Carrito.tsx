@@ -105,7 +105,33 @@ export default function Carrito() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // State for minimum purchase
+  const [minPurchaseError, setMinPurchaseError] = useState<{ isOpen: boolean, minAmount: number }>({ isOpen: false, minAmount: 0 });
+  const [minPurchaseConfig, setMinPurchaseConfig] = useState(0);
+
+  useEffect(() => {
+    // Fetch min purchase config
+    const fetchConfig = async () => {
+      try {
+        const docRef = doc(db, "config", "store_settings");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setMinPurchaseConfig(docSnap.data().minPurchase || 0);
+        }
+      } catch (e) {
+        console.error("Error fetching store config:", e);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const handleProcederAlPago = async () => {
+    // 0. Validar Compra Mínima
+    if (minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
+      setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
+      return;
+    }
+
     // 1. Validar Stock
     const result = await validateCartStock(cart);
     if (!result.isValid) {
@@ -123,6 +149,13 @@ export default function Carrito() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+
+    // 0. Validar Compra Mínima (Doble chequeo)
+    if (minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
+      setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
+      setShowCheckout(false);
+      return;
+    }
 
     // 1. Validar Stock Antes de Proceder (Doble chequeo)
     const validationResult = await validateCartStock(cart);
@@ -468,6 +501,38 @@ export default function Carrito() {
             <h3>Pedido realizado!</h3>
             <p>En breves nos comunicaremos con usted</p>
             <p>¡Gracias por su compra!</p>
+          </div>
+        </div>
+      )}
+
+      {/* Minimum Purchase Error Modal */}
+      {minPurchaseError.isOpen && (
+        <div className="order-modal error" role="dialog" aria-modal="true" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <div className="order-modal-content">
+            <div style={{ color: '#ef4444', marginBottom: '15px' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <h3>Compra Mínima no alcanzada</h3>
+            <p style={{ margin: '15px 0' }}>La compra mínima es de <strong>${minPurchaseError.minAmount}</strong>.</p>
+            <p>Te faltan <strong>${Math.floor(minPurchaseError.minAmount - cartTotal)}</strong> para completar tu pedido.</p>
+            <button
+              className="btn-confirm"
+              style={{ marginTop: '20px' }}
+              onClick={() => navigate('/')}
+            >
+              Modificar mi pedido
+            </button>
+            <button
+              className="btn-text"
+              style={{ marginTop: '10px', display: 'block', marginInline: 'auto' }}
+              onClick={() => setMinPurchaseError({ ...minPurchaseError, isOpen: false })}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

@@ -165,6 +165,77 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            <StoreSettingsSection />
+        </div>
+    );
+}
+
+function StoreSettingsSection() {
+    const [minPurchase, setMinPurchase] = useState<number>(0);
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const docSnap = await import("firebase/firestore").then(mod => mod.getDoc(mod.doc(db, "config", "store_settings")));
+                if (docSnap.exists()) {
+                    setMinPurchase(docSnap.data().minPurchase || 0);
+                }
+            } catch (error) {
+                console.error("Error loading settings:", error);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            const { doc, setDoc } = await import("firebase/firestore");
+            await setDoc(doc(db, "config", "store_settings"), { minPurchase: Number(minPurchase) }, { merge: true });
+            setMessage("Guardado correctamente");
+            setTimeout(() => setMessage(""), 3000);
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            setMessage("Error al guardar");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="settings-section" style={{ marginTop: '30px', background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>Configuración de la Tienda</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ flex: 1, maxWidth: '300px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#4b5563' }}>Monto Mínimo de Compra ($)</label>
+                    <input
+                        type="number"
+                        value={minPurchase}
+                        onChange={(e) => setMinPurchase(Number(e.target.value))}
+                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                    />
+                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={loading}
+                    style={{
+                        alignSelf: 'flex-end',
+                        padding: '10px 20px',
+                        backgroundColor: '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                    }}
+                >
+                    {loading ? "Guardando..." : "Guardar Configuración"}
+                </button>
+            </div>
+            {message && <p style={{ marginTop: '10px', color: message.includes('Error') ? 'red' : 'green' }}>{message}</p>}
         </div>
     );
 }
