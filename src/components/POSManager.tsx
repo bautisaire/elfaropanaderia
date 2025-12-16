@@ -13,7 +13,12 @@ interface Product {
     img: string;
     stock: boolean;
     stockQuantity?: number;
-    variants?: any[];
+    variants?: {
+        name: string;
+        stockQuantity?: number;
+        stock?: boolean;
+        image?: string;
+    }[];
     unitType?: 'unit' | 'weight';
 }
 
@@ -365,7 +370,7 @@ export default function POSManager() {
                         if (product.variants && product.variants.length > 0) {
                             return product.variants.map((v) => (
                                 <div key={`${product.id}-${v.name}`} className="pos-product-card" onClick={() => addToCart(product, v.name)}>
-                                    <img src={product.img} alt={product.nombre} className="pos-product-img" />
+                                    <img src={v.image || product.img} alt={product.nombre} className="pos-product-img" />
                                     <div className="pos-product-info">
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">${product.precio}</div>

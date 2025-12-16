@@ -9,6 +9,7 @@ interface Props {
 export default function ProductCard({ product }: Props) {
   const { addToCart, removeFromCart, cart } = useContext(CartContext);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [overrideImage, setOverrideImage] = useState<string | null>(null);
 
   // Initialize selectedVariant with the first in-stock variant
   const [selectedVariant, setSelectedVariant] = useState<string | null>(() => {
@@ -28,17 +29,42 @@ export default function ProductCard({ product }: Props) {
   const cartItem = cart.find((item) => item.id === cartItemId);
   const quantity = cartItem?.quantity ?? 0;
 
+  // Effect to handle variant image override
+  useEffect(() => {
+    if (selectedVariant && product.variants) {
+      const v = product.variants.find(v => v.name === selectedVariant);
+      if (v && v.image) {
+        setOverrideImage(v.image);
+      } else {
+        setOverrideImage(null);
+      }
+    } else {
+      setOverrideImage(null);
+    }
+  }, [selectedVariant, product.variants]);
+
   // Image handling
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
-  const currentImage = images[currentImageIndex];
+  const currentImage = overrideImage || images[currentImageIndex];
 
   // Preload images for smoother navigation
   useEffect(() => {
+    // Main images
     images.forEach((src) => {
       const img = new Image();
       img.src = src;
     });
-  }, [images]);
+
+    // Variant images
+    if (product.variants) {
+      product.variants.forEach(v => {
+        if (v.image) {
+          const img = new Image();
+          img.src = v.image;
+        }
+      });
+    }
+  }, [images, product.variants]);
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -110,6 +136,7 @@ export default function ProductCard({ product }: Props) {
                   className={`dot ${idx === currentImageIndex ? "active" : ""}`}
                   onClick={(e) => {
                     e.stopPropagation();
+                    setOverrideImage(null); // Clear override when manually navigating
                     setCurrentImageIndex(idx);
                   }}
                 />

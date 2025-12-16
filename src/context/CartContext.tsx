@@ -12,6 +12,7 @@ export interface Product {
     name: string;
     stock: boolean;
     stockQuantity?: number;
+    image?: string;
   }[];
   quantity?: number;
   stock?: boolean;

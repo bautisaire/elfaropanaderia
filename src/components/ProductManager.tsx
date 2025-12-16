@@ -23,6 +23,7 @@ export interface FirestoreProduct {
         name: string;
         stock: boolean;
         stockQuantity?: number;
+        image?: string;
     }[];
     isVisible?: boolean;
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
@@ -191,6 +192,47 @@ export default function ProductManager() {
         }
     };
 
+    // Variant Image Upload
+    const handleVariantImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setUploading(true);
+        try {
+            const file = files[0]; // Specific for variant, single image usually
+            const prodId = formData.id || "temp_" + Date.now();
+            const compressedBlob = await compressImage(file);
+            const storageRef = ref(storage, `products/${prodId}/variants/${Date.now()}_${file.name.split('.')[0]}.webp`);
+
+            await uploadBytes(storageRef, compressedBlob);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setFormData(prev => {
+                const newVariants = [...(prev.variants || [])];
+                const updatedVariant = { ...newVariants[idx], image: downloadURL };
+                newVariants[idx] = updatedVariant;
+                return { ...prev, variants: newVariants };
+            });
+
+            setMessage("Imagen de variante subida");
+        } catch (error) {
+            console.error("Error uploading variant image:", error);
+            setMessage("Error al subir imagen de variante");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeVariantImage = (idx: number) => {
+        setFormData(prev => {
+            const newVariants = [...(prev.variants || [])];
+            const updatedVariant = { ...newVariants[idx] };
+            delete updatedVariant.image;
+            newVariants[idx] = updatedVariant;
+            return { ...prev, variants: newVariants };
+        });
+    };
+
     const removeImage = (imageUrl: string) => {
         setFormData(prev => {
             const updatedImages = prev.images?.filter(img => img !== imageUrl) || [];
@@ -202,7 +244,7 @@ export default function ProductManager() {
         });
     };
 
-    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity', value: string | number) => {
+    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity' | 'image', value: string | number) => {
         setFormData(prev => {
             const newVariants = [...(prev.variants || [])];
             // @ts-ignore
@@ -468,22 +510,46 @@ export default function ProductManager() {
                                 </div>
                                 <div className="variants-list">
                                     {formData.variants?.map((v, idx) => (
-                                        <div key={idx} className="variant-row">
-                                            <input
-                                                placeholder="Ej. Frutilla"
-                                                value={v.name}
-                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
-                                            />
-                                            <input
-                                                type="number"
-                                                placeholder="Stock"
-                                                value={v.stockQuantity ?? 0}
-                                                onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
-                                                className="input-stock"
-                                            />
-                                            <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
-                                                <FaTimes />
-                                            </button>
+                                        <div key={idx} className="variant-row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                                            <div style={{ display: 'flex', gap: '5px', flex: 1, minWidth: '200px' }}>
+                                                <input
+                                                    placeholder="Ej. Frutilla"
+                                                    value={v.name}
+                                                    onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Stock"
+                                                    value={v.stockQuantity ?? 0}
+                                                    onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
+                                                    className="input-stock"
+                                                />
+                                            </div>
+
+                                            {/* Variant Image Control */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                {v.image ? (
+                                                    <div className="variant-img-preview" style={{ position: 'relative', width: '40px', height: '40px' }}>
+                                                        <img src={v.image} alt="v" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeVariantImage(idx)}
+                                                            style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '15px', height: '15px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="btn-icon-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px', border: '1px solid #ddd', borderRadius: '4px' }} title="Subir foto variante">
+                                                        <FaCamera size={14} />
+                                                        <input type="file" hidden accept="image/*" onChange={(e) => handleVariantImageUpload(e, idx)} />
+                                                    </label>
+                                                )}
+
+                                                <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
+                                                    <FaTrash />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                     {(!formData.variants || formData.variants.length === 0) && (
