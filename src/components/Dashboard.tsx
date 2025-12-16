@@ -14,9 +14,30 @@ export default function Dashboard() {
         onlineSales: 0,
         onlineCount: 0,
         localSales: 0,
-        localCount: 0
+        localCount: 0,
+        // Detailed Metrics (Today/Month)
+        onlineSalesToday: 0,
+        onlineSalesMonth: 0,
+        localSalesToday: 0,
+        localSalesMonth: 0
     });
     const [loading, setLoading] = useState(true);
+
+    // Helpers for Timezone (Argentina)
+    const getArgentinaDate = (date: Date) => {
+        return new Date(date.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
+    };
+
+    const isSameDay = (d1: Date, d2: Date) => {
+        return d1.getFullYear() === d2.getFullYear() &&
+            d1.getMonth() === d2.getMonth() &&
+            d1.getDate() === d2.getDate();
+    };
+
+    const isSameMonth = (d1: Date, d2: Date) => {
+        return d1.getFullYear() === d2.getFullYear() &&
+            d1.getMonth() === d2.getMonth();
+    };
 
     useEffect(() => {
         let unsubOrders: () => void;
@@ -28,8 +49,9 @@ export default function Dashboard() {
                 // 1. Orders Listener
                 unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
                     const orders = snapshot.docs.map(doc => doc.data());
-                    const totalOrders = orders.length;
                     const validOrders = orders.filter((o: any) => o.status !== 'cancelado');
+
+                    const totalOrders = validOrders.length;
                     const totalSales = validOrders.reduce((acc, order: any) => acc + (Number(order.total) || 0), 0);
 
                     // Split Logic
@@ -38,15 +60,43 @@ export default function Dashboard() {
                     let localSales = 0;
                     let localCount = 0;
 
+                    let onlineSalesToday = 0;
+                    let onlineSalesMonth = 0;
+                    let localSalesToday = 0;
+                    let localSalesMonth = 0;
+
+                    const nowArgentina = getArgentinaDate(new Date());
+
                     validOrders.forEach((order: any) => {
                         const amount = Number(order.total) || 0;
+
+                        // Parse Date
+                        let orderDate: Date;
+                        if (order.date && typeof order.date.toDate === 'function') {
+                            orderDate = order.date.toDate();
+                        } else if (order.date) {
+                            orderDate = new Date(order.date);
+                        } else {
+                            // Fallback if no date (shouldn't happen on new orders)
+                            orderDate = new Date(0);
+                        }
+
+                        const orderDateArgentina = getArgentinaDate(orderDate);
+
+                        const isToday = isSameDay(nowArgentina, orderDateArgentina);
+                        const isThisMonth = isSameMonth(nowArgentina, orderDateArgentina);
+
                         if (order.source === 'pos') {
                             localSales += amount;
                             localCount++;
+                            if (isToday) localSalesToday += amount;
+                            if (isThisMonth) localSalesMonth += amount;
                         } else {
                             // Default to online if source is 'online' or undefined (legacy)
                             onlineSales += amount;
                             onlineCount++;
+                            if (isToday) onlineSalesToday += amount;
+                            if (isThisMonth) onlineSalesMonth += amount;
                         }
                     });
 
@@ -57,7 +107,11 @@ export default function Dashboard() {
                         onlineSales,
                         onlineCount,
                         localSales,
-                        localCount
+                        localCount,
+                        onlineSalesToday,
+                        onlineSalesMonth,
+                        localSalesToday,
+                        localSalesMonth
                     }));
                 });
 
@@ -115,45 +169,62 @@ export default function Dashboard() {
                 <div className="stat-card sales">
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Ingresos</h3>
+                        <h3>Ingresos Totales</h3>
                         <p>${Math.floor(stats.totalSales).toLocaleString('es-AR')}</p>
                     </div>
                 </div>
 
-                {/* Card 2: Pedidos */}
-                <div className="stat-card orders">
-                    <div className="stat-icon"><FaShoppingCart /></div>
-                    <div className="stat-info">
-                        <h3>Ventas Totales</h3>
-                        <p>{stats.totalOrders}</p>
-                    </div>
-                </div>
-
-                {/* Sub-Card: Ventas Online */}
-                <div className="stat-card online-sales" style={{ borderLeft: '4px solid #3b82f6' }}>
-                    <div className="stat-info">
-                        <h3>Ventas Online</h3>
-                        <p>${Math.floor(stats.onlineSales).toLocaleString('es-AR')}</p>
-                        <span style={{ fontSize: '0.8rem', color: '#666' }}>({stats.onlineCount} pedidos)</span>
-                    </div>
-                </div>
-
-                {/* Sub-Card: Ventas Local */}
-                <div className="stat-card local-sales" style={{ borderLeft: '4px solid #10b981' }}>
-                    <div className="stat-info">
-                        <h3>Ventas Local</h3>
-                        <p>${Math.floor(stats.localSales).toLocaleString('es-AR')}</p>
-                        <span style={{ fontSize: '0.8rem', color: '#666' }}>({stats.localCount} pedidos)</span>
-                    </div>
-                </div>
-
-                {/* Card 3: Stock */}
+                {/* Card 2: Stock */}
                 <div className="stat-card stock">
                     <div className="stat-icon"><FaBox /></div>
                     <div className="stat-info">
                         <h3>Stock Total</h3>
                         <p>{stats.totalStock}</p>
                     </div>
+                </div>
+
+                {/* Sub-Card: Ventas Local */}
+                <div className="stat-card local-sales" style={{ borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                        <div className="stat-icon-small" style={{ color: '#10b981' }}><FaShoppingCart /></div>
+                        <h3 style={{ margin: 0 }}>Ventas Local</h3>
+                    </div>
+
+                    <div className="stat-detail-row">
+                        <span>Hoy:</span>
+                        <strong>${Math.floor(stats.localSalesToday).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row">
+                        <span>Mes:</span>
+                        <strong>${Math.floor(stats.localSalesMonth).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row total">
+                        <span>Total:</span>
+                        <strong>${Math.floor(stats.localSales).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.localCount} tickets)</span>
+                </div>
+
+                {/* Sub-Card: Ventas Online */}
+                <div className="stat-card online-sales" style={{ borderLeft: '4px solid #3b82f6', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                        <div className="stat-icon-small" style={{ color: '#3b82f6' }}><FaShoppingCart /></div>
+                        <h3 style={{ margin: 0 }}>Ventas Online</h3>
+                    </div>
+
+                    <div className="stat-detail-row">
+                        <span>Hoy:</span>
+                        <strong>${Math.floor(stats.onlineSalesToday).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row">
+                        <span>Mes:</span>
+                        <strong>${Math.floor(stats.onlineSalesMonth).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row total">
+                        <span>Total:</span>
+                        <strong>${Math.floor(stats.onlineSales).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.onlineCount} pedidos)</span>
                 </div>
 
                 {/* Card 4: Visitas */}

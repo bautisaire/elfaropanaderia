@@ -82,3 +82,31 @@
 .stat-card.local-sales {
     background: #fcfcfc;
 }
+
+.stat-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: #4b5563;
+    width: 100%;
+    margin-bottom: 2px;
+}
+
+.stat-detail-row strong {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.stat-detail-row.total {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px dashed #e5e7eb;
+    font-weight: bold;
+}
+
+.stat-icon-small {
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
