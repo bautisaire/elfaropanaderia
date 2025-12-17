@@ -15,11 +15,15 @@ export default function Dashboard() {
         onlineCount: 0,
         localSales: 0,
         localCount: 0,
+        wholesaleSales: 0,
+        wholesaleCount: 0,
         // Detailed Metrics (Today/Month)
         onlineSalesToday: 0,
         onlineSalesMonth: 0,
         localSalesToday: 0,
-        localSalesMonth: 0
+        localSalesMonth: 0,
+        wholesaleSalesToday: 0,
+        wholesaleSalesMonth: 0
     });
     const [loading, setLoading] = useState(true);
 
@@ -55,15 +59,20 @@ export default function Dashboard() {
                     const totalSales = validOrders.reduce((acc, order: any) => acc + (Number(order.total) || 0), 0);
 
                     // Split Logic
+                    // Split Logic
                     let onlineSales = 0;
                     let onlineCount = 0;
                     let localSales = 0;
                     let localCount = 0;
+                    let wholesaleSales = 0;
+                    let wholesaleCount = 0;
 
                     let onlineSalesToday = 0;
                     let onlineSalesMonth = 0;
                     let localSalesToday = 0;
                     let localSalesMonth = 0;
+                    let wholesaleSalesToday = 0;
+                    let wholesaleSalesMonth = 0;
 
                     const nowArgentina = getArgentinaDate(new Date());
 
@@ -86,11 +95,16 @@ export default function Dashboard() {
                         const isToday = isSameDay(nowArgentina, orderDateArgentina);
                         const isThisMonth = isSameMonth(nowArgentina, orderDateArgentina);
 
-                        if (order.source === 'pos') {
+                        if (order.source === 'pos_public' || order.source === 'pos') {
                             localSales += amount;
                             localCount++;
                             if (isToday) localSalesToday += amount;
                             if (isThisMonth) localSalesMonth += amount;
+                        } else if (order.source === 'pos_wholesale') {
+                            wholesaleSales += amount;
+                            wholesaleCount++;
+                            if (isToday) wholesaleSalesToday += amount;
+                            if (isThisMonth) wholesaleSalesMonth += amount;
                         } else {
                             // Default to online if source is 'online' or undefined (legacy)
                             onlineSales += amount;
@@ -108,10 +122,14 @@ export default function Dashboard() {
                         onlineCount,
                         localSales,
                         localCount,
+                        wholesaleSales,
+                        wholesaleCount,
                         onlineSalesToday,
                         onlineSalesMonth,
                         localSalesToday,
-                        localSalesMonth
+                        localSalesMonth,
+                        wholesaleSalesToday,
+                        wholesaleSalesMonth
                     }));
                 });
 
@@ -185,6 +203,28 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Sub-Card: Ventas Despensa (Wholesale) */}
+                <div className="stat-card wholesale-sales" style={{ borderLeft: '4px solid #8b5cf6', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                        <div className="stat-icon-small" style={{ color: '#8b5cf6' }}><FaShoppingCart /></div>
+                        <h3 style={{ margin: 0 }}>Ventas Despensa</h3>
+                    </div>
+
+                    <div className="stat-detail-row">
+                        <span>Hoy:</span>
+                        <strong>${Math.floor(stats.wholesaleSalesToday).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row">
+                        <span>Mes:</span>
+                        <strong>${Math.floor(stats.wholesaleSalesMonth).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <div className="stat-detail-row total">
+                        <span>Total:</span>
+                        <strong>${Math.floor(stats.wholesaleSales).toLocaleString('es-AR')}</strong>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.wholesaleCount} pedidos)</span>
+                </div>
+
                 {/* Sub-Card: Ventas Local */}
                 <div className="stat-card local-sales" style={{ borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
@@ -239,76 +279,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <StoreSettingsSection />
-        </div>
-    );
-}
-
-function StoreSettingsSection() {
-    const [minPurchase, setMinPurchase] = useState<number>(0);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState("");
-
-    useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const docSnap = await import("firebase/firestore").then(mod => mod.getDoc(mod.doc(db, "config", "store_settings")));
-                if (docSnap.exists()) {
-                    setMinPurchase(docSnap.data().minPurchase || 0);
-                }
-            } catch (error) {
-                console.error("Error loading settings:", error);
-            }
-        };
-        fetchSettings();
-    }, []);
-
-    const handleSave = async () => {
-        setLoading(true);
-        try {
-            const { doc, setDoc } = await import("firebase/firestore");
-            await setDoc(doc(db, "config", "store_settings"), { minPurchase: Number(minPurchase) }, { merge: true });
-            setMessage("Guardado correctamente");
-            setTimeout(() => setMessage(""), 3000);
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            setMessage("Error al guardar");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="settings-section" style={{ marginTop: '30px', background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>Configuración de la Tienda</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{ flex: 1, maxWidth: '300px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#4b5563' }}>Monto Mínimo de Compra ($)</label>
-                    <input
-                        type="number"
-                        value={minPurchase}
-                        onChange={(e) => setMinPurchase(Number(e.target.value))}
-                        style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}
-                    />
-                </div>
-                <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    style={{
-                        alignSelf: 'flex-end',
-                        padding: '10px 20px',
-                        backgroundColor: '#2563eb',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                    }}
-                >
-                    {loading ? "Guardando..." : "Guardar Configuración"}
-                </button>
-            </div>
-            {message && <p style={{ marginTop: '10px', color: message.includes('Error') ? 'red' : 'green' }}>{message}</p>}
         </div>
     );
 }

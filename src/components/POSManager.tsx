@@ -21,6 +21,7 @@ interface Product {
         image?: string;
     }[];
     unitType?: 'unit' | 'weight';
+    wholesalePrice?: number;
 }
 
 interface CartItem extends Product {
@@ -53,6 +54,7 @@ export default function POSManager() {
     const [priceInput, setPriceInput] = useState(""); // Local state for price typing
     const [smartInputUsed, setSmartInputUsed] = useState(false);
     const [inputMode, setInputMode] = useState<'weight' | 'price'>('weight'); // 'weight' or 'price'
+    const [priceMode, setPriceMode] = useState<'public' | 'wholesale'>('public'); // Pricing mode
 
     // Mobile View Toggle
     const [showMobileCart, setShowMobileCart] = useState(false);
@@ -154,6 +156,11 @@ export default function POSManager() {
     };
 
     const addToCart = (product: Product, variantName?: string) => {
+        // Determine Price to use
+        const priceToUse = priceMode === 'wholesale'
+            ? (product.wholesalePrice || product.precio)
+            : product.precio;
+
         // Stock Check
         let maxStock = 0;
         if (variantName && product.variants) {
@@ -194,7 +201,7 @@ export default function POSManager() {
                         : item
                 );
             }
-            return [...prev, { ...product, quantity: 1, selectedVariant: variantName }];
+            return [...prev, { ...product, quantity: 1, selectedVariant: variantName, precio: priceToUse }];
         });
     };
 
@@ -230,6 +237,21 @@ export default function POSManager() {
     const total = useMemo(() => {
         return cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
     }, [cart]);
+
+    // Effect to update cart prices when mode changes
+    useEffect(() => {
+        setCart(prev => prev.map(item => {
+            // Find original product to get prices
+            const original = products.find(p => p.id === item.id);
+            if (!original) return item;
+
+            const newPrice = priceMode === 'wholesale'
+                ? (original.wholesalePrice || original.precio)
+                : original.precio;
+
+            return { ...item, precio: newPrice };
+        }));
+    }, [priceMode, products]);
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
@@ -294,7 +316,7 @@ export default function POSManager() {
                     },
                     date: new Date(),
                     status: "entregado", // POS orders are completed immediately
-                    source: "pos"
+                    source: priceMode === 'public' ? 'pos_public' : 'pos_wholesale' // Track source based on price mode
                 };
 
                 const orderRef = doc(collection(db, "orders"));
@@ -350,6 +372,25 @@ export default function POSManager() {
             {/* Products Section */}
             <div className={`pos-products-section ${showMobileCart ? 'mobile-hidden' : ''}`}>
 
+                <div className="pos-header-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h2 style={{ margin: 0 }}>POS</h2>
+                    <button
+                        onClick={() => setPriceMode(prev => prev === 'public' ? 'wholesale' : 'public')}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '20px',
+                            border: 'none',
+                            background: priceMode === 'wholesale' ? '#8b5cf6' : '#e5e7eb',
+                            color: priceMode === 'wholesale' ? 'white' : '#374151',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        {priceMode === 'public' ? '🛒 Público' : '🏢 Despensa'}
+                    </button>
+                </div>
 
                 <div className="pos-search-bar" style={{ padding: '0', background: 'transparent', boxShadow: 'none' }}>
                     <ProductSearch
@@ -399,7 +440,9 @@ export default function POSManager() {
                                 <img src={product.img} alt={product.nombre} className="pos-product-img" />
                                 <div className="pos-product-info">
                                     <div className="pos-product-name">{product.nombre}</div>
-                                    <div className="pos-product-price">${product.precio}</div>
+                                    <div className="pos-product-price">
+                                        ${priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio}
+                                    </div>
                                     <div className={`pos-product-stock ${product.stockQuantity && product.stockQuantity < 5 ? 'low' : ''}`}>
                                         Stock: {product.stockQuantity ?? 0}
                                     </div>
@@ -554,7 +597,7 @@ export default function POSManager() {
                                             setInputMode('price');
                                             // Initialize price input (Integer for Argentina)
                                             if (weightInput && !isNaN(parseFloat(weightInput))) {
-                                                const currentPrice = parseFloat(weightInput) * pendingProduct.product.precio;
+                                                const currentPrice = parseFloat(weightInput) * (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio);
                                                 setPriceInput(Math.round(currentPrice).toString());
                                             } else {
                                                 setPriceInput("");
@@ -565,7 +608,7 @@ export default function POSManager() {
                                         {inputMode === 'weight' ? (
                                             <span>
                                                 {(weightInput && !isNaN(parseFloat(weightInput)))
-                                                    ? Math.round(parseFloat(weightInput) * pendingProduct.product.precio).toString()
+                                                    ? Math.round(parseFloat(weightInput) * (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio)).toString()
                                                     : "0"}
                                             </span>
                                         ) : (
@@ -582,9 +625,11 @@ export default function POSManager() {
                                                         return;
                                                     }
 
+                                                    const priceToUse = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
                                                     const priceVal = parseFloat(val);
-                                                    if (!isNaN(priceVal) && pendingProduct.product.precio > 0) {
-                                                        const newWeight = priceVal / pendingProduct.product.precio;
+
+                                                    if (!isNaN(priceVal) && priceToUse > 0) {
+                                                        const newWeight = priceVal / priceToUse;
                                                         // Keep 3 decimals for weight precision derived from price
                                                         setWeightInput(newWeight.toFixed(3));
                                                     }

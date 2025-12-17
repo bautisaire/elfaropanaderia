@@ -1,59 +1,91 @@
-.store-status-manager {
+.store-status-container {
     padding: 20px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+    color: #1f2937;
 }
 
-.status-header {
+.status-header h2 {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    color: #111827;
+    margin-bottom: 5px;
+}
+
+.status-header p {
+    color: #6b7280;
     margin-bottom: 30px;
-    border-bottom: 2px solid #f3f4f6;
-    padding-bottom: 20px;
 }
 
-.current-status {
-    font-size: 1.2rem;
-    font-weight: bold;
-    padding: 8px 16px;
-    border-radius: 50px;
+.status-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s;
 }
 
-.status-open {
-    background-color: #dcfce7;
-    color: #166534;
+.status-card:hover {
+    transform: translateY(-2px);
 }
 
-.status-closed {
-    background-color: #fee2e2;
-    color: #991b1b;
-}
-
-.status-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.toggle-container {
+.status-card h3 {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: #374151;
+    font-size: 1.2rem;
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 10px;
+}
+
+/* Open/Close Specifics */
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.status-indicator.open {
+    background-color: #ecfdf5;
+    color: #059669;
+    border: 1px solid #10b981;
+}
+
+.status-indicator.closed {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #ef4444;
+}
+
+.status-text h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.2rem;
+}
+
+.status-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: inherit;
+    opacity: 0.9;
 }
 
 /* Toggle Switch */
-.switch {
+.toggle-switch {
     position: relative;
     display: inline-block;
     width: 60px;
     height: 34px;
 }
 
-.switch input {
+.toggle-switch input {
     opacity: 0;
     width: 0;
     height: 0;
@@ -67,8 +99,8 @@
     right: 0;
     bottom: 0;
     background-color: #ccc;
+    -webkit-transition: .4s;
     transition: .4s;
-    border-radius: 34px;
 }
 
 .slider:before {
@@ -79,61 +111,95 @@
     left: 4px;
     bottom: 4px;
     background-color: white;
+    -webkit-transition: .4s;
     transition: .4s;
-    border-radius: 50%;
 }
 
 input:checked+.slider {
-    background-color: #22c55e;
+    background-color: #10b981;
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px #22c55e;
+    box-shadow: 0 0 1px #10b981;
 }
 
 input:checked+.slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
     transform: translateX(26px);
 }
 
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* Form Group */
 .form-group label {
     display: block;
     margin-bottom: 8px;
     font-weight: 500;
 }
 
-.form-group input[type="text"] {
+.form-group input {
     width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
     font-size: 1rem;
+    transition: border-color 0.2s;
 }
 
-.btn-save {
+.form-group input:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #6b7280;
+}
+
+/* Footer */
+.status-footer {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.save-btn {
     background-color: #2563eb;
     color: white;
+    padding: 12px 30px;
     border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    cursor: pointer;
+    border-radius: 8px;
+    font-weight: 600;
     font-size: 1rem;
-    transition: background-color 0.2s;
-    align-self: flex-start;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
-.btn-save:hover {
+.save-btn:hover {
     background-color: #1d4ed8;
 }
 
-.btn-save:disabled {
-    background-color: #9ca3af;
+.save-btn:disabled {
+    background-color: #93c5fd;
     cursor: not-allowed;
 }
 
-.msg-success {
-    background-color: #d1fae5;
-    color: #065f46;
-    padding: 10px;
-    border-radius: 4px;
-    margin-bottom: 15px;
+.message {
+    font-weight: 500;
+}
+
+.message.success {
+    color: #059669;
+}
+
+.message.error {
+    color: #dc2626;
 }

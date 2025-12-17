@@ -13,6 +13,7 @@ export interface FirestoreProduct {
     id?: string;
     nombre: string;
     precio: number;
+    wholesalePrice?: number;
     categoria: string;
     descripcion: string;
     img: string;
@@ -37,6 +38,7 @@ export interface FirestoreProduct {
 const INITIAL_STATE: FirestoreProduct = {
     nombre: "",
     precio: 0,
+    wholesalePrice: 0,
     categoria: "General",
     descripcion: "",
     img: "https://via.placeholder.com/150",
@@ -386,6 +388,35 @@ export default function ProductManager() {
                                     required
                                     className="input-lg"
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Precio</label>
+                                <div className="price-input-container">
+                                    <span className="currency-symbol">$</span>
+                                    <input
+                                        type="number"
+                                        name="precio"
+                                        placeholder="0"
+                                        value={formData.precio}
+                                        onChange={handleInputChange}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Precio Mayorista / Despensa</label>
+                                <div className="price-input-container">
+                                    <span className="currency-symbol">$</span>
+                                    <input
+                                        type="number"
+                                        name="wholesalePrice"
+                                        placeholder="0"
+                                        value={formData.wholesalePrice || ""}
+                                        onChange={handleInputChange}
+                                    />
+                                </div>
                             </div>
 
                             <div className="form-row">

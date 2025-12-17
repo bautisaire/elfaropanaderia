@@ -18,6 +18,7 @@ interface Order {
     };
     date: any;
     status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado";
+    source?: string;
 }
 
 const statusOptions = [
@@ -286,14 +287,27 @@ export default function OrdersManager() {
                                     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
                                 })
                                 : "Fecha desc.";
+                            // Removed dateStr as it's replaced by formatDate
 
                             return (
                                 <div key={order.id} className={`pm-card order-card order-status-${order.status}`}>
                                     {/* Card Header */}
                                     <div className="order-card-header">
-                                        <div className="order-meta">
-                                            <span className="order-id">#{order.id.slice(-6).toUpperCase()}</span>
-                                            <span className="order-date"><FaCalendarAlt /> {dateStr}</span>
+                                        <div className="order-header-info">
+                                            <div className="order-id-badge">#{order.id.slice(-6)}</div>
+                                            <div className="order-date"><FaCalendarAlt /> {dateStr}</div>
+                                            {order.source && (
+                                                <div style={{
+                                                    fontSize: '0.8rem',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    background: order.source === 'pos_wholesale' ? '#8b5cf6' : order.source === 'pos_public' || order.source === 'pos' ? '#10b981' : '#f59e0b',
+                                                    color: 'white',
+                                                    marginLeft: '10px'
+                                                }}>
+                                                    {order.source === 'pos_wholesale' ? 'Despensa' : (order.source === 'pos_public' || order.source === 'pos') ? 'Local' : 'Web'}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="status-selector-wrapper" style={{ borderColor: currentStatus.color }}>
                                             <span className="status-icon" style={{ color: currentStatus.color }}>{currentStatus.icon}</span>

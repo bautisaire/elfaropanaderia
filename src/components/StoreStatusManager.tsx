@@ -1,109 +1,127 @@
-import { useEffect, useState, FormEvent } from 'react';
-import { db } from '../firebase/firebaseConfig';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import './StoreStatusManager.css';
-
-interface StoreSettings {
-    isOpen: boolean;
-    closedMessage: string;
-}
+import { useEffect, useState } from "react";
+import { db } from "../firebase/firebaseConfig";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import "./StoreStatusManager.css";
+import { FaStore, FaClock, FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 
 export default function StoreStatusManager() {
-    const [settings, setSettings] = useState<StoreSettings>({
-        isOpen: true,
-        closedMessage: "Nuestra tienda se encuentra cerrada en este momento. Abrimos de Lunes a Sábado de 8:00 a 22:00."
-    });
+    const [minPurchase, setMinPurchase] = useState<number>(0);
+    const [isOpen, setIsOpen] = useState<boolean>(true);
+    const [closeMessage, setCloseMessage] = useState<string>("Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
     const [loading, setLoading] = useState(false);
-    const [msg, setMsg] = useState<string | null>(null);
+    const [message, setMessage] = useState("");
 
     useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const docSnap = await getDoc(doc(db, "config", "store_settings"));
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setMinPurchase(data.minPurchase || 0);
+                    setIsOpen(data.isOpen !== undefined ? data.isOpen : true);
+                    setCloseMessage(data.closeMessage || "");
+                }
+            } catch (error) {
+                console.error("Error loading settings:", error);
+            }
+        };
         fetchSettings();
     }, []);
 
-    const fetchSettings = async () => {
+    const handleSave = async () => {
         setLoading(true);
         try {
-            const docRef = doc(db, "settings", "store");
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setSettings(docSnap.data() as StoreSettings);
-            } else {
-                // If it doesn't exist, we'll create it on first save, keep default state
-            }
-        } catch (error) {
-            console.error("Error fetching store settings:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleToggle = () => {
-        setSettings(prev => ({ ...prev, isOpen: !prev.isOpen }));
-    };
-
-    const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSettings(prev => ({ ...prev, closedMessage: e.target.value }));
-    };
-
-    const handleSave = async (e: FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await setDoc(doc(db, "settings", "store"), settings);
-            setMsg("Estado de tienda actualizado correctamente.");
-            setTimeout(() => setMsg(null), 3000);
+            await setDoc(doc(db, "config", "store_settings"), {
+                minPurchase: Number(minPurchase),
+                isOpen: isOpen,
+                closeMessage: closeMessage
+            }, { merge: true });
+            setMessage("🎉 Configuración guardada correctamente");
+            setTimeout(() => setMessage(""), 3000);
         } catch (error) {
             console.error("Error saving settings:", error);
-            setMsg("Error al guardar configuración.");
+            setMessage("Error al guardar la configuración");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="store-status-manager">
-            <h2>Estado de la Tienda</h2>
-
-            {msg && <div className="msg-success">{msg}</div>}
-
+        <div className="store-status-container">
             <div className="status-header">
-                <div>Estado Actual:</div>
-                <div className={`current-status ${settings.isOpen ? 'status-open' : 'status-closed'}`}>
-                    {settings.isOpen ? 'ABIERTO' : 'CERRADO'}
+                <h2><FaStore /> Estado de la Tienda</h2>
+                <p>Gestiona la disponibilidad y condiciones de tu tienda online.</p>
+            </div>
+
+            <div className="status-card open-close-card">
+                <h3>Disponibilidad General</h3>
+                <div className={`status-indicator ${isOpen ? 'open' : 'closed'}`}>
+                    {isOpen ? <FaCheckCircle size={40} /> : <FaExclamationCircle size={40} />}
+                    <div className="status-text">
+                        <h4>{isOpen ? 'TIENDA ABIERTA' : 'TIENDA CERRADA'}</h4>
+                        <p>{isOpen ? 'Tus clientes pueden realizar pedidos normalmente.' : 'Los clientes verán un aviso de cerrado y no podrán comprar.'}</p>
+                    </div>
+                </div>
+
+                <label className="toggle-switch">
+                    <input
+                        type="checkbox"
+                        checked={isOpen}
+                        onChange={(e) => setIsOpen(e.target.checked)}
+                    />
+                    <span className="slider round"></span>
+                </label>
+
+                {!isOpen && (
+                    <div className="close-message-input" style={{ marginTop: '20px', borderTop: '1px solid #fee2e2', paddingTop: '15px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', color: '#b91c1c', fontWeight: '500' }}>
+                            Mensaje para mostrar a los clientes:
+                        </label>
+                        <textarea
+                            value={closeMessage}
+                            onChange={(e) => setCloseMessage(e.target.value)}
+                            placeholder="Ej: Cerramos por vacaciones hasta el lunes..."
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #fecaca',
+                                borderRadius: '8px',
+                                minHeight: '80px',
+                                fontFamily: 'inherit',
+                                fontSize: '0.95rem',
+                                color: '#7f1d1d',
+                                backgroundColor: '#fef2f2'
+                            }}
+                        />
+                        <small style={{ color: '#ef4444' }}>Este mensaje aparecerá en la ventana emergente que bloquea la tienda.</small>
+                    </div>
+                )}
+            </div>
+
+            <div className="status-card config-card">
+                <h3><FaClock /> Configuraciones de Venta</h3>
+                <div className="form-group">
+                    <label>Monto Mínimo de Compra ($)</label>
+                    <input
+                        type="number"
+                        value={minPurchase}
+                        onChange={(e) => setMinPurchase(Number(e.target.value))}
+                        placeholder="0"
+                    />
+                    <small>Los clientes no podrán finalizar la compra si el total es menor a este monto.</small>
                 </div>
             </div>
 
-            <form onSubmit={handleSave} className="status-form">
-                <div className="toggle-container">
-                    <label className="switch">
-                        <input
-                            type="checkbox"
-                            checked={settings.isOpen}
-                            onChange={handleToggle}
-                        />
-                        <span className="slider"></span>
-                    </label>
-                    <span style={{ fontWeight: 500 }}>
-                        {settings.isOpen ? 'Tienda Habilitada' : 'Tienda Deshabilitada (No se reciben pedidos)'}
-                    </span>
-                </div>
-
-                {!settings.isOpen && (
-                    <div className="form-group">
-                        <label>Mensaje de Cierre (visible para clientes)</label>
-                        <input
-                            type="text"
-                            value={settings.closedMessage}
-                            onChange={handleMessageChange}
-                            placeholder="Ej: Cerramos por vacaciones hasta el..."
-                        />
-                    </div>
-                )}
-
-                <button type="submit" className="btn-save" disabled={loading}>
-                    {loading ? "Guardando..." : "Guardar Cambios"}
+            <div className="status-footer">
+                <button
+                    className="save-btn"
+                    onClick={handleSave}
+                    disabled={loading}
+                >
+                    {loading ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
-            </form>
+                {message && <p className={`message ${message.includes('Error') ? 'error' : 'success'}`}>{message}</p>}
+            </div>
         </div>
     );
 }

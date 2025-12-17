@@ -6,13 +6,16 @@ import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, increment, setDoc, getDoc } from "firebase/firestore";
 import { Product } from "../context/CartContext";
+import { FaStoreSlash } from "react-icons/fa";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+  const [storeMessage, setStoreMessage] = useState("");
 
   // Registro de visitas
   useEffect(() => {
@@ -35,6 +38,25 @@ export default function Home() {
       }
     };
     recordVisit();
+  }, []);
+
+  // Cargar estado de la tienda
+  useEffect(() => {
+    const fetchStoreStatus = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, "config", "store_settings"));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.isOpen === false) {
+            setIsStoreOpen(false);
+            setStoreMessage(data.closeMessage || "Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking store status:", error);
+      }
+    };
+    fetchStoreStatus();
   }, []);
 
   // Cargar productos y categorías desde Firebase
@@ -132,6 +154,17 @@ export default function Home() {
             ))
         )}
       </div>
+
+      {!isStoreOpen && (
+        <div className="store-closed-overlay">
+          <div className="store-closed-modal">
+            <FaStoreSlash size={50} color="#ef4444" />
+            <h2>Tienda Cerrada</h2>
+            <p>{storeMessage}</p>
+          </div>
+        </div>
+      )}
+
       <BottomCartModal />
     </div>
   );
