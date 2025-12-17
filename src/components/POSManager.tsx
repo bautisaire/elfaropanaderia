@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
 import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart } from 'react-icons/fa';
@@ -49,6 +50,7 @@ export default function POSManager() {
     const [weightModalOpen, setWeightModalOpen] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<{ product: Product, variant?: string } | null>(null);
     const [weightInput, setWeightInput] = useState("");
+    const [smartInputUsed, setSmartInputUsed] = useState(false);
 
     // Mobile View Toggle
     const [showMobileCart, setShowMobileCart] = useState(false);
@@ -106,8 +108,11 @@ export default function POSManager() {
 
     const confirmWeight = () => {
         if (!pendingProduct || !weightInput) return;
-        const qty = parseFloat(weightInput);
+        let qty = parseFloat(weightInput);
         if (isNaN(qty) || qty <= 0) return;
+
+        // Enforce max 3 decimals
+        qty = Math.round(qty * 1000) / 1000;
 
         const { product, variant } = pendingProduct;
 
@@ -165,6 +170,7 @@ export default function POSManager() {
         if (product.unitType === 'weight') {
             setPendingProduct({ product, variant: variantName });
             setWeightInput("");
+            setSmartInputUsed(false);
             setWeightModalOpen(true);
             // We don't use confirmWeight here directly, we open the modal.
             // The modal will call confirmWeight.
@@ -339,11 +345,13 @@ export default function POSManager() {
         <div className="pos-container">
             {/* Products Section */}
             <div className={`pos-products-section ${showMobileCart ? 'mobile-hidden' : ''}`}>
-                <div className="pos-search-bar">
-                    <input
-                        placeholder="Buscar productos..."
+
+
+                <div className="pos-search-bar" style={{ padding: '0', background: 'transparent', boxShadow: 'none' }}>
+                    <ProductSearch
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={setSearchTerm}
+                        placeholder="Buscar productos en POS..."
                     />
                 </div>
 
@@ -502,7 +510,16 @@ export default function POSManager() {
                                         type="number"
                                         autoFocus
                                         value={weightInput}
-                                        onChange={(e) => setWeightInput(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!smartInputUsed && val.length === 1 && /^[1-9]$/.test(val)) {
+                                                setWeightInput("0." + val);
+                                                setSmartInputUsed(true);
+                                            } else {
+                                                setWeightInput(val);
+                                                setSmartInputUsed(true);
+                                            }
+                                        }}
                                         onKeyDown={(e) => { if (e.key === 'Enter') confirmWeight(); }}
                                         placeholder="0.000"
                                         step="0.005"
@@ -511,6 +528,13 @@ export default function POSManager() {
                                     />
                                     <span style={{ fontSize: '1.2rem', color: '#666' }}>Kg</span>
                                 </div>
+
+                                {/* Dynamic Price Display */}
+                                {pendingProduct && weightInput && !isNaN(parseFloat(weightInput)) && (
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2ecc71' }}>
+                                        $ {(parseFloat(weightInput) * pendingProduct.product.precio).toFixed(2)}
+                                    </div>
+                                )}
 
                                 <div style={{ width: '100%', padding: '0 20px' }}>
                                     {(() => {

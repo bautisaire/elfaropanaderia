@@ -3,13 +3,14 @@ import { db } from '../firebase/firebaseConfig';
 import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
 import { FaBoxes, FaHistory, FaEdit, FaPlus, FaMinus } from 'react-icons/fa';
+import ProductSearch from './ProductSearch';
 import './StockManager.css';
 
 interface Product {
     id: string;
     nombre: string;
     stockQuantity?: number;
-    stockDependency?: any; // Added for check
+    stockDependency?: any;
     unitType?: 'unit' | 'weight';
     variants?: {
         name: string;
@@ -34,6 +35,7 @@ export default function StockManager() {
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     // Modal State
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -116,6 +118,7 @@ export default function StockManager() {
         if (selectedVariantIdx !== null && variants.length > 0) {
             const currentStock = variants[selectedVariantIdx].stockQuantity || 0;
             newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
+            newStock = Math.round(newStock * 1000) / 1000;
             variants[selectedVariantIdx].stockQuantity = newStock;
             // Ensure stock bool matches
             variants[selectedVariantIdx].stock = newStock > 0;
@@ -123,6 +126,7 @@ export default function StockManager() {
         } else {
             const currentStock = selectedProduct.stockQuantity || 0;
             newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
+            newStock = Math.round(newStock * 1000) / 1000;
         }
 
         if (newStock < 0) {
@@ -134,7 +138,6 @@ export default function StockManager() {
             // 1. Update Product
             if (selectedVariantIdx !== null && variants.length > 0) {
                 await updateDoc(doc(db, "products", selectedProduct.id), { variants });
-                // We don't sync children on variant updates unless the variant IS the parent (rare case, usually parent is simple prod)
             } else {
                 await updateDoc(doc(db, "products", selectedProduct.id), { stockQuantity: newStock });
                 // Sync Children
@@ -163,7 +166,8 @@ export default function StockManager() {
 
     // Bulk Update Logic
     const handleBulkChange = (id: string, value: string) => {
-        const val = Number(value);
+        let val = Number(value);
+        val = Math.round(val * 1000) / 1000;
         setBulkUpdates(prev => {
             if (val <= 0) {
                 const copy = { ...prev };
@@ -243,29 +247,47 @@ export default function StockManager() {
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
     const reasonsOut = ["Venta Local", "Merma/Desperdicio", "Consumo Interno", "Ajuste de Inventario", "Vencimiento"];
 
+    // Filter Logic
+    const filteredProducts = products.filter(p =>
+        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.variants && p.variants.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())))
+    );
+
     return (
         <div className="stock-manager">
             <h2>Gestión de Stock</h2>
 
-            <div className="stock-tabs">
-                <button
-                    className={`stock-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('inventory')}
-                >
-                    <FaBoxes /> Inventario
-                </button>
-                <button
-                    className={`stock-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('bulk')}
-                >
-                    <FaPlus /> Carga Masiva
-                </button>
-                <button
-                    className={`stock-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('history')}
-                >
-                    <FaHistory /> Historial
-                </button>
+            <div className="stock-controls-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <div className="stock-tabs" style={{ marginBottom: 0 }}>
+                    <button
+                        className={`stock-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('inventory')}
+                    >
+                        <FaBoxes /> Inventario
+                    </button>
+                    <button
+                        className={`stock-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('bulk')}
+                    >
+                        <FaPlus /> Carga Masiva
+                    </button>
+                    <button
+                        className={`stock-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('history')}
+                    >
+                        <FaHistory /> Historial
+                    </button>
+                </div>
+
+                {(activeTab === 'inventory' || activeTab === 'bulk') && (
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <ProductSearch
+                            value={searchTerm}
+                            onChange={setSearchTerm}
+                            placeholder={activeTab === 'bulk' ? "Buscar para carga masiva..." : "Buscar en inventario..."}
+                        />
+                    </div>
+                )}
             </div>
 
             {loading && <p>Cargando...</p>}
@@ -282,9 +304,9 @@ export default function StockManager() {
                             </tr>
                         </thead>
                         <tbody>
-                            {products.map(p => {
+                            {filteredProducts.map(p => {
                                 const totalStock = (p.variants && p.variants.length > 0)
-                                    ? p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
+                                    ? Math.round(p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0) * 1000) / 1000
                                     : (p.stockQuantity || 0);
 
                                 const isWeight = p.unitType === 'weight';
@@ -293,17 +315,17 @@ export default function StockManager() {
 
                                 return (
                                     <tr key={p.id}>
-                                        <td>
+                                        <td data-label="Producto">
                                             {p.nombre}
                                             {p.stockDependency && <span className="pill-derived"> (Derivado)</span>}
                                         </td>
-                                        <td>
+                                        <td data-label="Stock Actual">
                                             <span className={`stock-number ${isLowStock ? 'low-stock' : 'good-stock'}`}>
                                                 {stockLabel}
                                                 {(p.variants && p.variants.length > 0) && <span style={{ fontSize: '0.8em', color: '#666' }}> (Total Vars)</span>}
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Acciones">
                                             {p.stockDependency ? (
                                                 <button className="btn-adjust disabled" disabled title="Stock automático">
                                                     <FaEdit /> Auto
@@ -317,6 +339,13 @@ export default function StockManager() {
                                     </tr>
                                 );
                             })}
+                            {filteredProducts.length === 0 && (
+                                <tr>
+                                    <td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                        No se encontraron productos.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -345,17 +374,17 @@ export default function StockManager() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {products.map(p => {
+                                {filteredProducts.map(p => {
                                     // If product has variants, render a row for each variant
                                     if (p.variants && p.variants.length > 0) {
                                         return p.variants.map((v, idx) => (
                                             <tr key={`${p.id}-${idx}`}>
-                                                <td>
+                                                <td data-label="Producto">
                                                     <strong>{p.nombre}</strong> <br />
                                                     <span className="text-sm text-gray">{v.name}</span>
                                                 </td>
-                                                <td>{v.stockQuantity || 0}</td>
-                                                <td>
+                                                <td data-label="Stock Actual">{v.stockQuantity || 0}</td>
+                                                <td data-label="Agregar">
                                                     <input
                                                         type="number"
                                                         step="0.001"
@@ -372,12 +401,12 @@ export default function StockManager() {
                                         // Simple product row
                                         return (
                                             <tr key={p.id}>
-                                                <td>
+                                                <td data-label="Producto">
                                                     <strong>{p.nombre}</strong>
                                                     {p.stockDependency && <span className="text-xs-gray"> (Calc. Auto)</span>}
                                                 </td>
-                                                <td>{p.stockQuantity || 0}</td>
-                                                <td>
+                                                <td data-label="Stock Actual">{p.stockQuantity || 0}</td>
+                                                <td data-label="Agregar">
                                                     <input
                                                         type="number"
                                                         step="0.001"
@@ -393,6 +422,13 @@ export default function StockManager() {
                                         );
                                     }
                                 })}
+                                {filteredProducts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                                            No se encontraron productos.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

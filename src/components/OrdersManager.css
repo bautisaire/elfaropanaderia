@@ -30,7 +30,7 @@
 /* Orders Grid */
 .orders-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 24px;
 }
 
@@ -218,7 +218,12 @@
 .item-qty {
     font-weight: 700;
     color: #0b74ff;
-    width: 30px;
+    min-width: 40px;
+    /* Give it some base space */
+    margin-right: 8px;
+    /* Ensure gap between qty and name */
+    white-space: nowrap;
+    /* Prevent wrapping closely */
 }
 
 .item-name {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -108,19 +109,33 @@ export default function ProductManager() {
         // @ts-ignore - checked property only exists on input
         const checked = e.target.checked;
 
+        let finalValue: any = value;
+        if (type === 'number') {
+            finalValue = Number(value);
+            // Enforce max 3 decimals
+            finalValue = Math.round(finalValue * 1000) / 1000;
+        } else if (type === 'checkbox') {
+            finalValue = checked;
+        }
+
         setFormData(prev => ({
             ...prev,
-            ...prev,
-            [name]: type === 'checkbox' ? checked : (type === 'number' ? Number(value) : value)
+            [name]: finalValue
         }));
     };
 
     const handleDependencyChange = (field: 'productId' | 'unitsToDeduct', value: any) => {
+        let finalValue = value;
+        if (field === 'unitsToDeduct') {
+            finalValue = Number(value);
+            finalValue = Math.round(finalValue * 1000) / 1000;
+        }
+
         setFormData(prev => {
             const newDependency = {
                 productId: prev.stockDependency?.productId || "",
                 unitsToDeduct: prev.stockDependency?.unitsToDeduct || 0,
-                [field]: field === 'unitsToDeduct' ? Number(value) : value
+                [field]: finalValue
             };
 
             // Auto calculate stock if parent is selected
@@ -570,15 +585,13 @@ export default function ProductManager() {
                 </form>
             </div>
 
-            {/* Barra de Herramientas de Inventario */}
+
             <div className="inventory-toolbar">
-                <div className="search-bar">
-                    <FaSearch className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nombre o categoría..."
+                <div className="search-bar" style={{ display: 'block', maxWidth: '400px' }}>
+                    <ProductSearch
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={setSearchTerm}
+                        placeholder="Buscar por nombre o categoría..."
                     />
                 </div>
                 <div className="inventory-stats">

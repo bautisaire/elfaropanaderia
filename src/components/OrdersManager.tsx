@@ -342,7 +342,9 @@ export default function OrdersManager() {
                                             <ul className="order-items-list">
                                                 {order.items.map((item, index) => (
                                                     <li key={index} className="order-item">
-                                                        <span className="item-qty">{item.quantity}x</span>
+                                                        <span className="item-qty">
+                                                            {Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x
+                                                        </span>
                                                         <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
                                                         <span className="item-price">${Math.floor(item.price)}</span>
                                                     </li>

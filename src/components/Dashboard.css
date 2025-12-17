@@ -110,3 +110,15 @@
     align-items: center;
     justify-content: center;
 }
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+    .dashboard-container {
+        padding: 10px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}

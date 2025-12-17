@@ -128,6 +128,8 @@ export default function Dashboard() {
                             totalStock += (Number(data.stockQuantity) || 0);
                         }
                     });
+                    // Round to 3 decimals
+                    totalStock = Math.round(totalStock * 1000) / 1000;
                     setStats(prev => ({ ...prev, totalStock }));
                 });
 
