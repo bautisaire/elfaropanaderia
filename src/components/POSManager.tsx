@@ -426,7 +426,9 @@ export default function POSManager() {
                                     <img src={v.image || product.img} alt={product.nombre} className="pos-product-img" />
                                     <div className="pos-product-info">
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
-                                        <div className="pos-product-price">${product.precio}</div>
+                                        <div className="pos-product-price">
+                                            ${priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio}
+                                        </div>
                                         <div className={`pos-product-stock ${v.stockQuantity && v.stockQuantity < 5 ? 'low' : ''}`}>
                                             Stock: {v.stockQuantity ?? 0}
                                         </div>

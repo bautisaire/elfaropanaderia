@@ -108,22 +108,37 @@ export default function ProductManager() {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        // @ts-ignore - checked property only exists on input
+        // @ts-ignore
         const checked = e.target.checked;
 
         let finalValue: any = value;
-        if (type === 'number') {
-            finalValue = Number(value);
-            // Enforce max 3 decimals
-            finalValue = Math.round(finalValue * 1000) / 1000;
-        } else if (type === 'checkbox') {
+        if (type === 'checkbox') {
             finalValue = checked;
         }
+        // REMOVED aggressive rounding here to allow smooth typing
 
         setFormData(prev => ({
             ...prev,
             [name]: finalValue
         }));
+    };
+
+    const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const { name, value, type } = e.target;
+        if (type === 'number' && value !== "") {
+            let num = parseFloat(value);
+            // Round to 3 decimals on blur
+            num = Math.round(num * 1000) / 1000;
+            setFormData(prev => ({
+                ...prev,
+                [name]: num
+            }));
+        }
+    };
+
+    const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+        // Prevent value change on scroll
+        e.currentTarget.blur();
     };
 
     const handleDependencyChange = (field: 'productId' | 'unitsToDeduct', value: any) => {
@@ -400,6 +415,8 @@ export default function ProductManager() {
                                         placeholder="0"
                                         value={formData.precio}
                                         onChange={handleInputChange}
+                                        onBlur={handleInputBlur}
+                                        onWheel={handleWheel}
                                         required
                                     />
                                 </div>
@@ -415,6 +432,8 @@ export default function ProductManager() {
                                         placeholder="0"
                                         value={formData.wholesalePrice || ""}
                                         onChange={handleInputChange}
+                                        onBlur={handleInputBlur}
+                                        onWheel={handleWheel}
                                     />
                                 </div>
                             </div>
@@ -432,7 +451,7 @@ export default function ProductManager() {
                                 </div>
                                 <div className="form-group quarter">
                                     <label>Precio ($)</label>
-                                    <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} min="0" />
+                                    <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" />
                                 </div>
 
                             </div>
@@ -447,7 +466,7 @@ export default function ProductManager() {
                                 </div>
                                 <div className="form-group half">
                                     <label>Descuento (%)</label>
-                                    <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} min="0" max="100" />
+                                    <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" />
                                 </div>
                             </div>
 
