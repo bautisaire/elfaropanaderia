@@ -276,7 +276,26 @@
     .pos-products-section {
         height: 100%;
         padding-bottom: 70px;
-        /* Space for footer */
+        overflow-y: auto;
+        /* Enable scroll on the main container */
+        display: block;
+        /* Remove flex to allow normal flow */
+    }
+
+    .pos-search-bar {
+        margin-bottom: 15px;
+        /* Add spacing since gap from flex is gone */
+    }
+
+    .pos-products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+        overflow: visible;
+        /* Remove internal scroll */
+        padding-bottom: 20px;
+        height: auto;
+        /* Let it grow */
     }
 
     .pos-cart-section {

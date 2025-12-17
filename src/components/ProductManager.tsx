@@ -5,7 +5,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { compressImage } from "../utils/imageUtils";
 import { syncChildProducts } from "../utils/stockUtils";
-import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaSearch, FaEyeSlash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash } from 'react-icons/fa';
 import "./ProductManager.css";
 
 // Interface matching Firestore data structure

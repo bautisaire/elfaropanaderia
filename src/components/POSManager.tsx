@@ -50,7 +50,9 @@ export default function POSManager() {
     const [weightModalOpen, setWeightModalOpen] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<{ product: Product, variant?: string } | null>(null);
     const [weightInput, setWeightInput] = useState("");
+    const [priceInput, setPriceInput] = useState(""); // Local state for price typing
     const [smartInputUsed, setSmartInputUsed] = useState(false);
+    const [inputMode, setInputMode] = useState<'weight' | 'price'>('weight'); // 'weight' or 'price'
 
     // Mobile View Toggle
     const [showMobileCart, setShowMobileCart] = useState(false);
@@ -170,7 +172,9 @@ export default function POSManager() {
         if (product.unitType === 'weight') {
             setPendingProduct({ product, variant: variantName });
             setWeightInput("");
+            setPriceInput("");
             setSmartInputUsed(false);
+            setInputMode('weight');
             setWeightModalOpen(true);
             // We don't use confirmWeight here directly, we open the modal.
             // The modal will call confirmWeight.
@@ -512,6 +516,8 @@ export default function POSManager() {
                                         value={weightInput}
                                         onChange={(e) => {
                                             const val = e.target.value;
+                                            if (inputMode === 'price') return; // Should not happen if overlay covers, but good safety
+
                                             if (!smartInputUsed && val.length === 1 && /^[1-9]$/.test(val)) {
                                                 setWeightInput("0." + val);
                                                 setSmartInputUsed(true);
@@ -520,19 +526,83 @@ export default function POSManager() {
                                                 setSmartInputUsed(true);
                                             }
                                         }}
+                                        onFocus={() => setInputMode('weight')}
                                         onKeyDown={(e) => { if (e.key === 'Enter') confirmWeight(); }}
                                         placeholder="0.000"
                                         step="0.005"
                                         min="0"
-                                        style={{ fontSize: '2rem', width: '150px', padding: '10px', textAlign: 'center', borderRadius: '10px', border: '1px solid #ddd' }}
+                                        style={{
+                                            fontSize: '2rem',
+                                            width: '150px',
+                                            padding: '10px',
+                                            textAlign: 'center',
+                                            borderRadius: '10px',
+                                            border: '1px solid #ddd',
+                                            opacity: inputMode === 'price' ? 0.5 : 1
+                                        }}
                                     />
                                     <span style={{ fontSize: '1.2rem', color: '#666' }}>Kg</span>
                                 </div>
 
-                                {/* Dynamic Price Display */}
-                                {pendingProduct && weightInput && !isNaN(parseFloat(weightInput)) && (
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2ecc71' }}>
-                                        $ {(parseFloat(weightInput) * pendingProduct.product.precio).toFixed(2)}
+                                {/* Dynamic Price Display - Clickable */}
+                                {/* Dynamic Price Display - Clickable */}
+                                {pendingProduct && (
+                                    <div
+                                        style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2ecc71', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        onClick={() => {
+                                            if (inputMode === 'price') return;
+                                            setInputMode('price');
+                                            // Initialize price input (Integer for Argentina)
+                                            if (weightInput && !isNaN(parseFloat(weightInput))) {
+                                                const currentPrice = parseFloat(weightInput) * pendingProduct.product.precio;
+                                                setPriceInput(Math.round(currentPrice).toString());
+                                            } else {
+                                                setPriceInput("");
+                                            }
+                                        }}
+                                    >
+                                        <span>$</span>
+                                        {inputMode === 'weight' ? (
+                                            <span>
+                                                {(weightInput && !isNaN(parseFloat(weightInput)))
+                                                    ? Math.round(parseFloat(weightInput) * pendingProduct.product.precio).toString()
+                                                    : "0"}
+                                            </span>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                autoFocus
+                                                value={priceInput}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setPriceInput(val);
+
+                                                    if (val === "") {
+                                                        setWeightInput("");
+                                                        return;
+                                                    }
+
+                                                    const priceVal = parseFloat(val);
+                                                    if (!isNaN(priceVal) && pendingProduct.product.precio > 0) {
+                                                        const newWeight = priceVal / pendingProduct.product.precio;
+                                                        // Keep 3 decimals for weight precision derived from price
+                                                        setWeightInput(newWeight.toFixed(3));
+                                                    }
+                                                }}
+                                                placeholder="0"
+                                                step="1"
+                                                style={{
+                                                    fontSize: '1.5rem',
+                                                    fontWeight: 'bold',
+                                                    color: '#2ecc71',
+                                                    width: '120px',
+                                                    border: 'none',
+                                                    borderBottom: '2px solid #2ecc71',
+                                                    outline: 'none',
+                                                    textAlign: 'center'
+                                                }}
+                                            />
+                                        )}
                                     </div>
                                 )}
 

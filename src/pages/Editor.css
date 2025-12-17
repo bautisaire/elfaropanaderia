@@ -156,18 +156,92 @@
     margin: 10px 0;
 }
 
+/* Mobile Header & Overlay Defaults (Hidden on Desktop) */
+.mobile-header,
+.mobile-overlay,
+.sidebar-close-btn {
+    display: none;
+}
+
 /* Responsive: Collapse sidebar to bottom or hamburger (simple version) */
 @media (max-width: 850px) {
     .editor-layout {
         flex-direction: column;
+        position: relative;
     }
 
+    /* Mobile Header */
+    .mobile-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: #111827;
+        color: white;
+        padding: 15px 20px;
+        position: sticky;
+        top: 0;
+        z-index: 1001;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-header span {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .burger-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+    .sidebar-close-btn {
+        display: block;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 1100;
+    }
+
+    /* Sidebar Drawer Style */
     .editor-sidebar {
-        position: static;
+        position: fixed;
+        width: 280px;
+        height: 100vh;
+        top: 0;
+        left: 0;
+        z-index: 2000;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+        padding-top: 60px;
+        /* Space for close btn */
+    }
+
+    .editor-sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* Overlay */
+    .mobile-overlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
         width: 100%;
-        height: auto;
-        padding-top: 20px;
-        z-index: 1;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1500;
+        backdrop-filter: blur(2px);
     }
 
     .editor-content {

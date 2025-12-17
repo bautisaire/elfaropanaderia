@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister } from "react-icons/fa";
+import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import CategoryManager from "../components/CategoryManager";
@@ -22,6 +22,7 @@ export default function Editor() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "categories" | "hero" | "store" | "stock" | "pos">("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
@@ -72,6 +73,11 @@ export default function Editor() {
     navigate("/");
   };
 
+  const handleNavClick = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
+
   if (checkingAuth) {
     return <div style={{ marginTop: '100px', textAlign: 'center', fontSize: '1.2rem' }}>Verificando credenciales...</div>;
   }
@@ -109,7 +115,21 @@ export default function Editor() {
         </div>
       ) : (
         <div className="editor-layout">
-          <aside className="editor-sidebar">
+          {/* Mobile Header logic */}
+          <div className="mobile-header">
+            <button className="burger-btn" onClick={() => setMobileMenuOpen(true)}>
+              <FaBars />
+            </button>
+            <span>Panel Admin</span>
+          </div>
+
+          {/* Mobile Overlay */}
+          {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
+
+          <aside className={`editor-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+            <button className="sidebar-close-btn" onClick={() => setMobileMenuOpen(false)}>
+              <FaTimes />
+            </button>
             <div style={{ padding: '20px', borderBottom: '1px solid #374151', marginBottom: '10px' }}>
               <h3 style={{ margin: 0, color: 'white', border: 'none' }}>Panel Admin</h3>
               <small style={{ color: '#9ca3af' }}>{currentUser.email}</small>
@@ -117,37 +137,37 @@ export default function Editor() {
             <nav>
               <button
                 className={activeTab === "dashboard" ? "active" : ""}
-                onClick={() => setActiveTab("dashboard")}
+                onClick={() => handleNavClick("dashboard")}
               >
                 <FaChartPie /> Dashboard
               </button>
               <button
                 className={activeTab === "pos" ? "active" : ""}
-                onClick={() => setActiveTab("pos")}
+                onClick={() => handleNavClick("pos")}
               >
                 <FaCashRegister /> Punto de Venta
               </button>
               <button
                 className={activeTab === "products" ? "active" : ""}
-                onClick={() => setActiveTab("products")}
+                onClick={() => handleNavClick("products")}
               >
                 <FaBoxOpen /> Productos
               </button>
               <button
                 className={activeTab === "categories" ? "active" : ""}
-                onClick={() => setActiveTab("categories")}
+                onClick={() => handleNavClick("categories")}
               >
                 <FaFolder /> Categorías
               </button>
               <button
                 className={activeTab === "stock" ? "active" : ""}
-                onClick={() => setActiveTab("stock")}
+                onClick={() => handleNavClick("stock")}
               >
                 <FaClipboardCheck /> Gestión de Stock
               </button>
               <button
                 className={activeTab === "orders" ? "active" : ""}
-                onClick={() => setActiveTab("orders")}
+                onClick={() => handleNavClick("orders")}
               >
                 <FaClipboardList /> Pedidos
                 {pendingOrdersCount > 0 && (
@@ -156,13 +176,13 @@ export default function Editor() {
               </button>
               <button
                 className={activeTab === "hero" ? "active" : ""}
-                onClick={() => setActiveTab("hero")}
+                onClick={() => handleNavClick("hero")}
               >
                 <FaImages /> Portadas (Hero)
               </button>
               <button
                 className={activeTab === "store" ? "active" : ""}
-                onClick={() => setActiveTab("store")}
+                onClick={() => handleNavClick("store")}
               >
                 <FaStore /> Estado Tienda
               </button>
