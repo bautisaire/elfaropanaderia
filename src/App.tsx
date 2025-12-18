@@ -12,7 +12,7 @@ import MyOrders from "./pages/MyOrders";
 
 function Layout() {
   const location = useLocation();
-  const isEditor = location.pathname.startsWith('/editor');
+  const isEditor = location.pathname.toLowerCase().startsWith('/editor');
 
   const { isStoreOpen } = useContext(CartContext);
 

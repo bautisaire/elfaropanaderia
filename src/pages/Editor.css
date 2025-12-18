@@ -18,6 +18,7 @@
 /* --- Dashboard Layout --- */
 .editor-layout {
     display: flex;
+    flex-direction: column;
     /* Reset layout to allow full width usage */
 }
 
@@ -27,17 +28,25 @@
     top: 0;
     left: 0;
     height: 100vh;
-    width: 260px;
+    width: 280px;
     background: #111827;
     /* Dark Modern Sidebar */
     color: #ecf0f1;
     /* Account for Navbar height + visual spacing */
     box-shadow: 4px 0 15px rgba(0, 0, 0, 0.05);
-    z-index: 900;
+    z-index: 2000;
     /* Below typical Navbar z-index if it's 1000, or adjust as needed */
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+
+    /* Collapsible logic default */
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+}
+
+.editor-sidebar.open {
+    transform: translateX(0);
 }
 
 .editor-sidebar h3 {
@@ -104,12 +113,13 @@
 }
 
 /* --- Main Content Area --- */
+/* --- Main Content Area --- */
 .editor-content {
-    margin-left: 260px;
-    /* Offset for fixed sidebar */
+    margin-left: 0;
+    /* No offset as sidebar is overlay */
     padding: 30px;
     flex: 1;
-    width: calc(100% - 260px);
+    width: 100%;
 }
 
 /* Global utility for inner panels if needed */
@@ -157,96 +167,69 @@
 }
 
 /* Mobile Header & Overlay Defaults (Hidden on Desktop) */
-.mobile-header,
-.mobile-overlay,
+/* Header & Overlay Defaults (Visible on Desktop now) */
+.mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #111827;
+    color: white;
+    padding: 15px 20px;
+    /* position: sticky; */
+    /* Sticky might interfere if content scrolls separately */
+    width: 100%;
+    z-index: 1001;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-header span {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.burger-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.mobile-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    backdrop-filter: blur(2px);
+}
+
 .sidebar-close-btn {
-    display: none;
+    display: block;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 2100;
 }
 
 /* Responsive: Collapse sidebar to bottom or hamburger (simple version) */
+/* Responsive Adjustments if needed */
 @media (max-width: 850px) {
     .editor-layout {
         flex-direction: column;
-        position: relative;
-    }
-
-    /* Mobile Header */
-    .mobile-header {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        background: #111827;
-        color: white;
-        padding: 15px 20px;
-        position: sticky;
-        top: 0;
-        z-index: 1001;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
-    .mobile-header span {
-        font-weight: bold;
-        font-size: 1.1rem;
-    }
-
-    .burger-btn {
-        background: transparent;
-        border: none;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-    }
-
-    .sidebar-close-btn {
-        display: block;
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        background: transparent;
-        border: none;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        z-index: 1100;
-    }
-
-    /* Sidebar Drawer Style */
-    .editor-sidebar {
-        position: fixed;
-        width: 280px;
-        height: 100vh;
-        top: 0;
-        left: 0;
-        z-index: 2000;
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
-        transform: translateX(-100%);
-        transition: transform 0.3s ease-in-out;
-        padding-top: 60px;
-        /* Space for close btn */
-    }
-
-    .editor-sidebar.open {
-        transform: translateX(0);
-    }
-
-    /* Overlay */
-    .mobile-overlay {
-        display: block;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 1500;
-        backdrop-filter: blur(2px);
     }
 
     .editor-content {
-        margin-left: 0;
-        width: 100%;
         padding: 15px;
     }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
-import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
 
@@ -56,8 +56,8 @@ export default function POSManager() {
     const [inputMode, setInputMode] = useState<'weight' | 'price'>('weight'); // 'weight' or 'price'
     const [priceMode, setPriceMode] = useState<'public' | 'wholesale'>('public'); // Pricing mode
 
-    // Mobile View Toggle
-    const [showMobileCart, setShowMobileCart] = useState(false);
+    // Cart Visibility (Mobile: Toggle View, Desktop: Slider)
+    const [isCartOpen, setIsCartOpen] = useState(false);
 
     // Generic Modal State
     const [modalConfig, setModalConfig] = useState<ModalState>({
@@ -351,7 +351,7 @@ export default function POSManager() {
             );
 
             setCart([]);
-            setShowMobileCart(false); // Return to products after sale on mobile
+            setIsCartOpen(false); // Close slider/view after sale
             fetchProducts();
         } catch (error) {
             console.error("Checkout error:", error);
@@ -370,7 +370,7 @@ export default function POSManager() {
     return (
         <div className="pos-container">
             {/* Products Section */}
-            <div className={`pos-products-section ${showMobileCart ? 'mobile-hidden' : ''}`}>
+            <div className={`pos-products-section ${isCartOpen ? 'mobile-only-hidden' : ''}`}>
 
                 <div className="pos-header-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <h2 style={{ margin: 0 }}>POS</h2>
@@ -456,7 +456,7 @@ export default function POSManager() {
 
 
                 {/* Mobile Footer Summary (Only visible on mobile when viewing products) */}
-                <div className="pos-mobile-footer-summary" onClick={() => setShowMobileCart(true)}>
+                <div className="pos-mobile-footer-summary" onClick={() => setIsCartOpen(true)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <FaShoppingCart />
                         <span>{cart.reduce((a, b) => a + b.quantity, 0)} items</span>
@@ -470,15 +470,26 @@ export default function POSManager() {
                 </div>
             </div>
 
-            {/* Cart Section */}
-            <div className={`pos-cart-section ${!showMobileCart ? 'mobile-hidden' : ''}`}>
+            {/* Cart Section - Slider on Desktop, Full View on Mobile */}
+            <div className={`pos-cart-section ${isCartOpen ? 'open' : ''} ${!isCartOpen ? 'mobile-only-hidden' : ''}`}>
                 <div className="pos-cart-header">
-                    {showMobileCart && (
-                        <button className="pos-back-btn" onClick={() => setShowMobileCart(false)}>
+                    <div style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                        {/* Mobile Back Button */}
+                        <button className="pos-back-btn mobile-only-visible" onClick={() => setIsCartOpen(false)}>
                             <FaArrowLeft /> Volver
                         </button>
-                    )}
-                    <h3>Ticket de Venta</h3>
+
+                        <h3 style={{ margin: 0 }}>Ticket de Venta</h3>
+
+                        {/* Desktop Close Button */}
+                        <button
+                            className="pos-close-slider-btn desktop-only-visible"
+                            onClick={() => setIsCartOpen(false)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '5px' }}
+                        >
+                            <FaTimes />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="pos-cart-items">
@@ -535,6 +546,26 @@ export default function POSManager() {
                     </button>
                 </div>
             </div>
+
+            {/* Desktop Floating Cart Trigger (FAB) */}
+            {
+                cart.length > 0 && !isCartOpen && (
+                    <button
+                        className="pos-fab-cart desktop-only-visible"
+                        onClick={() => setIsCartOpen(true)}
+                    >
+                        <FaShoppingCart />
+                        <span className="pos-fab-badge">{cart.reduce((a, b) => a + b.quantity, 0)}</span>
+                    </button>
+                )
+            }
+
+            {/* Overlay for Desktop Slider */}
+            {
+                isCartOpen && (
+                    <div className="pos-slider-overlay desktop-only-visible" onClick={() => setIsCartOpen(false)}></div>
+                )
+            }
 
             {/* Global POS Modal */}
             <POSModal

@@ -1,9 +1,8 @@
 /* ... Previous CSS ... */
 
 .pos-container {
-    display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 20px;
+    display: block;
+    /* Changed from grid to block for full width products */
     height: calc(100vh - 80px);
     overflow: hidden;
     position: relative;
@@ -11,16 +10,16 @@
 
 /* ... (Keep existing styles) ... */
 .pos-products-section {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    display: block;
     height: 100%;
-    overflow: hidden;
+    overflow-y: auto;
+    padding-right: 5px;
 }
 
 .pos-search-bar {
     display: flex;
     gap: 10px;
+    margin-bottom: 15px;
 }
 
 .pos-search-bar input {
@@ -58,8 +57,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 15px;
-    overflow-y: auto;
-    padding-right: 5px;
+    overflow-y: visible;
+    height: auto;
 }
 
 .pos-product-card {
@@ -114,21 +113,37 @@
     color: #ef4444;
 }
 
+/* CART SECTION - DESKTOP SLIDER */
 .pos-cart-section {
     background: white;
-    border-radius: 12px;
-    border: 1px solid #eee;
+    border-radius: 12px 0 0 12px;
+    border-left: 1px solid #eee;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.05);
+
+    /* Slider Properties */
+    position: fixed;
+    right: 0;
+    top: 0;
+    /* Align to top of viewport or container */
+    bottom: 0;
+    width: 400px;
+    height: 100vh;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+}
+
+.pos-cart-section.open {
+    transform: translateX(0);
 }
 
 .pos-cart-header {
     padding: 15px;
     border-bottom: 1px solid #eee;
     background: #f9fafb;
-    border-radius: 12px 12px 0 0;
+    /* border-radius: 12px 12px 0 0; */
 }
 
 .pos-cart-header h3 {
@@ -202,7 +217,7 @@
     padding: 15px;
     border-top: 1px solid #eee;
     background: #f9fafb;
-    border-radius: 0 0 12px 12px;
+    /* border-radius: 0 0 12px 12px; */
 }
 
 .pos-total-row {
@@ -259,54 +274,98 @@
     cursor: not-allowed;
 }
 
+/* FAB */
+.pos-fab-cart {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    background: #000;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    z-index: 990;
+    transition: transform 0.2s;
+}
+
+.pos-fab-cart:hover {
+    transform: scale(1.05);
+}
+
+.pos-fab-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    border: 2px solid white;
+}
+
+.pos-slider-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 995;
+    backdrop-filter: blur(2px);
+}
+
+/* Visibility Utilities */
+.mobile-only-visible {
+    display: none;
+}
+
+.desktop-only-visible {
+    display: block;
+}
+
+
+
 @media (max-width: 900px) {
     .pos-container {
         display: block;
-        /* Stack instead of grid */
         height: calc(100vh - 60px);
-        /* Adjust for header if needed */
         position: relative;
     }
 
-    .pos-products-section.mobile-hidden,
-    .pos-cart-section.mobile-hidden {
+    .pos-products-section.mobile-only-hidden {
         display: none;
     }
 
-    .pos-products-section {
-        height: 100%;
-        padding-bottom: 70px;
-        overflow-y: auto;
-        /* Enable scroll on the main container */
-        display: block;
-        /* Remove flex to allow normal flow */
-    }
-
-    .pos-search-bar {
-        margin-bottom: 15px;
-        /* Add spacing since gap from flex is gone */
-    }
-
-    .pos-products-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 15px;
-        overflow: visible;
-        /* Remove internal scroll */
-        padding-bottom: 20px;
-        height: auto;
-        /* Let it grow */
+    .mobile-only-hidden {
+        display: none !important;
     }
 
     .pos-cart-section {
-        height: 100%;
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
+        height: 100%;
+        transform: none;
         z-index: 10;
         border-radius: 0;
         border: none;
+        display: flex;
+        /* Fallback */
+    }
+
+    /* Override slider transform on mobile if class is present */
+    .pos-cart-section.open {
+        transform: none;
     }
 
     /* Mobile Footer Summary */
@@ -347,18 +406,15 @@
         cursor: pointer;
         color: #333;
         margin-right: auto;
-        /* Push title to center or right */
     }
 
-    .pos-cart-header {
+    /* Visibility Utilities Mobile */
+    .mobile-only-visible {
         display: flex;
-        align-items: center;
-        gap: 10px;
     }
 
-    .pos-cart-header h3 {
-        margin: 0;
-        /* Center title if desired, or keep left */
+    .desktop-only-visible {
+        display: none !important;
     }
 }
 
