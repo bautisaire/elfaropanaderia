@@ -75,12 +75,12 @@ export const CartProvider = ({ children }: Props) => {
   useEffect(() => {
     const fetchStoreStatus = async () => {
       try {
-        const docRef = doc(db, "settings", "store");
+        const docRef = doc(db, "config", "store_settings");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setIsStoreOpen(data.isOpen);
-          setClosedMessage(data.closedMessage || "Tienda Cerrada");
+          setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);
+          setClosedMessage(data.closeMessage || "Tienda Cerrada");
         }
       } catch (error) {
         console.error("Error fetching store status:", error);
