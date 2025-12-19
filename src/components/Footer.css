@@ -69,3 +69,25 @@
         font-size: 0.9rem;
     }
 }
+
+.footer-section {
+    width: 100%;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.footer-title {
+    color: var(--footer-accent);
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.map-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}

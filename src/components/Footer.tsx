@@ -18,6 +18,20 @@ const Footer: React.FC = () => {
                         <FaWhatsapp size={24} />
                     </a>
                 </div>
+                <div className="footer-section map-section">
+                    <h3 className="footer-title">Nuestra ubicación:</h3>
+                    <div className="map-container">
+                        <iframe
+                            src="https://maps.google.com/maps?q=David+Spinetto+271,+Senillosa,+Neuquen&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            width="100%"
+                            height="250"
+                            style={{ border: 0 }}
+                            allowFullScreen={true}
+                            loading="lazy"
+                            title="Google Maps"
+                        ></iframe>
+                    </div>
+                </div>
                 <div className="footer-text">
                     <p>
                         ¿Tienes un negocio y quieres una página web?{' '}
