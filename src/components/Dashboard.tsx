@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaBox, FaEye } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye } from "react-icons/fa";
 
 export default function Dashboard() {
     const [stats, setStats] = useState({
@@ -194,14 +194,14 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Card 2: Stock */}
+                {/* Card 2: Stock
                 <div className="stat-card stock">
                     <div className="stat-icon"><FaBox /></div>
                     <div className="stat-info">
                         <h3>Stock Total</h3>
                         <p>{stats.totalStock}</p>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Sub-Card: Ventas Despensa (Wholesale) */}
                 <div className="stat-card wholesale-sales" style={{ borderLeft: '4px solid #8b5cf6', display: 'flex', flexDirection: 'column', gap: '5px' }}>
