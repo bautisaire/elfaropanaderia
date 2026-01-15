@@ -43,7 +43,7 @@ interface ModalState {
 
 export default function POSManager() {
     const [products, setProducts] = useState<Product[]>([]);
-    const [categories, setCategories] = useState<string[]>([]);
+    const [categories] = useState<string[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("Todas");
@@ -110,15 +110,15 @@ export default function POSManager() {
         }
     };
 
-    const fetchCategories = async () => {
-        try {
-            const querySnapshot = await getDocs(collection(db, "categories"));
-            const cats = querySnapshot.docs.map(doc => doc.data().name);
-            setCategories(["Todas", ...cats]);
-        } catch (error) {
-            console.error("Error fetching categories:", error);
-        }
-    };
+    // const fetchCategories = async () => {
+    //     try {
+    //         const querySnapshot = await getDocs(collection(db, "categories"));
+    //         const cats = querySnapshot.docs.map(doc => doc.data().name);
+    //         setCategories(["Todas", ...cats]);
+    //     } catch (error) {
+    //         console.error("Error fetching categories:", error);
+    //     }
+    // };
 
     const confirmWeight = () => {
         if (!pendingProduct || !weightInput) return;
