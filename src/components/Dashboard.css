@@ -121,4 +121,139 @@
         grid-template-columns: 1fr;
         gap: 15px;
     }
+    
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .timeframe-selector {
+        width: 100%;
+        overflow-x: auto;
+    }
+}
+
+/* Header & Timeframe */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.dashboard-header h2 {
+    margin: 0;
+    color: #1f2937;
+}
+
+.timeframe-selector {
+    display: flex;
+    gap: 10px;
+    background: #f3f4f6;
+    padding: 5px;
+    border-radius: 12px;
+}
+
+.tf-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.tf-btn:hover {
+    background: rgba(0,0,0,0.05);
+    color: #374151;
+}
+
+.tf-btn.active {
+    background: white;
+    color: #3b82f6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.stat-sub {
+    display: block;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    font-weight: normal;
+    margin-top: 5px;
+}
+
+.stat-card.main-stat h3 {
+    font-size: 1.1rem;
+    color: #4b5563;
+}
+
+.stat-card.main-stat p {
+    font-size: 2rem;
+    color: #10b981;
+}
+
+/* Product Stats Section */
+.products-stats-section {
+    margin-top: 40px;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+}
+
+.products-stats-section h3 {
+    margin-top: 0;
+    color: #1f2937;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.products-table-container {
+    overflow-x: auto;
+}
+
+.products-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+.products-stats-table th {
+    text-align: left;
+    padding: 12px;
+    background: #f9fafb;
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.products-stats-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.products-stats-table tr:last-child td {
+    border-bottom: none;
+}
+
+.products-stats-table tr:hover {
+    background: #f9fafb;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #9ca3af;
+    font-style: italic;
 }

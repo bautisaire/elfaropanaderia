@@ -2,36 +2,42 @@ import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt } from "react-icons/fa";
+
+// Interface for aggregated product data
+interface ProductSale {
+    id: string;
+    name: string;
+    variant?: string;
+    quantity: number;
+    total: number;
+}
 
 export default function Dashboard() {
+    const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('day');
+    const [rawOrders, setRawOrders] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const [stats, setStats] = useState({
+        visits: 0,
+        // Current Timeframe Stats
         totalSales: 0,
         totalOrders: 0,
-        totalStock: 0,
-        visits: 0,
-        // New Metrics
-        onlineSales: 0,
-        onlineCount: 0,
-        localSales: 0,
-        localCount: 0,
-        wholesaleSales: 0,
-        wholesaleCount: 0,
-        // Detailed Metrics (Today/Month)
-        onlineSalesToday: 0,
-        onlineSalesMonth: 0,
-        localSalesToday: 0,
-        localSalesMonth: 0,
-        wholesaleSalesToday: 0,
-        wholesaleSalesMonth: 0
+        plata: 0,       // All revenue
+        despensa: 0,    // Wholesale
+        publico: 0,     // Local POS
+        delivery: 0     // Online
     });
-    const [loading, setLoading] = useState(true);
+
+    const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
+    const [productData, setProductData] = useState<Map<string, any>>(new Map());
 
     // Helpers for Timezone (Argentina)
     const getArgentinaDate = (date: Date) => {
         return new Date(date.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
     };
 
+    // Date Helpers
     const isSameDay = (d1: Date, d2: Date) => {
         return d1.getFullYear() === d2.getFullYear() &&
             d1.getMonth() === d2.getMonth() &&
@@ -43,121 +49,77 @@ export default function Dashboard() {
             d1.getMonth() === d2.getMonth();
     };
 
+
+    // Helper to get week number
+    const getWeekNumber = (d: Date) => {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        return weekNo;
+    }
+
+    const isInTimeframe = (orderDate: Date, timeframe: 'day' | 'week' | 'month') => {
+        const nowArg = getArgentinaDate(new Date());
+        const dateArg = getArgentinaDate(orderDate);
+
+        if (timeframe === 'day') return isSameDay(nowArg, dateArg);
+        if (timeframe === 'month') return isSameMonth(nowArg, dateArg);
+        if (timeframe === 'week') {
+            // Calculate week number for current date and order date
+            return getWeekNumber(nowArg) === getWeekNumber(dateArg) && nowArg.getFullYear() === dateArg.getFullYear();
+        }
+        return false;
+    };
+
+
     useEffect(() => {
         let unsubOrders: () => void;
-        let unsubProducts: () => void;
         let unsubStats: () => void;
+        let unsubProducts: () => void; // New listener for products
 
         const setupListeners = async () => {
             try {
+                // 0. Fetch Products first to build dependency map
+                // We need to listen to products to ensure we have the latest names/dependencies
+                unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
+                    const productsMap = new Map<string, any>();
+                    snapshot.docs.forEach(doc => {
+                        productsMap.set(doc.id, { id: doc.id, ...doc.data() });
+                    });
+
+                    // 1. Orders Listener (Nested inside to have access to productsMap, or we can use ref)
+                    // Better approach: Store products in state or Ref to use in Orders processing
+                    // But for simplicity/reactivity, we'll set a local state for products and depend on it.
+                    // However, we can't nest listeners easily without re-triggering.
+                    // Correct approach: Independent listeners, and a "process" effect that runs when either changes.
+
+                    setProductData(productsMap);
+                    // We need a state for product map to trigger reprocessing
+                });
+
+
                 // 1. Orders Listener
                 unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-                    const orders = snapshot.docs.map(doc => doc.data());
-                    const validOrders = orders.filter((o: any) => o.status !== 'cancelado');
-
-                    const totalOrders = validOrders.length;
-                    const totalSales = validOrders.reduce((acc, order: any) => acc + (Number(order.total) || 0), 0);
-
-                    // Split Logic
-                    // Split Logic
-                    let onlineSales = 0;
-                    let onlineCount = 0;
-                    let localSales = 0;
-                    let localCount = 0;
-                    let wholesaleSales = 0;
-                    let wholesaleCount = 0;
-
-                    let onlineSalesToday = 0;
-                    let onlineSalesMonth = 0;
-                    let localSalesToday = 0;
-                    let localSalesMonth = 0;
-                    let wholesaleSalesToday = 0;
-                    let wholesaleSalesMonth = 0;
-
-                    const nowArgentina = getArgentinaDate(new Date());
-
-                    validOrders.forEach((order: any) => {
-                        const amount = Number(order.total) || 0;
-
-                        // Parse Date
+                    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const processedOrders = orders.map((o: any) => {
                         let orderDate: Date;
-                        if (order.date && typeof order.date.toDate === 'function') {
-                            orderDate = order.date.toDate();
-                        } else if (order.date) {
-                            orderDate = new Date(order.date);
+                        if (o.date && typeof o.date.toDate === 'function') {
+                            orderDate = o.date.toDate();
+                        } else if (o.date) {
+                            orderDate = new Date(o.date);
                         } else {
-                            // Fallback if no date (shouldn't happen on new orders)
                             orderDate = new Date(0);
                         }
-
-                        const orderDateArgentina = getArgentinaDate(orderDate);
-
-                        const isToday = isSameDay(nowArgentina, orderDateArgentina);
-                        const isThisMonth = isSameMonth(nowArgentina, orderDateArgentina);
-
-                        if (order.source === 'pos_public' || order.source === 'pos') {
-                            localSales += amount;
-                            localCount++;
-                            if (isToday) localSalesToday += amount;
-                            if (isThisMonth) localSalesMonth += amount;
-                        } else if (order.source === 'pos_wholesale') {
-                            wholesaleSales += amount;
-                            wholesaleCount++;
-                            if (isToday) wholesaleSalesToday += amount;
-                            if (isThisMonth) wholesaleSalesMonth += amount;
-                        } else {
-                            // Default to online if source is 'online' or undefined (legacy)
-                            onlineSales += amount;
-                            onlineCount++;
-                            if (isToday) onlineSalesToday += amount;
-                            if (isThisMonth) onlineSalesMonth += amount;
-                        }
+                        return { ...o, dateTyped: orderDate };
                     });
-
-                    setStats(prev => ({
-                        ...prev,
-                        totalOrders,
-                        totalSales,
-                        onlineSales,
-                        onlineCount,
-                        localSales,
-                        localCount,
-                        wholesaleSales,
-                        wholesaleCount,
-                        onlineSalesToday,
-                        onlineSalesMonth,
-                        localSalesToday,
-                        localSalesMonth,
-                        wholesaleSalesToday,
-                        wholesaleSalesMonth
-                    }));
+                    setRawOrders(processedOrders.sort((a, b) => b.dateTyped.getTime() - a.dateTyped.getTime()));
                 });
 
-                // 2. Products Listener (Stock)
-                unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
-                    let totalStock = 0;
-                    snapshot.docs.forEach(doc => {
-                        const data = doc.data();
-                        // Only count as variant product if variants exist AND array is not empty
-                        if (data.variants && Array.isArray(data.variants) && data.variants.length > 0) {
-                            data.variants.forEach((v: any) => totalStock += (Number(v.stockQuantity) || 0));
-                        } else {
-                            // Simple product stock
-                            totalStock += (Number(data.stockQuantity) || 0);
-                        }
-                    });
-                    // Round to 3 decimals
-                    totalStock = Math.round(totalStock * 1000) / 1000;
-                    setStats(prev => ({ ...prev, totalStock }));
-                });
-
-                // 3. Stats Listener (Visits)
+                // 2. Stats
                 unsubStats = onSnapshot(doc(db, "stats", "general"), (docSnap) => {
                     if (docSnap.exists()) {
                         setStats(prev => ({ ...prev, visits: docSnap.data().visits || 0 }));
-                    } else {
-                        // If doc doesn't exist yet (first time), visits is 0
-                        setStats(prev => ({ ...prev, visits: 0 }));
                     }
                 });
 
@@ -178,104 +140,220 @@ export default function Dashboard() {
         };
     }, []);
 
+    // Recalculate stats when rawOrders, timeframe, OR productData changes
+    useEffect(() => {
+        if (!rawOrders) return;
+
+        const validOrders = rawOrders.filter((o: any) => o.status !== 'cancelado');
+        const filteredOrders = validOrders.filter(o => isInTimeframe(o.dateTyped, timeframe));
+
+        let plata = 0;
+        let despensa = 0;
+        let publico = 0;
+        let delivery = 0;
+
+        const productMap = new Map<string, ProductSale>();
+
+        filteredOrders.forEach(order => {
+            const amount = Number(order.total) || 0;
+            plata += amount;
+
+            // Categories
+            if (order.source === 'pos_wholesale') {
+                despensa += amount;
+            } else if (order.source === 'pos_public' || order.source === 'pos') {
+                publico += amount;
+            } else {
+                delivery += amount;
+            }
+
+            // Products Aggregation with Dependency Logic
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                    // 1. Identify Product
+                    // Some items have ID "parentID-variantID" or just "productID"
+                    // Helper to get base ID
+                    const isVariant = String(item.id).includes('-');
+                    const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+
+                    const productInfo = productData.get(baseId);
+
+                    let finalId = item.id;
+                    let finalName = item.name;
+                    let finalVariant = item.variant;
+                    let finalQty = Number(item.quantity) || 0;
+
+                    // 2. Check Dependency (Roll-up)
+                    if (productInfo && productInfo.stockDependency && productInfo.stockDependency.productId) {
+                        const parentId = productInfo.stockDependency.productId;
+                        const parentInfo = productData.get(parentId);
+
+                        if (parentInfo) {
+                            // It is a derived product.
+                            // Convert to Parent Units
+                            const unitsToDeduct = productInfo.stockDependency.unitsToDeduct || 1;
+                            finalQty = finalQty * unitsToDeduct;
+
+                            // Override Identity to Parent
+                            finalId = parentInfo.id;
+                            finalName = parentInfo.nombre; // Use parent name
+                            finalVariant = undefined; // Merge into parent base, usually deps don't map to specific variants of parent easily unless specified (complex), assuming base parent for now.
+                        }
+                    }
+
+                    const key = `${finalId}-${finalVariant || 'base'}`;
+                    const current = productMap.get(key);
+                    const price = Number(item.price) || 0; // Keeping original revenue attribution is tricky. 
+                    // Technically revenue belongs to the child sale, but we act as if we sold the parent?
+                    // Request said "sumes dentro del padre" (sum into parent). 
+                    // Usually implies quantity sum. Revenue should probably definitely sum too to show "How much money 'Medialunas' made" regardless of if sold as dozen or unit.
+
+                    // We use the item's TOTAL revenue for this line item (qty * price) and add it to parent.
+                    const lineTotal = (Number(item.quantity) || 0) * price;
+
+                    if (current) {
+                        current.quantity += finalQty;
+                        current.total += lineTotal;
+                    } else {
+                        productMap.set(key, {
+                            id: finalId,
+                            name: finalName,
+                            variant: finalVariant,
+                            quantity: finalQty,
+                            total: lineTotal
+                        });
+                    }
+                });
+            }
+        });
+
+        setStats(prev => ({
+            ...prev,
+            totalSales: plata,
+            totalOrders: filteredOrders.length,
+            plata,
+            despensa,
+            publico,
+            delivery
+        }));
+
+        setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
+
+    }, [rawOrders, timeframe, productData]);
+
+
     if (loading) return <div className="dashboard-loading">Cargando estadísticas...</div>;
+
+    const getTimeframeLabel = () => {
+        switch (timeframe) {
+            case 'day': return 'Hoy';
+            case 'week': return 'Esta Semana';
+            case 'month': return 'Este Mes';
+        }
+    };
 
     return (
         <div className="dashboard-container">
-            <h2>Panel de Control</h2>
+            <div className="dashboard-header">
+                <h2>Panel de Control</h2>
+                <div className="timeframe-selector">
+                    <button
+                        className={`tf-btn ${timeframe === 'day' ? 'active' : ''}`}
+                        onClick={() => setTimeframe('day')}
+                    >
+                        <FaCalendarDay /> Hoy
+                    </button>
+                    <button
+                        className={`tf-btn ${timeframe === 'week' ? 'active' : ''}`}
+                        onClick={() => setTimeframe('week')}
+                    >
+                        <FaCalendarWeek /> Semana
+                    </button>
+                    <button
+                        className={`tf-btn ${timeframe === 'month' ? 'active' : ''}`}
+                        onClick={() => setTimeframe('month')}
+                    >
+                        <FaCalendarAlt /> Mes
+                    </button>
+                </div>
+            </div>
 
             <div className="stats-grid">
-                {/* Card 1: Ventas Totales */}
-                <div className="stat-card sales">
+                {/* Total Plata */}
+                <div className="stat-card sales main-stat">
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Ingresos Totales</h3>
-                        <p>${Math.floor(stats.totalSales).toLocaleString('es-AR')}</p>
+                        <h3>Plata Total ({getTimeframeLabel()})</h3>
+                        <p>${Math.floor(stats.plata).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">{stats.totalOrders} pedidos</span>
                     </div>
                 </div>
 
-                {/* Card 2: Stock
-                <div className="stat-card stock">
-                    <div className="stat-icon"><FaBox /></div>
+                {/* Despensa */}
+                <div className="stat-card wholesale-sales">
+                    <div className="stat-icon-small" style={{ color: '#8b5cf6' }}><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Stock Total</h3>
-                        <p>{stats.totalStock}</p>
+                        <h3>Despensa</h3>
+                        <p>${Math.floor(stats.despensa).toLocaleString('es-AR')}</p>
                     </div>
-                </div> */}
-
-                {/* Sub-Card: Ventas Despensa (Wholesale) */}
-                <div className="stat-card wholesale-sales" style={{ borderLeft: '4px solid #8b5cf6', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                        <div className="stat-icon-small" style={{ color: '#8b5cf6' }}><FaShoppingCart /></div>
-                        <h3 style={{ margin: 0 }}>Ventas Despensa</h3>
-                    </div>
-
-                    <div className="stat-detail-row">
-                        <span>Hoy:</span>
-                        <strong>${Math.floor(stats.wholesaleSalesToday).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row">
-                        <span>Mes:</span>
-                        <strong>${Math.floor(stats.wholesaleSalesMonth).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row total">
-                        <span>Total:</span>
-                        <strong>${Math.floor(stats.wholesaleSales).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.wholesaleCount} pedidos)</span>
                 </div>
 
-                {/* Sub-Card: Ventas Local */}
-                <div className="stat-card local-sales" style={{ borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                        <div className="stat-icon-small" style={{ color: '#10b981' }}><FaShoppingCart /></div>
-                        <h3 style={{ margin: 0 }}>Ventas Local</h3>
+                {/* Publico */}
+                <div className="stat-card local-sales">
+                    <div className="stat-icon-small" style={{ color: '#10b981' }}><FaShoppingCart /></div>
+                    <div className="stat-info">
+                        <h3>Público</h3>
+                        <p>${Math.floor(stats.publico).toLocaleString('es-AR')}</p>
                     </div>
-
-                    <div className="stat-detail-row">
-                        <span>Hoy:</span>
-                        <strong>${Math.floor(stats.localSalesToday).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row">
-                        <span>Mes:</span>
-                        <strong>${Math.floor(stats.localSalesMonth).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row total">
-                        <span>Total:</span>
-                        <strong>${Math.floor(stats.localSales).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.localCount} tickets)</span>
                 </div>
 
-                {/* Sub-Card: Ventas Online */}
-                <div className="stat-card online-sales" style={{ borderLeft: '4px solid #3b82f6', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                        <div className="stat-icon-small" style={{ color: '#3b82f6' }}><FaShoppingCart /></div>
-                        <h3 style={{ margin: 0 }}>Ventas Online</h3>
+                {/* Delivery */}
+                <div className="stat-card online-sales">
+                    <div className="stat-icon-small" style={{ color: '#3b82f6' }}><FaShoppingCart /></div>
+                    <div className="stat-info">
+                        <h3>Delivery</h3>
+                        <p>${Math.floor(stats.delivery).toLocaleString('es-AR')}</p>
                     </div>
-
-                    <div className="stat-detail-row">
-                        <span>Hoy:</span>
-                        <strong>${Math.floor(stats.onlineSalesToday).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row">
-                        <span>Mes:</span>
-                        <strong>${Math.floor(stats.onlineSalesMonth).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <div className="stat-detail-row total">
-                        <span>Total:</span>
-                        <strong>${Math.floor(stats.onlineSales).toLocaleString('es-AR')}</strong>
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: '#666', marginTop: '2px' }}>({stats.onlineCount} pedidos)</span>
                 </div>
 
-                {/* Card 4: Visitas */}
+                {/* Visitas (Always Global or maybe tied to timeframe in future, keeping global for now) */}
                 <div className="stat-card visits">
                     <div className="stat-icon"><FaEye /></div>
                     <div className="stat-info">
                         <h3>Visitas Web</h3>
                         <p>{stats.visits.toLocaleString('es-AR')}</p>
                     </div>
+                </div>
+            </div>
+
+            {/* Product List Section */}
+            <div className="products-stats-section">
+                <h3>Productos Vendidos ({getTimeframeLabel()})</h3>
+                <div className="products-table-container">
+                    {topProducts.length === 0 ? (
+                        <p className="no-data">No hay ventas en este periodo.</p>
+                    ) : (
+                        <table className="products-stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Variante</th>
+                                    <th>Cantidad</th>
+                                    <th>Total Generado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {topProducts.map((p) => (
+                                    <tr key={`${p.id}-${p.variant || 'base'}`}>
+                                        <td>{p.name}</td>
+                                        <td>{p.variant || '-'}</td>
+                                        <td>{Number(p.quantity).toFixed(3).replace(/\.?0+$/, "")}</td>
+                                        <td>${Math.floor(p.total).toLocaleString('es-AR')}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
             </div>
 
