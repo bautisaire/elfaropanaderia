@@ -6,6 +6,7 @@
     height: calc(100vh - 80px);
     overflow: hidden;
     position: relative;
+    padding-left: 20px;
 }
 
 /* ... (Keep existing styles) ... */
