@@ -391,3 +391,63 @@
     font-size: 0.6rem;
     min-width: unset;
 }
+
+.sidebar-profile {
+    padding: 20px;
+    border-bottom: 1px solid #374151;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+}
+
+.sidebar-profile h3 {
+    margin: 0 0 5px 0;
+    color: white;
+    font-size: 1.2rem;
+    white-space: nowrap;
+}
+
+.sidebar-profile small {
+    color: #9ca3af;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.collapsed-logo {
+    text-align: center;
+    font-weight: bold;
+    color: white;
+}
+
+/* Laptop/Short Screen Optimization */
+@media (min-width: 850px) and (max-height: 850px) {
+    .editor-sidebar nav {
+        gap: 4px;
+        /* Tighter gap */
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    .editor-sidebar button {
+        padding: 8px 12px;
+        /* Smaller padding */
+        font-size: 0.9rem;
+        /* Slightly smaller text */
+    }
+
+    .sidebar-profile {
+        padding: 10px 20px;
+        /* Reduced header padding */
+        margin-bottom: 5px;
+    }
+
+    .sidebar-profile h3 {
+        font-size: 1.1rem;
+    }
+
+    .sidebar-footer {
+        padding-top: 10px;
+        gap: 4px;
+    }
+}

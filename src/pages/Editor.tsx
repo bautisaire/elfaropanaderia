@@ -157,10 +157,10 @@ export default function Editor() {
               {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
             </button>
 
-            <div style={{ padding: '20px', borderBottom: '1px solid #374151', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, color: 'white', border: 'none', display: collapsed ? 'none' : 'block' }}>Panel Admin</h3>
-              <small style={{ color: '#9ca3af', display: collapsed ? 'none' : 'block' }}>{currentUser.email}</small>
-              {collapsed && <div style={{ textAlign: 'center', fontWeight: 'bold' }}>EA</div>}
+            <div className="sidebar-profile">
+              <h3>Panel Admin</h3>
+              <small>{currentUser.email}</small>
+              {collapsed && <div className="collapsed-logo">EA</div>}
             </div>
 
             <nav>

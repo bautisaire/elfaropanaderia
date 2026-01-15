@@ -89,6 +89,30 @@ export default function POSManager() {
         });
     };
 
+    const handleStockError = (product: Product, message: string) => {
+        showModal(
+            'error',
+            'Stock Insuficiente',
+            undefined,
+            undefined,
+            <div style={{ textAlign: 'center' }}>
+                <p style={{ marginBottom: '15px' }}>{message}</p>
+                <button
+                    className="btn-save-stock"
+                    style={{ background: '#f59e0b', width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => {
+                        closeModal();
+                        setStockModalProduct(product);
+                        setIsStockModalOpen(true);
+                    }}
+                >
+                    <FaBoxOpen style={{ marginRight: '8px' }} />
+                    Corregir / Agregar Stock
+                </button>
+            </div>
+        );
+    };
+
     useEffect(() => {
         fetchProducts();
         // fetchCategories(); // Assuming this function exists elsewhere or needs to be called.
@@ -145,7 +169,7 @@ export default function POSManager() {
 
         if (currentQty + qty > maxStock) {
             setWeightModalOpen(false);
-            showModal('error', 'Stock Insuficiente', `Solo hay ${maxStock}kg disponibles (intentas llevar ${(currentQty + qty).toFixed(3)}kg).`);
+            handleStockError(product, `Solo hay ${maxStock}kg disponibles (intentas llevar ${(currentQty + qty).toFixed(3)}kg).`);
             return;
         }
 
@@ -181,28 +205,7 @@ export default function POSManager() {
         }
 
         if (maxStock <= 0) {
-            // Offer to fix stock immediately
-            showModal(
-                'error',
-                'Sin Stock',
-                undefined,
-                undefined,
-                <div style={{ textAlign: 'center' }}>
-                    <p style={{ marginBottom: '15px' }}>No hay stock disponible de este producto.</p>
-                    <button
-                        className="btn-save-stock"
-                        style={{ background: '#f59e0b', width: '100%' }}
-                        onClick={() => {
-                            closeModal();
-                            setStockModalProduct(product);
-                            setIsStockModalOpen(true);
-                        }}
-                    >
-                        <FaBoxOpen style={{ marginRight: '8px' }} />
-                        Corregir / Agregar Stock
-                    </button>
-                </div>
-            );
+            handleStockError(product, "No hay stock disponible de este producto.");
             return;
         }
 
@@ -223,7 +226,7 @@ export default function POSManager() {
             const existing = prev.find(item => item.id === product.id && item.selectedVariant === variantName);
             if (existing) {
                 if (existing.quantity >= maxStock) {
-                    showModal('error', 'Stock Insuficiente', 'No hay más unidades disponibles de este producto.');
+                    handleStockError(product, "No hay más unidades disponibles de este producto.");
                     return prev;
                 }
                 return prev.map(item =>
@@ -250,7 +253,7 @@ export default function POSManager() {
                     }
 
                     if (item.quantity >= maxStock) {
-                        showModal('error', 'Límite Alcanzado', 'No puedes agregar más unidades de las que hay en stock.');
+                        handleStockError(item, "No puedes agregar más unidades de las que hay en stock.");
                         return item;
                     }
                 }
