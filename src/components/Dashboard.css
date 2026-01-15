@@ -121,16 +121,80 @@
         grid-template-columns: 1fr;
         gap: 15px;
     }
-    
+
     .dashboard-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
     }
-    
+
     .timeframe-selector {
         width: 100%;
         overflow-x: auto;
+        justify-content: space-between;
+    }
+
+    /* Table Mobile Optimization: Compact List */
+    .products-table-container {
+        overflow-x: auto;
+        /* Allow scroll if absolutely necessary, but try to fit */
+    }
+
+    .products-stats-table {
+        min-width: unset;
+        /* Remove min-width to allow shrinking */
+        width: 100%;
+        font-size: 0.5rem;
+        /* Letra más chica */
+    }
+
+    .products-stats-table th,
+    .products-stats-table td {
+        padding: 6px 2px;
+        /* Super compact: 2px horizontal padding */
+        white-space: normal;
+        /* Allow wrapping */
+        line-height: 1.1;
+        /* Tighter line height */
+    }
+
+    .products-stats-table th {
+        font-size: 0.65rem;
+        background: #f3f4f6;
+        text-transform: uppercase;
+        letter-spacing: -0.5px;
+        /* Squeeze text */
+    }
+
+    /* Adjust column widths/priorities */
+    .products-stats-table td:nth-child(1) {
+        /* Producto Name */
+        width: 55%;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .products-stats-table td:nth-child(2) {
+        /* Cantidad */
+        width: 25%;
+        text-align: center;
+        font-weight: 600;
+        color: #111;
+    }
+
+    .products-stats-table td:nth-child(3) {
+        /* Total */
+        width: 20%;
+        text-align: right;
+        font-weight: bold;
+        color: #10b981;
+    }
+
+    /* Column 4 (Variant) removed */
+    .products-stats-table .text-gray {
+        color: #6b7280;
+        font-weight: normal;
+        font-size: 0.65rem;
     }
 }
 
@@ -171,14 +235,14 @@
 }
 
 .tf-btn:hover {
-    background: rgba(0,0,0,0.05);
+    background: rgba(0, 0, 0, 0.05);
     color: #374151;
 }
 
 .tf-btn.active {
     background: white;
     color: #3b82f6;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-sub {
@@ -205,7 +269,7 @@
     background: white;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
 }
 
 .products-stats-section h3 {

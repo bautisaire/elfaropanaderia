@@ -23,6 +23,7 @@
 }
 
 /* Sidebar "Slide Menu" Style */
+/* Sidebar "Slide Menu" Style */
 .editor-sidebar {
     position: fixed;
     top: 0;
@@ -39,23 +40,115 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    overflow-x: hidden;
 
-    /* Collapsible logic default */
-    transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
+    /* Transition for width and transform */
+    transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+/* Desktop behaviors */
+@media (min-width: 850px) {
+    .editor-sidebar {
+        transform: none;
+    }
+
+    /* Hide the mobile close button on desktop */
+    .sidebar-close-btn {
+        display: none !important;
+    }
+}
+
+/* Mobile behaviors */
+@media (max-width: 850px) {
+    .editor-sidebar {
+        transform: translateX(-100%);
+    }
 }
 
 .editor-sidebar.open {
     transform: translateX(0);
 }
 
+/* Collapsed State (Desktop) */
+.editor-sidebar.collapsed {
+    width: 50px;
+    padding: 0;
+}
+
+/* Minimize Nav Items */
+.editor-sidebar.collapsed .nav-text {
+    display: none;
+}
+
+.editor-sidebar.collapsed nav {
+    padding: 0;
+    /* Removing padding to center icons better */
+}
+
+/* Hide other content when collapsed */
+/* Hide other content when collapsed */
+.editor-sidebar.collapsed h3,
+.editor-sidebar.collapsed small,
+.editor-sidebar.collapsed>div:not(.sidebar-collapse-toggle):not(nav) {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+}
+
+/* BUT keep the toggle button visible */
+.editor-sidebar.collapsed .sidebar-collapse-toggle {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+    width: 100%;
+    padding: 10px 0;
+    justify-content: center;
+}
+
+.editor-sidebar.collapsed .sidebar-collapse-toggle svg {
+    font-size: 0.8rem;
+    /* Smaller icon for 16px width */
+}
+
+/* Sidebar Toggle Button */
+.sidebar-collapse-toggle {
+    background: #1f2937;
+    /* Distinct background */
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 15px 0;
+    width: 100%;
+    /* Full width */
+    display: none;
+    /* Hidden on mobile */
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-bottom: 1px solid #374151;
+}
+
+.sidebar-collapse-toggle:hover {
+    background: #374151;
+    color: white;
+}
+
+@media (min-width: 850px) {
+    .sidebar-collapse-toggle.desktop-only-flex {
+        display: flex;
+    }
+}
+
 .editor-sidebar h3 {
     margin-top: 0;
-    margin-bottom: 25px;
+    margin-bottom: 5px;
     color: #fff;
     font-size: 1.2rem;
-    border-bottom: 1px solid #374151;
-    padding-bottom: 15px;
+}
+
+/* Ensure padding inside sidebar doesn't break 16px layout */
+.editor-sidebar>div {
+    transition: opacity 0.2s;
 }
 
 .editor-sidebar nav {
@@ -63,6 +156,8 @@
     flex-direction: column;
     gap: 8px;
     flex: 1;
+    padding: 10px;
+    /* Add padding here instead of parent to control visibility */
 }
 
 .editor-sidebar button {
@@ -80,6 +175,18 @@
     gap: 12px;
     position: relative;
     /* Needed for absolute badge positioning */
+    white-space: nowrap;
+    /* Prevent text wrapping during transition */
+}
+
+.editor-sidebar.collapsed button {
+    justify-content: center;
+    padding: 15px 0;
+}
+
+.editor-sidebar.collapsed .nav-icon {
+    margin: 0;
+    font-size: 1.4rem;
 }
 
 .editor-sidebar button:hover {
@@ -116,11 +223,25 @@
 /* --- Main Content Area --- */
 .editor-content {
     margin-left: 0;
-    /* No offset as sidebar is overlay */
+    /* Default 0, overridden for desktop below */
     padding: 30px;
     flex: 1;
     width: 100%;
+    transition: margin-left 0.3s ease-in-out;
 }
+
+@media (min-width: 850px) {
+    .editor-content {
+        margin-left: 16px;
+        /* Constant margin for the strip */
+    }
+
+    .editor-content.collapsed-mode {
+        margin-left: 16px;
+        /* Stays same, sidebar expands over content */
+    }
+}
+
 
 /* Global utility for inner panels if needed */
 .editor-panel {
@@ -158,6 +279,7 @@
     padding: 8px 12px;
     border-radius: 6px;
     cursor: pointer;
+    font-weight: 600;
 }
 
 .editor-msg {
@@ -166,8 +288,7 @@
     margin: 10px 0;
 }
 
-/* Mobile Header & Overlay Defaults (Hidden on Desktop) */
-/* Header & Overlay Defaults (Visible on Desktop now) */
+/* Mobile Header & Overlay Defaults (Visible on Desktop now) */
 .mobile-header {
     display: flex;
     align-items: center;
@@ -180,6 +301,13 @@
     width: 100%;
     z-index: 1001;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Hide Mobile header on Desktop since we have sidebar */
+@media (min-width: 850px) {
+    .mobile-header {
+        display: none;
+    }
 }
 
 .mobile-header span {
@@ -231,6 +359,8 @@
 
     .editor-content {
         padding: 15px;
+        margin-left: 0 !important;
+        /* Force mobile width */
     }
 }
 
@@ -250,4 +380,14 @@
     min-width: 20px;
     text-align: center;
     line-height: normal;
+    transition: all 0.2s;
+}
+
+.sidebar-badge.badge-mini {
+    right: 2px;
+    top: 5px;
+    transform: none;
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    min-width: unset;
 }

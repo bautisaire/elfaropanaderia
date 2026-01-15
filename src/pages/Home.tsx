@@ -6,16 +6,17 @@ import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs, doc, updateDoc, increment, setDoc, getDoc } from "firebase/firestore";
-import { Product } from "../context/CartContext";
+import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
+import { Product, useCart } from "../context/CartContext";
 import { FaStoreSlash } from "react-icons/fa";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [isStoreOpen, setIsStoreOpen] = useState(true);
-  const [storeMessage, setStoreMessage] = useState("");
+
+  // Use Context for store status
+  const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
 
   // Registro de visitas
   useEffect(() => {
@@ -40,24 +41,7 @@ export default function Home() {
     recordVisit();
   }, []);
 
-  // Cargar estado de la tienda
-  useEffect(() => {
-    const fetchStoreStatus = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, "config", "store_settings"));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.isOpen === false) {
-            setIsStoreOpen(false);
-            setStoreMessage(data.closeMessage || "Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
-          }
-        }
-      } catch (error) {
-        console.error("Error checking store status:", error);
-      }
-    };
-    fetchStoreStatus();
-  }, []);
+  // Removed redundant fetchStoreStatus useEffect since Context handles it
 
   // Cargar productos y categorías desde Firebase
   useEffect(() => {
@@ -155,12 +139,28 @@ export default function Home() {
         )}
       </div>
 
-      {!isStoreOpen && (
+      {!isStoreOpen && !isStoreClosedDismissed && (
         <div className="store-closed-overlay">
           <div className="store-closed-modal">
             <FaStoreSlash size={50} color="#ef4444" />
             <h2>Tienda Cerrada</h2>
-            <p>{storeMessage}</p>
+            <p>{closedMessage || "Lo sentimos, el local se encuentra cerrado."}</p>
+            <button
+              onClick={dismissStoreClosed}
+              style={{
+                marginTop: '20px',
+                padding: '10px 20px',
+                background: 'transparent',
+                border: '1px solid #7f1d1d',
+                color: '#7f1d1d',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.9rem'
+              }}
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}

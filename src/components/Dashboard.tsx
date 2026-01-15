@@ -197,18 +197,31 @@ export default function Dashboard() {
                             // Override Identity to Parent
                             finalId = parentInfo.id;
                             finalName = parentInfo.nombre; // Use parent name
-                            finalVariant = undefined; // Merge into parent base, usually deps don't map to specific variants of parent easily unless specified (complex), assuming base parent for now.
+                            finalVariant = undefined; // Merge into parent base
+                        } else {
+                            // Fallback: Use baseId if parent info missing (or original logic)
+                            // Ideally we want to aggregate by the PRODUCT ID, not the cart item ID which might differ.
+                            finalId = baseId;
                         }
+                    } else {
+                        // Standard product: Use baseId to ensuring grouping by Product, not random item IDs
+                        finalId = baseId;
                     }
 
-                    const key = `${finalId}-${finalVariant || 'base'}`;
-                    const current = productMap.get(key);
-                    const price = Number(item.price) || 0; // Keeping original revenue attribution is tricky. 
-                    // Technically revenue belongs to the child sale, but we act as if we sold the parent?
-                    // Request said "sumes dentro del padre" (sum into parent). 
-                    // Usually implies quantity sum. Revenue should probably definitely sum too to show "How much money 'Medialunas' made" regardless of if sold as dozen or unit.
+                    // Normalize variant
+                    if (finalVariant) {
+                        finalVariant = String(finalVariant).trim();
+                    }
 
-                    // We use the item's TOTAL revenue for this line item (qty * price) and add it to parent.
+                    // GROUP BY NAME - Case Insensitive to handle "Torta" vs "torta"
+                    // Key: normalized (lower case)
+                    // Display: original name
+                    const nameForDisplay = String(finalName).trim();
+                    const nameForKey = nameForDisplay.toLowerCase();
+                    const key = `${nameForKey}-${finalVariant || 'base'}`;
+
+                    const current = productMap.get(key);
+                    const price = Number(item.price) || 0;
                     const lineTotal = (Number(item.quantity) || 0) * price;
 
                     if (current) {
@@ -216,8 +229,8 @@ export default function Dashboard() {
                         current.total += lineTotal;
                     } else {
                         productMap.set(key, {
-                            id: finalId,
-                            name: finalName,
+                            id: finalId, // Keep the last ID encountered for reference
+                            name: nameForDisplay, // Store the nice display version
                             variant: finalVariant,
                             quantity: finalQty,
                             total: lineTotal
@@ -337,21 +350,27 @@ export default function Dashboard() {
                             <thead>
                                 <tr>
                                     <th>Producto</th>
-                                    <th>Variante</th>
                                     <th>Cantidad</th>
                                     <th>Total Generado</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {topProducts.map((p) => (
-                                    <tr key={`${p.id}-${p.variant || 'base'}`}>
-                                        <td>{p.name}</td>
-                                        <td>{p.variant || '-'}</td>
+                                {topProducts.map((p, index) => (
+                                    <tr key={`${index}-${p.name}`}>
+                                        <td>{p.name} {p.variant ? <span className="text-sm text-gray light">({p.variant})</span> : ''}</td>
                                         <td>{Number(p.quantity).toFixed(3).replace(/\.?0+$/, "")}</td>
                                         <td>${Math.floor(p.total).toLocaleString('es-AR')}</td>
                                     </tr>
                                 ))}
                             </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#f9fafb', fontWeight: 'bold' }}>
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '10px' }}>Total Lista:</td>
+                                    <td style={{ color: '#10b981' }}>
+                                        ${Math.floor(topProducts.reduce((sum, p) => sum + p.total, 0)).toLocaleString('es-AR')}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     )}
                 </div>

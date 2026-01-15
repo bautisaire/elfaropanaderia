@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
-import { FaBoxes, FaHistory, FaEdit, FaPlus, FaMinus } from 'react-icons/fa';
+import { FaBoxes, FaHistory, FaEdit, FaPlus } from 'react-icons/fa';
 import ProductSearch from './ProductSearch';
 import './StockManager.css';
+import StockAdjustmentModal from './StockAdjustmentModal';
 
 interface Product {
     id: string;
@@ -37,13 +38,8 @@ export default function StockManager() {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Modal State
+    // Modal State - Simplified for Component
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null);
-    const [adjustmentType, setAdjustmentType] = useState<'IN' | 'OUT'>('IN');
-    const [amount, setAmount] = useState<string>('');
-    const [reason, setReason] = useState<string>('Elaboración');
-    const [observation, setObservation] = useState<string>('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [bulkUpdates, setBulkUpdates] = useState<Record<string, number>>({});
@@ -99,69 +95,7 @@ export default function StockManager() {
     const openAdjustmentModal = (product: Product) => {
         if (product.stockDependency) return; // Prevent opening for derived products
         setSelectedProduct(product);
-        setSelectedVariantIdx(null);
-        setAdjustmentType('IN');
-        setAmount('');
-        setReason('Elaboración');
-        setObservation('');
         setIsModalOpen(true);
-    };
-
-    const handleSaveAdjustment = async () => {
-        if (!selectedProduct || !amount || Number(amount) <= 0) return;
-
-        const qty = Number(amount);
-        let newStock = 0;
-        let variants = selectedProduct.variants ? [...selectedProduct.variants] : [];
-        let variantName = "";
-
-        if (selectedVariantIdx !== null && variants.length > 0) {
-            const currentStock = variants[selectedVariantIdx].stockQuantity || 0;
-            newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
-            newStock = Math.round(newStock * 1000) / 1000;
-            variants[selectedVariantIdx].stockQuantity = newStock;
-            // Ensure stock bool matches
-            variants[selectedVariantIdx].stock = newStock > 0;
-            variantName = variants[selectedVariantIdx].name;
-        } else {
-            const currentStock = selectedProduct.stockQuantity || 0;
-            newStock = adjustmentType === 'IN' ? currentStock + qty : currentStock - qty;
-            newStock = Math.round(newStock * 1000) / 1000;
-        }
-
-        if (newStock < 0) {
-            alert("El stock no puede ser negativo.");
-            return;
-        }
-
-        try {
-            // 1. Update Product
-            if (selectedVariantIdx !== null && variants.length > 0) {
-                await updateDoc(doc(db, "products", selectedProduct.id), { variants });
-            } else {
-                await updateDoc(doc(db, "products", selectedProduct.id), { stockQuantity: newStock });
-                // Sync Children
-                await syncChildProducts(selectedProduct.id, newStock);
-            }
-
-            // 2. Log Movement
-            await addDoc(collection(db, "stock_movements"), {
-                productId: selectedProduct.id,
-                productName: selectedProduct.nombre,
-                type: adjustmentType,
-                quantity: qty,
-                reason: reason,
-                observation: observation + (variantName ? ` (Var: ${variantName})` : ''),
-                date: new Date()
-            });
-
-            alert("Stock actualizado correctamente.");
-            setIsModalOpen(false);
-            fetchProducts();
-        } catch (error) {
-            console.error("Error saving stock adjustment:", error);
-            alert("Error al actualizar stock.");
-        }
     };
 
     // Bulk Update Logic
@@ -245,7 +179,6 @@ export default function StockManager() {
     };
 
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
-    const reasonsOut = ["Venta Local", "Merma/Desperdicio", "Consumo Interno", "Ajuste de Inventario", "Vencimiento"];
 
     // Filter Logic
     const filteredProducts = products.filter(p =>
@@ -456,88 +389,13 @@ export default function StockManager() {
                 </div>
             )}
 
-            {/* Adjustment Modal */}
-            {isModalOpen && selectedProduct && (
-                <div className="stock-modal-overlay" onClick={() => setIsModalOpen(false)}>
-                    <div className="stock-modal" onClick={e => e.stopPropagation()}>
-                        <h3>Ajustar Stock: {selectedProduct.nombre}</h3>
-
-                        <div className="stock-modal-form">
-                            {selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                                <div className="stock-form-group">
-                                    <label>Seleccionar Variante</label>
-                                    <select
-                                        value={selectedVariantIdx ?? ''}
-                                        onChange={e => setSelectedVariantIdx(Number(e.target.value))}
-                                        className="stock-select"
-                                    >
-                                        <option value="" disabled>-- Elige una variante --</option>
-                                        {selectedProduct.variants.map((v, idx) => (
-                                            <option key={idx} value={idx}>
-                                                {v.name} (Stock: {v.stockQuantity || 0})
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="stock-form-group">
-                                <label>Tipo de movimiento</label>
-                                <div className="stock-action-type">
-                                    <button
-                                        className={`action-btn add ${adjustmentType === 'IN' ? 'selected' : ''}`}
-                                        onClick={() => setAdjustmentType('IN')}
-                                    >
-                                        <FaPlus /> Añadir (Entrada)
-                                    </button>
-                                    <button
-                                        className={`action-btn subtract ${adjustmentType === 'OUT' ? 'selected' : ''}`}
-                                        onClick={() => setAdjustmentType('OUT')}
-                                    >
-                                        <FaMinus /> Restar (Salida)
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="stock-form-group">
-                                <label>Cantidad</label>
-                                <input
-                                    type="number"
-                                    step="0.001"
-                                    value={amount}
-                                    onChange={e => setAmount(e.target.value)}
-                                    placeholder="0.000"
-                                    min="0.001"
-                                />
-                            </div>
-
-                            <div className="stock-form-group">
-                                <label>Motivo</label>
-                                <select value={reason} onChange={e => setReason(e.target.value)}>
-                                    {(adjustmentType === 'IN' ? reasonsIn : reasonsOut).map(r => (
-                                        <option key={r} value={r}>{r}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="stock-form-group">
-                                <label>Observación (Opcional)</label>
-                                <textarea
-                                    value={observation}
-                                    onChange={e => setObservation(e.target.value)}
-                                    placeholder="Comentarios adicionales..."
-                                    rows={3}
-                                />
-                            </div>
-
-                            <div className="modal-actions">
-                                <button className="btn-cancel" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                                <button className="btn-save-stock" onClick={handleSaveAdjustment}>Guardar Movimiento</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Adjustment Modal Component */}
+            <StockAdjustmentModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                product={selectedProduct}
+                onSuccess={fetchProducts}
+            />
         </div>
     );
 }

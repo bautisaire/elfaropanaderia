@@ -14,12 +14,12 @@ function Layout() {
   const location = useLocation();
   const isEditor = location.pathname.toLowerCase().startsWith('/editor');
 
-  const { isStoreOpen } = useContext(CartContext);
+  const { isStoreOpen, isStoreClosedDismissed } = useContext(CartContext);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
-      {/* Lights Off Global Overlay (Only if not editor and store is closed) */}
-      {!isEditor && !isStoreOpen && (
+      {/* Lights Off Global Overlay (Only if not editor, store is closed, and NOT dismissed) */}
+      {!isEditor && !isStoreOpen && !isStoreClosedDismissed && (
         <div className="lights-off-overlay"></div>
       )}
 

@@ -34,6 +34,8 @@ interface CartContextType {
   cartTotal: number;
   isStoreOpen: boolean;
   closedMessage: string;
+  isStoreClosedDismissed: boolean;
+  dismissStoreClosed: () => void;
 }
 
 export const CartContext = createContext<CartContextType>({
@@ -48,6 +50,8 @@ export const CartContext = createContext<CartContextType>({
   cartTotal: 0,
   isStoreOpen: true,
   closedMessage: "",
+  isStoreClosedDismissed: false,
+  dismissStoreClosed: () => { },
 });
 
 interface Props {
@@ -60,6 +64,9 @@ export const CartProvider = ({ children }: Props) => {
   const [isStoreOpen, setIsStoreOpen] = useState(true);
   const [closedMessage, setClosedMessage] = useState("");
   const [showClosedModal, setShowClosedModal] = useState(false); // Modal control
+  const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
+
+  const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
 
   // helpers para cantidad y total
   const cartQuantity = useMemo(
@@ -143,7 +150,9 @@ export const CartProvider = ({ children }: Props) => {
         cartQuantity,
         cartTotal,
         isStoreOpen,
-        closedMessage
+        closedMessage,
+        isStoreClosedDismissed,
+        dismissStoreClosed
       }}
     >
       {children}

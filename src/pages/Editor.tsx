@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes } from "react-icons/fa";
+import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import CategoryManager from "../components/CategoryManager";
@@ -23,6 +23,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "categories" | "hero" | "store" | "stock" | "pos">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
   const navigate = useNavigate();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
@@ -126,78 +127,106 @@ export default function Editor() {
           {/* Mobile Overlay */}
           {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
 
-          <aside className={`editor-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+          <aside className={`editor-sidebar ${mobileMenuOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
+            {/* Mobile close button */}
             <button className="sidebar-close-btn" onClick={() => setMobileMenuOpen(false)}>
               <FaTimes />
             </button>
+
+            {/* Desktop Collapse Toggle */}
+            <button className="sidebar-collapse-toggle desktop-only-flex" onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
+            </button>
+
             <div style={{ padding: '20px', borderBottom: '1px solid #374151', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, color: 'white', border: 'none' }}>Panel Admin</h3>
-              <small style={{ color: '#9ca3af' }}>{currentUser.email}</small>
+              <h3 style={{ margin: 0, color: 'white', border: 'none', display: collapsed ? 'none' : 'block' }}>Panel Admin</h3>
+              <small style={{ color: '#9ca3af', display: collapsed ? 'none' : 'block' }}>{currentUser.email}</small>
+              {collapsed && <div style={{ textAlign: 'center', fontWeight: 'bold' }}>EA</div>}
             </div>
+
             <nav>
               <button
                 className={activeTab === "dashboard" ? "active" : ""}
                 onClick={() => handleNavClick("dashboard")}
+                title="Dashboard"
               >
-                <FaChartPie /> Dashboard
+                <div className="nav-icon"><FaChartPie /></div>
+                <span className="nav-text">Dashboard</span>
               </button>
               <button
                 className={activeTab === "pos" ? "active" : ""}
                 onClick={() => handleNavClick("pos")}
+                title="Punto de Venta"
               >
-                <FaCashRegister /> Punto de Venta
+                <div className="nav-icon"><FaCashRegister /></div>
+                <span className="nav-text">Punto de Venta</span>
               </button>
               <button
                 className={activeTab === "products" ? "active" : ""}
                 onClick={() => handleNavClick("products")}
+                title="Productos"
               >
-                <FaBoxOpen /> Productos
+                <div className="nav-icon"><FaBoxOpen /></div>
+                <span className="nav-text">Productos</span>
               </button>
               <button
                 className={activeTab === "categories" ? "active" : ""}
                 onClick={() => handleNavClick("categories")}
+                title="Categorías"
               >
-                <FaFolder /> Categorías
+                <div className="nav-icon"><FaFolder /></div>
+                <span className="nav-text">Categorías</span>
               </button>
               <button
                 className={activeTab === "stock" ? "active" : ""}
                 onClick={() => handleNavClick("stock")}
+                title="Gestión de Stock"
               >
-                <FaClipboardCheck /> Gestión de Stock
+                <div className="nav-icon"><FaClipboardCheck /></div>
+                <span className="nav-text">Gestión de Stock</span>
               </button>
               <button
                 className={activeTab === "orders" ? "active" : ""}
                 onClick={() => handleNavClick("orders")}
+                title="Pedidos"
               >
-                <FaClipboardList /> Pedidos
+                <div className="nav-icon"><FaClipboardList /></div>
+                <span className="nav-text">Pedidos</span>
                 {pendingOrdersCount > 0 && (
-                  <span className="sidebar-badge">{pendingOrdersCount}</span>
+                  <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
                 )}
               </button>
               <button
                 className={activeTab === "hero" ? "active" : ""}
                 onClick={() => handleNavClick("hero")}
+                title="Hero"
               >
-                <FaImages /> Portadas (Hero)
+                <div className="nav-icon"><FaImages /></div>
+                <span className="nav-text">Portadas (Hero)</span>
               </button>
               <button
                 className={activeTab === "store" ? "active" : ""}
                 onClick={() => handleNavClick("store")}
+                title="Estado Tienda"
               >
-                <FaStore /> Estado Tienda
+                <div className="nav-icon"><FaStore /></div>
+                <span className="nav-text">Estado Tienda</span>
               </button>
+
               <div className="sidebar-footer">
-                <button onClick={() => navigate("/")}>
-                  <FaHome /> Ir al Inicio
+                <button onClick={() => navigate("/")} title="Ir al Inicio">
+                  <div className="nav-icon"><FaHome /></div>
+                  <span className="nav-text">Ir al Inicio</span>
                 </button>
-                <button onClick={handleLogout} className="btn-logout-action">
-                  <FaSignOutAlt /> Cerrar Sesión
+                <button onClick={handleLogout} className="btn-logout-action" title="Cerrar Sesión">
+                  <div className="nav-icon"><FaSignOutAlt /></div>
+                  <span className="nav-text">Cerrar Sesión</span>
                 </button>
               </div>
             </nav>
           </aside>
 
-          <main className="editor-content">
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''}`}>
             {activeTab === "dashboard" ? (
               <Dashboard />
             ) : activeTab === "pos" ? (

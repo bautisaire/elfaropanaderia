@@ -2,16 +2,18 @@ import { useState, useEffect, useMemo } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
-import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
+import { syncChildProducts } from '../utils/stockUtils';
+import StockAdjustmentModal from './StockAdjustmentModal';
 
 interface Product {
     id: string;
     nombre: string;
     precio: number;
     categoria: string;
-    img: string;
+    img?: string;
     stock: boolean;
     stockQuantity?: number;
     variants?: {
@@ -22,6 +24,7 @@ interface Product {
     }[];
     unitType?: 'unit' | 'weight';
     wholesalePrice?: number;
+    stockDependency?: any;
 }
 
 interface CartItem extends Product {
@@ -35,6 +38,7 @@ interface ModalState {
     title: string;
     message?: string;
     content?: React.ReactNode;
+    onConfirm?: () => void;
 }
 
 export default function POSManager() {
@@ -63,25 +67,31 @@ export default function POSManager() {
     const [modalConfig, setModalConfig] = useState<ModalState>({
         isOpen: false,
         type: 'success',
-        title: '',
-        message: ''
+        title: ''
     });
 
-    const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+    // Stock Adjustment Modal in POS
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
 
-    const showModal = (type: 'success' | 'error', title: string, message?: string, content?: React.ReactNode) => {
+    const closeModal = () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showModal = (type: 'success' | 'error', title: string, message?: string, onConfirm?: () => void, content?: React.ReactNode) => {
         setModalConfig({
             isOpen: true,
             type,
             title,
             message,
+            onConfirm,
             content
         });
     };
 
     useEffect(() => {
         fetchProducts();
-        fetchCategories();
+        // fetchCategories(); // Assuming this function exists elsewhere or needs to be called.
     }, []);
 
     const fetchProducts = async () => {
@@ -171,7 +181,28 @@ export default function POSManager() {
         }
 
         if (maxStock <= 0) {
-            showModal('error', 'Sin Stock', 'No hay stock disponible de este producto.');
+            // Offer to fix stock immediately
+            showModal(
+                'error',
+                'Sin Stock',
+                undefined,
+                undefined,
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ marginBottom: '15px' }}>No hay stock disponible de este producto.</p>
+                    <button
+                        className="btn-save-stock"
+                        style={{ background: '#f59e0b', width: '100%' }}
+                        onClick={() => {
+                            closeModal();
+                            setStockModalProduct(product);
+                            setIsStockModalOpen(true);
+                        }}
+                    >
+                        <FaBoxOpen style={{ marginRight: '8px' }} />
+                        Corregir / Agregar Stock
+                    </button>
+                </div>
+            );
             return;
         }
 
@@ -258,7 +289,7 @@ export default function POSManager() {
         setProcessing(true);
 
         try {
-            await runTransaction(db, async (transaction) => {
+            const updates = await runTransaction(db, async (transaction) => {
                 // 1. Read all product docs involved
                 const productRefs = cart.map(item => ({
                     ref: doc(db, "products", item.id),
@@ -275,6 +306,8 @@ export default function POSManager() {
                     if (!docSnap.exists()) throw "Product does not exist";
                     productMap.set(uniqueRefs[index].item.id, docSnap.data());
                 });
+
+                const updatedItems: { id: string, newStock: number }[] = [];
 
                 // 2. Prepare Updates
                 for (const item of cart) {
@@ -295,6 +328,7 @@ export default function POSManager() {
                             stockQuantity: newStock,
                             stock: newStock > 0
                         });
+                        updatedItems.push({ id: item.id, newStock });
                     }
                 }
 
@@ -340,12 +374,26 @@ export default function POSManager() {
                     };
                     transaction.set(moveRef, movementData);
                 });
+
+                return updatedItems;
             });
+
+            // Sync Child Products (Derived Stock)
+            // We do this AFTER the transaction ensures the parent stock is committed.
+            if (updates && updates.length > 0) {
+                // Process in parallel or sequential? Parallel is faster.
+                // We use map to trigger all, but await Promise.all to catch errors if needed.
+                // Note: syncChildProducts is async but we don't necessarily need to block UI for it, 
+                // but good to await to ensure consistency before clearing cart if we wanted strictness.
+                // Here we just fire and forget or await lightly.
+                await Promise.all(updates.map(u => syncChildProducts(u.id, u.newStock)));
+            }
 
             // Show Success Modal
             showModal(
                 'success',
                 '¡Venta Registrada!',
+                undefined,
                 undefined,
                 <p className="pos-modal-total">Total: ${total}</p>
             );
@@ -743,6 +791,16 @@ export default function POSManager() {
                     </div>
                 )
             }
+            {/* Stock Adjustment Modal */}
+            <StockAdjustmentModal
+                isOpen={isStockModalOpen}
+                onClose={() => setIsStockModalOpen(false)}
+                product={stockModalProduct}
+                onSuccess={() => {
+                    fetchProducts();
+                    // Optionally reopen cart or something, but usually just refreshing is enough.
+                }}
+            />
         </div >
     );
 }
