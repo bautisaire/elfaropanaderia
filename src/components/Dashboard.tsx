@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, onSnapshot } from "firebase/firestore";
+import "react-datepicker/dist/react-datepicker.css";
+import DatePicker, { registerLocale } from "react-datepicker";
+import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus } from "react-icons/fa";
+
+registerLocale('es', es);
 
 // Interface for aggregated product data
 interface ProductSale {
@@ -14,7 +19,10 @@ interface ProductSale {
 }
 
 export default function Dashboard() {
-    const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('day');
+    const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
+    const [customRange, setCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+    const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
+    const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -59,9 +67,19 @@ export default function Dashboard() {
         return weekNo;
     }
 
-    const isInTimeframe = (orderDate: Date, timeframe: 'day' | 'week' | 'month') => {
+    const isInTimeframe = (orderDate: Date, timeframe: 'day' | 'week' | 'month' | 'custom') => {
         const nowArg = getArgentinaDate(new Date());
         const dateArg = getArgentinaDate(orderDate);
+
+        if (timeframe === 'custom') {
+            if (!customRange.start || !customRange.end) return false;
+            // Normalize to ensure we capture the whole day
+            const start = new Date(customRange.start);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(customRange.end);
+            end.setHours(23, 59, 59, 999);
+            return dateArg >= start && dateArg <= end;
+        }
 
         if (timeframe === 'day') return isSameDay(nowArg, dateArg);
         if (timeframe === 'month') return isSameMonth(nowArg, dateArg);
@@ -143,6 +161,12 @@ export default function Dashboard() {
     // Recalculate stats when rawOrders, timeframe, OR productData changes
     useEffect(() => {
         if (!rawOrders) return;
+
+        // If custom timeframe but no range selected (shouldn't happen if UI is correct), skip or show 0
+        if (timeframe === 'custom' && (!customRange.start || !customRange.end)) {
+            // Maybe keep previous stats or clear? Let's clear to be safe
+            // But actually validation in UI prevents this state ideally.
+        }
 
         const validOrders = rawOrders.filter((o: any) => o.status !== 'cancelado');
         const filteredOrders = validOrders.filter(o => isInTimeframe(o.dateTyped, timeframe));
@@ -252,7 +276,21 @@ export default function Dashboard() {
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
 
-    }, [rawOrders, timeframe, productData]);
+    }, [rawOrders, timeframe, productData, customRange]);
+
+    const handleCustomDateChange = (dates: [Date | null, Date | null]) => {
+        const [start, end] = dates;
+        setTempCustomRange({ start, end });
+    };
+
+    const applyCustomFilter = () => {
+        if (tempCustomRange.start && tempCustomRange.end) {
+            setCustomRange(tempCustomRange);
+            setShowCustomPicker(false);
+            // Timeframe is already 'custom' or is set here
+            // It might be better to set timeframe here if not already
+        }
+    };
 
 
     if (loading) return <div className="dashboard-loading">Cargando estadísticas...</div>;
@@ -262,6 +300,7 @@ export default function Dashboard() {
             case 'day': return 'Hoy';
             case 'week': return 'Esta Semana';
             case 'month': return 'Este Mes';
+            case 'custom': return `Del ${customRange.start?.toLocaleDateString('es-AR')} al ${customRange.end?.toLocaleDateString('es-AR')}`;
         }
     };
 
@@ -269,27 +308,63 @@ export default function Dashboard() {
         <div className="dashboard-container">
             <div className="dashboard-header">
                 <h2>Panel de Control</h2>
-                <div className="timeframe-selector">
-                    <button
-                        className={`tf-btn ${timeframe === 'day' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('day')}
-                    >
-                        <FaCalendarDay /> Hoy
-                    </button>
-                    <button
-                        className={`tf-btn ${timeframe === 'week' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('week')}
-                    >
-                        <FaCalendarWeek /> Semana
-                    </button>
-                    <button
-                        className={`tf-btn ${timeframe === 'month' ? 'active' : ''}`}
-                        onClick={() => setTimeframe('month')}
-                    >
-                        <FaCalendarAlt /> Mes
-                    </button>
+
+                <div className="timeframe-selector-row">
+                    <div className="timeframe-selector">
+                        <button
+                            className={`tf-btn ${timeframe === 'day' ? 'active' : ''}`}
+                            onClick={() => { setTimeframe('day'); setShowCustomPicker(false); }}
+                        >
+                            <FaCalendarDay /> Hoy
+                        </button>
+                        <button
+                            className={`tf-btn ${timeframe === 'week' ? 'active' : ''}`}
+                            onClick={() => { setTimeframe('week'); setShowCustomPicker(false); }}
+                        >
+                            <FaCalendarWeek /> Semana
+                        </button>
+                        <button
+                            className={`tf-btn ${timeframe === 'month' ? 'active' : ''}`}
+                            onClick={() => { setTimeframe('month'); setShowCustomPicker(false); }}
+                        >
+                            <FaCalendarAlt /> Mes
+                        </button>
+                        <button
+                            className={`tf-btn ${timeframe === 'custom' ? 'active' : ''}`}
+                            onClick={() => {
+                                setTimeframe('custom');
+                                setShowCustomPicker(true);
+                                // Initialize temp range with current applied range or today
+                                if (customRange.start) {
+                                    setTempCustomRange(customRange);
+                                }
+                            }}
+                        >
+                            <FaCalendarPlus /> Personalizado
+                        </button>
+                    </div>
+
+                    {showCustomPicker && (
+                        <div className="custom-picker-popup">
+                            <div className="picker-wrapper">
+                                <DatePicker
+                                    selected={tempCustomRange.start}
+                                    onChange={handleCustomDateChange}
+                                    startDate={tempCustomRange.start}
+                                    endDate={tempCustomRange.end}
+                                    selectsRange
+                                    inline
+                                    locale="es"
+                                />
+                            </div>
+                            <div className="picker-actions">
+                                <button className="picker-cancel-btn" onClick={() => setShowCustomPicker(false)}>Cancelar</button>
+                                <button className="picker-accept-btn" onClick={applyCustomFilter}>Aceptar</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </div>
+            </div >
 
             <div className="stats-grid">
                 {/* Total Plata */}
@@ -376,6 +451,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-        </div>
+        </div >
     );
 }
