@@ -293,49 +293,81 @@ export default function POSManager() {
 
         try {
             const updates = await runTransaction(db, async (transaction) => {
-                // 1. Read all product docs involved
-                const productRefs = cart.map(item => ({
-                    ref: doc(db, "products", item.id),
-                    item
-                }));
-
-                // Deduplicate refs if multiple variants of same product
-                const uniqueRefs = Array.from(new Set(productRefs.map(p => p.item.id)))
-                    .map(id => productRefs.find(p => p.item.id === id)!);
-
-                const productDocs = await Promise.all(uniqueRefs.map(p => transaction.get(p.ref)));
-                const productMap = new Map();
-                productDocs.forEach((docSnap, index) => {
-                    if (!docSnap.exists()) throw "Product does not exist";
-                    productMap.set(uniqueRefs[index].item.id, docSnap.data());
+                // 1. Identify all products to read (Items + Parents for dependencies)
+                const productIdsToRead = new Set<string>();
+                cart.forEach(item => {
+                    productIdsToRead.add(item.id);
+                    if (item.stockDependency?.productId) {
+                        productIdsToRead.add(item.stockDependency.productId);
+                    }
                 });
 
-                const updatedItems: { id: string, newStock: number }[] = [];
+                const uniqueIds = Array.from(productIdsToRead);
+                const refs = uniqueIds.map(id => doc(db, "products", id));
+                const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
 
-                // 2. Prepare Updates
+                const productDataMap: Record<string, any> = {};
+                docsSnap.forEach((d, i) => {
+                    if (d.exists()) productDataMap[uniqueIds[i]] = d.data();
+                });
+
+                const productsToUpdate = new Set<string>();
+
+                // 2. Apply Deductions in Memory
                 for (const item of cart) {
-                    const data = productMap.get(item.id);
+                    const itemDoc = productDataMap[item.id];
+                    if (!itemDoc) throw `Producto ${item.nombre} no encontrado`;
 
-                    if (item.selectedVariant) {
-                        const variants = [...data.variants];
-                        const variantIdx = variants.findIndex((v: any) => v.name === item.selectedVariant);
-                        if (variantIdx >= 0) {
-                            const newStock = Math.max(0, (variants[variantIdx].stockQuantity || 0) - item.quantity);
-                            variants[variantIdx].stockQuantity = newStock;
-                            variants[variantIdx].stock = newStock > 0;
-                            transaction.update(doc(db, "products", item.id), { variants });
+                    // CASE A: Derived Product (Pack) -> Deduct from Parent
+                    if (itemDoc.stockDependency?.productId) {
+                        const parentId = itemDoc.stockDependency.productId;
+                        const parentDoc = productDataMap[parentId];
+
+                        // Only proceed if parent exists
+                        if (parentDoc) {
+                            const unitsToDeduct = itemDoc.stockDependency.unitsToDeduct || 1;
+                            const totalDeduct = item.quantity * unitsToDeduct;
+
+                            // Decrease Parent Stock
+                            const currentStock = parentDoc.stockQuantity || 0;
+                            parentDoc.stockQuantity = Math.max(0, currentStock - totalDeduct);
+                            parentDoc.stock = parentDoc.stockQuantity > 0;
+
+                            productsToUpdate.add(parentId);
                         }
-                    } else {
-                        const newStock = Math.max(0, (data.stockQuantity || 0) - item.quantity);
-                        transaction.update(doc(db, "products", item.id), {
-                            stockQuantity: newStock,
-                            stock: newStock > 0
-                        });
-                        updatedItems.push({ id: item.id, newStock });
+                    }
+                    // CASE B: Standard Product (or Variant) -> Deduct from Self
+                    else {
+                        if (item.selectedVariant && itemDoc.variants) {
+                            const vIdx = itemDoc.variants.findIndex((v: any) => v.name === item.selectedVariant);
+                            if (vIdx >= 0) {
+                                const variant = itemDoc.variants[vIdx];
+                                const currentStock = variant.stockQuantity || 0;
+                                variant.stockQuantity = Math.max(0, currentStock - item.quantity);
+                                variant.stock = variant.stockQuantity > 0;
+                                productsToUpdate.add(item.id);
+                            }
+                        } else {
+                            const currentStock = itemDoc.stockQuantity || 0;
+                            itemDoc.stockQuantity = Math.max(0, currentStock - item.quantity);
+                            itemDoc.stock = itemDoc.stockQuantity > 0;
+                            productsToUpdate.add(item.id);
+                        }
                     }
                 }
 
-                // 3. Create Order
+                // 3. Write Updates to Firestore
+                productsToUpdate.forEach(pid => {
+                    const newData = productDataMap[pid];
+                    transaction.update(doc(db, "products", pid), {
+                        stockQuantity: newData.stockQuantity,
+                        stock: newData.stock,
+                        variants: newData.variants || []
+                    });
+                });
+
+                // 4. Create Order
+                const orderRef = doc(collection(db, "orders"));
                 const orderData = {
                     items: cart.map(item => ({
                         id: item.id,
@@ -353,17 +385,11 @@ export default function POSManager() {
                     },
                     date: new Date(),
                     status: "entregado", // POS orders are completed immediately
-                    source: priceMode === 'public' ? 'pos_public' : 'pos_wholesale' // Track source based on price mode
+                    source: priceMode === 'public' ? 'pos_public' : 'pos_wholesale'
                 };
-
-                const orderRef = doc(collection(db, "orders"));
                 transaction.set(orderRef, orderData);
 
-                // 4. Log Stock Movements within transaction?
-                // Firestore transactions require reads before writes. Logging relies on creating new docs.
-                // We can do writes to new docs in transaction without reading them.
-
-                // For each item, create a movement log
+                // 5. Log Movements
                 cart.forEach(item => {
                     const moveRef = doc(collection(db, "stock_movements"));
                     const movementData = {
@@ -378,17 +404,11 @@ export default function POSManager() {
                     transaction.set(moveRef, movementData);
                 });
 
-                return updatedItems;
+                return Array.from(productsToUpdate).map(id => ({ id, newStock: productDataMap[id].stockQuantity }));
             });
 
             // Sync Child Products (Derived Stock)
-            // We do this AFTER the transaction ensures the parent stock is committed.
             if (updates && updates.length > 0) {
-                // Process in parallel or sequential? Parallel is faster.
-                // We use map to trigger all, but await Promise.all to catch errors if needed.
-                // Note: syncChildProducts is async but we don't necessarily need to block UI for it, 
-                // but good to await to ensure consistency before clearing cart if we wanted strictness.
-                // Here we just fire and forget or await lightly.
                 await Promise.all(updates.map(u => syncChildProducts(u.id, u.newStock)));
             }
 
@@ -402,7 +422,7 @@ export default function POSManager() {
             );
 
             setCart([]);
-            setIsCartOpen(false); // Close slider/view after sale
+            setIsCartOpen(false);
             fetchProducts();
         } catch (error) {
             console.error("Checkout error:", error);

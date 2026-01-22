@@ -1,7 +1,9 @@
+
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
-import { collection, onSnapshot, updateDoc, doc, orderBy, query, getDoc, addDoc } from "firebase/firestore";
-import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen } from 'react-icons/fa';
+import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs } from "firebase/firestore";
+import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaEdit, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
+import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import "./OrdersManager.css";
 
@@ -33,25 +35,70 @@ export default function OrdersManager() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastVisible, setLastVisible] = useState<any>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+
+    // Edit Modal State
+    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editSearchTerm, setEditSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
 
     useEffect(() => {
-        const q = query(collection(db, "orders"), orderBy("date", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        fetchOrders();
+    }, []);
+
+    const fetchOrders = async () => {
+        setLoading(true);
+        try {
+            const q = query(collection(db, "orders"), orderBy("date", "desc"), limit(50));
+            const snapshot = await getDocs(q);
+
             const ordersData = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
                 status: doc.data().status || "pendiente"
             })) as Order[];
+
             setOrders(ordersData);
+            setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+            setHasMore(snapshot.docs.length === 50);
             setLoading(false);
-        }, (err) => {
+        } catch (err) {
             console.error("Error fetching orders:", err);
             setError("Error al cargar pedidos.");
             setLoading(false);
-        });
+        }
+    };
 
-        return () => unsubscribe();
-    }, []);
+    const loadMoreOrders = async () => {
+        if (!lastVisible) return;
+        setLoadingMore(true);
+        try {
+            const q = query(
+                collection(db, "orders"),
+                orderBy("date", "desc"),
+                startAfter(lastVisible),
+                limit(50)
+            );
+            const snapshot = await getDocs(q);
+
+            const newOrders = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+                status: doc.data().status || "pendiente"
+            })) as Order[];
+
+            setOrders(prev => [...prev, ...newOrders]);
+            setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+            setHasMore(snapshot.docs.length === 50);
+            setLoadingMore(false);
+        } catch (err) {
+            console.error("Error loading more orders:", err);
+            setLoadingMore(false);
+        }
+    };
 
     const updateStatus = async (id: string, status: string) => {
         try {
@@ -250,14 +297,228 @@ export default function OrdersManager() {
             }
 
             await updateDoc(doc(db, "orders", id), { status });
+            // Actualizar estado localmente para reflejar cambio inmediato
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
         } catch (error) {
             console.error("Error updating status:", error);
             alert("Error al actualizar el estado");
         }
     };
 
+    // --- Search Logic for Valid Products in Edit Modal ---
+    useEffect(() => {
+        if (editSearchTerm.length > 2) {
+            const searchProducts = async () => {
+                const productsRef = collection(db, "products");
+                const q = query(productsRef); // Optimizable
+                const snapshot = await getDocs(q);
+                const allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const lowerTerm = editSearchTerm.toLowerCase();
+                const filtered = allProducts.filter((p: any) =>
+                    p.nombre.toLowerCase().includes(lowerTerm) ||
+                    (p.variants && p.variants.some((v: any) => v.name.toLowerCase().includes(lowerTerm)))
+                );
+                setSearchResults(filtered);
+            };
+            searchProducts();
+        } else {
+            setSearchResults([]);
+        }
+    }, [editSearchTerm]);
+
+    const handleOpenEditModal = (order: Order) => {
+        setEditingOrder(JSON.parse(JSON.stringify(order))); // Deep copy
+        setIsEditModalOpen(true);
+    };
+
+    const handleCloseEditModal = () => {
+        setIsEditModalOpen(false);
+        setEditingOrder(null);
+        setEditSearchTerm("");
+    };
+
+    // Edit Modal Actions
+    const updateItemQuantity = (index: number, delta: number) => {
+        if (!editingOrder) return;
+        const newItems = [...editingOrder.items];
+        const item = newItems[index];
+        const newQty = (Number(item.quantity) || 0) + delta;
+
+        if (newQty <= 0) {
+            newItems.splice(index, 1);
+        } else {
+            item.quantity = newQty;
+        }
+
+        // Recalculate total
+        const newTotal = newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+        setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
+    };
+
+    const handleAddItem = (product: any, variant: any = null) => {
+        if (!editingOrder) return;
+        const newItems = [...editingOrder.items];
+
+        const price = variant ? Number(variant.price) : Number(product.precio);
+        const name = product.nombre;
+        const variantName = variant ? variant.name : null;
+        const id = variant ? `${product.id}-${variant.name}` : product.id;
+
+        // Check if exists
+        const existingIdx = newItems.findIndex(i => {
+            return i.id === id || (i.name === name && i.variant === variantName);
+        });
+
+        if (existingIdx >= 0) {
+            newItems[existingIdx].quantity += 1;
+        } else {
+            newItems.push({
+                id,
+                name,
+                variant: variantName,
+                quantity: 1,
+                price
+            });
+        }
+
+        const newTotal = newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+        setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
+        setEditSearchTerm("");
+    };
+
+    const handleSaveOrder = async () => {
+        if (!editingOrder) return;
+
+        try {
+            // 1. Revert Stock of OLD Order Items (IN)
+            const originalOrder = orders.find(o => o.id === editingOrder.id);
+            if (originalOrder) {
+                for (const item of originalOrder.items) {
+                    try {
+                        await adjustStock(item, 'IN', `Edición Pedido (Reversión) #${editingOrder.id.slice(-4)}`);
+                    } catch (e) {
+                        console.error("Error reverting item stock", item, e);
+                    }
+                }
+            }
+
+            // 2. Deduct Stock of NEW Order Items (OUT)
+            for (const item of editingOrder.items) {
+                try {
+                    await adjustStock(item, 'OUT', `Edición Pedido (Actualización) #${editingOrder.id.slice(-4)}`);
+                } catch (e) {
+                    console.error("Error deducting item stock", item, e);
+                }
+            }
+
+            // 3. Update Order Document
+            const orderRef = doc(db, "orders", editingOrder.id);
+            await updateDoc(orderRef, {
+                items: editingOrder.items,
+                total: editingOrder.total
+            });
+
+            // 4. Update Local State
+            setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+            handleCloseEditModal();
+            alert("Pedido actualizado correctamente.");
+
+        } catch (error) {
+            console.error("Error updating order:", error);
+            alert("Error al guardar el pedido.");
+        }
+    };
+
+    // Helper for Stock Adjustment
+    const adjustStock = async (item: any, type: 'IN' | 'OUT', reasonObs: string) => {
+        const isVariant = String(item.id).includes('-');
+        const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+        const itemRef = doc(db, "products", baseId);
+        const itemSnap = await getDoc(itemRef);
+
+        if (itemSnap.exists()) {
+            const data = itemSnap.data();
+            const qty = Number(item.quantity) || 1;
+
+            // Dependency Logic
+            if (data.stockDependency && data.stockDependency.productId) {
+                const parentId = data.stockDependency.productId;
+                const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                const totalQty = qty * unitsToDeduct;
+
+                const parentRef = doc(db, "products", parentId);
+                const parentSnap = await getDoc(parentRef);
+
+                if (parentSnap.exists()) {
+                    const parentData = parentSnap.data();
+                    let newParentStock = parentData.stockQuantity || 0;
+                    if (type === 'IN') newParentStock += totalQty;
+                    else newParentStock = Math.max(0, newParentStock - totalQty);
+
+                    await updateDoc(parentRef, { stockQuantity: newParentStock });
+                    await addDoc(collection(db, "stock_movements"), {
+                        productId: parentId,
+                        productName: parentData.nombre,
+                        type: type,
+                        quantity: totalQty,
+                        reason: type === 'IN' ? 'Edición Pedido (Devolución)' : 'Edición Pedido (Salida)',
+                        observation: reasonObs,
+                        date: new Date()
+                    });
+                    await syncChildProducts(parentId, newParentStock);
+                }
+            } else {
+                // Standard Logic
+                let updated = false;
+                let newStock = 0;
+
+                if (isVariant && data.variants) {
+                    const match = item.name.match(/\(([^)]+)\)$/);
+                    const vName = item.variant || (match ? match[1] : "");
+
+                    const variants = [...data.variants];
+                    const vIdx = variants.findIndex((v: any) => v.name === vName);
+                    if (vIdx >= 0) {
+                        const curr = variants[vIdx].stockQuantity || 0;
+                        if (type === 'IN') newStock = curr + qty;
+                        else newStock = Math.max(0, curr - qty);
+
+                        variants[vIdx].stockQuantity = newStock;
+                        variants[vIdx].stock = newStock > 0;
+                        await updateDoc(itemRef, { variants });
+                        updated = true;
+                    }
+                }
+
+                if (!updated) {
+                    // Simple Product or Fallback
+                    const curr = data.stockQuantity || 0;
+                    if (type === 'IN') newStock = curr + qty;
+                    else newStock = Math.max(0, curr - qty);
+
+                    await updateDoc(itemRef, { stockQuantity: newStock });
+                    updated = true;
+                }
+
+                if (updated) {
+                    await addDoc(collection(db, "stock_movements"), {
+                        productId: baseId,
+                        productName: item.name,
+                        type: type,
+                        quantity: qty,
+                        reason: type === 'IN' ? 'Edición Pedido (Devolución)' : 'Edición Pedido (Salida)',
+                        observation: reasonObs,
+                        date: new Date()
+                    });
+                    await syncChildProducts(baseId, newStock);
+                }
+            }
+        }
+    };
+
     return (
-        <div className="product-manager-container"> {/* Reuse container */}
+        <div className="product-manager-container">
             <div className="pm-header">
                 <div>
                     <h2>Gestión de Pedidos</h2>
@@ -275,7 +536,7 @@ export default function OrdersManager() {
             ) : (
                 <div className="orders-list-container">
                     <div className="orders-summary-bar">
-                        <span className="summary-pill">Total: <strong>{orders.length}</strong></span>
+                        <span className="summary-pill">Cargados: <strong>{orders.length}</strong></span>
                         <span className="summary-pill pending">Pendientes: <strong>{orders.filter(o => o.status === 'pendiente').length}</strong></span>
                     </div>
 
@@ -287,7 +548,6 @@ export default function OrdersManager() {
                                     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
                                 })
                                 : "Fecha desc.";
-                            // Removed dateStr as it's replaced by formatDate
 
                             return (
                                 <div key={order.id} className={`pm-card order-card order-status-${order.status}`}>
@@ -324,6 +584,13 @@ export default function OrdersManager() {
                                                 ))}
                                             </select>
                                         </div>
+                                        <button
+                                            className="edit-order-btn"
+                                            onClick={() => handleOpenEditModal(order)}
+                                            title="Editar Pedido"
+                                        >
+                                            <FaEdit />
+                                        </button>
                                     </div>
 
                                     {/* Card Body */}
@@ -356,10 +623,12 @@ export default function OrdersManager() {
                                             <ul className="order-items-list">
                                                 {order.items.map((item, index) => (
                                                     <li key={index} className="order-item">
-                                                        <span className="item-qty">
-                                                            {Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x
-                                                        </span>
-                                                        <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                                        <div className="order-item-detail">
+                                                            <span className="item-qty">
+                                                                {Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x
+                                                            </span>
+                                                            <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                                        </div>
                                                         <span className="item-price">${Math.floor(item.price)}</span>
                                                     </li>
                                                 ))}
@@ -380,6 +649,92 @@ export default function OrdersManager() {
                             </div>
                         )}
                     </div>
+
+                    {/* Load More Button */}
+                    {hasMore && (
+                        <div className="load-more-container">
+                            <button
+                                className="load-more-btn"
+                                onClick={loadMoreOrders}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? <><FaSync className="spin" /> Cargando...</> : 'Cargar más pedidos'}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Edit Modal */}
+                    {isEditModalOpen && editingOrder && (
+                        <div className="pm-modal-overlay">
+                            <div className="pm-modal-content edit-order-modal">
+                                <h3>Editar Pedido #{editingOrder.id.slice(-6)}</h3>
+
+                                <div className="edit-modal-body">
+                                    {/* Current Items */}
+                                    <div className="edit-section">
+                                        <h4>Ítems del Pedido</h4>
+                                        <ul className="edit-items-list">
+                                            {editingOrder.items.map((item, idx) => (
+                                                <li key={idx} className="edit-item-row">
+                                                    <div className="item-info">
+                                                        <span>{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                                        <small>${item.price}</small>
+                                                    </div>
+                                                    <div className="item-controls">
+                                                        <button onClick={() => updateItemQuantity(idx, -1)}><FaMinus /></button>
+                                                        <span>{item.quantity}</span>
+                                                        <button onClick={() => updateItemQuantity(idx, 1)}><FaPlus /></button>
+                                                        <button className="remove-btn" onClick={() => updateItemQuantity(idx, -9999)}><FaTrash /></button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="edit-total">
+                                            <strong>Total: ${editingOrder.total}</strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Add Product */}
+                                    <div className="edit-section">
+                                        <h4>Agregar Producto</h4>
+                                        <ProductSearch
+                                            value={editSearchTerm}
+                                            onChange={setEditSearchTerm}
+                                            placeholder="Buscar para agregar..."
+                                        />
+                                        {searchResults.length > 0 && (
+                                            <ul className="edit-search-results">
+                                                {searchResults.map(prod => (
+                                                    <li key={prod.id} className="search-result-item">
+                                                        <span>{prod.nombre}</span>
+                                                        {prod.variants ? (
+                                                            <div className="variant-tags">
+                                                                {prod.variants.map((v: any) => (
+                                                                    <button key={v.name} onClick={() => handleAddItem(prod, v)} className="variant-tag">
+                                                                        {v.name} (${v.price})
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => handleAddItem(prod)} className="add-simple-btn">
+                                                                Agregar (${prod.precio})
+                                                            </button>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="pm-modal-actions">
+                                    <button className="cancel-btn" onClick={handleCloseEditModal}>Cancelar</button>
+                                    <button className="save-btn" onClick={handleSaveOrder}><FaSave /> Guardar Cambios</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             )}
         </div>
