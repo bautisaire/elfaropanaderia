@@ -3,7 +3,7 @@ import { db, storage } from '../firebase/firebaseConfig';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { compressImage } from '../utils/imageUtils';
-import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaLink } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaLink, FaEye, FaEyeSlash } from 'react-icons/fa';
 import './HeroManager.css';
 
 interface HeroSlide {
@@ -15,6 +15,7 @@ interface HeroSlide {
     buttonText: string;
     buttonLink: string;
     animation: "zoom-in" | "zoom-out";
+    active?: boolean;
 }
 
 const INITIAL_STATE = {
@@ -24,7 +25,8 @@ const INITIAL_STATE = {
     showButton: true,
     buttonText: "Ver Productos",
     buttonLink: "",
-    animation: "zoom-in" as "zoom-in" | "zoom-out"
+    animation: "zoom-in" as "zoom-in" | "zoom-out",
+    active: true
 };
 
 export default function HeroManager() {
@@ -127,6 +129,18 @@ export default function HeroManager() {
         }
     };
 
+    const toggleVisibility = async (slide: HeroSlide) => {
+        try {
+            const newStatus = slide.active === false ? true : false;
+            await updateDoc(doc(db, "hero_slides", slide.id), { active: newStatus });
+            // Optimistic update
+            setSlides(prev => prev.map(s => s.id === slide.id ? { ...s, active: newStatus } : s));
+        } catch (error) {
+            console.error("Error toggle visibility:", error);
+            alert("Error al cambiar visibilidad");
+        }
+    };
+
     const startEdit = (slide: HeroSlide) => {
         setEditingId(slide.id);
         setFormData({
@@ -136,7 +150,8 @@ export default function HeroManager() {
             showButton: slide.showButton,
             buttonText: slide.buttonText || "Ver Productos",
             buttonLink: slide.buttonLink || "",
-            animation: slide.animation
+            animation: slide.animation,
+            active: slide.active !== false
         });
         setImageFile(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -289,6 +304,14 @@ export default function HeroManager() {
                                     )}
                                 </div>
                                 <div className="hero-card-actions">
+                                    <button
+                                        onClick={() => toggleVisibility(slide)}
+                                        className={`btn-action visibility ${slide.active === false ? 'inactive' : 'active'}`}
+                                        title={slide.active === false ? "Mostrar" : "Ocultar"}
+                                        style={{ color: slide.active === false ? '#9ca3af' : '#10b981' }}
+                                    >
+                                        {slide.active === false ? <FaEyeSlash /> : <FaEye />}
+                                    </button>
                                     <button onClick={() => startEdit(slide)} className="btn-action edit" title="Editar"><FaEdit /></button>
                                     <button onClick={() => handleDelete(slide)} className="btn-action delete" title="Eliminar"><FaTrash /></button>
                                 </div>

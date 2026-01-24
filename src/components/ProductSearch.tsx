@@ -1,4 +1,4 @@
-
+import { forwardRef } from 'react';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import './ProductSearch.css';
 
@@ -9,11 +9,12 @@ interface ProductSearchProps {
     className?: string;
 }
 
-export default function ProductSearch({ value, onChange, placeholder = "Buscar productos...", className = "" }: ProductSearchProps) {
+const ProductSearch = forwardRef<HTMLInputElement, ProductSearchProps>(({ value, onChange, placeholder = "Buscar productos...", className = "" }, ref) => {
     return (
         <div className={`product-search-container ${className}`}>
             <FaSearch className="product-search-icon" />
             <input
+                ref={ref}
                 type="text"
                 className="product-search-input"
                 placeholder={placeholder}
@@ -31,4 +32,6 @@ export default function ProductSearch({ value, onChange, placeholder = "Buscar p
             )}
         </div>
     );
-}
+});
+
+export default ProductSearch;

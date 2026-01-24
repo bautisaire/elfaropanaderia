@@ -42,7 +42,7 @@ function Layout() {
 export default function App() {
   // Global Listener to prevent scroll changing number inputs
   useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
+    const handleWheel = () => {
       // @ts-ignore
       if (document.activeElement?.type === "number") {
         // @ts-ignore

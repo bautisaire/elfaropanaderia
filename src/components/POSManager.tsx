@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
@@ -76,6 +76,27 @@ export default function POSManager() {
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
     const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
+
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            // Ignorar si el foco ya está en un input
+            const tag = document.activeElement?.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+            // Ignorar si hay modales abiertos
+            if (weightModalOpen || isStockModalOpen || modalConfig.isOpen) return;
+
+            // Detectar letras/números (length 1) - ignorar teclas especiales
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                searchInputRef.current?.focus();
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [weightModalOpen, isStockModalOpen, modalConfig.isOpen]);
 
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -469,6 +490,7 @@ export default function POSManager() {
 
                 <div className="pos-search-bar" style={{ padding: '0', background: 'transparent', boxShadow: 'none' }}>
                     <ProductSearch
+                        ref={searchInputRef}
                         value={searchTerm}
                         onChange={setSearchTerm}
                         placeholder="Buscar productos en POS..."

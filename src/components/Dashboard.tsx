@@ -371,7 +371,7 @@ export default function Dashboard() {
                 <div className="stat-card sales main-stat">
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Plata Total ({getTimeframeLabel()})</h3>
+                        <h3>Total ({getTimeframeLabel()})</h3>
                         <p>${Math.floor(stats.plata).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.totalOrders} pedidos</span>
                     </div>

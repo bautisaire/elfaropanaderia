@@ -12,6 +12,7 @@ interface HeroSlide {
     buttonText?: string;
     buttonLink?: string; // URL or Anchor
     animation: "zoom-in" | "zoom-out";
+    active?: boolean;
 }
 
 export default function Hero() {
@@ -31,7 +32,7 @@ export default function Hero() {
                 })) as HeroSlide[];
 
                 if (fetchedSlides.length > 0) {
-                    setSlides(fetchedSlides);
+                    setSlides(fetchedSlides.filter(s => s.active !== false));
                 }
             } catch (error) {
                 console.error("Error loading hero slides:", error);
