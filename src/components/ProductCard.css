@@ -193,7 +193,18 @@
 .product-price {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #ff8c00;
+}
+
+.out-of-stock .product-price {
+  color: #333;
+}
+
+.stock-display {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 2px;
+  font-weight: 500;
 }
 
 

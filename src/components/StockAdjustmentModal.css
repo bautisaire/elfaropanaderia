@@ -31,24 +31,25 @@
 }
 
 .stock-form-group {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
 
 .stock-form-group label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
     font-weight: 500;
     color: #374151;
+    font-size: 0.9rem;
 }
 
 .stock-form-group input,
 .stock-form-group select,
 .stock-form-group textarea {
     width: 100%;
-    padding: 10px;
+    padding: 8px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: 1rem;
+    font-size: 0.95rem;
     transition: border-color 0.2s;
 }
 
@@ -62,12 +63,12 @@
 
 .stock-action-type {
     display: flex;
-    gap: 10px;
+    gap: 8px;
 }
 
 .action-btn {
     flex: 1;
-    padding: 10px;
+    padding: 8px;
     border: 1px solid #d1d5db;
     background: white;
     border-radius: 6px;
@@ -76,8 +77,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     transition: all 0.2s;
+    font-size: 0.9rem;
 }
 
 .action-btn.add.selected {
@@ -94,16 +96,16 @@
 
 .modal-actions {
     display: flex;
-    padding-top: 20px;
+    padding-top: 15px;
     border-top: 1px solid #e5e7eb;
-    margin-top: 20px;
+    margin-top: 15px;
     gap: 10px;
 }
 
 .btn-cancel,
 .btn-save-stock {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
     border-radius: 8px;
     border: none;
     font-weight: 600;
@@ -127,6 +129,23 @@
 
 .btn-save-stock:hover {
     background: #2563eb;
+}
+
+.btn-remove-all {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-remove-all:hover {
+    background: #fecaca;
 }
 
 .stock-select option {

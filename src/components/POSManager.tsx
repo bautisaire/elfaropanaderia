@@ -25,6 +25,7 @@ interface Product {
     unitType?: 'unit' | 'weight';
     wholesalePrice?: number;
     stockDependency?: any;
+    isHiddenInPOS?: boolean;
 }
 
 interface CartItem extends Product {
@@ -435,7 +436,8 @@ export default function POSManager() {
     const filteredProducts = products.filter(p => {
         const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === "Todas" || p.categoria === selectedCategory;
-        return matchesSearch && matchesCategory;
+        const visibleInPos = !p.isHiddenInPOS;
+        return matchesSearch && matchesCategory && visibleInPos;
     });
 
     return (

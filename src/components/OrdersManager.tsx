@@ -45,6 +45,10 @@ export default function OrdersManager() {
     const [editSearchTerm, setEditSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
 
+    // Cancel Modal State
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
+
     useEffect(() => {
         fetchOrders();
     }, []);
@@ -100,208 +104,227 @@ export default function OrdersManager() {
         }
     };
 
+
     const updateStatus = async (id: string, status: string) => {
+        // Intercept Cancellation
+        if (status === 'cancelado') {
+            setOrderToCancelId(id);
+            setCancelModalOpen(true);
+            return;
+        }
+
+        // Normal Flow for other statuses
         try {
-            const orderToCancel = orders.find(o => o.id === id);
-
-            // 1. Si el nuevo estado es Cancelado, devolver stock
-            if (status === 'cancelado') {
-                if (orderToCancel && orderToCancel.status !== 'cancelado') {
-                    // Iterar sobre los productos y devolver stock
-                    for (const item of orderToCancel.items) {
-                        try {
-                            const isVariant = String(item.id).includes('-');
-                            const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
-                            const itemRef = doc(db, "products", baseId);
-                            const itemSnap = await getDoc(itemRef);
-
-                            if (itemSnap.exists()) {
-                                const data = itemSnap.data();
-
-                                // --- Lógica Derivados (Packs) ---
-                                if (data.stockDependency && data.stockDependency.productId) {
-                                    const parentId = data.stockDependency.productId;
-                                    const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
-                                    const qtyToRestore = (item.quantity || 1) * unitsToDeduct;
-
-                                    const parentRef = doc(db, "products", parentId);
-                                    const parentSnap = await getDoc(parentRef);
-
-                                    if (parentSnap.exists()) {
-                                        const parentData = parentSnap.data();
-                                        const currentParentStock = parentData.stockQuantity || 0;
-                                        const newParentStock = currentParentStock + qtyToRestore;
-
-                                        // Restaurar Padre
-                                        await updateDoc(parentRef, { stockQuantity: newParentStock });
-
-                                        // Movimiento de Stock (ENTRADA)
-                                        await addDoc(collection(db, "stock_movements"), {
-                                            productId: parentId,
-                                            productName: parentData.nombre,
-                                            type: 'IN',
-                                            quantity: qtyToRestore,
-                                            reason: 'Pedido Cancelado',
-                                            observation: `Cancelación Pedido derivado: ${item.name}`,
-                                            date: new Date()
-                                        });
-
-                                        // Sincronizar hijos
-                                        await syncChildProducts(parentId, newParentStock);
-                                    }
-                                }
-                                // --- Fin Lógica Derivados ---
-                                else {
-                                    // Lógica Normal
-                                    let variantName = "";
-
-                                    if (isVariant && data.variants) {
-                                        const match = item.name.match(/\(([^)]+)\)$/);
-                                        if (match) variantName = match[1];
-
-                                        if (variantName) {
-                                            const variants = [...data.variants];
-                                            const variantIdx = variants.findIndex((v: any) => v.name === variantName);
-
-                                            if (variantIdx >= 0) {
-                                                const currentStock = variants[variantIdx].stockQuantity || 0;
-                                                const newStock = currentStock + (item.quantity || 1);
-                                                variants[variantIdx].stockQuantity = newStock;
-                                                variants[variantIdx].stock = newStock > 0;
-
-                                                await updateDoc(itemRef, { variants });
-                                            }
-                                        }
-                                    } else {
-                                        // Producto Simple
-                                        const currentStock = data.stockQuantity || 0;
-                                        const newStock = currentStock + (item.quantity || 1);
-
-                                        await updateDoc(itemRef, { stockQuantity: newStock });
-
-                                        // Sincronizar si es padre
-                                        await syncChildProducts(baseId, newStock);
-                                    }
-
-                                    // Movimiento de Stock (ENTRADA)
-                                    await addDoc(collection(db, "stock_movements"), {
-                                        productId: baseId,
-                                        productName: item.name,
-                                        type: 'IN',
-                                        quantity: item.quantity || 1,
-                                        reason: 'Pedido Cancelado',
-                                        observation: `Cancelación Pedido #${id.slice(-4)}`,
-                                        date: new Date()
-                                    });
-                                }
-                            }
-                        } catch (err) {
-                            console.error(`Error restaurando stock para ${item.name}:`, err);
-                        }
-                    }
-                }
-            }
-
-            // 2. Si el pedido estaba Cancelado y pasa a otro estado (Reactivación), descontar stock nuevamente
-            else if (orderToCancel && orderToCancel.status === 'cancelado' && status !== 'cancelado') {
-                for (const item of orderToCancel.items) {
-                    try {
-                        const isVariant = String(item.id).includes('-');
-                        const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
-                        const itemRef = doc(db, "products", baseId);
-                        const itemSnap = await getDoc(itemRef);
-
-                        if (itemSnap.exists()) {
-                            const data = itemSnap.data();
-
-                            // --- Lógica Derivados (Packs) ---
-                            if (data.stockDependency && data.stockDependency.productId) {
-                                const parentId = data.stockDependency.productId;
-                                const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
-                                const qtyToDeduct = (item.quantity || 1) * unitsToDeduct;
-
-                                const parentRef = doc(db, "products", parentId);
-                                const parentSnap = await getDoc(parentRef);
-
-                                if (parentSnap.exists()) {
-                                    const parentData = parentSnap.data();
-                                    const currentParentStock = parentData.stockQuantity || 0;
-                                    const newParentStock = Math.max(0, currentParentStock - qtyToDeduct);
-
-                                    // Actualizar Padre
-                                    await updateDoc(parentRef, { stockQuantity: newParentStock });
-
-                                    // Movimiento de Stock (SALIDA)
-                                    await addDoc(collection(db, "stock_movements"), {
-                                        productId: parentId,
-                                        productName: parentData.nombre,
-                                        type: 'OUT',
-                                        quantity: qtyToDeduct,
-                                        reason: 'Pedido Reactivado',
-                                        observation: `Reactivación Pedido derivado: ${item.name}`,
-                                        date: new Date()
-                                    });
-
-                                    // Sincronizar hijos
-                                    await syncChildProducts(parentId, newParentStock);
-                                }
-                            }
-                            // --- Fin Lógica Derivados ---
-                            else {
-                                // Lógica Normal
-                                let variantName = "";
-                                if (isVariant && data.variants) {
-                                    const match = item.name.match(/\(([^)]+)\)$/);
-                                    if (match) variantName = match[1];
-
-                                    if (variantName) {
-                                        const variants = [...data.variants];
-                                        const variantIdx = variants.findIndex((v: any) => v.name === variantName);
-
-                                        if (variantIdx >= 0) {
-                                            const currentStock = variants[variantIdx].stockQuantity || 0;
-                                            const newStock = Math.max(0, currentStock - (item.quantity || 1));
-                                            variants[variantIdx].stockQuantity = newStock;
-                                            variants[variantIdx].stock = newStock > 0;
-
-                                            await updateDoc(itemRef, { variants });
-                                        }
-                                    }
-                                } else {
-                                    // Producto Simple
-                                    const currentStock = data.stockQuantity || 0;
-                                    const newStock = Math.max(0, currentStock - (item.quantity || 1));
-
-                                    await updateDoc(itemRef, { stockQuantity: newStock });
-
-                                    // Sincronizar si es padre
-                                    await syncChildProducts(baseId, newStock);
-                                }
-
-                                // Movimiento de Stock (SALIDA)
-                                await addDoc(collection(db, "stock_movements"), {
-                                    productId: baseId,
-                                    productName: item.name,
-                                    type: 'OUT',
-                                    quantity: item.quantity || 1,
-                                    reason: 'Pedido Reactivado',
-                                    observation: `Reactivación Pedido #${id.slice(-4)}`,
-                                    date: new Date()
-                                });
-                            }
-                        }
-                    } catch (err) {
-                        console.error(`Error descontando stock al reactivar ${item.name}:`, err);
-                    }
-                }
-            }
-
-            await updateDoc(doc(db, "orders", id), { status });
-            // Actualizar estado localmente para reflejar cambio inmediato
-            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
+            await applyStatusChange(id, status);
         } catch (error) {
             console.error("Error updating status:", error);
             alert("Error al actualizar el estado");
+        }
+    };
+
+    const handleConfirmCancellation = async (restoreStock: boolean) => {
+        if (!orderToCancelId) return;
+
+        try {
+            if (restoreStock) {
+                // Execute Logic to Restore Stock
+                const orderToCancel = orders.find(o => o.id === orderToCancelId);
+                if (orderToCancel && orderToCancel.status !== 'cancelado') {
+                    await restoreOrderStock(orderToCancel);
+                }
+            }
+
+            // Update Status in DB
+            await updateDoc(doc(db, "orders", orderToCancelId), { status: 'cancelado' });
+
+            // Update Local
+            setOrders(prev => prev.map(o => o.id === orderToCancelId ? { ...o, status: 'cancelado' } : o));
+
+            setCancelModalOpen(false);
+            setOrderToCancelId(null);
+            // alert("Pedido cancelado correctamente.");
+        } catch (error) {
+            console.error("Error cancelling order:", error);
+            alert("Error al cancelar el pedido.");
+        }
+    };
+
+    // Refactored Logic: Apply Status Change (Generic)
+    const applyStatusChange = async (id: string, status: string) => {
+        const orderToCancel = orders.find(o => o.id === id);
+
+        // Si el pedido estaba Cancelado y pasa a otro estado (Reactivación), descontar stock nuevamente
+        if (orderToCancel && orderToCancel.status === 'cancelado' && status !== 'cancelado') {
+            await deductOrderStock(orderToCancel, `Reactivación Pedido #${id.slice(-4)}`);
+        }
+
+        await updateDoc(doc(db, "orders", id), { status });
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
+    };
+
+    // Helper: Restore Stock Logic (Refactored from original updateStatus)
+    const restoreOrderStock = async (order: Order) => {
+        for (const item of order.items) {
+            try {
+                const isVariant = String(item.id).includes('-');
+                const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                const itemRef = doc(db, "products", baseId);
+                const itemSnap = await getDoc(itemRef);
+
+                if (itemSnap.exists()) {
+                    const data = itemSnap.data();
+
+                    // --- Lógica Derivados (Packs) ---
+                    if (data.stockDependency && data.stockDependency.productId) {
+                        const parentId = data.stockDependency.productId;
+                        const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                        const qtyToRestore = (item.quantity || 1) * unitsToDeduct;
+
+                        const parentRef = doc(db, "products", parentId);
+                        const parentSnap = await getDoc(parentRef);
+
+                        if (parentSnap.exists()) {
+                            const parentData = parentSnap.data();
+                            const currentParentStock = parentData.stockQuantity || 0;
+                            const newParentStock = currentParentStock + qtyToRestore;
+
+                            await updateDoc(parentRef, { stockQuantity: newParentStock });
+
+                            await addDoc(collection(db, "stock_movements"), {
+                                productId: parentId,
+                                productName: parentData.nombre,
+                                type: 'IN',
+                                quantity: qtyToRestore,
+                                reason: 'Pedido Cancelado',
+                                observation: `Cancelación Pedido derivado: ${item.name}`,
+                                date: new Date()
+                            });
+
+                            await syncChildProducts(parentId, newParentStock);
+                        }
+                    }
+                    // --- Fin Lógica Derivados ---
+                    else {
+                        let variantName = "";
+                        if (isVariant && data.variants) {
+                            const match = item.name.match(/\(([^)]+)\)$/);
+                            if (match) variantName = match[1];
+
+                            if (variantName) {
+                                const variants = [...data.variants];
+                                const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+
+                                if (variantIdx >= 0) {
+                                    const currentStock = variants[variantIdx].stockQuantity || 0;
+                                    const newStock = currentStock + (item.quantity || 1);
+                                    variants[variantIdx].stockQuantity = newStock;
+                                    variants[variantIdx].stock = newStock > 0;
+                                    await updateDoc(itemRef, { variants });
+                                }
+                            }
+                        } else {
+                            const currentStock = data.stockQuantity || 0;
+                            const newStock = currentStock + (item.quantity || 1);
+                            await updateDoc(itemRef, { stockQuantity: newStock });
+                            await syncChildProducts(baseId, newStock);
+                        }
+
+                        await addDoc(collection(db, "stock_movements"), {
+                            productId: baseId,
+                            productName: item.name,
+                            type: 'IN',
+                            quantity: item.quantity || 1,
+                            reason: 'Pedido Cancelado',
+                            observation: `Cancelación Pedido #${order.id.slice(-4)}`,
+                            date: new Date()
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(`Error restaurando stock para ${item.name}:`, err);
+            }
+        }
+    };
+
+    // Helper: Deduct Stock Logic (Refactored from original updateStatus)
+    const deductOrderStock = async (order: Order, reasonObs: string) => {
+        for (const item of order.items) {
+            // We can reuse adjustStock logic actually, but let's keep it explicit as it was originally intertwined
+            // Or even better, let's allow adjustStock to be used if suitable. 
+            // For now, to minimize risk, I'll paste the logic that was already there for "Reactivation"
+            try {
+                const isVariant = String(item.id).includes('-');
+                const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                const itemRef = doc(db, "products", baseId);
+                const itemSnap = await getDoc(itemRef);
+
+                if (itemSnap.exists()) {
+                    const data = itemSnap.data();
+
+                    if (data.stockDependency && data.stockDependency.productId) {
+                        const parentId = data.stockDependency.productId;
+                        const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
+                        const qtyToDeduct = (item.quantity || 1) * unitsToDeduct;
+
+                        const parentRef = doc(db, "products", parentId);
+                        const parentSnap = await getDoc(parentRef);
+
+                        if (parentSnap.exists()) {
+                            const parentData = parentSnap.data();
+                            const currentParentStock = parentData.stockQuantity || 0;
+                            const newParentStock = Math.max(0, currentParentStock - qtyToDeduct);
+
+                            await updateDoc(parentRef, { stockQuantity: newParentStock });
+
+                            await addDoc(collection(db, "stock_movements"), {
+                                productId: parentId,
+                                productName: parentData.nombre,
+                                type: 'OUT',
+                                quantity: qtyToDeduct,
+                                reason: 'Pedido Reactivado',
+                                observation: `Reactivación Pedido derivado: ${item.name}`,
+                                date: new Date()
+                            });
+                            await syncChildProducts(parentId, newParentStock);
+                        }
+                    } else {
+                        let variantName = "";
+                        if (isVariant && data.variants) {
+                            const match = item.name.match(/\(([^)]+)\)$/);
+                            if (match) variantName = match[1];
+
+                            if (variantName) {
+                                const variants = [...data.variants];
+                                const variantIdx = variants.findIndex((v: any) => v.name === variantName);
+                                if (variantIdx >= 0) {
+                                    const currentStock = variants[variantIdx].stockQuantity || 0;
+                                    const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                                    variants[variantIdx].stockQuantity = newStock;
+                                    variants[variantIdx].stock = newStock > 0;
+                                    await updateDoc(itemRef, { variants });
+                                }
+                            }
+                        } else {
+                            const currentStock = data.stockQuantity || 0;
+                            const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                            await updateDoc(itemRef, { stockQuantity: newStock });
+                            await syncChildProducts(baseId, newStock);
+                        }
+
+                        await addDoc(collection(db, "stock_movements"), {
+                            productId: baseId,
+                            productName: item.name,
+                            type: 'OUT',
+                            quantity: item.quantity || 1,
+                            reason: 'Pedido Reactivado',
+                            observation: reasonObs,
+                            date: new Date()
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(`Error descontando stock al reactivar ${item.name}:`, err);
+            }
         }
     };
 
@@ -730,6 +753,90 @@ export default function OrdersManager() {
                                 <div className="pm-modal-actions">
                                     <button className="cancel-btn" onClick={handleCloseEditModal}>Cancelar</button>
                                     <button className="save-btn" onClick={handleSaveOrder}><FaSave /> Guardar Cambios</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Cancel Decision Modal */}
+                    {cancelModalOpen && (
+                        <div className="pm-modal-overlay">
+                            <div className="pm-modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '20px', color: '#b91c1c' }}>
+                                    <FaTimesCircle size={40} />
+                                </div>
+                                <h3>Confirmar Cancelación</h3>
+                                <p style={{ margin: '15px 0', color: '#4b5563' }}>
+                                    Vas a cancelar el pedido <strong>#{orderToCancelId?.slice(-6)}</strong>.<br />
+                                    ¿Deseas devolver los productos al stock?
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <button
+                                        className="save-btn"
+                                        onClick={() => handleConfirmCancellation(true)}
+                                        style={{
+                                            width: '100%',
+                                            height: '60px',
+                                            padding: '0 15px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                                            <FaSync />
+                                            <span>Sí, Cancelar y Reponer</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.9, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                                            Recomendado
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        className="cancel-btn"
+                                        onClick={() => handleConfirmCancellation(false)}
+                                        style={{
+                                            width: '100%',
+                                            height: '60px',
+                                            borderColor: '#fca5a5',
+                                            color: '#b91c1c',
+                                            background: '#fef2f2',
+                                            padding: '0 15px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                                            <FaTimesCircle />
+                                            <span>Solo Cancelar (Sin Stock)</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8, background: 'rgba(220, 38, 38, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                            Errores/Duplicados
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setCancelModalOpen(false); setOrderToCancelId(null); }}
+                                        style={{
+                                            width: '100%',
+                                            height: '50px',
+                                            border: '1px solid #d1d5db',
+                                            background: 'white',
+                                            color: '#4b5563',
+                                            borderRadius: '6px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginTop: '5px'
+                                        }}
+                                    >
+                                        Volver / No cancelar
+                                    </button>
                                 </div>
                             </div>
                         </div>

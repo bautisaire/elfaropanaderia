@@ -84,7 +84,7 @@
   gap: 12px;
 }
 
-.btn-checkout {
+.carrito-container .btn-checkout {
   background-color: #ff8c00;
   color: white;
   border: none;
@@ -98,7 +98,7 @@
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.btn-checkout:hover {
+.carrito-container .btn-checkout:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(255, 140, 0, 0.3);
 }

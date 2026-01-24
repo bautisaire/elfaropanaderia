@@ -38,6 +38,11 @@ export default function Carrito() {
     }
   }, [showCheckout]);
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Load saved customer info
   useEffect(() => {
     const saved = localStorage.getItem('customer_info');

@@ -28,6 +28,7 @@ export interface FirestoreProduct {
         image?: string;
     }[];
     isVisible?: boolean;
+    isHiddenInPOS?: boolean;
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
     stockDependency?: {
         productId: string;
@@ -48,6 +49,7 @@ const INITIAL_STATE: FirestoreProduct = {
     discount: 0,
     variants: [],
     isVisible: true,
+    isHiddenInPOS: false,
     unitType: 'unit'
 };
 
@@ -547,6 +549,18 @@ export default function ProductManager() {
                                         </label>
                                     </div>
 
+                                    <div className="form-group quarter checkbox-group-styled">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="isHiddenInPOS"
+                                                checked={!!formData.isHiddenInPOS}
+                                                onChange={handleInputChange}
+                                            />
+                                            <strong style={{ color: '#d97706' }}>Ocultar en POS</strong>
+                                        </label>
+                                    </div>
+
                                     <div className="form-group">
                                         <label>Descripción</label>
                                         <textarea
@@ -689,7 +703,10 @@ export default function ProductManager() {
                                     <div className="card-image">
                                         <img src={product.img || product.images?.[0]} alt={product.nombre} className={product.isVisible === false ? "opacity-50" : ""} />
                                         {product.discount ? <span className="badge-discount">-{product.discount}%</span> : null}
-                                        {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /> Oculto</span>}
+                                        <div style={{ position: 'absolute', top: '5px', left: '5px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /> Oculto Web</span>}
+                                            {product.isHiddenInPOS && <span className="badge-hidden" style={{ background: '#d97706' }}><FaEyeSlash /> Oculto POS</span>}
+                                        </div>
                                     </div>
                                     <div className="card-content">
                                         <div className="card-info">

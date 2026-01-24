@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, doc, updateDoc, addDoc, getDoc } from "firebase/firestore";
+import { collection, doc, runTransaction } from "firebase/firestore";
 import { syncChildProducts } from "../utils/stockUtils"; // Import Syncer
 
 export default function Checkout() {
@@ -57,93 +57,139 @@ export default function Checkout() {
         }
 
         // 2. SUCCESS: Now Deduct Stock from Firestore (Client-side)
-        // We do this individually for each product (simple approach) or batch
-        // For robustness, we catch errors here but don't stop the success flow of the order (since the order is already placed).
+        // Usamos una transacción para asegurar la consistencia, especialmente con productos derivados.
         try {
-          for (const item of cart) {
-            // Check if item is a variant (format: ID-VariantName)
-            const isVariant = String(item.id).includes('-');
-            const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
-            const itemRef = doc(db, "products", baseId);
-            const itemSnap = await getDoc(itemRef);
+          const updates = await runTransaction(db, async (transaction) => {
+            // A. Identificar todos los productos que necesitamos leer
+            // Esto incluye los productos del carrito Y sus posibles padres (si son derivados)
+            const productIdsToRead = new Set<string>();
+            const cartItemIds = new Set<string>();
 
-            if (itemSnap.exists()) {
+            // Primero recolectamos los IDs base de los productos del carrito
+            cart.forEach(item => {
+              const baseId = String(item.id).split('-')[0];
+              cartItemIds.add(baseId);
+              productIdsToRead.add(baseId);
+            });
 
-              const data = itemSnap.data();
+            // Leer estos productos para verificar dependencias
+            const uniqueIds = Array.from(productIdsToRead);
+            const refs = uniqueIds.map(id => doc(db, "products", id));
+            const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
 
-              // --- Lógica de Derivados (Packs) ---
-              // Si el producto tiene dependencia, descontamos del PADRE
-              if (data.stockDependency && data.stockDependency.productId) {
-                const parentId = data.stockDependency.productId;
-                const unitsToDeduct = data.stockDependency.unitsToDeduct || 1;
-                const totalDeduction = (item.quantity || 1) * unitsToDeduct;
+            const productDocsMap: Record<string, any> = {};
+            docsSnap.forEach((snap, i) => {
+              if (snap.exists()) {
+                productDocsMap[uniqueIds[i]] = snap.data();
+              }
+            });
 
-                const parentRef = doc(db, "products", parentId);
-                const parentSnap = await getDoc(parentRef);
+            // B. Revisar si hay dependencias (padres) que no hayamos leído aún
+            const parentIdsToFetch = new Set<string>();
+            cart.forEach(item => {
+              const baseId = String(item.id).split('-')[0];
+              const productData = productDocsMap[baseId];
 
-                if (parentSnap.exists()) {
-                  const parentData = parentSnap.data();
-                  const currentParentStock = parentData.stockQuantity || 0;
+              if (productData && productData.stockDependency && productData.stockDependency.productId) {
+                const parentId = productData.stockDependency.productId;
+                if (!productDocsMap[parentId]) {
+                  parentIdsToFetch.add(parentId);
+                }
+              }
+            });
 
-                  // Aceptamos decimales, pero stockQuantity suele ser number.
-                  // Usamos Math.max(0, ...) para evitar negativos
-                  const newParentStock = Math.max(0, currentParentStock - totalDeduction);
+            // Leer los padres faltantes (si los hay)
+            if (parentIdsToFetch.size > 0) {
+              const parentIds = Array.from(parentIdsToFetch);
+              const parentRefs = parentIds.map(id => doc(db, "products", id));
+              const parentSnaps = await Promise.all(parentRefs.map(ref => transaction.get(ref)));
+              parentSnaps.forEach((snap, i) => {
+                if (snap.exists()) {
+                  productDocsMap[parentIds[i]] = snap.data();
+                }
+              });
+            }
 
-                  // 1. Actualizar Padre
-                  await updateDoc(parentRef, { stockQuantity: newParentStock });
+            // C. Calcular descuentos y preparar escrituras
+            const productsToUpdate = new Set<string>();
 
-                  // 2. Registrar Movimiento en Padre
-                  await addDoc(collection(db, "stock_movements"), {
+            for (const item of cart) {
+              const baseId = String(item.id).split('-')[0];
+              const productData = productDocsMap[baseId];
+
+              if (!productData) continue; // Safety check
+
+              // CASO 1: Producto Derivado (Pack) -> Descuenta del Padre
+              if (productData.stockDependency && productData.stockDependency.productId) {
+                const parentId = productData.stockDependency.productId;
+                const parentData = productDocsMap[parentId];
+
+                if (parentData) {
+                  const unitsToDeduct = Number(productData.stockDependency.unitsToDeduct) || 1;
+                  const qty = Number(item.quantity) || 1;
+                  const totalDucktion = qty * unitsToDeduct;
+
+                  const currentStock = Number(parentData.stockQuantity) || 0;
+                  const newParentStock = Math.max(0, currentStock - totalDucktion);
+
+                  parentData.stockQuantity = newParentStock;
+                  parentData.stock = newParentStock > 0; // Actualizar flag
+
+                  productsToUpdate.add(parentId);
+
+                  // Registrar Movimiento del PADRE
+                  const moveRef = doc(collection(db, "stock_movements"));
+                  transaction.set(moveRef, {
                     productId: parentId,
                     productName: parentData.nombre,
                     type: 'OUT',
-                    quantity: totalDeduction,
+                    quantity: totalDucktion,
                     reason: 'Venta Online',
                     observation: `Venta Derivado: ${item.name}`,
                     date: new Date()
                   });
-
-                  // 3. Sincronizar todos los hijos (incluido este mismo)
-                  await syncChildProducts(parentId, newParentStock);
                 }
               }
-              // --- Fin Lógica Derivados ---
+              // CASO 2: Producto Normal o Variante -> Descuenta de sí mismo
               else {
-                // Lógica Normal (Sin Dependencia)
                 let variantName = "";
+                let variantFound = false;
 
-                if (isVariant && data.variants) {
-                  // Extract variant name from item name "Product (Variant)"
-                  const match = item.name.match(/\(([^)]+)\)$/);
-                  if (match) {
-                    variantName = match[1];
-                    const variants = [...data.variants];
-                    const variantIdx = variants.findIndex((v: any) => v.name === variantName);
-
-                    if (variantIdx >= 0) {
-                      const currentStock = variants[variantIdx].stockQuantity || 0;
-                      const newStock = Math.max(0, currentStock - (item.quantity || 1));
-                      variants[variantIdx].stockQuantity = newStock;
-                      variants[variantIdx].stock = newStock > 0;
-
-                      await updateDoc(itemRef, { variants });
-
-                      // Si fuera necesario sincronizar algo (ej: si la variante fuera padre), aquí iría.
-                    }
-                  }
-                } else {
-                  // Simple Product
-                  const currentStock = data.stockQuantity || 0;
-                  const newStock = Math.max(0, currentStock - (item.quantity || 1));
-
-                  await updateDoc(itemRef, { stockQuantity: newStock });
-
-                  // IMPORTANTE: Si este producto es Padre de otros, sincronizar sus hijos
-                  await syncChildProducts(baseId, newStock);
+                // Intentar identificar variante por nombre (ej: "Pan (Integral)")
+                const match = item.name.match(/\(([^)]+)\)$/);
+                if (match) {
+                  variantName = match[1];
                 }
 
-                // Log Movement (Original Item)
-                await addDoc(collection(db, "stock_movements"), {
+                if (variantName && productData.variants) {
+                  const vIdx = productData.variants.findIndex((v: any) => v.name === variantName);
+                  if (vIdx >= 0) {
+                    const variant = productData.variants[vIdx];
+                    const currentStock = Number(variant.stockQuantity) || 0;
+                    const qty = Number(item.quantity) || 1;
+                    const newStock = Math.max(0, currentStock - qty);
+
+                    variant.stockQuantity = newStock;
+                    variant.stock = newStock > 0;
+                    variantFound = true;
+                  }
+                }
+
+                if (!variantFound) {
+                  // Descuento stock principal
+                  const currentStock = Number(productData.stockQuantity) || 0;
+                  const qty = Number(item.quantity) || 1;
+                  const newStock = Math.max(0, currentStock - qty);
+
+                  productData.stockQuantity = newStock;
+                  productData.stock = newStock > 0;
+                }
+
+                productsToUpdate.add(baseId);
+
+                // Registrar Movimiento del Producto/Variante
+                const moveRef = doc(collection(db, "stock_movements"));
+                transaction.set(moveRef, {
                   productId: baseId,
                   productName: item.name,
                   type: 'OUT',
@@ -154,10 +200,28 @@ export default function Checkout() {
                 });
               }
             }
+
+            // D. Ejecutar Actualizaciones de Productos
+            productsToUpdate.forEach(pid => {
+              const data = productDocsMap[pid];
+              transaction.update(doc(db, "products", pid), {
+                stockQuantity: data.stockQuantity,
+                stock: data.stock,
+                variants: data.variants || []
+              });
+            });
+
+            return Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity }));
+          });
+
+          // 3. Post-Transaction: Sincronizar hijos (si modificamos padres)
+          if (updates && updates.length > 0) {
+            await Promise.all(updates.map(u => syncChildProducts(u.id, u.newStock)));
           }
+
         } catch (stockError) {
-          console.error("Error updating stock:", stockError);
-          // Optionally notify admin silently or just log it.
+          console.error("Error updating stock in transaction:", stockError);
+          // Opcional: Notificar a un canal admin.
         }
 
         alert("Pedido guardado con éxito en el servidor 🎉");

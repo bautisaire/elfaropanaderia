@@ -159,14 +159,35 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
 
                     <div className="stock-form-group">
                         <label>Cantidad</label>
-                        <input
-                            type="number"
-                            step="0.001"
-                            value={amount}
-                            onChange={e => setAmount(e.target.value)}
-                            placeholder="0.000"
-                            min="0.001"
-                        />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input
+                                type="number"
+                                step="0.001"
+                                value={amount}
+                                onChange={e => setAmount(e.target.value)}
+                                placeholder="0.000"
+                                min="0.001"
+                                style={{ flex: 1 }}
+                            />
+                            {adjustmentType === 'OUT' && (
+                                <button
+                                    className="btn-remove-all"
+                                    onClick={() => {
+                                        // Calcular stock actual
+                                        let currentStock = 0;
+                                        if (product?.variants && selectedVariantIdx !== null) {
+                                            currentStock = product.variants[selectedVariantIdx].stockQuantity || 0;
+                                        } else {
+                                            currentStock = product?.stockQuantity || 0;
+                                        }
+                                        setAmount(currentStock.toString());
+                                    }}
+                                    title="Quitar todo el stock"
+                                >
+                                    Todo
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="stock-form-group">

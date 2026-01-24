@@ -108,6 +108,11 @@ export default function ProductCard({ product }: Props) {
     ? product.variants.every(v => (v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock))
     : (product.stockQuantity !== undefined ? product.stockQuantity <= 0 : !product.stock);
 
+  // Calculate stock to display
+  const displayStock = (product.variants && product.variants.length > 0 && selectedVariant)
+    ? product.variants.find(v => v.name === selectedVariant)?.stockQuantity
+    : product.stockQuantity;
+
   return (
     <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
       <div className="image-wrapper">
@@ -177,6 +182,9 @@ export default function ProductCard({ product }: Props) {
             <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
               ${Math.floor(finalPrice)}
             </span>
+            {displayStock !== undefined && (
+              <span className="stock-display">Stock: {displayStock}</span>
+            )}
           </div>
 
           {quantity === 0 ? (
