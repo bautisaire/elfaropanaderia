@@ -13,30 +13,23 @@
 
 .stock-modal {
     background: white;
-    padding: 25px;
     border-radius: 12px;
     width: 90%;
     max-width: 500px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    max-height: 90vh;
+    height: 90vh;
     overflow-y: auto;
 }
 
 .stock-modal h3 {
     margin-top: 0;
     color: #111827;
-    margin-bottom: 20px;
     border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 10px;
 }
 
-.stock-form-group {
-    margin-bottom: 12px;
-}
 
 .stock-form-group label {
     display: block;
-    margin-bottom: 4px;
     font-weight: 500;
     color: #374151;
     font-size: 0.9rem;
@@ -46,11 +39,15 @@
 .stock-form-group select,
 .stock-form-group textarea {
     width: 100%;
-    padding: 8px;
+    padding: 4px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 0.95rem;
     transition: border-color 0.2s;
+}
+
+.stock-form-group textarea {
+    height: 4px;
 }
 
 .stock-form-group input:focus,
@@ -63,7 +60,6 @@
 
 .stock-action-type {
     display: flex;
-    gap: 8px;
 }
 
 .action-btn {
@@ -77,7 +73,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
     transition: all 0.2s;
     font-size: 0.9rem;
 }
@@ -96,16 +91,13 @@
 
 .modal-actions {
     display: flex;
-    padding-top: 15px;
     border-top: 1px solid #e5e7eb;
-    margin-top: 15px;
     gap: 10px;
 }
 
 .btn-cancel,
 .btn-save-stock {
     flex: 1;
-    padding: 10px;
     border-radius: 8px;
     border: none;
     font-weight: 600;
@@ -148,8 +140,5 @@
     background: #fecaca;
 }
 
-.stock-select option {
-    padding: 10px;
-}
 
 /* Dark mode support if parent has dark class, or generally neutral enough */

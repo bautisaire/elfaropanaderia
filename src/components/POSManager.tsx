@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
-import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen, FaEdit } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
@@ -72,8 +72,10 @@ export default function POSManager() {
     });
 
     // Stock Adjustment Modal in POS
+    // Stock Adjustment Modal in POS
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
+    const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
 
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -506,6 +508,25 @@ export default function POSManager() {
                                             Stock: {v.stockQuantity ?? 0}
                                         </div>
                                     </div>
+                                    <button
+                                        className="btn-quick-stock-edit"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Create a temp product object representing this variant as a standalone for the modal if needed, 
+                                            // OR better: pass the main product and pre-select the variant in the modal.
+                                            // The modal supports selecting variant. But we want to pre-select if possible?
+                                            // Current modal doesn't seem to support pre-selected variant prop easily without mod.
+                                            // Let's pass the main product. The user can select the variant inside, OR we improve modal later.
+                                            // Actually, standardizing on passing main product is safer.
+                                            // Actually, standardizing on passing main product is safer.
+                                            setStockModalProduct(product);
+                                            setStockModalVariant(v.name);
+                                            setIsStockModalOpen(true);
+                                        }}
+                                        title="Ajustar Stock"
+                                    >
+                                        <FaEdit size={12} /> Stock
+                                    </button>
                                 </div>
                             ));
                         }
@@ -522,6 +543,18 @@ export default function POSManager() {
                                         Stock: {product.stockQuantity ?? 0}
                                     </div>
                                 </div>
+                                <button
+                                    className="btn-quick-stock-edit"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStockModalProduct(product);
+                                        setStockModalVariant(undefined);
+                                        setIsStockModalOpen(true);
+                                    }}
+                                    title="Ajustar Stock"
+                                >
+                                    <FaEdit size={12} /> Stock
+                                </button>
                             </div>
                         );
                     })}
@@ -821,6 +854,7 @@ export default function POSManager() {
                 isOpen={isStockModalOpen}
                 onClose={() => setIsStockModalOpen(false)}
                 product={stockModalProduct}
+                initialVariantName={stockModalVariant}
                 onSuccess={() => {
                     fetchProducts();
                     // Optionally reopen cart or something, but usually just refreshing is enough.

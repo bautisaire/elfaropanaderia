@@ -32,7 +32,7 @@ interface StockMovement {
 }
 
 export default function StockManager() {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('history');
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);

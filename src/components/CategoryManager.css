@@ -152,3 +152,7 @@
     font-style: italic;
     margin-top: 20px;
 }
+
+.textarea {
+    height: 10px;
+}

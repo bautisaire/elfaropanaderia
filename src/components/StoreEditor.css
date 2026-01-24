@@ -1,0 +1,78 @@
+.store-editor-container {
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* Prevent double scrollbars if managers scroll inside */
+}
+
+.store-editor-title {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    color: #111827;
+}
+
+.store-editor-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.store-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 1rem;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.store-tab-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.store-tab-btn.active {
+    background: #ec4899;
+    /* Pink to match store icon */
+    color: white;
+    box-shadow: 0 2px 5px rgba(236, 72, 153, 0.3);
+}
+
+.store-editor-content {
+    flex: 1;
+    overflow-y: auto;
+    /* Allow content to scroll independently */
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+}
+
+/* Adjustments for nested components if they have their own titles/padding */
+.store-editor-content h2 {
+    /* Hide nested titles if redundant, or style them simpler */
+    font-size: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .store-editor-container {
+        padding: 10px;
+    }
+
+    .store-tab-btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+}

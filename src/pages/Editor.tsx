@@ -7,11 +7,9 @@ import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaClipboardList, FaFolder, FaHome, FaSignOutAlt, FaImages, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
-import CategoryManager from "../components/CategoryManager";
-import HeroManager from "../components/HeroManager";
-import StoreStatusManager from "../components/StoreStatusManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
+import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
 
 // 🔴 CONFIGURACIÓN: Reemplaza esto con tu email real de Google
@@ -21,7 +19,7 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "categories" | "hero" | "store" | "stock" | "pos">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
   const navigate = useNavigate();
@@ -169,7 +167,7 @@ export default function Editor() {
                 onClick={() => handleNavClick("dashboard")}
                 title="Dashboard"
               >
-                <div className="nav-icon"><FaChartPie /></div>
+                <div className="nav-icon" style={{ color: '#3b82f6' }}><FaChartPie /></div>
                 <span className="nav-text">Dashboard</span>
               </button>
               <button
@@ -177,7 +175,7 @@ export default function Editor() {
                 onClick={() => handleNavClick("pos")}
                 title="Punto de Venta"
               >
-                <div className="nav-icon"><FaCashRegister /></div>
+                <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
                 <span className="nav-text">Punto de Venta</span>
               </button>
               <button
@@ -185,56 +183,29 @@ export default function Editor() {
                 onClick={() => handleNavClick("products")}
                 title="Productos"
               >
-                <div className="nav-icon"><FaBoxOpen /></div>
+                <div className="nav-icon" style={{ color: '#ef4444' }}><FaBoxOpen /></div>
                 <span className="nav-text">Productos</span>
-              </button>
-              <button
-                className={activeTab === "categories" ? "active" : ""}
-                onClick={() => handleNavClick("categories")}
-                title="Categorías"
-              >
-                <div className="nav-icon"><FaFolder /></div>
-                <span className="nav-text">Categorías</span>
               </button>
               <button
                 className={activeTab === "stock" ? "active" : ""}
                 onClick={() => handleNavClick("stock")}
                 title="Gestión de Stock"
               >
-                <div className="nav-icon"><FaClipboardCheck /></div>
+                <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
                 <span className="nav-text">Gestión de Stock</span>
               </button>
               <button
-                className={activeTab === "orders" ? "active" : ""}
-                onClick={() => handleNavClick("orders")}
-                title="Pedidos"
+                className={activeTab === "store_editor" ? "active" : ""}
+                onClick={() => handleNavClick("store_editor")}
+                title="Editor de Tienda"
               >
-                <div className="nav-icon"><FaClipboardList /></div>
-                <span className="nav-text">Pedidos</span>
-                {pendingOrdersCount > 0 && (
-                  <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
-                )}
-              </button>
-              <button
-                className={activeTab === "hero" ? "active" : ""}
-                onClick={() => handleNavClick("hero")}
-                title="Hero"
-              >
-                <div className="nav-icon"><FaImages /></div>
-                <span className="nav-text">Portadas (Hero)</span>
-              </button>
-              <button
-                className={activeTab === "store" ? "active" : ""}
-                onClick={() => handleNavClick("store")}
-                title="Estado Tienda"
-              >
-                <div className="nav-icon"><FaStore /></div>
-                <span className="nav-text">Estado Tienda</span>
+                <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
+                <span className="nav-text">Editor de Tienda</span>
               </button>
 
               <div className="sidebar-footer">
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
-                  <div className="nav-icon"><FaHome /></div>
+                  <div className="nav-icon" style={{ color: '#84cc16' }}><FaHome /></div>
                   <span className="nav-text">Ir al Inicio</span>
                 </button>
                 <button onClick={handleLogout} className="btn-logout-action" title="Cerrar Sesión">
@@ -252,12 +223,8 @@ export default function Editor() {
               <POSManager />
             ) : activeTab === "orders" ? (
               <OrdersManager />
-            ) : activeTab === "categories" ? (
-              <CategoryManager />
-            ) : activeTab === "hero" ? (
-              <HeroManager />
-            ) : activeTab === "store" ? (
-              <StoreStatusManager />
+            ) : activeTab === "store_editor" ? (
+              <StoreEditor />
             ) : activeTab === "stock" ? (
               <StockManager />
             ) : (

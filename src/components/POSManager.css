@@ -455,3 +455,38 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     border: 3px solid white;
 }
+
+/* Botón de Edición Rápida de Stock en tarjeta POS */
+.btn-quick-stock-edit {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 5;
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-quick-stock-edit:hover {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #93c5fd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Forzar espacio inferior en tarjeta para el botón */
+.pos-product-card {
+    position: relative;
+    padding-bottom: 35px;
+    /* Importante para que el botón no tape info */
+}

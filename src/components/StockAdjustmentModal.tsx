@@ -25,14 +25,16 @@ interface StockAdjustmentModalProps {
     onClose: () => void;
     product: Product | null;
     onSuccess?: () => void;
+    initialVariantName?: string;
 }
 
-export default function StockAdjustmentModal({ isOpen, onClose, product, onSuccess }: StockAdjustmentModalProps) {
+export default function StockAdjustmentModal({ isOpen, onClose, product, onSuccess, initialVariantName }: StockAdjustmentModalProps) {
     const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null);
     const [adjustmentType, setAdjustmentType] = useState<'IN' | 'OUT'>('IN');
     const [amount, setAmount] = useState<string>('');
     const [reason, setReason] = useState<string>('Elaboración');
     const [observation, setObservation] = useState<string>('');
+    const [showObservation, setShowObservation] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
@@ -41,11 +43,17 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
     // Reset state when modal opens or product changes
     useEffect(() => {
         if (isOpen) {
-            setSelectedVariantIdx(null);
+            if (initialVariantName && product?.variants) {
+                const idx = product.variants.findIndex(v => v.name === initialVariantName);
+                setSelectedVariantIdx(idx >= 0 ? idx : null);
+            } else {
+                setSelectedVariantIdx(null);
+            }
             setAdjustmentType('IN');
             setAmount('');
             setReason('Elaboración');
             setObservation('');
+            setShowObservation(false);
             setIsSubmitting(false);
         }
     }, [isOpen, product]);
@@ -200,13 +208,23 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                     </div>
 
                     <div className="stock-form-group">
-                        <label>Observación (Opcional)</label>
-                        <textarea
-                            value={observation}
-                            onChange={e => setObservation(e.target.value)}
-                            placeholder="Comentarios adicionales..."
-                            rows={3}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                            <label style={{ margin: 0 }}>Observación (Opcional)</label>
+                            <input
+                                type="checkbox"
+                                checked={showObservation}
+                                onChange={(e) => setShowObservation(e.target.checked)}
+                                style={{ width: 'auto', margin: 0 }}
+                            />
+                        </div>
+                        {showObservation && (
+                            <textarea
+                                value={observation}
+                                onChange={e => setObservation(e.target.value)}
+                                placeholder="Comentarios adicionales..."
+                                rows={3}
+                            />
+                        )}
                     </div>
 
                     <div className="modal-actions">

@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { CartContext } from "./context/CartContext";
 import Home from "./pages/Home";
 import Carrito from "./pages/Carrito";
@@ -40,6 +40,23 @@ function Layout() {
 }
 
 export default function App() {
+  // Global Listener to prevent scroll changing number inputs
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      // @ts-ignore
+      if (document.activeElement?.type === "number") {
+        // @ts-ignore
+        document.activeElement.blur();
+      }
+    };
+
+    document.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      document.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
   return (
     <Router>
       <Layout />
