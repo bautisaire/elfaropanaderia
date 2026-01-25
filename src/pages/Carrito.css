@@ -594,3 +594,155 @@
     font-size: 1.1rem;
   }
 }
+
+/* =========================================
+   Success Ticket Styles (Ported from Checkout)
+   ========================================= */
+.checkout-success-container {
+  text-align: center;
+  padding: 30px 20px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-width: 500px;
+  margin: 40px auto;
+  animation: fadeIn 0.5s ease-out;
+  border: 1px solid #dcfce7;
+}
+
+.success-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: #dcfce7;
+  border-radius: 50%;
+  margin-bottom: 20px;
+}
+
+.success-icon {
+  font-size: 30px;
+  color: #22c55e;
+}
+
+.checkout-success-container h2 {
+  color: #1f2937;
+  font-size: 1.5rem;
+  margin-bottom: 5px;
+}
+
+.success-subtitle {
+  color: #6b7280;
+  margin-bottom: 25px;
+  font-size: 0.95rem;
+}
+
+.success-ticket {
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ticket-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.ticket-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  font-weight: bold;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.payment-info {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 8px;
+  text-align: right;
+  font-style: italic;
+}
+
+.success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-whatsapp-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #25D366;
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: transform 0.2s;
+  box-shadow: 0 4px 6px rgba(37, 211, 102, 0.2);
+}
+
+.btn-whatsapp-action:hover {
+  transform: translateY(-2px);
+  background: #1fab55;
+  color: white;
+}
+
+.btn-secondary-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  padding: 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-secondary-action:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.btn-text-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.btn-text-action:hover {
+  color: #6b7280;
+}

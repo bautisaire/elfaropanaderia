@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
-import { db } from "../firebase/firebaseConfig";
+import { db, auth } from "../firebase/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import ClosedModal from "../components/ClosedModal";
 export interface Product {
@@ -36,7 +37,10 @@ interface CartContextType {
   closedMessage: string;
   isStoreClosedDismissed: boolean;
   dismissStoreClosed: () => void;
+  isAdmin: boolean;
 }
+
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
 export const CartContext = createContext<CartContextType>({
   cart: [],
@@ -52,6 +56,7 @@ export const CartContext = createContext<CartContextType>({
   closedMessage: "",
   isStoreClosedDismissed: false,
   dismissStoreClosed: () => { },
+  isAdmin: false,
 });
 
 interface Props {
@@ -65,6 +70,7 @@ export const CartProvider = ({ children }: Props) => {
   const [closedMessage, setClosedMessage] = useState("");
   const [showClosedModal, setShowClosedModal] = useState(false); // Modal control
   const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
 
@@ -96,8 +102,20 @@ export const CartProvider = ({ children }: Props) => {
     fetchStoreStatus();
   }, []);
 
+  // Check Admin Status
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const addToCart = (product: any) => {
-    if (!isStoreOpen) {
+    if (!isStoreOpen && !isAdmin) { // Admin bypass
       setShowClosedModal(true); // Show custom modal instead of alert
       return;
     }
@@ -152,7 +170,8 @@ export const CartProvider = ({ children }: Props) => {
         isStoreOpen,
         closedMessage,
         isStoreClosedDismissed,
-        dismissStoreClosed
+        dismissStoreClosed,
+        isAdmin
       }}
     >
       {children}

@@ -351,10 +351,14 @@ export default function POSManager() {
                         if (parentDoc) {
                             const unitsToDeduct = itemDoc.stockDependency.unitsToDeduct || 1;
                             const totalDeduct = item.quantity * unitsToDeduct;
-
-                            // Decrease Parent Stock
                             const currentStock = parentDoc.stockQuantity || 0;
-                            parentDoc.stockQuantity = Math.max(0, currentStock - totalDeduct);
+
+                            // STRICT VALIDATION
+                            if (currentStock < totalDeduct) {
+                                throw new Error(`Stock insuficiente para ${item.nombre} (Pack). Quedan: ${Math.floor(currentStock / unitsToDeduct)} unidades.`);
+                            }
+
+                            parentDoc.stockQuantity = currentStock - totalDeduct;
                             parentDoc.stock = parentDoc.stockQuantity > 0;
 
                             productsToUpdate.add(parentId);
@@ -362,18 +366,34 @@ export default function POSManager() {
                     }
                     // CASE B: Standard Product (or Variant) -> Deduct from Self
                     else {
-                        if (item.selectedVariant && itemDoc.variants) {
+                        const variantName = item.selectedVariant;
+
+                        if (variantName && itemDoc.variants) {
                             const vIdx = itemDoc.variants.findIndex((v: any) => v.name === item.selectedVariant);
                             if (vIdx >= 0) {
                                 const variant = itemDoc.variants[vIdx];
                                 const currentStock = variant.stockQuantity || 0;
-                                variant.stockQuantity = Math.max(0, currentStock - item.quantity);
+
+                                // STRICT VALIDATION
+                                if (currentStock < item.quantity) {
+                                    throw new Error(`Stock insuficiente para ${item.nombre} (${variant.name}). Quedan: ${currentStock}`);
+                                }
+
+                                variant.stockQuantity = currentStock - item.quantity;
                                 variant.stock = variant.stockQuantity > 0;
                                 productsToUpdate.add(item.id);
+                            } else {
+                                throw new Error(`Variante no encontrada: ${variantName}`);
                             }
                         } else {
                             const currentStock = itemDoc.stockQuantity || 0;
-                            itemDoc.stockQuantity = Math.max(0, currentStock - item.quantity);
+
+                            // STRICT VALIDATION
+                            if (currentStock < item.quantity) {
+                                throw new Error(`Stock insuficiente para ${item.nombre}. Quedan: ${currentStock}`);
+                            }
+
+                            itemDoc.stockQuantity = currentStock - item.quantity;
                             itemDoc.stock = itemDoc.stockQuantity > 0;
                             productsToUpdate.add(item.id);
                         }
@@ -450,7 +470,13 @@ export default function POSManager() {
             fetchProducts();
         } catch (error) {
             console.error("Checkout error:", error);
-            showModal('error', 'Error en la Venta', 'Ocurrió un error al procesar la venta. Por favor verifique el stock e intente nuevamente.');
+            const errMsg = error instanceof Error ? error.message : 'Error desconocido';
+
+            if (errMsg.includes("Stock insuficiente")) {
+                showModal('error', 'Stock Insuficiente', errMsg);
+            } else {
+                showModal('error', 'Error en la Venta', 'Ocurrió un error al procesar la venta. Por favor verifique la conexión.');
+            }
         } finally {
             setProcessing(false);
         }

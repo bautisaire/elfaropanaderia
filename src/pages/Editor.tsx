@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import "./Editor.css";
-import { auth, googleProvider } from "../firebase/firebaseConfig";
+import { auth, googleProvider, db } from "../firebase/firebaseConfig";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import StockManager from "../components/StockManager";
@@ -21,6 +22,7 @@ export default function Editor() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
   const navigate = useNavigate();
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +54,23 @@ export default function Editor() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(collection(db, "orders"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const count = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        const status = data.status || "pendiente";
+        // Count orders that are NOT cancelled AND NOT delivered (finished)
+        return status !== "cancelado" && status !== "entregado";
+      }).length;
+      setPendingOrdersCount(count);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const handleLogin = async () => {
     try {
@@ -173,6 +192,17 @@ export default function Editor() {
               >
                 <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
                 <span className="nav-text">Gestión de Stock</span>
+              </button>
+              <button
+                className={activeTab === "orders" ? "active" : ""}
+                onClick={() => handleNavClick("orders")}
+                title="Pedidos"
+              >
+                <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
+                <span className="nav-text">Pedidos</span>
+                {pendingOrdersCount > 0 && (
+                  <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
+                )}
               </button>
               <button
                 className={activeTab === "store_editor" ? "active" : ""}
