@@ -421,31 +421,35 @@ export default function Carrito() {
         <p className="empty-cart">El carrito está vacío.</p>
       ) : (
         <>
-          <div className="cart-items">
-            {cart.map((item) => (
-              <div key={item.id} className="cart-item">
-                <div className="item-info">
-                  <h4>{item.name}</h4>
-                  <p>Cantidad: {item.quantity}</p>
-                  <p className="item-price">${Math.floor(item.price * (item.quantity || 1))}</p>
-                </div>
-                <button
-                  className="btn-remove"
-                  onClick={() => removeFromCart(item.id)}
-                  aria-label="Quitar producto"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
+          {!showCheckout && (
+            <>
+              <div className="cart-items">
+                {cart.map((item) => (
+                  <div key={item.id} className="cart-item">
+                    <div className="item-info">
+                      <h4>{item.name}</h4>
+                      <p>Cantidad: {item.quantity}</p>
+                      <p className="item-price">${Math.floor(item.price * (item.quantity || 1))}</p>
+                    </div>
+                    <button
+                      className="btn-remove"
+                      onClick={() => removeFromCart(item.id)}
+                      aria-label="Quitar producto"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-svg">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className="cart-summary">
-            <h3>Total: ${Math.floor(cartTotal)}</h3>
-          </div>
+              <div className="cart-summary">
+                <h3>Total: ${Math.floor(cartTotal)}</h3>
+              </div>
+            </>
+          )}
 
           {!showCheckout ? (
             <div className="cart-actions">
@@ -465,131 +469,185 @@ export default function Carrito() {
               </button>
             </div>
           ) : (
-            <form ref={formRef} className="checkout-form" onSubmit={handleSubmit}>
-              <h3>Detalles del pedido</h3>
 
-              <div className="form-group">
-                <label htmlFor="nombre">
-                  Nombre <span className="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="nombre"
-                  name="nombre"
-                  value={formData.nombre}
-                  onChange={handleInputChange}
-                  placeholder="Tu nombre completo"
-                  className={errors.nombre ? "input-error" : ""}
-                />
-                {errors.nombre && <span className="error-message">{errors.nombre}</span>}
-              </div>
+            <div className="checkout-layout">
+              {/* Left Column: Form */}
+              <div className="checkout-left">
+                <form ref={formRef} className="checkout-form" onSubmit={handleSubmit}>
+                  <h3>Detalles del pedido</h3>
 
-              <div className="form-group">
-                <label htmlFor="direccion">
-                  Dirección <span className="required">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="direccion"
-                  name="direccion"
-                  value={formData.direccion}
-                  onChange={handleInputChange}
-                  placeholder="Calle, número, departamento"
-                  className={errors.direccion ? "input-error" : ""}
-                />
-                {errors.direccion && <span className="error-message">{errors.direccion}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="telefono">
-                  Teléfono <span className="required">*</span>
-                </label>
-                <input
-                  type="tel"
-                  id="telefono"
-                  name="telefono"
-                  value={formData.telefono}
-                  onChange={handleInputChange}
-                  placeholder="Tu número de teléfono (mínimo 10 dígitos)"
-                  className={errors.telefono ? "input-error" : ""}
-                />
-                {errors.telefono && <span className="error-message">{errors.telefono}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="indicaciones">
-                  Indicaciones para la entrega <span className="optional">(Opcional)</span>
-                </label>
-                <textarea
-                  id="indicaciones"
-                  name="indicaciones"
-                  value={formData.indicaciones}
-                  onChange={handleInputChange}
-                  placeholder="Referencias / Indicaciones para la entrega"
-                  rows={3}
-                  maxLength={200}
-                />
-                <span className="form-hint">Ej: dejar pedido en portería</span>
-              </div>
-
-              <div className="form-group">
-                <label>
-                  Método de pago cuando llegue el pedido <span className="required">*</span>
-                </label>
-                <div className="radio-group">
-                  <label className={`radio-card ${formData.metodoPago === 'efectivo' ? 'selected' : ''}`}>
+                  <div className="form-group">
+                    <label htmlFor="nombre">
+                      Nombre <span className="required">*</span>
+                    </label>
                     <input
-                      type="radio"
-                      name="metodoPago"
-                      value="efectivo"
-                      checked={formData.metodoPago === 'efectivo'}
+                      type="text"
+                      id="nombre"
+                      name="nombre"
+                      value={formData.nombre}
                       onChange={handleInputChange}
-                      className="radio-input"
+                      placeholder="Tu nombre completo"
+                      className={errors.nombre ? "input-error" : ""}
                     />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="1" x2="12" y2="23"></line>
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
-                    <div>
-                      <div className="radio-label">Efectivo</div>
-                      <div className="radio-desc">Pagas al repartidor</div>
-                    </div>
-                  </label>
+                    {errors.nombre && <span className="error-message">{errors.nombre}</span>}
+                  </div>
 
-                  <label className={`radio-card ${formData.metodoPago === 'transferencia' ? 'selected' : ''}`}>
+                  <div className="form-group">
+                    <label htmlFor="direccion">
+                      Dirección <span className="required">*</span>
+                    </label>
                     <input
-                      type="radio"
-                      name="metodoPago"
-                      value="transferencia"
-                      checked={formData.metodoPago === 'transferencia'}
+                      type="text"
+                      id="direccion"
+                      name="direccion"
+                      value={formData.direccion}
                       onChange={handleInputChange}
-                      className="radio-input"
+                      placeholder="Calle, número, departamento"
+                      className={errors.direccion ? "input-error" : ""}
                     />
-                    <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                      <line x1="1" y1="10" x2="23" y2="10"></line>
-                    </svg>
-                    <div>
-                      <div className="radio-label">Transferencia</div>
-                      <div className="radio-desc">Al alias del repartidor</div>
+                    {errors.direccion && <span className="error-message">{errors.direccion}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="telefono">
+                      Teléfono <span className="required">*</span>
+                    </label>
+                    <div className="phone-input-group">
+                      <span className="phone-prefix">+54</span>
+                      <input
+                        type="tel"
+                        id="telefono"
+                        name="telefono"
+                        value={formData.telefono}
+                        onChange={handleInputChange}
+                        placeholder="Cod. Área + Número"
+                        className={`phone-input-field ${errors.telefono ? "input-error" : ""}`}
+                        maxLength={11}
+                      />
                     </div>
-                  </label>
+                    {errors.telefono && <span className="error-message">{errors.telefono}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="indicaciones">
+                      Indicaciones para la entrega <span className="optional">(Opcional)</span>
+                    </label>
+                    <textarea
+                      id="indicaciones"
+                      name="indicaciones"
+                      value={formData.indicaciones}
+                      onChange={handleInputChange}
+                      placeholder="Referencias / Indicaciones para la entrega"
+                      rows={3}
+                      maxLength={200}
+                    />
+                    <span className="form-hint">Ej: dejar pedido en portería</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>
+                      Método de pago cuando llegue el pedido <span className="required">*</span>
+                    </label>
+                    <div className="radio-group">
+                      <label className={`radio-card ${formData.metodoPago === 'efectivo' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="metodoPago"
+                          value="efectivo"
+                          checked={formData.metodoPago === 'efectivo'}
+                          onChange={handleInputChange}
+                          className="radio-input"
+                        />
+                        <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="1" x2="12" y2="23"></line>
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                        <div>
+                          <div className="radio-label">Efectivo</div>
+                          <div className="radio-desc">Pagas al repartidor</div>
+                        </div>
+                      </label>
+
+                      <label className={`radio-card ${formData.metodoPago === 'transferencia' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="metodoPago"
+                          value="transferencia"
+                          checked={formData.metodoPago === 'transferencia'}
+                          onChange={handleInputChange}
+                          className="radio-input"
+                        />
+                        <svg xmlns="http://www.w3.org/2000/svg" className="radio-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                          <line x1="1" y1="10" x2="23" y2="10"></line>
+                        </svg>
+                        <div>
+                          <div className="radio-label">Transferencia</div>
+                          <div className="radio-desc">Al alias del repartidor</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="form-actions">
+                    <button type="submit" className="btn-confirm">
+                      Confirmar pedido
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => setShowCheckout(false)}
+                    >
+                      Volver
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Right Column: Order Summary */}
+              <div className="checkout-right">
+                <div className="checkout-summary-card">
+                  <div className="summary-items">
+                    {cart.map((item) => (
+                      <div key={item.id} className="summary-item-row">
+                        <div className="summary-item-image-wrapper">
+                          <div className="summary-item-qty-badge">{item.quantity}</div>
+                          {item.image ? (
+                            <img src={item.image} alt={item.name} className="summary-item-image" />
+                          ) : (
+                            <div className="summary-item-placeholder">
+                              <FaShoppingBag />
+                            </div>
+                          )}
+                        </div>
+                        <div className="summary-item-details">
+                          <span className="summary-item-name">{item.name}</span>
+                          {/* <span className="summary-item-variant">{item.variant}</span> */}
+                        </div>
+                        <div className="summary-item-price">
+                          ${Math.floor(Number(item.price) * (Number(item.quantity) || 1))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="summary-totals">
+                    <div className="summary-row">
+                      <span>Subtotal</span>
+                      <span>${Math.floor(cartTotal)}</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Costo de envío</span>
+                      <span>$0</span>
+                    </div>
+                    <div className="summary-row total">
+                      <span>Total</span>
+                      <span className="total-amount-display">${Math.floor(cartTotal)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div className="form-actions">
-                <button type="submit" className="btn-confirm">
-                  Confirmar pedido
-                </button>
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setShowCheckout(false)}
-                >
-                  Volver
-                </button>
-              </div>
-            </form>
+            </div>
           )}
 
           {/* Sticky Checkout Button */}
@@ -612,53 +670,58 @@ export default function Carrito() {
         </>
       )}
 
-      {showConfirmation && (
-        <div className="order-modal" role="dialog" aria-modal="true">
-          <div className="order-modal-content">
-            <svg xmlns="http://www.w3.org/2000/svg" className="order-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="1" y="3" width="15" height="13"></rect>
-              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              <circle cx="5.5" cy="18.5" r="2.5"></circle>
-              <circle cx="18.5" cy="18.5" r="2.5"></circle>
-            </svg>
-            <h3>Pedido realizado!</h3>
-            <p>En breves nos comunicaremos con usted</p>
-            <p>¡Gracias por su compra!</p>
+
+      {
+        showConfirmation && (
+          <div className="order-modal" role="dialog" aria-modal="true">
+            <div className="order-modal-content">
+              <svg xmlns="http://www.w3.org/2000/svg" className="order-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+              </svg>
+              <h3>Pedido realizado!</h3>
+              <p>En breves nos comunicaremos con usted</p>
+              <p>¡Gracias por su compra!</p>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Minimum Purchase Error Modal */}
-      {minPurchaseError.isOpen && (
-        <div className="order-modal error" role="dialog" aria-modal="true" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-          <div className="order-modal-content">
-            <div style={{ color: '#ef4444', marginBottom: '15px' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
+      {
+        minPurchaseError.isOpen && (
+          <div className="order-modal error" role="dialog" aria-modal="true" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="order-modal-content">
+              <div style={{ color: '#ef4444', marginBottom: '15px' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h3>Compra Mínima no alcanzada</h3>
+              <p style={{ margin: '15px 0' }}>La compra mínima es de <strong>${minPurchaseError.minAmount}</strong>.</p>
+              <p>Te faltan <strong>${Math.floor(minPurchaseError.minAmount - cartTotal)}</strong> para completar tu pedido.</p>
+              <button
+                className="btn-confirm"
+                style={{ marginTop: '20px' }}
+                onClick={() => navigate('/')}
+              >
+                Modificar mi pedido
+              </button>
+              <button
+                className="btn-text"
+                style={{ marginTop: '10px', display: 'block', marginInline: 'auto' }}
+                onClick={() => setMinPurchaseError({ ...minPurchaseError, isOpen: false })}
+              >
+                Cerrar
+              </button>
             </div>
-            <h3>Compra Mínima no alcanzada</h3>
-            <p style={{ margin: '15px 0' }}>La compra mínima es de <strong>${minPurchaseError.minAmount}</strong>.</p>
-            <p>Te faltan <strong>${Math.floor(minPurchaseError.minAmount - cartTotal)}</strong> para completar tu pedido.</p>
-            <button
-              className="btn-confirm"
-              style={{ marginTop: '20px' }}
-              onClick={() => navigate('/')}
-            >
-              Modificar mi pedido
-            </button>
-            <button
-              className="btn-text"
-              style={{ marginTop: '10px', display: 'block', marginInline: 'auto' }}
-              onClick={() => setMinPurchaseError({ ...minPurchaseError, isOpen: false })}
-            >
-              Cerrar
-            </button>
           </div>
-        </div>
-      )}
+        )
+      }
 
       <StockErrorModal
         isOpen={stockError.isOpen}
@@ -666,6 +729,6 @@ export default function Carrito() {
         onConfirm={handleStockFix}
         outOfStockItems={stockError.items}
       />
-    </div>
+    </div >
   );
 }

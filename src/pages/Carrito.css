@@ -746,3 +746,214 @@
 .btn-text-action:hover {
   color: #6b7280;
 }
+/* Phone Input Group styling to match other inputs */
+.phone-input-group {
+  display: flex;
+  align-items: center;
+  width: 90%;
+  border: 2px solid #f0f0f0;
+  border-radius: 16px;
+  background-color: #fcfcfc;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden; /* Ensure prefix background doesn't bleed */
+}
+
+.phone-input-group:focus-within {
+  border-color: #ff8c00;
+  background-color: #fff;
+  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.phone-prefix {
+  padding: 16px 0 16px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.phone-input-field {
+  width: 100%;
+  padding: 16px 20px 16px 8px !important; /* Less padding left as prefix is there */
+  border: none !important; /* Remove individual border */
+  border-radius: 0 !important;
+  background: transparent !important;
+  font-size: 1rem;
+  color: #333;
+  outline: none;
+  box-shadow: none !important;
+  margin: 0 !important; /* Reset any margin */
+}
+
+/* Error state adaptation */
+.phone-input-group:has(.input-error) {
+  border-color: #ff4444 !important;
+  background-color: #fff8f8 !important;
+  animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+
+/* New Checkout Layout */
+.checkout-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+@media (min-width: 992px) {
+  .checkout-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  
+  .checkout-left {
+    flex: 3;
+    max-width: 60%;
+  }
+  
+  .checkout-right {
+    flex: 2;
+    position: sticky;
+    top: 20px;
+    max-width: 40%;
+  }
+
+  .carrito-container {
+      max-width: 1100px; /* Expand container width for split view */
+  }
+}
+
+.checkout-summary-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  border: 1px solid #f0f0f0;
+}
+
+.summary-items {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    padding-right: 5px;
+}
+
+/* Scrollbar styling for items */
+.summary-items::-webkit-scrollbar {
+  width: 6px;
+}
+.summary-items::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+.summary-items::-webkit-scrollbar-thumb {
+  background: #ccc; 
+  border-radius: 3px;
+}
+
+
+.summary-item-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.summary-item-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.summary-item-image-wrapper {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  background: #f9f9f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.summary-item-qty-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #666;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 2;
+}
+
+.summary-item-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.summary-item-placeholder {
+  color: #ccc;
+  font-size: 1.5rem;
+}
+
+.summary-item-details {
+  flex: 1;
+}
+
+.summary-item-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #333;
+  line-height: 1.2;
+}
+
+.summary-item-price {
+  font-weight: bold;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.summary-totals {
+  margin-top: 24px;
+  border-top: 2px solid #eee;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.summary-row.total {
+  margin-top: 8px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.total-amount-display {
+  color: #ff8c00;
+}
+
