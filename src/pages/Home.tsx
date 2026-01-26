@@ -4,6 +4,8 @@ import BottomCartModal from "../components/BottomCartModal";
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
+import SearchBar from "../components/SearchBar";
+import ProductModal from "../components/ProductModal";
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
@@ -12,8 +14,9 @@ import { FaStoreSlash } from "react-icons/fa";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
 
   // Use Context for store status
   const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
@@ -107,6 +110,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
+      <SearchBar products={products} onProductSelect={setSelectedProduct} />
       <Hero />
       <div className="home">
         {loading ? (
@@ -166,6 +170,13 @@ export default function Home() {
       )}
 
       <BottomCartModal />
+
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </div>
   );
 }

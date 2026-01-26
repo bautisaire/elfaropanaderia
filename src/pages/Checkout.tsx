@@ -9,7 +9,7 @@ import { syncChildProducts } from "../utils/stockUtils"; // Import Syncer
 
 export default function Checkout() {
   /* New Stock System imports are assumed at top */
-  const { cart, total, clearCart } = useContext(CartContext);
+  const { cart, total, clearCart, isAdmin } = useContext(CartContext);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "">("");
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
 
@@ -179,8 +179,10 @@ export default function Checkout() {
         Promise.all(transactionResult.map(u => syncChildProducts(u.id, u.newStock))).catch(console.error);
       }
 
-      // 3. Crear Orden en Backend
+      // 3. Crear Orden en Firestore (Directamente)
+      const orderRef = doc(collection(db, "orders"));
       const orderData = {
+        id: orderRef.id, // Guardamos el ID dentro del documento también
         items: cart,
         total,
         paymentMethod,
@@ -190,54 +192,54 @@ export default function Checkout() {
       };
 
       try {
-        const response = await fetch("https://elfaropanaderia-backend-production.up.railway.app/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(orderData),
+        // Guardar orden en Firestore
+        await runTransaction(db, async (t) => {
+          t.set(orderRef, orderData);
         });
 
-        if (response.ok) {
-          let newOrderId = "PENDIENTE";
-
-          // Guardar en Mis Pedidos
-          try {
-            const responseData = await response.json();
-            newOrderId = responseData.id || responseData.orderId || "PENDIENTE";
-
-            if (newOrderId !== "PENDIENTE") {
-              const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
-              const cleanOrders = existingOrders.map((o: any) => typeof o === 'object' ? o.id : o);
-              if (!cleanOrders.includes(newOrderId)) {
-                cleanOrders.push(newOrderId);
-                localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
-                window.dispatchEvent(new Event("storage"));
-              }
-            }
-          } catch (e) { console.error("Error local storage", e); }
-
-          // ÉXITO REAL: Guardar datos para mostrar ticket
-          const finalOrder = {
-            id: newOrderId,
-            items: [...cart], // Copia para el ticket
-            total: total,
-            paymentMethod: paymentMethod,
-            date: new Date()
-          };
-
-          setConfirmedOrder(finalOrder);
+        // Si es efectivo, finalizamos
+        if (paymentMethod === 'efectivo') {
+          setConfirmedOrder(orderData);
           clearCart();
           window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        } else {
-          console.error("Error backend order creation");
-          alert("Tu pedido se procesó pero hubo un error de conexión final. Por favor contáctanos con tu comprobante.");
-          clearCart();
+          // Guardar en Mis Pedidos (Local Storage)
+          const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+          if (!existingOrders.includes(orderRef.id)) {
+            existingOrders.push(orderRef.id);
+            localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
+            window.dispatchEvent(new Event("storage"));
+          }
+          return;
+        }
+
+        // Si es Mercado Pago, llamamos a la Cloud Function
+        if (paymentMethod === 'mercadopago') {
+          const response = await fetch("https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: cart, orderId: orderRef.id }),
+          });
+
+          if (!response.ok) throw new Error("Error al iniciar pago con Mercado Pago");
+
+          const { init_point } = await response.json();
+
+          // Guardar en Mis Pedidos antes de redirigir
+          const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+          if (!existingOrders.includes(orderRef.id)) {
+            existingOrders.push(orderRef.id);
+            localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
+            window.dispatchEvent(new Event("storage"));
+          }
+
+          // Redirigir a Mercado Pago
+          window.location.href = init_point;
         }
 
       } catch (backendError) {
-        console.error("Backend error", backendError);
-        alert("Error de conexión al guardar el pedido. Tu stock fue reservado. Contáctanos.");
-        clearCart();
+        console.error("Error creando orden:", backendError);
+        alert("Hubo un error al procesar la orden. Por favor contáctanos.");
       }
 
     } catch (error: any) {
@@ -326,16 +328,18 @@ export default function Checkout() {
 
           <div className="payment-method">
             <p>Selecciona un método de pago:</p>
-            <label>
-              <input
-                type="radio"
-                name="payment"
-                value="mercadopago"
-                checked={paymentMethod === "mercadopago"}
-                onChange={() => setPaymentMethod("mercadopago")}
-              />
-              Mercado Pago
-            </label>
+            {isAdmin && (
+              <label>
+                <input
+                  type="radio"
+                  name="payment"
+                  value="mercadopago"
+                  checked={paymentMethod === "mercadopago"}
+                  onChange={() => setPaymentMethod("mercadopago")}
+                />
+                Mercado Pago
+              </label>
+            )}
             <label>
               <input
                 type="radio"

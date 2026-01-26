@@ -15,6 +15,7 @@ export default function Carrito() {
   const navigate = useNavigate();
 
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
   const [showCheckout, setShowCheckout] = useState(false);
@@ -28,7 +29,7 @@ export default function Carrito() {
     direccion: "",
     telefono: "",
     indicaciones: "",
-    metodoPago: "efectivo",
+    metodoPago: "efectivo", // 'efectivo', 'transferencia', 'mercadopago'
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
@@ -169,6 +170,9 @@ export default function Carrito() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
 
     // 0. Validar Compra Mínima
     if (minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
@@ -297,14 +301,16 @@ export default function Carrito() {
           total: cartTotal,
           cliente: formData,
           date: new Date(),
-          status: "pending"
+          status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
+          paymentMethod: formData.metodoPago
         };
         transaction.set(orderRef, newOrderData);
 
         // E. Log Movements
+        // E. Log Movements
         stockMovementsToLog.forEach(mov => {
           const mRef = doc(collection(db, "stock_movements"));
-          transaction.set(mRef, { ...mov, type: 'OUT', reason: 'Venta Online', date: new Date() });
+          transaction.set(mRef, { ...mov, type: 'OUT', reason: formData.metodoPago === 'mercadopago' ? 'Venta Online (MP)' : 'Venta Online', date: new Date() });
         });
 
         return { orderId: orderRef.id, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
@@ -338,7 +344,7 @@ export default function Carrito() {
         }).catch(console.error);
       }
 
-      // Prepare Ticket Data
+      // Prepara Ticket Data
       const ticketData = {
         id: newOrderId,
         items: [...cart],
@@ -346,10 +352,44 @@ export default function Carrito() {
         paymentMethod: formData.metodoPago
       };
 
-      // Limpiar UI
+      // IF MERCADO PAGO
+      if (formData.metodoPago === 'mercadopago') {
+        try {
+          const response = await fetch('https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: cart,
+              orderId: newOrderId
+            })
+          });
+          const data = await response.json();
+
+          if (data.init_point) {
+            // Clear local cart but don't show success modal yet, redirect immediately
+            // Note: User might come back to empty cart if they cancel. 
+            // Ideally we keep cart until success return, but for now this is standard.
+            clearCart();
+            window.location.href = data.init_point;
+            return;
+          } else {
+            alert("Error al conectar con Mercado Pago.");
+            setIsSubmitting(false);
+            return;
+          }
+        } catch (error) {
+          console.error("MP Error:", error);
+          alert("Error al iniciar el pago.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Limpiar UI for Cash/Transfer
       clearCart();
       setShowCheckout(false);
       setFormData({ nombre: "", direccion: "", telefono: "", indicaciones: "", metodoPago: "efectivo" });
+      setIsSubmitting(false);
 
       // SHOW MODAL THEN TICKET
       setShowConfirmation(true);
@@ -361,6 +401,7 @@ export default function Carrito() {
 
     } catch (error: any) {
       console.error("Error al enviar el pedido:", error);
+      setIsSubmitting(false);
       if (error.message && error.message.includes("Stock insuficiente")) {
         alert(`⚠️ ${error.message}\n\nPor favor revisa tu carrito.`);
       } else {
@@ -621,12 +662,33 @@ export default function Carrito() {
                           <div className="radio-desc">Al alias del repartidor</div>
                         </div>
                       </label>
+
+                      {/* Mercado Pago Option (Admin Only for now) */}
+                      {isAdmin && (
+                        <label className={`radio-card ${formData.metodoPago === 'mercadopago' ? 'selected' : ''}`} style={{ borderColor: formData.metodoPago === 'mercadopago' ? '#009ee3' : '' }}>
+                          <input
+                            type="radio"
+                            name="metodoPago"
+                            value="mercadopago"
+                            checked={formData.metodoPago === 'mercadopago'}
+                            onChange={handleInputChange}
+                            className="radio-input"
+                          />
+                          <div className="radio-icon" style={{ color: '#009ee3', display: 'flex', alignItems: 'center' }}>
+                            <img src="https://logotipoz.com/wp-content/uploads/2021/10/versiones-del-logo-de-mercado-pago-1.png" alt="MP" style={{ width: '28px', height: 'auto' }} />
+                          </div>
+                          <div>
+                            <div className="radio-label" style={{ color: formData.metodoPago === 'mercadopago' ? '#009ee3' : 'inherit' }}>Mercado Pago</div>
+                            <div className="radio-desc">Tarjetas, Débito, Efectivo</div>
+                          </div>
+                        </label>
+                      )}
                     </div>
                   </div>
 
                   <div className="form-actions">
-                    <button type="submit" className="btn-confirm">
-                      Confirmar pedido
+                    <button type="submit" className="btn-confirm" disabled={isSubmitting}>
+                      {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
                     </button>
                     <button
                       type="button"

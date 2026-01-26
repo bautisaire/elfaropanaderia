@@ -1,0 +1,19 @@
+{
+    "name": "elfaro-server",
+    "version": "1.0.0",
+    "description": "Backend for El Faro Panaderia",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "cors": "^2.8.6",
+        "dotenv": "^16.6.1",
+        "express": "^4.22.1",
+        "mercadopago": "^2.12.0"
+    }
+}

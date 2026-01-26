@@ -205,13 +205,12 @@ export default function Dashboard() {
                 order.items.forEach((item: any) => {
                     // 1. Identify Product
                     // Some items have ID "parentID-variantID" or just "productID"
-                    // Helper to get base ID
                     const isVariant = String(item.id).includes('-');
                     const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
 
                     const productInfo = productData.get(baseId);
 
-                    let finalId = item.id;
+                    let finalId = baseId;
                     let finalName = item.name;
                     let finalVariant = item.variant;
                     let finalQty = Number(item.quantity) || 0;
@@ -222,23 +221,22 @@ export default function Dashboard() {
                         const parentInfo = productData.get(parentId);
 
                         if (parentInfo) {
-                            // It is a derived product.
-                            // Convert to Parent Units
+                            // It is a derived product. Convert to Parent Units
                             const unitsToDeduct = productInfo.stockDependency.unitsToDeduct || 1;
                             finalQty = finalQty * unitsToDeduct;
 
                             // Override Identity to Parent
                             finalId = parentInfo.id;
-                            finalName = parentInfo.nombre; // Use parent name
+                            // The name will be updated in the next step
                             finalVariant = undefined; // Merge into parent base
-                        } else {
-                            // Fallback: Use baseId if parent info missing (or original logic)
-                            // Ideally we want to aggregate by the PRODUCT ID, not the cart item ID which might differ.
-                            finalId = baseId;
                         }
-                    } else {
-                        // Standard product: Use baseId to ensuring grouping by Product, not random item IDs
-                        finalId = baseId;
+                    }
+
+                    // 3. Update Name from Current DB (Consolidate renames)
+                    // We look up the product by the final ID we decided on (base or parent)
+                    const currentInfo = productData.get(finalId);
+                    if (currentInfo) {
+                        finalName = currentInfo.nombre;
                     }
 
                     // Normalize variant
@@ -246,12 +244,9 @@ export default function Dashboard() {
                         finalVariant = String(finalVariant).trim();
                     }
 
-                    // GROUP BY NAME - Case Insensitive to handle "Torta" vs "torta"
-                    // Key: normalized (lower case)
-                    // Display: original name
+                    // GROUP BY ID to ensure consistency across renames
+                    const key = `${finalId}-${finalVariant || 'base'}`;
                     const nameForDisplay = String(finalName).trim();
-                    const nameForKey = nameForDisplay.toLowerCase();
-                    const key = `${nameForKey}-${finalVariant || 'base'}`;
 
                     const current = productMap.get(key);
                     const price = Number(item.price) || 0;
@@ -262,8 +257,8 @@ export default function Dashboard() {
                         current.total += lineTotal;
                     } else {
                         productMap.set(key, {
-                            id: finalId, // Keep the last ID encountered for reference
-                            name: nameForDisplay, // Store the nice display version
+                            id: finalId,
+                            name: nameForDisplay,
                             variant: finalVariant,
                             quantity: finalQty,
                             total: lineTotal
