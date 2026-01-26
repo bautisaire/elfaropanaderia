@@ -57,23 +57,49 @@ export default function MyOrders() {
         }
         return 'default';
     });
+    const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+        return localStorage.getItem('user_notifications_enabled') === 'true';
+    });
     const prevStatusRef = useRef<Record<string, string>>({});
 
-    const requestPermission = async () => {
+    const toggleNotifications = async () => {
         if (typeof Notification === 'undefined') {
             alert("Tu navegador no soporta notificaciones.");
             return;
         }
+
+        // If enabled, disable it
+        if (notificationsEnabled) {
+            setNotificationsEnabled(false);
+            localStorage.setItem('user_notifications_enabled', 'false');
+            return;
+        }
+
+        // If disabled, check permission first
+        if (Notification.permission === 'granted') {
+            setNotificationsEnabled(true);
+            localStorage.setItem('user_notifications_enabled', 'true');
+            new Notification("Notificaciones activadas", {
+                body: "Volverás a recibir alertas de tus pedidos.",
+            });
+            return;
+        }
+        // Request permission if not granted
         try {
             const permission = await Notification.requestPermission();
             setPermission(permission);
 
-            if (permission === 'granted' && messaging) {
-                // Get FCM Token
-                const token = await getToken(messaging, {
-                    vapidKey: import.meta.env.VITE_VAPID_KEY
-                });
-                console.log("FCM Token Generated:", token);
+            if (permission === 'granted') {
+                setNotificationsEnabled(true);
+                localStorage.setItem('user_notifications_enabled', 'true');
+
+                if (messaging) {
+                    // Get FCM Token
+                    const token = await getToken(messaging, {
+                        vapidKey: import.meta.env.VITE_VAPID_KEY
+                    });
+                    console.log("FCM Token Generated:", token);
+                }
 
                 new Notification("Notificaciones activadas", {
                     body: "Dispositivo registrado para alertas push.",
@@ -83,6 +109,7 @@ export default function MyOrders() {
             console.error("Error al solicitar permiso / token:", error);
         }
     };
+
 
     useEffect(() => {
         const storedIds = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
@@ -163,7 +190,7 @@ export default function MyOrders() {
             if (prevStatus && prevStatus !== order.status) {
                 // Determine if we should notify (ignore initial load or same status)
                 // We only notify if permission is granted
-                if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+                if (typeof Notification !== 'undefined' && Notification.permission === "granted" && notificationsEnabled) {
                     try {
                         const statusData = statusMap[order.status] || { label: order.status };
                         new Notification(`Actualización de pedido`, {
@@ -213,12 +240,12 @@ export default function MyOrders() {
         <div className="my-orders-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2>Mis Pedidos</h2>
-                {permission === 'default' && (
+                {(permission === 'default' || permission === 'granted') && (
                     <button
-                        onClick={requestPermission}
+                        onClick={toggleNotifications}
                         style={{
-                            background: '#f59e0b',
-                            color: 'white',
+                            background: notificationsEnabled ? '#e5e7eb' : '#f59e0b',
+                            color: notificationsEnabled ? '#374151' : 'white',
                             border: 'none',
                             padding: '8px 12px',
                             borderRadius: '20px',
@@ -230,7 +257,8 @@ export default function MyOrders() {
                             fontWeight: '600'
                         }}
                     >
-                        <FaBell /> Activar Alertas
+                        <FaBell style={{ color: notificationsEnabled ? '#9ca3af' : 'white' }} />
+                        {notificationsEnabled ? 'Desactivar Alertas' : 'Activar Alertas'}
                     </button>
                 )}
             </div>
