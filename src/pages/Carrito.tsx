@@ -11,7 +11,7 @@ import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaBell } from "r
 import { syncChildProducts } from "../utils/stockUtils";
 
 export default function Carrito() {
-  const { cart, removeFromCart, clearCart, cartTotal } = useContext(CartContext);
+  const { cart, removeFromCart, clearCart, cartTotal, isAdmin } = useContext(CartContext);
   const navigate = useNavigate();
 
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
@@ -38,8 +38,7 @@ export default function Carrito() {
     setNotificationPermission(result);
     if (result === 'granted') {
       new Notification("Notificaciones activadas", {
-        body: "Te avisaremos cuando cambie el estado de tu pedido.",
-        icon: "/icon-192x192.png"
+        body: "Te avisaremos cuando cambie el estado de tu pedido."
       });
     }
   };
@@ -333,9 +332,11 @@ export default function Carrito() {
       } catch (e) { console.error("Storage error", e); }
 
       // Telegram
-      sendTelegramNotification({
-        items: cart, total: cartTotal, cliente: formData, date: Timestamp.now(), status: "pending", id: newOrderId
-      }).catch(console.error);
+      if (!isAdmin) {
+        sendTelegramNotification({
+          items: cart, total: cartTotal, cliente: formData, date: Timestamp.now(), status: "pending", id: newOrderId
+        }).catch(console.error);
+      }
 
       // Prepare Ticket Data
       const ticketData = {
@@ -428,6 +429,18 @@ export default function Carrito() {
               >
                 <FaBell /> Recibir notificaciones del pedido
               </button>
+            )}
+
+            {notificationPermission === 'granted' && (
+              <div className="btn-secondary-action" style={{ background: '#dcfce7', color: '#166534', cursor: 'default' }}>
+                <FaCheckCircle /> Notificaciones activadas
+              </div>
+            )}
+
+            {notificationPermission === 'denied' && (
+              <div className="btn-secondary-action" style={{ background: '#fee2e2', color: '#991b1b', cursor: 'default' }}>
+                <FaBell /> Notificaciones bloqueadas en navegador
+              </div>
             )}
 
             <Link to="/mis-pedidos" className="btn-secondary-action">

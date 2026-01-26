@@ -19,8 +19,7 @@ export default function AdminSettings() {
                 setNotificationsEnabled(true);
                 localStorage.setItem('admin_order_alerts_enabled', 'true');
                 new Notification("Alertas Activadas", {
-                    body: "Recibirás notificaciones cuando lleguen nuevos pedidos.",
-                    icon: "/icon-192x192.png"
+                    body: "Recibirás notificaciones cuando lleguen nuevos pedidos."
                 });
             } else {
                 alert("Debes dar permisos de notificación en el navegador.");

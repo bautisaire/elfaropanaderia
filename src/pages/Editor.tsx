@@ -87,12 +87,13 @@ export default function Editor() {
 
           const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
           if (alertsEnabled && Notification.permission === "granted") {
+            console.log("🔔 Nueva orden detectada:", newOrder);
             const orderId = change.doc.id.slice(-6).toUpperCase();
             new Notification(`¡Nuevo Pedido! #${orderId}`, {
               body: `Total: $${newOrder.total} - ${newOrder.cliente?.nombre || 'Cliente'}`,
-              icon: "/icon-192x192.png",
               tag: change.doc.id // prevent duplicates
             });
+            console.log("🔔 Notificación enviada");
             // Optional: Play sound?
           }
         }
