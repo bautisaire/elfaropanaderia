@@ -484,7 +484,7 @@ export default function Carrito() {
 
           <div className="success-actions">
             <a
-              href={`https://wa.me/5491112345678?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}`)}`}
+              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-whatsapp-action"

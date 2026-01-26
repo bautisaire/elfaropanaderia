@@ -29,9 +29,9 @@ exports.createPreference = onRequest((req, res) => {
                     currency_id: "ARS"
                 })),
                 back_urls: {
-                    success: "https://elfaro-panaderia.web.app/carrito",
-                    failure: "https://elfaro-panaderia.web.app/carrito",
-                    pending: "https://elfaro-panaderia.web.app/carrito"
+                    success: "https://www.elfaropanificacion.com/carrito",
+                    failure: "https://www.elfaropanificacion.com/carrito",
+                    pending: "https://www.elfaropanificacion.com/carrito"
                 },
                 auto_return: "approved",
                 notification_url: `https://us-central1-el-faro-panaderia.cloudfunctions.net/mercadopagoWebhook?id=${orderId}`,
@@ -67,11 +67,21 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
 
             console.log("Payment notification received for:", paymentId);
 
-            // Si usamos external_reference para el ID de la orden:
-            // const payment = await new Payment(client).get({ id: paymentId });
-            // const orderId = payment.external_reference;
+            const { Payment } = require("mercadopago");
+            const payment = await new Payment(client).get({ id: paymentId });
 
-            // Por ahora solo logueamos. La actualización de Firestore requiere saber el ID de la orden.
+            if (payment && payment.status === 'approved') {
+                const orderId = payment.external_reference;
+                if (orderId) {
+                    await db.collection("orders").doc(orderId).update({
+                        status: 'pendiente', // Now visible in dashboard
+                        paymentStatus: 'approved',
+                        paymentId: paymentId.toString(),
+                        paymentDate: new Date()
+                    });
+                    console.log(`Order ${orderId} confirmed via webhook.`);
+                }
+            }
         }
         res.sendStatus(200);
     } catch (error) {
