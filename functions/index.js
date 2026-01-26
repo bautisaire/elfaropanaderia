@@ -6,12 +6,9 @@ const { MercadoPagoConfig, Preference } = require("mercadopago");
 admin.initializeApp();
 const db = admin.firestore();
 
-// Access Token DEBE venir de variables de entorno de Firebase Functions
-// Se configura con: firebase functions:config:set mercadopago.access_token="TU_TOKEN"
-// Pero para simplificar en desarrollo, usaremos process.env o hardcoded temporal si es seguro (mejor no).
-// Usaremos defineString para v2, pero por ahora lo leemos de entorno o hardcodeado.
+require('dotenv').config();
 
-const MP_ACCESS_TOKEN = "APP_USR-1513192630445522-012616-1b09ee733a1582b1e653ad2a1c674c0b-3161036020"; // Temporal
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 
 const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
@@ -32,9 +29,9 @@ exports.createPreference = onRequest((req, res) => {
                     currency_id: "ARS"
                 })),
                 back_urls: {
-                    success: "https://elfaro-panaderia.web.app/success", // Ajustar URL real
-                    failure: "https://elfaro-panaderia.web.app/failure",
-                    pending: "https://elfaro-panaderia.web.app/pending"
+                    success: "https://elfaro-panaderia.web.app/carrito",
+                    failure: "https://elfaro-panaderia.web.app/carrito",
+                    pending: "https://elfaro-panaderia.web.app/carrito"
                 },
                 auto_return: "approved",
                 notification_url: `https://us-central1-el-faro-panaderia.cloudfunctions.net/mercadopagoWebhook?id=${orderId}`,

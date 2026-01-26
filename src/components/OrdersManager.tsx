@@ -19,7 +19,7 @@ interface Order {
         metodoPago: string;
     };
     date: any;
-    status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado";
+    status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado" | "pending_payment";
     source?: string;
 }
 
@@ -65,7 +65,10 @@ export default function OrdersManager() {
                 status: doc.data().status || "pendiente"
             })) as Order[];
 
-            setOrders(ordersData);
+            // Filter out pending_payment orders (waiting for MP)
+            const confirmedOrders = ordersData.filter(o => o.status !== 'pending_payment');
+
+            setOrders(confirmedOrders);
             setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
             setHasMore(snapshot.docs.length === 50);
             setLoading(false);
@@ -94,7 +97,10 @@ export default function OrdersManager() {
                 status: doc.data().status || "pendiente"
             })) as Order[];
 
-            setOrders(prev => [...prev, ...newOrders]);
+            // Filter out pending_payment
+            const confirmedNewOrders = newOrders.filter(o => o.status !== 'pending_payment');
+
+            setOrders(prev => [...prev, ...confirmedNewOrders]);
             setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
             setHasMore(snapshot.docs.length === 50);
             setLoadingMore(false);

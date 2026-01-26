@@ -1,5 +1,5 @@
 import { useContext, useState, useRef, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
 import { db } from "../firebase/firebaseConfig";
@@ -13,6 +13,7 @@ import { syncChildProducts } from "../utils/stockUtils";
 export default function Carrito() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin } = useContext(CartContext);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,6 +72,33 @@ export default function Carrito() {
       }
     }
   }, []);
+
+  // Check for Mercado Pago Redirect
+  useEffect(() => {
+    const status = searchParams.get("status");
+    const externalRef = searchParams.get("external_reference"); // Order ID
+
+    if (status === "approved" && externalRef) {
+      // Fetch Order to show confirmation
+      const fetchOrder = async () => {
+        try {
+          const docRef = doc(db, "orders", externalRef);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setConfirmedOrder(docSnap.data());
+            clearCart(); // Ensure cart is clear
+            window.scrollTo(0, 0);
+
+            // Clean URL
+            setSearchParams({});
+          }
+        } catch (e) {
+          console.error("Error recovering MP order", e);
+        }
+      };
+      fetchOrder();
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
