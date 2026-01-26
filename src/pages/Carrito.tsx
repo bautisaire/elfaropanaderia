@@ -148,7 +148,8 @@ export default function Carrito() {
 
   const handleProcederAlPago = async () => {
     // 0. Validar Compra Mínima
-    if (minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
+    // 0. Validar Compra Mínima (Admins Bypass)
+    if (!isAdmin && minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
       setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
       return;
     }
@@ -175,7 +176,8 @@ export default function Carrito() {
     setIsSubmitting(true);
 
     // 0. Validar Compra Mínima
-    if (minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
+    // 0. Validar Compra Mínima (Admins Bypass)
+    if (!isAdmin && minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
       setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
       setShowCheckout(false);
       return;
