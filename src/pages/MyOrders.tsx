@@ -3,6 +3,8 @@ import { db } from "../firebase/firebaseConfig";
 import { onSnapshot, documentId, query, collection, where } from "firebase/firestore";
 import "./MyOrders.css";
 import { FaBell } from "react-icons/fa";
+import { messaging } from "../firebase/firebaseConfig";
+import { getToken } from "firebase/messaging";
 
 interface Order {
     id: string;
@@ -49,17 +51,36 @@ const OrderSkeleton = () => (
 export default function MyOrders() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [permission, setPermission] = useState(Notification.permission);
+    const [permission, setPermission] = useState(() => {
+        if (typeof Notification !== 'undefined') {
+            return Notification.permission;
+        }
+        return 'default';
+    });
     const prevStatusRef = useRef<Record<string, string>>({});
 
     const requestPermission = async () => {
-        const result = await Notification.requestPermission();
-        setPermission(result);
-        if (result === 'granted') {
-            new Notification("Notificaciones activadas", {
-                body: "Te avisaremos cuando cambie el estado de tus pedidos.",
-                icon: "/icon-192x192.png"
-            });
+        if (typeof Notification === 'undefined') {
+            alert("Tu navegador no soporta notificaciones.");
+            return;
+        }
+        try {
+            const permission = await Notification.requestPermission();
+            setPermission(permission);
+
+            if (permission === 'granted' && messaging) {
+                // Get FCM Token
+                const token = await getToken(messaging, {
+                    vapidKey: import.meta.env.VITE_VAPID_KEY
+                });
+                console.log("FCM Token Generated:", token);
+
+                new Notification("Notificaciones activadas", {
+                    body: "Dispositivo registrado para alertas push.",
+                });
+            }
+        } catch (error) {
+            console.error("Error al solicitar permiso / token:", error);
         }
     };
 
@@ -142,12 +163,15 @@ export default function MyOrders() {
             if (prevStatus && prevStatus !== order.status) {
                 // Determine if we should notify (ignore initial load or same status)
                 // We only notify if permission is granted
-                if (Notification.permission === "granted") {
-                    const statusData = statusMap[order.status] || { label: order.status };
-                    new Notification(`Actualización de pedido`, {
-                        body: `Tu pedido ahora está: ${statusData.label}`,
-                        icon: "/icon-192x192.png" // Ensure this exists or use a generic one
-                    });
+                if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+                    try {
+                        const statusData = statusMap[order.status] || { label: order.status };
+                        new Notification(`Actualización de pedido`, {
+                            body: `Tu pedido ahora está: ${statusData.label}`,
+                        });
+                    } catch (err) {
+                        console.error("Error enviando notificación:", err);
+                    }
                 }
             }
 
