@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, addDoc, Timestamp, doc, getDoc, updateDoc, runTransaction } from "firebase/firestore";
+import { collection, Timestamp, doc, getDoc, runTransaction } from "firebase/firestore";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";

@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
@@ -12,7 +12,6 @@ export default function Checkout() {
   const { cart, total, clearCart } = useContext(CartContext);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "">("");
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
-  const navigate = useNavigate();
 
   /* New Stock System: Import Firestore functions */
   /* Note: Assuming imports are added at the top. I will add them in a separate chunk or rely on auto-imports if possible, but safer to do it manually. */

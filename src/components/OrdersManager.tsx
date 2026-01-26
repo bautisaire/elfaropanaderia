@@ -122,6 +122,16 @@ export default function OrdersManager() {
         }
     };
 
+    const updateSource = async (id: string, source: string) => {
+        try {
+            await updateDoc(doc(db, "orders", id), { source });
+            setOrders(prev => prev.map(o => o.id === id ? { ...o, source } : o));
+        } catch (err) {
+            console.error("Error updating source:", err);
+            alert("Error al actualizar el origen");
+        }
+    };
+
     const handleConfirmCancellation = async (restoreStock: boolean) => {
         if (!orderToCancelId) return;
 
@@ -580,15 +590,31 @@ export default function OrdersManager() {
                                             <div className="order-id-badge">#{order.id.slice(-6)}</div>
                                             <div className="order-date"><FaCalendarAlt /> {dateStr}</div>
                                             {order.source && (
-                                                <div style={{
-                                                    fontSize: '0.8rem',
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    background: order.source === 'pos_wholesale' ? '#8b5cf6' : order.source === 'pos_public' || order.source === 'pos' ? '#10b981' : '#f59e0b',
-                                                    color: 'white',
-                                                    marginLeft: '10px'
-                                                }}>
-                                                    {order.source === 'pos_wholesale' ? 'Despensa' : (order.source === 'pos_public' || order.source === 'pos') ? 'Local' : 'Web'}
+                                                <div className="source-selector-wrapper" style={{ marginLeft: '10px' }}>
+                                                    <select
+                                                        value={
+                                                            order.source === 'pos_wholesale' ? 'pos_wholesale' :
+                                                                (order.source === 'pos_public' || order.source === 'pos') ? 'pos_public' :
+                                                                    'delivery'
+                                                        }
+                                                        onChange={(e) => updateSource(order.id, e.target.value)}
+                                                        style={{
+                                                            fontSize: '0.8rem',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            background: order.source === 'pos_wholesale' ? '#8b5cf6' :
+                                                                (order.source === 'pos_public' || order.source === 'pos') ? '#10b981' :
+                                                                    '#f59e0b',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '500'
+                                                        }}
+                                                    >
+                                                        <option value="pos_public" style={{ color: '#333' }}>Local</option>
+                                                        <option value="delivery" style={{ color: '#333' }}>Delivery</option>
+                                                        <option value="pos_wholesale" style={{ color: '#333' }}>Despensa</option>
+                                                    </select>
                                                 </div>
                                             )}
                                         </div>

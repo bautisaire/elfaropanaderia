@@ -33,8 +33,11 @@ export default function Dashboard() {
         totalOrders: 0,
         plata: 0,       // All revenue
         despensa: 0,    // Wholesale
+        despensaCount: 0,
         publico: 0,     // Local POS
-        delivery: 0     // Online
+        publicoCount: 0,
+        delivery: 0,     // Online
+        deliveryCount: 0
     });
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
@@ -173,8 +176,11 @@ export default function Dashboard() {
 
         let plata = 0;
         let despensa = 0;
+        let despensaCount = 0;
         let publico = 0;
+        let publicoCount = 0;
         let delivery = 0;
+        let deliveryCount = 0;
 
         const productMap = new Map<string, ProductSale>();
 
@@ -185,10 +191,13 @@ export default function Dashboard() {
             // Categories
             if (order.source === 'pos_wholesale') {
                 despensa += amount;
+                despensaCount++;
             } else if (order.source === 'pos_public' || order.source === 'pos') {
                 publico += amount;
+                publicoCount++;
             } else {
                 delivery += amount;
+                deliveryCount++;
             }
 
             // Products Aggregation with Dependency Logic
@@ -270,8 +279,11 @@ export default function Dashboard() {
             totalOrders: filteredOrders.length,
             plata,
             despensa,
+            despensaCount,
             publico,
-            delivery
+            publicoCount,
+            delivery,
+            deliveryCount
         }));
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
@@ -383,6 +395,7 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Despensa</h3>
                         <p>${Math.floor(stats.despensa).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">{stats.despensaCount} tickets</span>
                     </div>
                 </div>
 
@@ -392,6 +405,7 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Público</h3>
                         <p>${Math.floor(stats.publico).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">{stats.publicoCount} tickets</span>
                     </div>
                 </div>
 
@@ -401,6 +415,7 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Delivery</h3>
                         <p>${Math.floor(stats.delivery).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">{stats.deliveryCount} pedidos</span>
                     </div>
                 </div>
 
