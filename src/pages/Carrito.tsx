@@ -7,7 +7,7 @@ import { collection, Timestamp, doc, getDoc, runTransaction } from "firebase/fir
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
-import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
+import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaBell } from "react-icons/fa";
 import { syncChildProducts } from "../utils/stockUtils";
 
 export default function Carrito() {
@@ -31,6 +31,18 @@ export default function Carrito() {
     metodoPago: "efectivo",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
+
+  const requestNotificationPermission = async () => {
+    const result = await Notification.requestPermission();
+    setNotificationPermission(result);
+    if (result === 'granted') {
+      new Notification("Notificaciones activadas", {
+        body: "Te avisaremos cuando cambie el estado de tu pedido.",
+        icon: "/icon-192x192.png"
+      });
+    }
+  };
 
   // Scroll to form when showCheckout becomes true
   useEffect(() => {
@@ -407,6 +419,16 @@ export default function Carrito() {
             >
               <FaWhatsapp /> Avisar por WhatsApp
             </a>
+
+            {notificationPermission === 'default' && (
+              <button
+                onClick={requestNotificationPermission}
+                className="btn-secondary-action"
+                style={{ background: '#fffbeb', color: '#b45309', borderColor: '#fcd34d' }}
+              >
+                <FaBell /> Recibir notificaciones del pedido
+              </button>
+            )}
 
             <Link to="/mis-pedidos" className="btn-secondary-action">
               <FaShoppingBag /> Ver Seguimiento

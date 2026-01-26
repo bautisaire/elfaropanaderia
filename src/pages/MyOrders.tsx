@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { onSnapshot, documentId, query, collection, where } from "firebase/firestore";
 import "./MyOrders.css";
+import { FaBell } from "react-icons/fa";
 
 interface Order {
     id: string;
@@ -48,6 +49,19 @@ const OrderSkeleton = () => (
 export default function MyOrders() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
+    const [permission, setPermission] = useState(Notification.permission);
+    const prevStatusRef = useRef<Record<string, string>>({});
+
+    const requestPermission = async () => {
+        const result = await Notification.requestPermission();
+        setPermission(result);
+        if (result === 'granted') {
+            new Notification("Notificaciones activadas", {
+                body: "Te avisaremos cuando cambie el estado de tus pedidos.",
+                icon: "/icon-192x192.png"
+            });
+        }
+    };
 
     useEffect(() => {
         const storedIds = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
@@ -117,6 +131,31 @@ export default function MyOrders() {
         };
     }, []);
 
+    // Monitor status changes for notifications
+    useEffect(() => {
+        if (orders.length === 0) return;
+
+        orders.forEach(order => {
+            const prevStatus = prevStatusRef.current[order.id];
+
+            // If we have a previous status and it changed
+            if (prevStatus && prevStatus !== order.status) {
+                // Determine if we should notify (ignore initial load or same status)
+                // We only notify if permission is granted
+                if (Notification.permission === "granted") {
+                    const statusData = statusMap[order.status] || { label: order.status };
+                    new Notification(`Actualización de pedido`, {
+                        body: `Tu pedido ahora está: ${statusData.label}`,
+                        icon: "/icon-192x192.png" // Ensure this exists or use a generic one
+                    });
+                }
+            }
+
+            // Update ref
+            prevStatusRef.current[order.id] = order.status;
+        });
+    }, [orders]);
+
     // Logic to separate logic and history
     // Filter and sort
     const dateCutoff = new Date('2025-12-14T00:00:00-03:00').getTime() / 1000;
@@ -148,7 +187,29 @@ export default function MyOrders() {
 
     return (
         <div className="my-orders-container">
-            <h2>Mis Pedidos</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2>Mis Pedidos</h2>
+                {permission === 'default' && (
+                    <button
+                        onClick={requestPermission}
+                        style={{
+                            background: '#f59e0b',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 12px',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontWeight: '600'
+                        }}
+                    >
+                        <FaBell /> Activar Alertas
+                    </button>
+                )}
+            </div>
 
             {recentOrders.length === 0 ? (
                 <div className="no-orders">

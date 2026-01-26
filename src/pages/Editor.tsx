@@ -4,13 +4,14 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList } from "react-icons/fa";
+import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
 import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
+import AdminSettings from "../components/AdminSettings";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -18,7 +19,7 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor" | "settings">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
   const navigate = useNavigate();
@@ -55,18 +56,47 @@ export default function Editor() {
     return () => unsubscribe();
   }, []);
 
+
+
+  // Global Notification Listener for New Orders
+  const isFirstLoad = useRef(true);
   useEffect(() => {
     if (!currentUser) return;
 
     const q = query(collection(db, "orders"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Logic for Pending Count (Existing)
       const count = snapshot.docs.filter(doc => {
         const data = doc.data();
         const status = data.status || "pendiente";
-        // Count orders that are NOT cancelled AND NOT delivered (finished)
         return status !== "cancelado" && status !== "entregado";
       }).length;
       setPendingOrdersCount(count);
+
+      // Logic for Notifications (New)
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const newOrder = change.doc.data();
+          // Only notify if it's a recent order (e.g. created in last 5 mins) to avoid spam on reconnect? 
+          // Actually Firestore 'added' on active listener implies new/current.
+
+          const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
+          if (alertsEnabled && Notification.permission === "granted") {
+            const orderId = change.doc.id.slice(-6).toUpperCase();
+            new Notification(`¡Nuevo Pedido! #${orderId}`, {
+              body: `Total: $${newOrder.total} - ${newOrder.cliente?.nombre || 'Cliente'}`,
+              icon: "/icon-192x192.png",
+              tag: change.doc.id // prevent duplicates
+            });
+            // Optional: Play sound?
+          }
+        }
+      });
     });
 
     return () => unsubscribe();
@@ -212,6 +242,14 @@ export default function Editor() {
                 <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
                 <span className="nav-text">Editor de Tienda</span>
               </button>
+              <button
+                className={activeTab === "settings" ? "active" : ""}
+                onClick={() => handleNavClick("settings")}
+                title="Configuración"
+              >
+                <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
+                <span className="nav-text">Configuración</span>
+              </button>
 
               <div className="sidebar-footer">
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
@@ -237,6 +275,8 @@ export default function Editor() {
               <StoreEditor />
             ) : activeTab === "stock" ? (
               <StockManager />
+            ) : activeTab === "settings" ? (
+              <AdminSettings />
             ) : (
               <ProductManager />
             )}
