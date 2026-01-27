@@ -109,7 +109,7 @@ export default function Checkout() {
           // CASO 2: Normal / Variante
           else {
             let variantName = "";
-            const match = item.name.match(/\(([^)]+)\)$/);
+            const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
             if (match) variantName = match[1];
 
             if (variantName && productData.variants) {
