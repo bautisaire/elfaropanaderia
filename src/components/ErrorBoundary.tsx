@@ -1,5 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
-import "./index.css"; // Ensure styles are available
+import { Component, ErrorInfo, ReactNode } from "react";
+import "../index.css"; // Ensure styles are available
 
 interface Props {
     children: ReactNode;
