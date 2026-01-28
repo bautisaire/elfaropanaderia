@@ -3,7 +3,9 @@ import { FaBell, FaCheck, FaTimes } from "react-icons/fa";
 
 export default function AdminSettings() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-    const [permissionStatus, setPermissionStatus] = useState(Notification.permission);
+    const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
+        typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    );
 
     useEffect(() => {
         const stored = localStorage.getItem('admin_order_alerts_enabled');
@@ -13,16 +15,24 @@ export default function AdminSettings() {
     const toggleNotifications = async () => {
         if (!notificationsEnabled) {
             // Enable
-            const result = await Notification.requestPermission();
-            setPermissionStatus(result);
-            if (result === 'granted') {
-                setNotificationsEnabled(true);
-                localStorage.setItem('admin_order_alerts_enabled', 'true');
-                new Notification("Alertas Activadas", {
-                    body: "Recibirás notificaciones cuando lleguen nuevos pedidos."
-                });
-            } else {
-                alert("Debes dar permisos de notificación en el navegador.");
+            if (typeof Notification === 'undefined') {
+                alert("Este navegador no soporta notificaciones.");
+                return;
+            }
+            try {
+                const result = await Notification.requestPermission();
+                setPermissionStatus(result);
+                if (result === 'granted') {
+                    setNotificationsEnabled(true);
+                    localStorage.setItem('admin_order_alerts_enabled', 'true');
+                    new Notification("Alertas Activadas", {
+                        body: "Recibirás notificaciones cuando lleguen nuevos pedidos."
+                    });
+                } else {
+                    alert("Debes dar permisos de notificación en el navegador.");
+                }
+            } catch (error) {
+                console.error("Error requesting notification permission:", error);
             }
         } else {
             // Disable

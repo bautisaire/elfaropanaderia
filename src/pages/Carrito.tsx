@@ -33,14 +33,21 @@ export default function Carrito() {
     metodoPago: "efectivo", // 'efectivo', 'transferencia', 'mercadopago'
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [notificationPermission, setNotificationPermission] = useState(Notification.permission);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  );
 
   const requestNotificationPermission = async () => {
+    if (typeof Notification === 'undefined') {
+      alert("Tu navegador no soporta notificaciones.");
+      return;
+    }
     const result = await Notification.requestPermission();
     setNotificationPermission(result);
-    if (result === 'granted') {
+    if (result === "granted") {
       new Notification("Notificaciones activadas", {
-        body: "Te avisaremos cuando cambie el estado de tu pedido."
+        body: "Te avisaremos cuando tu pedido esté listo.",
+        icon: "/logo192.png",
       });
     }
   };

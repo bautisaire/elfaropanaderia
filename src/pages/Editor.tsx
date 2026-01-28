@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog } from "react-icons/fa";
+import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMoneyBillWave } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
 import StockManager from "../components/StockManager";
@@ -12,6 +12,7 @@ import Dashboard from "../components/Dashboard";
 import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
 import AdminSettings from "../components/AdminSettings";
+import ExpenseManager from "../components/ExpenseManager";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -19,7 +20,7 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor" | "settings">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor" | "settings" | "expenses">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
   const navigate = useNavigate();
@@ -86,7 +87,8 @@ export default function Editor() {
           // Actually Firestore 'added' on active listener implies new/current.
 
           const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
-          if (alertsEnabled && Notification.permission === "granted") {
+          const notificationSupported = typeof Notification !== 'undefined';
+          if (alertsEnabled && notificationSupported && Notification.permission === "granted") {
             console.log("🔔 Nueva orden detectada:", newOrder);
             const orderId = change.doc.id.slice(-6).toUpperCase();
             new Notification(`¡Nuevo Pedido! #${orderId}`, {
@@ -209,6 +211,14 @@ export default function Editor() {
                 <span className="nav-text">Punto de Venta</span>
               </button>
               <button
+                className={activeTab === "expenses" ? "active" : ""}
+                onClick={() => handleNavClick("expenses")}
+                title="Gastos / Materia Prima"
+              >
+                <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaMoneyBillWave /></div>
+                <span className="nav-text">Gastos / Materia Prima</span>
+              </button>
+              <button
                 className={activeTab === "products" ? "active" : ""}
                 onClick={() => handleNavClick("products")}
                 title="Productos"
@@ -278,6 +288,8 @@ export default function Editor() {
               <StockManager />
             ) : activeTab === "settings" ? (
               <AdminSettings />
+            ) : activeTab === "expenses" ? (
+              <ExpenseManager />
             ) : (
               <ProductManager />
             )}
