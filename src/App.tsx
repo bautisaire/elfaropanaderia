@@ -9,6 +9,7 @@ import Footer from "./components/Footer";
 import Editor from "./pages/Editor";
 import Proximamente from "./pages/Proximamente";
 import MyOrders from "./pages/MyOrders";
+import DebugConsole from "./components/DebugConsole";
 
 function Layout() {
   const location = useLocation();
@@ -22,6 +23,9 @@ function Layout() {
       {!isEditor && !isStoreOpen && !isStoreClosedDismissed && (
         <div className="lights-off-overlay"></div>
       )}
+
+      {/* Admin Debug Console */}
+      <DebugConsole />
 
       {!isEditor && <Header />}
       <div style={{ flex: 1 }}>
