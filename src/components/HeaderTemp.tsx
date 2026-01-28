@@ -34,10 +34,15 @@ export default function Header() {
       unsubscribers = [];
       setOrderStatuses({});
 
-      const storedIds = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
-      const validIds = storedIds
-        .map((item: any) => typeof item === 'object' ? (item.id || item.orderId) : item)
-        .filter((id: any) => id);
+      let validIds: any[] = [];
+      try {
+        const storedIds = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+        validIds = storedIds
+          .map((item: any) => typeof item === 'object' ? (item.id || item.orderId) : item)
+          .filter((id: any) => id);
+      } catch (e) {
+        console.warn("Error accessing localStorage for orders:", e);
+      }
 
       if (validIds.length === 0) return;
 
