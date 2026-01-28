@@ -13,7 +13,7 @@
 
 .summary-pill {
     background: white;
-    padding: 8px 16px;
+    padding: 4px 8px;
     border-radius: 20px;
     font-size: 0.9rem;
     color: #4b5563;
@@ -30,9 +30,7 @@
 /* Orders Grid */
 .orders-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 24px;
-    padding-bottom: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 /* Order Card */
@@ -45,7 +43,6 @@
 }
 
 .order-card:hover {
-    transform: translateY(-3px);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
@@ -74,7 +71,7 @@
 /* Header */
 .order-card-header {
     background: #f9fafb;
-    padding: 16px;
+    padding: 8px;
     border-bottom: 1px solid #e5e7eb;
     display: flex;
     justify-content: space-between;
@@ -84,7 +81,6 @@
 .order-meta {
     display: flex;
     flex-direction: column;
-    gap: 4px;
 }
 
 .order-id {
@@ -165,7 +161,6 @@
     /* Divide body */
     display: flex;
     flex-direction: column;
-    gap: 16px;
     flex: 1;
 }
 
@@ -187,7 +182,7 @@
     font-size: 0.9rem;
     color: #374151;
     display: flex;
-    gap: 8px;
+    gap: 4px;
     align-items: flex-start;
 }
 

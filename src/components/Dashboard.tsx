@@ -6,6 +6,7 @@ import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
 import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus } from "react-icons/fa";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 registerLocale('es', es);
 
@@ -42,6 +43,12 @@ export default function Dashboard() {
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
     const [productData, setProductData] = useState<Map<string, any>>(new Map());
+
+    // Chart Data State
+    const [salesTrendData, setSalesTrendData] = useState<any[]>([]);
+    const [salesSourceData, setSalesSourceData] = useState<any[]>([]);
+
+    const COLORS = ['#8b5cf6', '#10b981', '#3b82f6']; // Despensa, Publico, Delivery
 
     // Helpers for Timezone (Argentina)
     const getArgentinaDate = (date: Date) => {
@@ -283,6 +290,77 @@ export default function Dashboard() {
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
 
+        // --- Chart Data Processing ---
+
+        // 1. Sales Trend Data
+        const trendMap = new Map<string, number>();
+
+        // Initialize Trend Map with 0s based on timeframe
+        if (timeframe === 'day') {
+            for (let i = 0; i < 24; i++) {
+                const hour = i.toString().padStart(2, '0');
+                trendMap.set(`${hour}:00`, 0);
+            }
+        } else if (timeframe === 'week') {
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            // Reorder to start with Monday if desired, or keep Sunday first. 
+            // Let's adhere to standard JS getDay() for simplicity but maybe sort later.
+            // Actually, for "This Week", it usually means current week.
+            days.forEach(d => trendMap.set(d, 0));
+        } else if (timeframe === 'month') {
+            // Initialize days 1-31 (or max days in month? keeping simple 1-31 for now or dynamic)
+            // A better way is to iterate from start of month to end.
+            // For simplicity, we will just fill keys as we encounter them or pre-fill valid dates if possible.
+            // Let's only fill what we have for month/custom to avoid large empty gaps if not needed.
+            // Or ideally, fill range.
+        }
+
+        filteredOrders.forEach(order => {
+            const amount = Number(order.total) || 0;
+            const d = order.dateTyped as Date;
+            const dArg = getArgentinaDate(d);
+
+            let key = '';
+            if (timeframe === 'day') {
+                const hour = dArg.getHours().toString().padStart(2, '0');
+                key = `${hour}:00`;
+            } else if (timeframe === 'week') {
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                key = days[dArg.getDay()];
+            } else {
+                // Month or Custom
+                key = `${dArg.getDate().toString().padStart(2, '0')}/${(dArg.getMonth() + 1).toString().padStart(2, '0')}`;
+            }
+
+            const currentVal = trendMap.get(key) || 0;
+            trendMap.set(key, currentVal + amount);
+        });
+
+        const trendData = Array.from(trendMap.entries()).map(([name, total]) => ({ name, total }));
+
+        // Sort for Month/Custom to ensure chronological order
+        if (timeframe === 'month' || timeframe === 'custom') {
+            trendData.sort((a, b) => {
+                const [da, ma] = a.name.split('/').map(Number);
+                const [db, mb] = b.name.split('/').map(Number);
+                return (ma - mb) || (da - db);
+            });
+        }
+        // week sort? (Mon-Sun generally expected)
+        if (timeframe === 'week') {
+            const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7 };
+            trendData.sort((a, b) => (dayOrder[a.name as keyof typeof dayOrder] || 0) - (dayOrder[b.name as keyof typeof dayOrder] || 0));
+        }
+
+        setSalesTrendData(trendData);
+
+        // 2. Sales Source Data
+        setSalesSourceData([
+            { name: 'Despensa', value: despensa },
+            { name: 'Público', value: publico },
+            { name: 'Delivery', value: delivery }
+        ].filter(d => d.value > 0));
+
     }, [rawOrders, timeframe, productData, customRange]);
 
     const handleCustomDateChange = (dates: [Date | null, Date | null]) => {
@@ -420,6 +498,76 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Visitas Web</h3>
                         <p>{stats.visits.toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className="charts-section" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                <div className="chart-container" style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <h3 style={{ marginBottom: '20px' }}>Tendencia de Ventas</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <AreaChart data={salesTrendData}>
+                                <defs>
+                                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                <XAxis
+                                    dataKey="name"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                                    tickFormatter={(value) => `$${value}`}
+                                />
+                                <Tooltip
+                                    formatter={(value: number | undefined) => [`$${(value || 0).toLocaleString('es-AR')}`, 'Ventas']}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="total"
+                                    stroke="#8b5cf6"
+                                    fillOpacity={1}
+                                    fill="url(#colorTotal)"
+                                    strokeWidth={3}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="chart-container" style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <h3 style={{ marginBottom: '20px' }}>Ventas por Origen</h3>
+                    <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie
+                                    data={salesSourceData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {salesSourceData.map((_entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip formatter={(value: number | undefined) => `$${(value || 0).toLocaleString('es-AR')}`} />
+                                <Legend verticalAlign="bottom" height={36} />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </div>

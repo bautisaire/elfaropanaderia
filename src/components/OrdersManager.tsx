@@ -49,6 +49,9 @@ export default function OrdersManager() {
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
 
+    // New Tab State
+    const [activeTab, setActiveTab] = useState<'pos' | 'web'>('pos');
+
     useEffect(() => {
         fetchOrders();
     }, []);
@@ -560,8 +563,8 @@ export default function OrdersManager() {
         <div className="product-manager-container">
             <div className="pm-header">
                 <div>
-                    <h2>Gestión de Pedidos</h2>
-                    <p>Administra y actualiza el estado de los pedidos recibidos.</p>
+                    <h2>Gestión de Ventas</h2>
+                    <p>Administra tus ventas locales y pedidos web.</p>
                 </div>
             </div>
 
@@ -580,7 +583,44 @@ export default function OrdersManager() {
                     </div>
 
                     <div className="orders-grid">
-                        {orders.map((order) => {
+                        {/* Tab Selector */}
+                        <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                            <button
+                                className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('pos')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: activeTab === 'pos' ? '#10b981' : '#f3f4f6',
+                                    color: activeTab === 'pos' ? 'white' : '#4b5563',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Ventas POS
+                            </button>
+                            <button
+                                className={`tab-btn ${activeTab === 'web' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('web')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: activeTab === 'web' ? '#3b82f6' : '#f3f4f6',
+                                    color: activeTab === 'web' ? 'white' : '#4b5563',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Pedidos Web
+                            </button>
+                        </div>
+
+                        {orders.filter(order => {
+                            const isPos = order.source === 'pos' || order.source === 'pos_public' || order.source === 'pos_wholesale';
+                            return activeTab === 'pos' ? isPos : !isPos;
+                        }).map((order) => {
                             const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
                             const dateStr = order.date?.seconds
                                 ? new Date(order.date.seconds * 1000).toLocaleString('es-AR', {
@@ -651,26 +691,35 @@ export default function OrdersManager() {
                                     {/* Card Body */}
                                     <div className="order-card-body">
                                         {/* Client Info */}
-                                        <div className="order-section client-section">
-                                            <h5><FaUser /> Datos del Cliente</h5>
-                                            <div className="info-row">
-                                                <strong>{order.cliente.nombre}</strong>
-                                            </div>
-                                            <div className="info-row">
-                                                <FaMapMarkerAlt className="icon-muted" /> {order.cliente.direccion}
-                                            </div>
-                                            <div className="info-row">
-                                                <FaPhone className="icon-muted" /> {order.cliente.telefono}
-                                            </div>
-                                            <div className="info-row">
-                                                <FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}
-                                            </div>
-                                            {order.cliente.indicaciones && (
-                                                <div className="order-note">
-                                                    "{order.cliente.indicaciones}"
+                                        {/* Client Info - Conditional */}
+                                        {activeTab === 'web' ? (
+                                            <div className="order-section client-section">
+                                                <h5><FaUser /> Datos del Cliente</h5>
+                                                <div className="info-row">
+                                                    <strong>{order.cliente.nombre}</strong>
                                                 </div>
-                                            )}
-                                        </div>
+                                                <div className="info-row">
+                                                    <FaMapMarkerAlt className="icon-muted" /> {order.cliente.direccion}
+                                                </div>
+                                                <div className="info-row">
+                                                    <FaPhone className="icon-muted" /> {order.cliente.telefono}
+                                                </div>
+                                                <div className="info-row">
+                                                    <FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}
+                                                </div>
+                                                {order.cliente.indicaciones && (
+                                                    <div className="order-note">
+                                                        "{order.cliente.indicaciones}"
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="order-section client-section" style={{ paddingBottom: '0' }}>
+                                                <div className="info-row">
+                                                    <FaCreditCard className="icon-muted" /> <strong>{order.cliente.metodoPago}</strong>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Items Info */}
                                         <div className="order-section items-section">

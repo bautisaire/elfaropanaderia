@@ -83,20 +83,31 @@ export default function Editor() {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const newOrder = change.doc.data();
-          // Only notify if it's a recent order (e.g. created in last 5 mins) to avoid spam on reconnect? 
-          // Actually Firestore 'added' on active listener implies new/current.
+          const isPos = newOrder.source === 'pos' || newOrder.source === 'pos_public' || newOrder.source === 'pos_wholesale';
+
+          // Skip if source is POS (internal sales don't need alerts)
+          if (isPos) return;
 
           const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
           const notificationSupported = typeof Notification !== 'undefined';
+
           if (alertsEnabled && notificationSupported && Notification.permission === "granted") {
             console.log("🔔 Nueva orden detectada:", newOrder);
             const orderId = change.doc.id.slice(-6).toUpperCase();
-            new Notification(`¡Nuevo Pedido! #${orderId}`, {
+
+            const notification = new Notification(`¡Nuevo Pedido Web! #${orderId}`, {
               body: `Total: $${newOrder.total} - ${newOrder.cliente?.nombre || 'Cliente'}`,
-              tag: change.doc.id // prevent duplicates
+              tag: change.doc.id, // prevent duplicates
+              icon: '/logo192.png' // Optional: path to favicon/logo if available
             });
+
+            notification.onclick = () => {
+              window.focus();
+              setActiveTab('orders');
+              notification.close();
+            };
+
             console.log("🔔 Notificación enviada");
-            // Optional: Play sound?
           }
         }
       });
@@ -240,7 +251,7 @@ export default function Editor() {
                 title="Pedidos"
               >
                 <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
-                <span className="nav-text">Pedidos</span>
+                <span className="nav-text">Ventas</span>
                 {pendingOrdersCount > 0 && (
                   <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
                 )}

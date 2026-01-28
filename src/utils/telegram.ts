@@ -35,13 +35,15 @@ ${itemsList}
     const clientMessage = `
  ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
 
-📝 *Resumen:*
+ *Resumen:*
 ${itemsList}
 
 💵 *Total:* $${Math.floor(total)}
 📍 *Dirección de entrega:* ${cliente.direccion}
 
-🛵 ¡Ya lo estamos preparando! Te avisamos cuando salga.
+🛵 ¡Ya lo estamos preparando! 
+
+    https://www.elfaropanificacion.com
   `.trim();
 
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
