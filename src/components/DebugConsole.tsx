@@ -15,7 +15,7 @@ declare global {
 export default function DebugConsole() {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
+            if (user && user.email === 'sairebautista@gmail.com') {
                 // User is admin, load vConsole if not already loaded
                 if (!window.vConsole) {
                     const script = document.createElement("script");

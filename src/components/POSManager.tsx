@@ -11,6 +11,7 @@ import StockAdjustmentModal from './StockAdjustmentModal';
 interface Product {
     id: string;
     nombre: string;
+    shortId?: string;
     precio: number;
     categoria: string;
     img?: string;
@@ -61,6 +62,10 @@ export default function POSManager() {
     const [inputMode, setInputMode] = useState<'weight' | 'price'>('weight'); // 'weight' or 'price'
     const [priceMode, setPriceMode] = useState<'public' | 'wholesale'>('public'); // Pricing mode
 
+    // Quantity Modal for Short ID (Unit products)
+    const [quantityModalOpen, setQuantityModalOpen] = useState(false);
+    const [quantityInput, setQuantityInput] = useState("");
+
     // Cart Visibility (Mobile: Toggle View, Desktop: Slider)
     const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -72,31 +77,142 @@ export default function POSManager() {
     });
 
     // Stock Adjustment Modal in POS
-    // Stock Adjustment Modal in POS
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
     const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
 
+    // Short ID Input Buffer
+    // Short ID Input Buffer
+    const [inputBuffer, setInputBuffer] = useState("");
+    const [showBuffer, setShowBuffer] = useState(false);
+    const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const quantityInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            // Ignorar si el foco ya está en un input
+            // Handle Escape ALWAYS (Priority handling)
+            if (e.key === 'Escape') {
+                // 1. Close Quantity Modal
+                if (quantityModalOpen) {
+                    setQuantityModalOpen(false);
+                    setPendingProduct(null);
+                    return;
+                }
+
+                // 2. Close Stock Modal
+                if (isStockModalOpen) {
+                    setIsStockModalOpen(false);
+                    return;
+                }
+
+                // 3. Close Generic Modal
+                if (modalConfig.isOpen) {
+                    closeModal();
+                    return;
+                }
+
+                // 4. Close Cart
+                if (isCartOpen) {
+                    setIsCartOpen(false);
+                    return;
+                }
+
+                // 5. Blur Search Input
+                if (document.activeElement === searchInputRef.current) {
+                    searchInputRef.current?.blur();
+                    return;
+                }
+
+                // 6. Clear Short ID Buffer
+                if (inputBuffer.length > 0) {
+                    setInputBuffer("");
+                    setShowBuffer(false);
+                    return;
+                }
+
+                return;
+            }
+
+            // Handle Cart Navigation (If Cart is Open)
+            if (isCartOpen) {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    const methods: ("Efectivo" | "Tarjeta" | "Transferencia")[] = ['Efectivo', 'Tarjeta', 'Transferencia'];
+                    const currentIndex = methods.indexOf(paymentMethod);
+                    let newIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+                    if (newIndex >= methods.length) newIndex = 0;
+                    if (newIndex < 0) newIndex = methods.length - 1;
+                    setPaymentMethod(methods[newIndex]);
+                    return;
+                }
+
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (cart.length > 0 && !processing) {
+                        // handleCheckout(); // Assuming handleCheckout exists elsewhere
+                    }
+                    return;
+                }
+            }
+
+            // Ignorar si el foco ya está en un input (para otras teclas)
             const tag = document.activeElement?.tagName.toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
             // Ignorar si hay modales abiertos
-            if (weightModalOpen || isStockModalOpen || modalConfig.isOpen) return;
+            if (weightModalOpen || isStockModalOpen || modalConfig.isOpen || quantityModalOpen) return;
 
-            // Detectar letras/números (length 1) - ignorar teclas especiales
-            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            // Handle Numeric Input for Short ID
+            if (/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+                setInputBuffer(prev => prev + e.key);
+                setShowBuffer(true);
+
+                // Reset inactivity timer
+                if (inputTimeoutRef.current) clearTimeout(inputTimeoutRef.current);
+                inputTimeoutRef.current = setTimeout(() => {
+                    setShowBuffer(false);
+                    // Optional: Clear buffer on timeout? Or keep until enter?
+                    // User said "001 and enter". So keep it. Just hide overlay maybe?
+                    // Let's keep overlay visible while typing.
+                }, 3000);
+                return;
+            }
+
+            // Handle Backspace
+            if (e.key === 'Backspace') {
+                if (inputBuffer.length > 0) {
+                    setInputBuffer(prev => prev.slice(0, -1));
+                    if (inputBuffer.length <= 1) setShowBuffer(false);
+                }
+                return;
+            }
+
+            // Handle Enter (Submit Code OR Open Cart)
+            if (e.key === 'Enter') {
+                if (inputBuffer.length > 0) {
+                    processShortId(inputBuffer);
+                    setInputBuffer("");
+                    setShowBuffer(false);
+                } else {
+                    // Open Cart if idle
+                    setIsCartOpen(true);
+                    searchInputRef.current?.blur();
+                }
+                return;
+            }
+
+            // Detectar letras (para búsqueda normal) - ignorar teclas especiales
+            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && !/^[0-9]$/.test(e.key)) {
                 searchInputRef.current?.focus();
             }
         };
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [weightModalOpen, isStockModalOpen, modalConfig.isOpen]);
+    }, [weightModalOpen, isStockModalOpen, modalConfig.isOpen, quantityModalOpen, inputBuffer, products, isCartOpen]);
 
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -139,8 +255,82 @@ export default function POSManager() {
 
     useEffect(() => {
         fetchProducts();
-        // fetchCategories(); // Assuming this function exists elsewhere or needs to be called.
     }, []);
+
+    const processShortId = (code: string) => {
+        const product = products.find(p => p.shortId === code);
+        if (product) {
+            // Check availability - logic mirror from addToCart
+            const currentStock = product.stockQuantity || 0;
+
+            if (currentStock <= 0) {
+                setStockModalProduct(product);
+                setIsStockModalOpen(true);
+                // Optional warn user? User requested direct open.
+                return;
+            }
+
+            // If unit type is weight, addToCart handles it (opens weight modal)
+            if (product.unitType === 'weight') {
+                addToCart(product);
+                return;
+            }
+
+            // If unit type is 'unit', open Quantity Modal
+            setPendingProduct({ product });
+            setQuantityInput(""); // Start empty or "1"? User said "put a number". Empty might be better to type "12" directly without deleting "1".
+            setQuantityModalOpen(true);
+            setTimeout(() => {
+                if (quantityInputRef.current) quantityInputRef.current.focus();
+            }, 100);
+
+        } else {
+            showModal('error', 'Código no encontrado', `No existe producto con código "${code}"`);
+        }
+    };
+
+    const confirmQuantity = () => {
+        if (!pendingProduct || !quantityInput) return;
+        const qty = parseInt(quantityInput);
+        if (isNaN(qty) || qty <= 0) return;
+
+        const { product } = pendingProduct;
+
+        // Add to cart with specific quantity
+        // addToCart adds 1 or increments. We need a way to add N.
+        // We can call addToCart N times or modify addToCart to accept qty.
+        // Better: modify logic here to be safe and simple:
+
+        setCart(prev => {
+            // Re-check stock just in case
+            const maxStock = product.stockQuantity || 0;
+            const existing = prev.find(item => item.id === product.id && !item.selectedVariant); // Assuming no variant for short ID unit products for now, or handle later. Short ID usually specific.
+
+            const currentQty = existing ? existing.quantity : 0;
+
+            if (currentQty + qty > maxStock) {
+                handleStockError(product, `No hay suficiente stock. Solicitado: ${currentQty + qty}, Disponible: ${maxStock}`);
+                return prev;
+            }
+
+            const priceToUse = priceMode === 'wholesale'
+                ? (product.wholesalePrice || product.precio)
+                : product.precio;
+
+            if (existing) {
+                return prev.map(item =>
+                    item.id === product.id && !item.selectedVariant
+                        ? { ...item, quantity: item.quantity + qty }
+                        : item
+                );
+            }
+            return [...prev, { ...product, quantity: qty, selectedVariant: undefined, precio: priceToUse }];
+        });
+
+        setQuantityModalOpen(false);
+        setPendingProduct(null);
+        setQuantityInput("");
+    };
 
     const fetchProducts = async () => {
         setLoading(true);
@@ -731,6 +921,65 @@ export default function POSManager() {
             >
                 {modalConfig.content}
             </POSModal>
+
+            {/* Short ID visual feedback */}
+            {showBuffer && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '100px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    color: 'white',
+                    padding: '20px 40px',
+                    borderRadius: '12px',
+                    fontSize: '2rem',
+                    fontWeight: 'bold',
+                    zIndex: 9999,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    pointerEvents: 'none'
+                }}>
+                    <span style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.7, marginBottom: '5px' }}>Código Rápido</span>
+                    <span>{inputBuffer}</span>
+                </div>
+            )}
+
+            {/* Quantity Input Modal for Short ID */}
+            {
+                quantityModalOpen && (
+                    <div className="pos-modal-overlay">
+                        <div className="pos-modal">
+                            <h3>Cantidad</h3>
+                            {pendingProduct && <h4 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal' }}>{pendingProduct.product.nombre}</h4>}
+                            <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                                <input
+                                    ref={quantityInputRef}
+                                    type="number"
+                                    placeholder="Cantidad"
+                                    value={quantityInput}
+                                    className="pos-input"
+                                    style={{ fontSize: '2rem', textAlign: 'center', width: '200px' }}
+                                    onChange={(e) => setQuantityInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') confirmQuantity();
+                                        if (e.key === 'Escape') {
+                                            setQuantityModalOpen(false);
+                                            setPendingProduct(null);
+                                        }
+                                    }}
+                                />
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                    <button className="btn-confirm" onClick={confirmQuantity}>Confirmar</button>
+                                    <button className="btn-cancel" onClick={() => { setQuantityModalOpen(false); setPendingProduct(null); }}>Cancelar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Weight Input Modal */}
             {

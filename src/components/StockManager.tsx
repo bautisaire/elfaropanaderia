@@ -10,6 +10,7 @@ import StockAdjustmentModal from './StockAdjustmentModal';
 interface Product {
     id: string;
     nombre: string;
+    shortId?: string;
     stockQuantity?: number;
     stockDependency?: any;
     unitType?: 'unit' | 'weight';

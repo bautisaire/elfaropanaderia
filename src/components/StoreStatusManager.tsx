@@ -6,6 +6,7 @@ import { FaStore, FaClock, FaCheckCircle, FaExclamationCircle } from "react-icon
 
 export default function StoreStatusManager() {
     const [minPurchase, setMinPurchase] = useState<number>(0);
+    const [shippingCost, setShippingCost] = useState<number>(0);
     const [isOpen, setIsOpen] = useState<boolean>(true);
     const [closeMessage, setCloseMessage] = useState<string>("Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
     const [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export default function StoreStatusManager() {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     setMinPurchase(data.minPurchase || 0);
+                    setShippingCost(data.shippingCost || 0);
                     setIsOpen(data.isOpen !== undefined ? data.isOpen : true);
                     setCloseMessage(data.closeMessage || "");
                 }
@@ -33,6 +35,7 @@ export default function StoreStatusManager() {
         try {
             await setDoc(doc(db, "config", "store_settings"), {
                 minPurchase: Number(minPurchase),
+                shippingCost: Number(shippingCost),
                 isOpen: isOpen,
                 closeMessage: closeMessage
             }, { merge: true });
@@ -109,6 +112,16 @@ export default function StoreStatusManager() {
                         placeholder="0"
                     />
                     <small>Los clientes no podrán finalizar la compra si el total es menor a este monto.</small>
+                </div>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                    <label>Costo de Envío ($)</label>
+                    <input
+                        type="number"
+                        value={shippingCost}
+                        onChange={(e) => setShippingCost(Number(e.target.value))}
+                        placeholder="0"
+                    />
+                    <small>Este monto se sumará automáticamente al total del pedido en el checkout.</small>
                 </div>
             </div>
 

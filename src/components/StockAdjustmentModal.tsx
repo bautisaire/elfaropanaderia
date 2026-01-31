@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
-import { FaPlus, FaMinus } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import './StockAdjustmentModal.css';
 
 interface Product {
     id: string;
     nombre: string;
+    shortId?: string;
     stockQuantity?: number;
     stockDependency?: any;
     unitType?: 'unit' | 'weight';
@@ -36,6 +37,8 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
     const [observation, setObservation] = useState<string>('');
     const [showObservation, setShowObservation] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
     const reasonsOut = ["Venta Local", "Merma/Desperdicio", "Consumo Interno", "Ajuste de Inventario", "Vencimiento"];
@@ -54,7 +57,11 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
             setReason('Elaboración');
             setObservation('');
             setShowObservation(false);
+            setObservation('');
+            setShowObservation(false);
             setIsSubmitting(false);
+            setShowSuccess(false);
+            setErrorMessage(null);
         }
     }, [isOpen, product]);
 
@@ -83,8 +90,9 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
 
         /* Allow negative stock for adjustments? Usually we warn but let's prevent full block if user insists.
            However, user prompt said "El stock no puede ser negativo" in original logic. */
+
         if (newStock < 0) {
-            alert("El stock no puede ser negativo.");
+            setErrorMessage("El stock no puede ser negativo.");
             setIsSubmitting(false);
             return;
         }
@@ -110,12 +118,19 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                 date: new Date()
             });
 
-            alert("Stock actualizado correctamente.");
+
+
+            setShowSuccess(true);
             if (onSuccess) onSuccess();
-            onClose();
+
+            // Auto close after 1.5s
+            setTimeout(() => {
+                onClose();
+            }, 1500);
+
         } catch (error) {
             console.error("Error saving stock adjustment:", error);
-            alert("Error al actualizar stock.");
+            setErrorMessage("Error al actualizar stock.");
         } finally {
             setIsSubmitting(false);
         }
@@ -123,12 +138,33 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
 
     if (!isOpen || !product) return null;
 
+    if (showSuccess) {
+        return (
+            <div className="stock-modal-overlay">
+                <div className="stock-modal" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'auto', minHeight: '300px', padding: '20px' }}>
+                    <div style={{ color: '#10b981', marginBottom: '20px' }}>
+                        <FaCheckCircle size={60} />
+                    </div>
+                    <h3 style={{ border: 'none', marginBottom: '10px' }}>¡Stock Actualizado!</h3>
+                    <p style={{ color: '#6b7280', textAlign: 'center' }}>El movimiento se ha registrado correctamente.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="stock-modal-overlay" onClick={onClose}>
             <div className="stock-modal" onClick={e => e.stopPropagation()}>
                 <h3>Ajustar Stock: {product.nombre}</h3>
 
                 <div className="stock-modal-form">
+                    {errorMessage && (
+                        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '10px', borderRadius: '6px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FaExclamationTriangle />
+                            {errorMessage}
+                        </div>
+                    )}
+
                     {product.variants && product.variants.length > 0 && (
                         <div className="stock-form-group">
                             <label>Seleccionar Variante</label>

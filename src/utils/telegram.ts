@@ -17,9 +17,7 @@ export const sendTelegramNotification = async (orderData: any) => {
 
     // Mensaje 1: Para el comercio (Datos copiables)
     const adminMessage = `
-📦 *NUEVO PEDIDO RECIBIDO* 📦
-
-👤 *Cliente:* ${cliente.nombre}
+¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
 📍 *Dirección:* [${cliente.direccion}](${mapLink})
 📞 *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
 💰 *Método de Pago:* ${cliente.metodoPago}
@@ -29,22 +27,17 @@ export const sendTelegramNotification = async (orderData: any) => {
 ${itemsList}
 
 💵 *Total:* $${Math.floor(total)}
-  `.trim();
-
-    // Mensaje 2: Plantilla para enviar al cliente
-    const clientMessage = `
- ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
-
- *Resumen:*
-${itemsList}
-
-💵 *Total:* $${Math.floor(total)}
-📍 *Dirección de entrega:* ${cliente.direccion}
-
 🛵 ¡Ya lo estamos preparando! 
+${(cliente.metodoPago === 'transferencia' || cliente.metodoPago === 'transfer') ? `
+🏦 *Datos de Transferencia:*
+ALIAS: \`elfaro80.mp\`
+CVU: \`0000003100006832823516\`
+_Puedes abonar ahora o esperar al repartidor._` : ''}
 
     https://www.elfaropanificacion.com
   `.trim();
+
+
 
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
@@ -74,5 +67,4 @@ ${itemsList}
 
     // Enviar ambos mensajes a todos los destinatarios
     await sendMessageToAll(adminMessage);
-    await sendMessageToAll(clientMessage);
 };

@@ -1,17 +1,55 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, doc, runTransaction } from "firebase/firestore";
+import { collection, doc, runTransaction, onSnapshot, DocumentSnapshot } from "firebase/firestore";
 import { syncChildProducts } from "../utils/stockUtils"; // Import Syncer
 
 export default function Checkout() {
   /* New Stock System imports are assumed at top */
   const { cart, total, clearCart, isAdmin } = useContext(CartContext);
-  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "">("");
+  const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "transferencia" | "">("");
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [finalTotal, setFinalTotal] = useState<number>(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    showToast(`${label} copiado!`);
+  };
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "store_settings"), (docSnap: DocumentSnapshot) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        console.log("Configuración actualizada (tiempo real):", data);
+        const cost = Number(data?.shippingCost) || 0;
+        setShippingCost(cost);
+      } else {
+        console.log("No existe el documento config/store_settings");
+        setShippingCost(0);
+      }
+    }, (error: any) => {
+      console.error("Error escuchando configuración:", error);
+    });
+
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const numericTotal = Number(total) || 0;
+    const numericShipping = Number(shippingCost) || 0;
+    console.log(`Recalculando total: Subtotal=${numericTotal}, Envío=${numericShipping}`);
+    setFinalTotal(numericTotal + numericShipping);
+  }, [total, shippingCost]);
 
   /* New Stock System: Import Firestore functions */
   /* Note: Assuming imports are added at the top. I will add them in a separate chunk or rely on auto-imports if possible, but safer to do it manually. */
@@ -181,10 +219,23 @@ export default function Checkout() {
 
       // 3. Crear Orden en Firestore (Directamente)
       const orderRef = doc(collection(db, "orders"));
+
+      const finalItems = [...cart];
+      if (shippingCost > 0) {
+        finalItems.push({
+          id: 'shipping-cost',
+          name: 'Envío',
+          price: shippingCost,
+          quantity: 1,
+          image: '', // No image for shipping
+          stock: true
+        });
+      }
+
       const orderData = {
         id: orderRef.id, // Guardamos el ID dentro del documento también
-        items: cart,
-        total,
+        items: finalItems,
+        total: finalTotal,
         paymentMethod,
         source: 'online',
         status: 'pendiente',
@@ -197,8 +248,8 @@ export default function Checkout() {
           t.set(orderRef, orderData);
         });
 
-        // Si es efectivo, finalizamos
-        if (paymentMethod === 'efectivo') {
+        // Si es efectivo o transferencia, finalizamos
+        if (paymentMethod === 'efectivo' || paymentMethod === 'transferencia') {
           setConfirmedOrder(orderData);
           clearCart();
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -218,7 +269,7 @@ export default function Checkout() {
           const response = await fetch("https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: cart, orderId: orderRef.id }),
+            body: JSON.stringify({ items: finalItems, orderId: orderRef.id }),
           });
 
           if (!response.ok) throw new Error("Error al iniciar pago con Mercado Pago");
@@ -253,8 +304,9 @@ export default function Checkout() {
   };
 
   if (confirmedOrder) {
-    const message = `Hola Panadería El Faro! 🥖\nHe realizado un nuevo ${confirmedOrder.paymentMethod === 'efectivo' ? 'pedido para pagar en efectivo' : 'pedido'} (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${confirmedOrder.total}`;
-    const whatsappUrl = `https://wa.me/5491112345678?text=${encodeURIComponent(message)}`; // Reemplazar con número real
+    const paymentLabel = confirmedOrder.paymentMethod === 'efectivo' ? 'pedido para pagar en efectivo' : (confirmedOrder.paymentMethod === 'transferencia' ? 'pedido con transferencia' : 'pedido');
+    const message = `Hola Panadería El Faro! 🥖\nHe realizado un nuevo ${paymentLabel} (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${confirmedOrder.total}`;
+    const whatsappUrl = `https://wa.me/5492995206821?text=${encodeURIComponent(message)}`;
 
     return (
       <div className="checkout-success-container">
@@ -283,8 +335,44 @@ export default function Checkout() {
             <span>${confirmedOrder.total}</span>
           </div>
           <div className="payment-info">
-            Método: {confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : 'Efectivo'}
+            Método: {confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo')}
           </div>
+
+          {confirmedOrder.paymentMethod === 'transferencia' && (
+            <div className="transfer-details-card" style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+              <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#495057' }}>
+                Puedes abonar ahora o esperar al repartidor.
+              </p>
+
+              <div style={{ marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>ALIAS</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>elfaro80.mp</code>
+                  <button
+                    onClick={() => handleCopy("elfaro80.mp", "Alias")}
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
+                    title="Copiar Alias"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>CVU</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>0000003100006832823516</code>
+                  <button
+                    onClick={() => handleCopy("0000003100006832823516", "CVU")}
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
+                    title="Copiar CVU"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="success-actions">
@@ -322,9 +410,15 @@ export default function Checkout() {
                 <span>${item.price * (item.quantity || 1)}</span>
               </div>
             ))}
+            {shippingCost > 0 && (
+              <div className="checkout-item shipping-item">
+                <span>🚚 Envío</span>
+                <span>${shippingCost}</span>
+              </div>
+            )}
           </div>
 
-          <h3>Total: ${total}</h3>
+          <h3>Total: ${finalTotal}</h3>
 
           <div className="payment-method">
             <p>Selecciona un método de pago:</p>
@@ -350,12 +444,40 @@ export default function Checkout() {
               />
               Efectivo al delivery
             </label>
+            <label style={{ marginLeft: '15px' }}>
+              <input
+                type="radio"
+                name="payment"
+                value="transferencia"
+                checked={paymentMethod === "transferencia"}
+                onChange={() => setPaymentMethod("transferencia")}
+              />
+              Transferencia (Alias/CVU)
+            </label>
           </div>
 
           <button className="confirm-btn" onClick={handleConfirm}>
             Confirmar pedido
           </button>
         </>
+      )}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: '#333',
+          color: '#fff',
+          padding: '10px 20px',
+          borderRadius: '20px',
+          zIndex: 9999,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          fontSize: '0.9rem',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          {toastMessage}
+        </div>
       )}
     </div>
   );

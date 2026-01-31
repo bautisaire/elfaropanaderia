@@ -12,6 +12,7 @@ import "./ProductManager.css";
 export interface FirestoreProduct {
     id?: string;
     nombre: string;
+    shortId?: string; // Código rápido para POS (ej: "001")
     precio: number;
     wholesalePrice?: number;
     categoria: string;
@@ -38,6 +39,7 @@ export interface FirestoreProduct {
 
 const INITIAL_STATE: FirestoreProduct = {
     nombre: "",
+    shortId: "",
     precio: 0,
     wholesalePrice: 0,
     categoria: "General",
@@ -97,6 +99,7 @@ export default function ProductManager() {
                     discount: data.discount || 0,
                     isVisible: data.isVisible !== false,
                     unitType: data.unitType || 'unit',
+                    shortId: data.shortId || "",
                     images: data.images || (data.img ? [data.img] : [])
                 } as FirestoreProduct;
             });
@@ -420,6 +423,18 @@ export default function ProductManager() {
                                             placeholder="Ej. Tarta de Chocolate"
                                             required
                                             className="input-lg"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Código Rápido (POS)</label>
+                                        <input
+                                            name="shortId"
+                                            value={formData.shortId || ""}
+                                            onChange={handleInputChange}
+                                            placeholder="Ej. 001"
+                                            className="input-lg"
+                                            style={{ fontFamily: 'monospace', letterSpacing: '1px', borderColor: '#8b5cf6' }}
                                         />
                                     </div>
 

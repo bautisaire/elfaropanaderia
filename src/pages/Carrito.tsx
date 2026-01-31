@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Carrito.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, Timestamp, doc, getDoc, runTransaction } from "firebase/firestore";
+import { collection, Timestamp, doc, getDoc, runTransaction, onSnapshot, DocumentSnapshot } from "firebase/firestore";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
@@ -161,25 +161,38 @@ export default function Carrito() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // State for minimum purchase
+  // State for config
   const [minPurchaseError, setMinPurchaseError] = useState<{ isOpen: boolean, minAmount: number }>({ isOpen: false, minAmount: 0 });
   const [minPurchaseConfig, setMinPurchaseConfig] = useState(0);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [finalTotal, setFinalTotal] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2000);
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    showToast(`${label} copiado!`);
+  };
 
   useEffect(() => {
-    // Fetch min purchase config
-    const fetchConfig = async () => {
-      try {
-        const docRef = doc(db, "config", "store_settings");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setMinPurchaseConfig(docSnap.data().minPurchase || 0);
-        }
-      } catch (e) {
-        console.error("Error fetching store config:", e);
+    // Escuchar configuración en tiempo real
+    const unsub = onSnapshot(doc(db, "config", "store_settings"), (docSnap: DocumentSnapshot) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setMinPurchaseConfig(data.minPurchase || 0);
+        setShippingCost(Number(data.shippingCost) || 0);
       }
-    };
-    fetchConfig();
+    });
+    return () => unsub();
   }, []);
+
+  useEffect(() => {
+    setFinalTotal(cartTotal + shippingCost);
+  }, [cartTotal, shippingCost]);
 
   const handleProcederAlPago = async () => {
     // 0. Validar Compra Mínima
@@ -333,9 +346,22 @@ export default function Carrito() {
 
         // D. Create Order
         const orderRef = doc(collection(db, "orders"));
+
+        const finalItems = [...cart];
+        if (shippingCost > 0) {
+          finalItems.push({
+            id: 'shipping-cost',
+            name: 'Envío',
+            price: shippingCost,
+            quantity: 1,
+            image: '',
+            stock: true
+          });
+        }
+
         const newOrderData = {
-          items: cart,
-          total: cartTotal,
+          items: finalItems,
+          total: finalTotal,
           cliente: formData,
           date: new Date(),
           status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
@@ -384,8 +410,11 @@ export default function Carrito() {
       // Prepara Ticket Data
       const ticketData = {
         id: newOrderId,
-        items: [...cart],
-        total: cartTotal,
+        items: [...cart], // Visualmente en el ticket quizás queramos mostrarlo separado o incluido. 
+        // Si mostramos `cart` aquí, no saldrá el envío. Deberíamos usar finalItems si lo tenemos disponible fuera de la transacción.
+        // Reconstruimos finalItems para el ticket:
+        itemsWithShipping: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1 }] : [])],
+        total: finalTotal,
         paymentMethod: formData.metodoPago
       };
 
@@ -396,7 +425,7 @@ export default function Carrito() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              items: cart,
+              items: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1, stock: true }] : [])],
               orderId: newOrderId
             })
           });
@@ -473,7 +502,12 @@ export default function Carrito() {
               <span>{new Date().toLocaleDateString()}</span>
             </div>
             <div className="ticket-items">
-              {confirmedOrder.items.map((item: any) => (
+              {confirmedOrder.itemsWithShipping ? confirmedOrder.itemsWithShipping.map((item: any) => (
+                <div key={item.id} className="ticket-item">
+                  <span>{item.quantity}x {item.name}</span>
+                  <span>${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              )) : confirmedOrder.items.map((item: any) => (
                 <div key={item.id} className="ticket-item">
                   <span>{item.quantity}x {item.name}</span>
                   <span>${(item.price * item.quantity).toFixed(2)}</span>
@@ -487,6 +521,42 @@ export default function Carrito() {
             <div className="payment-info">
               Método: {confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo'}
             </div>
+
+            {confirmedOrder.paymentMethod === 'transferencia' && (
+              <div className="transfer-details-card" style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#495057' }}>
+                  Puedes abonar ahora o esperar al repartidor.
+                </p>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>ALIAS</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>elfaro80.mp</code>
+                    <button
+                      onClick={() => handleCopy("elfaro80.mp", "Alias")}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
+                      title="Copiar Alias"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>CVU</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>0000003100006832823516</code>
+                    <button
+                      onClick={() => handleCopy("0000003100006832823516", "CVU")}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
+                      title="Copiar CVU"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="success-actions">
@@ -772,11 +842,11 @@ export default function Carrito() {
                     </div>
                     <div className="summary-row">
                       <span>Costo de envío</span>
-                      <span>$0</span>
+                      <span>${shippingCost}</span>
                     </div>
                     <div className="summary-row total">
                       <span>Total</span>
-                      <span className="total-amount-display">${Math.floor(cartTotal)}</span>
+                      <span className="total-amount-display">${Math.floor(finalTotal)}</span>
                     </div>
                   </div>
                 </div>
@@ -790,7 +860,7 @@ export default function Carrito() {
               <div className="sticky-content">
                 <div className="sticky-total">
                   <span>Total:</span>
-                  <strong>${Math.floor(cartTotal)}</strong>
+                  <strong>${Math.floor(finalTotal)}</strong>
                 </div>
                 <button
                   className="btn-sticky-checkout"
@@ -863,6 +933,25 @@ export default function Carrito() {
         onConfirm={handleStockFix}
         outOfStockItems={stockError.items}
       />
+
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: '#333',
+          color: '#fff',
+          padding: '10px 20px',
+          borderRadius: '20px',
+          zIndex: 9999,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          fontSize: '0.9rem',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          {toastMessage}
+        </div>
+      )}
     </div >
   );
 }
