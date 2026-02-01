@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
@@ -27,9 +27,10 @@ interface StockAdjustmentModalProps {
     product: Product | null;
     onSuccess?: () => void;
     initialVariantName?: string;
+    initialValue?: number;
 }
 
-export default function StockAdjustmentModal({ isOpen, onClose, product, onSuccess, initialVariantName }: StockAdjustmentModalProps) {
+export default function StockAdjustmentModal({ isOpen, onClose, product, onSuccess, initialVariantName, initialValue }: StockAdjustmentModalProps) {
     const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null);
     const [adjustmentType, setAdjustmentType] = useState<'IN' | 'OUT'>('IN');
     const [amount, setAmount] = useState<string>('');
@@ -43,6 +44,8 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
     const reasonsOut = ["Venta Local", "Merma/Desperdicio", "Consumo Interno", "Ajuste de Inventario", "Vencimiento"];
 
+    const inputRef = useRef<HTMLInputElement>(null);
+
     // Reset state when modal opens or product changes
     useEffect(() => {
         if (isOpen) {
@@ -53,17 +56,51 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                 setSelectedVariantIdx(null);
             }
             setAdjustmentType('IN');
-            setAmount('');
+            setAmount(initialValue ? parseFloat(initialValue.toFixed(2)).toString() : '');
             setReason('Elaboración');
-            setObservation('');
-            setShowObservation(false);
             setObservation('');
             setShowObservation(false);
             setIsSubmitting(false);
             setShowSuccess(false);
             setErrorMessage(null);
+
+            // Auto-focus input after a short delay to ensure modal is rendered
+            setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, 100);
         }
-    }, [isOpen, product]);
+    }, [isOpen, product, initialVariantName]);
+
+    // Handle Keyboard Shortcuts
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onClose();
+            }
+            if (e.key === 'Enter') {
+                // If it's a textarea (observation), don't submit on Enter (require Ctrl+Enter or just click)
+                // But for the main flow (amount input), Enter should submit.
+                // Let's safe check if we are in the textarea
+                const target = e.target as HTMLElement;
+                if (target.tagName.toLowerCase() === 'textarea') return;
+
+                e.preventDefault();
+                handleSaveAdjustment();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, amount, selectedVariantIdx, adjustmentType, reason, observation, product]); // Deps needed for handleSaveAdjustment context logic if it wasn't stable, but it uses state variables so we need them in deps OR better: use a ref for the handler or ensure handleSaveAdjustment is fresh.
+    // Actually handleSaveAdjustment is defined inside component and closes over state.
+    // So we need to reconstruct the listener when state changes, OR use a ref to current state.
+    // Re-adding listener on state change is easiest for now.
+
 
     const handleSaveAdjustment = async () => {
         if (!product || !amount || Number(amount) <= 0) return;
@@ -205,6 +242,7 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                         <label>Cantidad</label>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <input
+                                ref={inputRef}
                                 type="number"
                                 step="0.001"
                                 value={amount}

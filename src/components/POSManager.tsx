@@ -80,6 +80,8 @@ export default function POSManager() {
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
     const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
+    const [stockModalInitialValue, setStockModalInitialValue] = useState<number | undefined>(undefined);
+    const [pendingRetry, setPendingRetry] = useState<{ type: 'unit' | 'weight', productId: string, variant?: string, quantity?: number, priceToUse?: number } | null>(null);
 
     // Short ID Input Buffer
     // Short ID Input Buffer
@@ -98,6 +100,13 @@ export default function POSManager() {
                 if (quantityModalOpen) {
                     setQuantityModalOpen(false);
                     setPendingProduct(null);
+                    return;
+                }
+
+                if (weightModalOpen) {
+                    setWeightModalOpen(false);
+                    setPendingProduct(null);
+                    setWeightInput("");
                     return;
                 }
 
@@ -135,23 +144,41 @@ export default function POSManager() {
                 return;
             }
 
+            // Handle Enter for Modals (Priority)
+            if (e.key === 'Enter') {
+                // If Success Modal is open, Enter closes it (New Sale)
+                if (modalConfig.isOpen && modalConfig.type === 'success') {
+                    closeModal();
+                    return;
+                }
+
+                // Generic Modal Confirm
+                if (modalConfig.isOpen && modalConfig.onConfirm) {
+                    e.preventDefault();
+                    modalConfig.onConfirm();
+                    return;
+                }
+            }
+
             // Handle Cart Navigation (If Cart is Open)
             if (isCartOpen) {
                 if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                     e.preventDefault();
-                    const methods: ("Efectivo" | "Tarjeta" | "Transferencia")[] = ['Efectivo', 'Tarjeta', 'Transferencia'];
-                    const currentIndex = methods.indexOf(paymentMethod);
-                    let newIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
-                    if (newIndex >= methods.length) newIndex = 0;
-                    if (newIndex < 0) newIndex = methods.length - 1;
-                    setPaymentMethod(methods[newIndex]);
+                    setPaymentMethod((prev) => {
+                        const methods: ("Efectivo" | "Tarjeta" | "Transferencia")[] = ['Efectivo', 'Tarjeta', 'Transferencia'];
+                        const currentIndex = methods.indexOf(prev);
+                        let newIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+                        if (newIndex >= methods.length) newIndex = 0;
+                        if (newIndex < 0) newIndex = methods.length - 1;
+                        return methods[newIndex];
+                    });
                     return;
                 }
 
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (cart.length > 0 && !processing) {
-                        // handleCheckout(); // Assuming handleCheckout exists elsewhere
+                        handleCheckout();
                     }
                     return;
                 }
@@ -162,7 +189,19 @@ export default function POSManager() {
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
             // Ignorar si hay modales abiertos
-            if (weightModalOpen || isStockModalOpen || modalConfig.isOpen || quantityModalOpen) return;
+            if (isStockModalOpen || modalConfig.isOpen || quantityModalOpen) return;
+
+            // Note: weightModalOpen handled above in priority section now? No, let's look at where we are.
+            // Oh, I need to add it to the TOP priority section.
+            // Wait, I am editing the logic below the early returns. 
+            // I should actually add the specific handler in the top block of handleGlobalKeyDown.
+
+            /* 
+               Mistake in my plan: I need to edit the TOP of the function, 
+               but this replace_file_content call was targeting lines around 168 which is the "Ignorar si hay modales abiertos" section.
+               Actually, I should check the earlier part for the Escape handler.
+               Let's do two edits.
+            */
 
             // Handle Numeric Input for Short ID
             if (/^[0-9]$/.test(e.key)) {
@@ -181,17 +220,33 @@ export default function POSManager() {
                 return;
             }
 
-            // Handle Backspace
+            // Handle Backspace (Buffer OR Cart)
             if (e.key === 'Backspace') {
                 if (inputBuffer.length > 0) {
                     setInputBuffer(prev => prev.slice(0, -1));
                     if (inputBuffer.length <= 1) setShowBuffer(false);
+                } else if (isCartOpen && cart.length > 0) {
+                    // Remove last item or decrement quantity
+                    setCart(prev => {
+                        const newCart = [...prev];
+                        const lastItem = newCart[newCart.length - 1];
+                        if (lastItem.quantity > 1) {
+                            // Decrement
+                            newCart[newCart.length - 1] = { ...lastItem, quantity: lastItem.quantity - 1 };
+                        } else {
+                            // Remove
+                            newCart.pop();
+                        }
+                        return newCart;
+                    });
                 }
                 return;
             }
 
-            // Handle Enter (Submit Code OR Open Cart)
+            // Handle Enter (Submit Code OR Open Cart OR Close Success Modal)
             if (e.key === 'Enter') {
+                // Modal logic moved to top
+
                 if (inputBuffer.length > 0) {
                     processShortId(inputBuffer);
                     setInputBuffer("");
@@ -212,7 +267,7 @@ export default function POSManager() {
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [weightModalOpen, isStockModalOpen, modalConfig.isOpen, quantityModalOpen, inputBuffer, products, isCartOpen]);
+    }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing]);
 
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -229,22 +284,26 @@ export default function POSManager() {
         });
     };
 
-    const handleStockError = (product: Product, message: string) => {
+    const handleStockError = (product: Product, message: string, missingAmount?: number, retryAction?: any) => {
+        const handleFix = () => {
+            closeModal();
+            setStockModalProduct(product);
+            setStockModalInitialValue(missingAmount);
+            if (retryAction) setPendingRetry(retryAction);
+            setIsStockModalOpen(true);
+        };
+
         showModal(
             'error',
             'Stock Insuficiente',
             undefined,
-            undefined,
+            handleFix,
             <div style={{ textAlign: 'center' }}>
                 <p style={{ marginBottom: '15px' }}>{message}</p>
                 <button
                     className="btn-save-stock"
+                    onClick={handleFix}
                     style={{ background: '#f59e0b', width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => {
-                        closeModal();
-                        setStockModalProduct(product);
-                        setIsStockModalOpen(true);
-                    }}
                 >
                     <FaBoxOpen style={{ marginRight: '8px' }} />
                     Corregir / Agregar Stock
@@ -341,8 +400,10 @@ export default function POSManager() {
                 ...doc.data()
             } as Product));
             setProducts(prods);
+            return prods;
         } catch (error) {
             console.error("Error fetching products:", error);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -358,6 +419,45 @@ export default function POSManager() {
     //     }
     // };
 
+    const addWeightToCart = (product: Product, variant: string | undefined, qty: number, checkStock = true) => {
+        // Determine Price to use (if not passed, calculate it)
+        const priceToUse = priceMode === 'wholesale'
+            ? (product.wholesalePrice || product.precio)
+            : product.precio;
+
+        if (checkStock) {
+            let maxStock = 0;
+            if (variant && product.variants) {
+                const v = product.variants.find((v: any) => v.name === variant);
+                maxStock = v ? (v.stockQuantity || 0) : 0;
+            } else {
+                maxStock = product.stockQuantity || 0;
+            }
+
+            const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
+            const currentQty = existing ? existing.quantity : 0;
+
+            if (currentQty + qty > maxStock) {
+                const deficit = (currentQty + qty) - maxStock + 0.005; // Add buffer to avoid rounding issues
+                handleStockError(product, `Solo hay ${maxStock}kg disponibles (intentas llevar ${(currentQty + qty).toFixed(3)}kg).`, deficit, { type: 'weight', productId: product.id, variant, quantity: qty });
+                return false;
+            }
+        }
+
+        setCart(prev => {
+            const existing = prev.find(item => item.id === product.id && item.selectedVariant === variant);
+            if (existing) {
+                return prev.map(item =>
+                    (item.id === product.id && item.selectedVariant === variant)
+                        ? { ...item, quantity: item.quantity + qty }
+                        : item
+                );
+            }
+            return [...prev, { ...product, quantity: qty, selectedVariant: variant, precio: priceToUse }];
+        });
+        return true;
+    };
+
     const confirmWeight = () => {
         if (!pendingProduct || !weightInput) return;
         let qty = parseFloat(weightInput);
@@ -368,36 +468,11 @@ export default function POSManager() {
 
         const { product, variant } = pendingProduct;
 
-        // Stock Check for Weight
-        let maxStock = 0;
-        if (variant && product.variants) {
-            const v = product.variants.find((v: any) => v.name === variant);
-            maxStock = v ? (v.stockQuantity || 0) : 0;
-        } else {
-            maxStock = product.stockQuantity || 0;
-        }
+        addWeightToCart(product, variant, qty);
 
-        // Check if existing
-        const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
-        const currentQty = existing ? existing.quantity : 0;
-
-        if (currentQty + qty > maxStock) {
-            setWeightModalOpen(false);
-            handleStockError(product, `Solo hay ${maxStock}kg disponibles (intentas llevar ${(currentQty + qty).toFixed(3)}kg).`);
-            return;
-        }
-
-        setCart(prev => {
-            if (existing) {
-                return prev.map(item =>
-                    (item.id === product.id && item.selectedVariant === variant)
-                        ? { ...item, quantity: item.quantity + qty }
-                        : item
-                );
-            }
-            return [...prev, { ...product, quantity: qty, selectedVariant: variant }];
-        });
-
+        // Always close weight modal. 
+        // If success: added to cart.
+        // If fail: stock error modal is shown (and retry will handle addition).
         setWeightModalOpen(false);
         setPendingProduct(null);
         setWeightInput("");
@@ -419,7 +494,7 @@ export default function POSManager() {
         }
 
         if (maxStock <= 0) {
-            handleStockError(product, "No hay stock disponible de este producto.");
+            handleStockError(product, "No hay stock disponible de este producto.", 1, { type: 'unit', productId: product.id, variant: variantName });
             return;
         }
 
@@ -440,7 +515,7 @@ export default function POSManager() {
             const existing = prev.find(item => item.id === product.id && item.selectedVariant === variantName);
             if (existing) {
                 if (existing.quantity >= maxStock) {
-                    handleStockError(product, "No hay más unidades disponibles de este producto.");
+                    handleStockError(product, "No hay más unidades disponibles de este producto.", 1, { type: 'unit', productId: product.id, variant: variantName });
                     return prev;
                 }
                 return prev.map(item =>
@@ -467,7 +542,7 @@ export default function POSManager() {
                     }
 
                     if (item.quantity >= maxStock) {
-                        handleStockError(item, "No puedes agregar más unidades de las que hay en stock.");
+                        handleStockError(item, "No puedes agregar más unidades de las que hay en stock.", 1, { type: 'unit', productId: item.id, variant: variantName });
                         return item;
                     }
                 }
@@ -947,13 +1022,13 @@ export default function POSManager() {
                 </div>
             )}
 
-            {/* Quantity Input Modal for Short ID */}
+            {/*      */}
             {
                 quantityModalOpen && (
                     <div className="pos-modal-overlay">
                         <div className="pos-modal">
-                            <h3>Cantidad</h3>
-                            {pendingProduct && <h4 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal' }}>{pendingProduct.product.nombre}</h4>}
+
+                            {pendingProduct && <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal' }}>{pendingProduct.product.nombre} <span style={{ fontSize: '0.7em', color: (pendingProduct.product.stockQuantity || 0) > 5 ? '#059669' : '#dc2626' }}>(Stock: {pendingProduct.product.stockQuantity ?? 0})</span></h3>}
                             <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
                                 <input
                                     ref={quantityInputRef}
@@ -961,7 +1036,7 @@ export default function POSManager() {
                                     placeholder="Cantidad"
                                     value={quantityInput}
                                     className="pos-input"
-                                    style={{ fontSize: '2rem', textAlign: 'center', width: '200px' }}
+                                    style={{ fontSize: '1.2rem', textAlign: 'center', width: '200px' }}
                                     onChange={(e) => setQuantityInput(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') confirmQuantity();
@@ -986,7 +1061,21 @@ export default function POSManager() {
                 weightModalOpen && (
                     <div className="pos-modal-overlay">
                         <div className="pos-modal">
-                            <h3>Cantidad (Kg)</h3>
+                            {pendingProduct && (
+                                <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal', textAlign: 'center' }}>
+                                    {pendingProduct.product.nombre}
+                                    <span style={{ fontSize: '0.8em', color: '#6b7280', display: 'block', marginTop: '5px' }}>
+                                        (Stock Actual: {(() => {
+                                            const { product, variant } = pendingProduct;
+                                            if (variant && product.variants) {
+                                                const v = product.variants.find((v: any) => v.name === variant);
+                                                return v ? (v.stockQuantity || 0) : 0;
+                                            }
+                                            return product.stockQuantity || 0;
+                                        })()}kg)
+                                    </span>
+                                </h3>
+                            )}
                             <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                     <input
@@ -995,7 +1084,7 @@ export default function POSManager() {
                                         value={weightInput}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            if (inputMode === 'price') return; // Should not happen if overlay covers, but good safety
+                                            if (inputMode === 'price') return;
 
                                             if (!smartInputUsed && val.length === 1 && /^[1-9]$/.test(val)) {
                                                 setWeightInput("0." + val);
@@ -1006,7 +1095,20 @@ export default function POSManager() {
                                             }
                                         }}
                                         onFocus={() => setInputMode('weight')}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') confirmWeight(); }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') confirmWeight();
+                                            if (e.key === 'Tab') {
+                                                e.preventDefault();
+                                                setInputMode('price');
+                                                // We rely on the price input rendering when mode is price
+                                                // Since we change state, re-render happens. 
+                                                // Ideally we want to focus the price input.
+                                                // But the price input is conditionally rendered.
+                                                // We need to ensure it renders and gets focus.
+                                                // The current structure switches a DIV to an INPUT. 
+                                                // React will mount the new input. "autoFocus" on the price input handles it.
+                                            }
+                                        }}
                                         placeholder="0.000"
                                         step="0.005"
                                         min="0"
@@ -1024,14 +1126,12 @@ export default function POSManager() {
                                 </div>
 
                                 {/* Dynamic Price Display - Clickable */}
-                                {/* Dynamic Price Display - Clickable */}
                                 {pendingProduct && (
                                     <div
                                         style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2ecc71', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
                                         onClick={() => {
                                             if (inputMode === 'price') return;
                                             setInputMode('price');
-                                            // Initialize price input (Integer for Argentina)
                                             if (weightInput && !isNaN(parseFloat(weightInput))) {
                                                 const currentPrice = parseFloat(weightInput) * (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio);
                                                 setPriceInput(Math.round(currentPrice).toString());
@@ -1066,12 +1166,14 @@ export default function POSManager() {
 
                                                     if (!isNaN(priceVal) && priceToUse > 0) {
                                                         const newWeight = priceVal / priceToUse;
-                                                        // Keep 3 decimals for weight precision derived from price
                                                         setWeightInput(newWeight.toFixed(3));
                                                     }
                                                 }}
                                                 placeholder="0"
                                                 step="1"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') confirmWeight();
+                                                }}
                                                 style={{
                                                     fontSize: '1.5rem',
                                                     fontWeight: 'bold',
@@ -1103,26 +1205,27 @@ export default function POSManager() {
                                             maxStock = Math.max(0, maxStock);
                                         }
 
+                                        const currentWeight = parseFloat(weightInput) || 0;
+                                        const percentage = maxStock > 0 ? Math.min(100, (currentWeight / maxStock) * 100) : 0;
+                                        // remaining removed
+
                                         return (
-                                            <>
-                                                <input
-                                                    type="range"
-                                                    min="0"
-                                                    max={maxStock}
-                                                    step="0.005"
-                                                    value={weightInput || 0}
-                                                    onChange={(e) => setWeightInput(e.target.value)}
-                                                    className="pos-weight-slider"
-                                                    style={{ width: '100%', cursor: 'pointer', margin: '15px 0' }}
-                                                />
+                                            <div style={{ width: '100%', margin: '15px 0' }}>
+                                                <div className="pos-stock-meter">
+                                                    <div
+                                                        className="pos-stock-fill"
+                                                        style={{
+                                                            width: `${percentage}%`,
+                                                            backgroundColor: percentage > 90 ? '#ef4444' : percentage > 70 ? '#f59e0b' : '#10b981'
+                                                        }}
+                                                    ></div>
+                                                </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '0.8rem', marginTop: '5px' }}>
                                                     <span>0kg</span>
-                                                    <span>{(maxStock * 0.25).toFixed(2)}kg</span>
-                                                    <span>{(maxStock * 0.5).toFixed(2)}kg</span>
-                                                    <span>{(maxStock * 0.75).toFixed(2)}kg</span>
-                                                    <span>{maxStock.toFixed(2)}kg</span>
+                                                    <span style={{ fontWeight: 'bold', color: '#374151' }}>{currentWeight.toFixed(3)}kg seleccionados</span>
+                                                    <span>{maxStock.toFixed(2)}kg (Max)</span>
                                                 </div>
-                                            </>
+                                            </div>
                                         );
                                     })()}
                                 </div>
@@ -1147,16 +1250,34 @@ export default function POSManager() {
                 )
             }
             {/* Stock Adjustment Modal */}
-            <StockAdjustmentModal
-                isOpen={isStockModalOpen}
-                onClose={() => setIsStockModalOpen(false)}
-                product={stockModalProduct}
-                initialVariantName={stockModalVariant}
-                onSuccess={() => {
-                    fetchProducts();
-                    // Optionally reopen cart or something, but usually just refreshing is enough.
-                }}
-            />
+            {isStockModalOpen && (
+                <StockAdjustmentModal
+                    isOpen={isStockModalOpen}
+                    onClose={() => { setIsStockModalOpen(false); setStockModalProduct(null); setStockModalInitialValue(undefined); }}
+                    product={stockModalProduct}
+                    onSuccess={async () => {
+                        const newProds = await fetchProducts();
+                        setIsStockModalOpen(false);
+                        setStockModalInitialValue(undefined);
+                        setStockModalProduct(null);
+                        setStockModalVariant(undefined);
+
+                        if (pendingRetry && newProds) {
+                            const freshProduct = newProds.find(p => p.id === pendingRetry.productId);
+                            if (freshProduct) {
+                                if (pendingRetry.type === 'unit') {
+                                    addToCart(freshProduct, pendingRetry.variant);
+                                } else if (pendingRetry.type === 'weight' && pendingRetry.quantity) {
+                                    addWeightToCart(freshProduct, pendingRetry.variant, pendingRetry.quantity);
+                                }
+                            }
+                            setPendingRetry(null);
+                        }
+                    }}
+                    initialVariantName={stockModalVariant}
+                    initialValue={stockModalInitialValue}
+                />
+            )}
         </div >
     );
 }

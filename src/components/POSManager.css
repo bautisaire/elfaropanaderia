@@ -1,12 +1,10 @@
-/* ... Previous CSS ... */
-
 .pos-container {
     display: block;
     /* Changed from grid to block for full width products */
-    height: calc(100vh - 80px);
+    height: 100vh;
     overflow: hidden;
     position: relative;
-    padding-left: 20px;
+    padding-left: 60px;
 }
 
 /* ... (Keep existing styles) ... */
@@ -114,7 +112,6 @@
     color: #ef4444;
 }
 
-/* CART SECTION - DESKTOP SLIDER */
 .pos-cart-section {
     background: white;
     border-radius: 12px 0 0 12px;
@@ -420,40 +417,22 @@
 }
 
 /* Weight Slider Styling */
-.pos-weight-slider {
+/* Stock Meter in Weight Modal */
+.pos-stock-meter {
     width: 100%;
-    height: 15px;
-    border-radius: 10px;
-    background: #e5e7eb;
-    outline: none;
-    opacity: 0.9;
-    transition: opacity .2s;
+    height: 12px;
+    background-color: #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.pos-weight-slider:hover {
-    opacity: 1;
-}
-
-.pos-weight-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: #10b981;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    border: 3px solid white;
-}
-
-.pos-weight-slider::-moz-range-thumb {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: #10b981;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    border: 3px solid white;
+.pos-stock-fill {
+    height: 100%;
+    background-color: #10b981;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    border-radius: 6px;
 }
 
 /* Botón de Edición Rápida de Stock en tarjeta POS */

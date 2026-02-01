@@ -240,6 +240,16 @@
         margin-left: 16px;
         /* Stays same, sidebar expands over content */
     }
+
+    .editor-content.pos-active-tab {
+        padding: 0;
+        margin-left: 0;
+        /* Optional: if you want it to touch sidebar exactly without gap? Usually keep margin-left for sidebar space */
+    }
+}
+
+.editor-content.pos-active-tab {
+    padding: 0;
 }
 
 

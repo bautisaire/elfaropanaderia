@@ -1,11 +1,10 @@
 /* Global Layout */
 .product-manager-container {
-    max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: #1f2937;
     background-color: #f9fafb;
+    padding-left: 20px;
     min-height: 100vh;
 }
 
@@ -425,7 +424,7 @@ button {
 /* Inventory Grid */
 .pm-inventory-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 24px;
 }
 

@@ -286,7 +286,7 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''}`}>
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${activeTab === 'pos' ? 'pos-active-tab' : ''}`}>
             {activeTab === "dashboard" ? (
               <Dashboard />
             ) : activeTab === "pos" ? (
