@@ -812,6 +812,23 @@ export default function POSManager() {
                             return product.variants.map((v) => (
                                 <div key={`${product.id}-${v.name}`} className="pos-product-card" onClick={() => addToCart(product, v.name)}>
                                     <img src={v.image || product.img} alt={product.nombre} className="pos-product-img" />
+                                    {product.shortId && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: '5px',
+                                            left: '5px',
+                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                            color: '#fff',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 'bold',
+                                            zIndex: 10,
+                                            pointerEvents: 'none'
+                                        }}>
+                                            {product.shortId}
+                                        </span>
+                                    )}
                                     <div className="pos-product-info">
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">
@@ -847,6 +864,23 @@ export default function POSManager() {
                         return (
                             <div key={product.id} className="pos-product-card" onClick={() => addToCart(product)}>
                                 <img src={product.img} alt={product.nombre} className="pos-product-img" />
+                                {product.shortId && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        top: '5px',
+                                        left: '5px',
+                                        backgroundColor: 'rgba(0,0,0,0.6)',
+                                        color: '#fff',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        zIndex: 10,
+                                        pointerEvents: 'none'
+                                    }}>
+                                        {product.shortId}
+                                    </span>
+                                )}
                                 <div className="pos-product-info">
                                     <div className="pos-product-name">{product.nombre}</div>
                                     <div className="pos-product-price">

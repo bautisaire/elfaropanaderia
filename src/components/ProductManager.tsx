@@ -722,6 +722,22 @@ export default function ProductManager() {
                                             {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /> Oculto Web</span>}
                                             {product.isHiddenInPOS && <span className="badge-hidden" style={{ background: '#d97706' }}><FaEyeSlash /> Oculto POS</span>}
                                         </div>
+                                        {product.shortId && (
+                                            <span style={{
+                                                position: 'absolute',
+                                                bottom: '5px',
+                                                right: '5px',
+                                                backgroundColor: 'rgba(0,0,0,0.6)',
+                                                color: 'white',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 'bold',
+                                                zIndex: 10
+                                            }}>
+                                                #{product.shortId}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="card-content">
                                         <div className="card-info">
