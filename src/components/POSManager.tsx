@@ -92,9 +92,17 @@ export default function POSManager() {
 
     const quantityInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const weightInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            // Handle Weight Modal Toggle (Arrows)
+            if (weightModalOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                e.preventDefault();
+                setInputMode(prev => prev === 'weight' ? 'price' : 'weight');
+                return;
+            }
+
             // Handle Escape ALWAYS (Priority handling)
             if (e.key === 'Escape') {
                 // 1. Close Quantity Modal
@@ -226,20 +234,25 @@ export default function POSManager() {
                 if (inputBuffer.length > 0) {
                     setInputBuffer(prev => prev.slice(0, -1));
                     if (inputBuffer.length <= 1) setShowBuffer(false);
-                } else if (isCartOpen && cart.length > 0) {
-                    // Remove last item or decrement quantity
-                    setCart(prev => {
-                        const newCart = [...prev];
-                        const lastItem = newCart[newCart.length - 1];
-                        if (lastItem.quantity > 1) {
-                            // Decrement
-                            newCart[newCart.length - 1] = { ...lastItem, quantity: lastItem.quantity - 1 };
-                        } else {
-                            // Remove
-                            newCart.pop();
-                        }
-                        return newCart;
-                    });
+                } else if (isCartOpen) {
+                    if (cart.length > 0) {
+                        // Remove last item or decrement quantity
+                        setCart(prev => {
+                            const newCart = [...prev];
+                            const lastItem = newCart[newCart.length - 1];
+                            if (lastItem.quantity > 1) {
+                                // Decrement
+                                newCart[newCart.length - 1] = { ...lastItem, quantity: lastItem.quantity - 1 };
+                            } else {
+                                // Remove
+                                newCart.pop();
+                            }
+                            return newCart;
+                        });
+                    } else {
+                        // If cart is empty, close it (User Request)
+                        setIsCartOpen(false);
+                    }
                 }
                 return;
             }
@@ -269,6 +282,13 @@ export default function POSManager() {
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing]);
+
+    // Force focus on weight input when switching back to weight mode
+    useEffect(() => {
+        if (weightModalOpen && inputMode === 'weight' && weightInputRef.current) {
+            weightInputRef.current.focus();
+        }
+    }, [inputMode, weightModalOpen]);
 
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -1195,6 +1215,7 @@ export default function POSManager() {
                             <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                     <input
+                                        ref={weightInputRef}
                                         type="number"
                                         autoFocus
                                         value={weightInput}
