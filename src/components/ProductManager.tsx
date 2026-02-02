@@ -24,6 +24,7 @@ export interface FirestoreProduct {
     discount?: number;
     variants?: {
         name: string;
+        shortId?: string; // Código Rápido de variante
         stock: boolean;
         stockQuantity?: number;
         image?: string;
@@ -282,7 +283,7 @@ export default function ProductManager() {
         });
     };
 
-    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity' | 'image', value: string | number) => {
+    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity' | 'image' | 'shortId', value: string | number) => {
         setFormData(prev => {
             const newVariants = [...(prev.variants || [])];
             // @ts-ignore
@@ -376,7 +377,26 @@ export default function ProductManager() {
     const filteredProducts = products.filter(p =>
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).sort((a, b) => {
+        // Sort by shortId if available
+        const codeA = a.shortId || "";
+        const codeB = b.shortId || "";
+
+        if (codeA && codeB) {
+            // Try numeric sort first
+            const numA = parseInt(codeA);
+            const numB = parseInt(codeB);
+            if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+                return numA - numB;
+            }
+            return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        if (codeA) return -1; // Products with code come first
+        if (codeB) return 1;
+
+        // Fallback to name sort
+        return a.nombre.localeCompare(b.nombre);
+    });
 
     return (
         <div className="product-manager-container">
@@ -426,17 +446,19 @@ export default function ProductManager() {
                                         />
                                     </div>
 
-                                    <div className="form-group">
-                                        <label>Código Rápido (POS)</label>
-                                        <input
-                                            name="shortId"
-                                            value={formData.shortId || ""}
-                                            onChange={handleInputChange}
-                                            placeholder="Ej. 001"
-                                            className="input-lg"
-                                            style={{ fontFamily: 'monospace', letterSpacing: '1px', borderColor: '#8b5cf6' }}
-                                        />
-                                    </div>
+                                    {(!formData.variants || formData.variants.length === 0) && (
+                                        <div className="form-group">
+                                            <label>Código Rápido (POS)</label>
+                                            <input
+                                                name="shortId"
+                                                value={formData.shortId || ""}
+                                                onChange={handleInputChange}
+                                                placeholder="Ej. 001"
+                                                className="input-lg"
+                                                style={{ fontFamily: 'monospace', letterSpacing: '1px', borderColor: '#8b5cf6' }}
+                                            />
+                                        </div>
+                                    )}
 
                                     <div className="form-group">
                                         <label>Precio</label>
@@ -628,11 +650,12 @@ export default function ProductManager() {
                                                             onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
                                                         />
                                                         <input
-                                                            type="number"
-                                                            placeholder="Stock"
-                                                            value={v.stockQuantity ?? 0}
-                                                            onChange={(e) => handleVariantChange(idx, 'stockQuantity', Number(e.target.value))}
+                                                            placeholder="Cód. Rápido"
+                                                            value={v.shortId || ""}
+                                                            onChange={(e) => handleVariantChange(idx, 'shortId', e.target.value)}
                                                             className="input-stock"
+                                                            style={{ width: '80px', fontFamily: 'monospace' }}
+                                                            title="Código Rápido (POS)"
                                                         />
                                                     </div>
 

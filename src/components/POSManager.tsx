@@ -22,6 +22,7 @@ interface Product {
         stockQuantity?: number;
         stock?: boolean;
         image?: string;
+        shortId?: string;
     }[];
     unitType?: 'unit' | 'weight';
     wholesalePrice?: number;
@@ -317,8 +318,53 @@ export default function POSManager() {
     }, []);
 
     const processShortId = (code: string) => {
-        const product = products.find(p => p.shortId === code);
+        // 1. Check for Top Level Product
+        let product = products.find(p => p.shortId === code);
+        let variantName: string | undefined = undefined;
+
+        // 2. If not found, check inside variants
+        if (!product) {
+            for (const p of products) {
+                if (p.variants) {
+                    const foundVariant = p.variants.find(v => v.shortId === code);
+                    if (foundVariant) {
+                        product = p;
+                        variantName = foundVariant.name;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (product) {
+            // If variant found, we must handle it specifically first (SKIP regular logic if variant found)
+            if (variantName) {
+                // If found a variant directly, add it to cart immediately
+                // However, check stock of variant first
+                const targetVariant = product.variants?.find(v => v.name === variantName);
+                const currentStock = targetVariant?.stockQuantity || 0;
+
+                if (currentStock <= 0) {
+                    setStockModalProduct(product);
+                    // We should ideally set the variant too for context, but current modal logic might need tweak
+                    setStockModalVariant(variantName);
+                    setIsStockModalOpen(true);
+                    return;
+                }
+
+                // If weight type, open weight modal for that variant
+                if (product.unitType === 'weight') {
+                    // Need to open weight modal with variant pre-selected
+                    // addToCart handles logic if we pass variantName
+                    addToCart(product, variantName);
+                    return;
+                }
+
+                // If unit type, addToCart (simple)
+                addToCart(product, variantName);
+                return;
+            }
+
             // Check availability - logic mirror from addToCart
             const currentStock = product.stockQuantity || 0;
 
@@ -747,12 +793,57 @@ export default function POSManager() {
         }
     };
 
-    const filteredProducts = products.filter(p => {
-        const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = selectedCategory === "Todas" || p.categoria === selectedCategory;
-        const visibleInPos = !p.isHiddenInPOS;
-        return matchesSearch && matchesCategory && visibleInPos;
-    });
+    const filteredItems = useMemo(() => {
+        const items: { type: 'product' | 'variant', data: Product, variant?: any }[] = [];
+
+        products.forEach(p => {
+            const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = selectedCategory === "Todas" || p.categoria === selectedCategory;
+            const visibleInPos = !p.isHiddenInPOS;
+
+            if (matchesCategory && visibleInPos) {
+                // If has variants, check them
+                // NOTE: If variants exist, we ONLY show variants, not the parent "container" as a product
+                if (p.variants && p.variants.length > 0) {
+                    p.variants.forEach(v => {
+                        // For variants, we usually check if parent matches search OR variant name matches
+                        // Simplified: check parent name + variant name
+                        const fullName = `${p.nombre} ${v.name}`.toLowerCase();
+                        if (fullName.includes(searchTerm.toLowerCase())) {
+                            items.push({ type: 'variant', data: p, variant: v });
+                        }
+                    });
+                } else {
+                    // No variants, Standard Product
+                    if (matchesSearch) {
+                        items.push({ type: 'product', data: p });
+                    }
+                }
+            }
+        });
+
+        return items.sort((a, b) => {
+            // 1. Sort by Short ID
+            const codeA = a.type === 'variant' ? (a.variant.shortId || "") : (a.data.shortId || "");
+            const codeB = b.type === 'variant' ? (b.variant.shortId || "") : (b.data.shortId || "");
+
+            if (codeA && codeB) {
+                const numA = parseInt(codeA);
+                const numB = parseInt(codeB);
+                if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+                    return numA - numB;
+                }
+                return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+            }
+            if (codeA) return -1;
+            if (codeB) return 1;
+
+            // 2. Sort by Name (Fallback)
+            const nameA = a.type === 'variant' ? `${a.data.nombre} ${a.variant.name}` : a.data.nombre;
+            const nameB = b.type === 'variant' ? `${b.data.nombre} ${b.variant.name}` : b.data.nombre;
+            return nameA.localeCompare(nameB);
+        });
+    }, [products, searchTerm, selectedCategory]);
 
     return (
         <div className="pos-container">
@@ -803,15 +894,58 @@ export default function POSManager() {
                 <div className="pos-products-grid">
                     {loading ? (
                         <div style={{ padding: '20px', textAlign: 'center', width: '100%' }}>Cargando productos...</div>
-                    ) : filteredProducts.map(product => {
-                        // Logic to handle variants presentation could be complex.
-                        // For simplicity, if variants exist, show them as separate "cards" or require modal.
-                        // Here: If variants, showing just the main card opens a mini-selector (simplified for MVP: default to main or show variants if any)
-
-                        if (product.variants && product.variants.length > 0) {
-                            return product.variants.map((v) => (
-                                <div key={`${product.id}-${v.name}`} className="pos-product-card" onClick={() => addToCart(product, v.name)}>
+                    ) : filteredItems.map((item, index) => {
+                        if (item.type === 'variant') {
+                            const product = item.data;
+                            const v = item.variant;
+                            return (
+                                <div key={`${product.id}-${v.name}-${index}`} className="pos-product-card" onClick={() => addToCart(product, v.name)}>
                                     <img src={v.image || product.img} alt={product.nombre} className="pos-product-img" />
+                                    {v.shortId && (
+                                        <span style={{
+                                            position: 'absolute',
+                                            top: '5px',
+                                            left: '5px',
+                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                            color: '#fff',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 'bold',
+                                            zIndex: 10,
+                                            pointerEvents: 'none'
+                                        }}>
+                                            {v.shortId}
+                                        </span>
+                                    )}
+                                    <div className="pos-product-info">
+                                        <div className="pos-product-name">{product.nombre} ({v.name})</div>
+                                        <div className="pos-product-price">
+                                            ${product.precio}
+                                        </div>
+                                        <div className={`pos-product-stock ${(v.stockQuantity || 0) < 5 ? "low" : ""}`}>
+                                            Stock: {v.stockQuantity}
+                                            {/* Boton de edicion rapida de stock */}
+                                            <button
+                                                className="btn-quick-stock-edit"
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Evitar agregar al carrito
+                                                    setStockModalProduct(product);
+                                                    setStockModalVariant(v.name);
+                                                    setIsStockModalOpen(true);
+                                                }}
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        } else {
+                            const product = item.data;
+                            return (
+                                <div key={`${product.id}-${index}`} className="pos-product-card" onClick={() => addToCart(product)}>
+                                    <img src={product.img} alt={product.nombre} className="pos-product-img" />
                                     {product.shortId && (
                                         <span style={{
                                             position: 'absolute',
@@ -830,80 +964,28 @@ export default function POSManager() {
                                         </span>
                                     )}
                                     <div className="pos-product-info">
-                                        <div className="pos-product-name">{product.nombre} ({v.name})</div>
+                                        <div className="pos-product-name">{product.nombre}</div>
                                         <div className="pos-product-price">
-                                            ${priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio}
+                                            ${product.precio}
                                         </div>
-                                        <div className={`pos-product-stock ${v.stockQuantity && v.stockQuantity < 5 ? 'low' : ''}`}>
-                                            Stock: {v.stockQuantity ?? 0}
+                                        <div className={`pos-product-stock ${(product.stockQuantity || 0) < 5 ? "low" : ""}`}>
+                                            Stock: {product.stockQuantity}
+                                            {/* Boton de edicion rapida de stock */}
+                                            <button
+                                                className="btn-quick-stock-edit"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setStockModalProduct(product);
+                                                    setIsStockModalOpen(true);
+                                                }}
+                                            >
+                                                <FaEdit />
+                                            </button>
                                         </div>
                                     </div>
-                                    <button
-                                        className="btn-quick-stock-edit"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Create a temp product object representing this variant as a standalone for the modal if needed, 
-                                            // OR better: pass the main product and pre-select the variant in the modal.
-                                            // The modal supports selecting variant. But we want to pre-select if possible?
-                                            // Current modal doesn't seem to support pre-selected variant prop easily without mod.
-                                            // Let's pass the main product. The user can select the variant inside, OR we improve modal later.
-                                            // Actually, standardizing on passing main product is safer.
-                                            // Actually, standardizing on passing main product is safer.
-                                            setStockModalProduct(product);
-                                            setStockModalVariant(v.name);
-                                            setIsStockModalOpen(true);
-                                        }}
-                                        title="Ajustar Stock"
-                                    >
-                                        <FaEdit size={12} /> Stock
-                                    </button>
                                 </div>
-                            ));
+                            );
                         }
-
-                        return (
-                            <div key={product.id} className="pos-product-card" onClick={() => addToCart(product)}>
-                                <img src={product.img} alt={product.nombre} className="pos-product-img" />
-                                {product.shortId && (
-                                    <span style={{
-                                        position: 'absolute',
-                                        top: '5px',
-                                        left: '5px',
-                                        backgroundColor: 'rgba(0,0,0,0.6)',
-                                        color: '#fff',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 'bold',
-                                        zIndex: 10,
-                                        pointerEvents: 'none'
-                                    }}>
-                                        {product.shortId}
-                                    </span>
-                                )}
-                                <div className="pos-product-info">
-                                    <div className="pos-product-name">{product.nombre}</div>
-                                    <div className="pos-product-price">
-                                        ${priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio}
-                                    </div>
-                                    <div className={`pos-product-stock ${product.stockQuantity && product.stockQuantity < 5 ? 'low' : ''}`}>
-                                        Stock: {product.stockQuantity ?? 0}
-                                    </div>
-                                </div>
-                                <button
-                                    className="btn-quick-stock-edit"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setStockModalProduct(product);
-                                        setStockModalVariant(undefined);
-                                        setIsStockModalOpen(true);
-                                    }}
-                                    title="Ajustar Stock"
-                                >
-                                    <FaEdit size={12} /> Stock
-                                </button>
-                            </div>
-                        );
                     })}
                 </div>
 
