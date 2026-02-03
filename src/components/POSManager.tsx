@@ -1171,7 +1171,33 @@ export default function POSManager() {
                     <div className="pos-modal-overlay">
                         <div className="pos-modal">
 
-                            {pendingProduct && <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal' }}>{pendingProduct.product.nombre} <span style={{ fontSize: '0.7em', color: (pendingProduct.product.stockQuantity || 0) > 5 ? '#059669' : '#dc2626' }}>(Stock: {pendingProduct.product.stockQuantity ?? 0})</span></h3>}
+                            {pendingProduct && (
+                                <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal' }}>
+                                    {pendingProduct.product.nombre} {pendingProduct.variant ? `(${pendingProduct.variant})` : ''}
+                                    <span style={{
+                                        fontSize: '0.7em', display: 'block', marginTop: '5px', color: (() => {
+                                            const { product, variant } = pendingProduct;
+                                            let stock = 0;
+                                            if (variant && product.variants) {
+                                                const v = product.variants.find((v: any) => v.name === variant);
+                                                stock = v ? (v.stockQuantity || 0) : 0;
+                                            } else {
+                                                stock = product.stockQuantity || 0;
+                                            }
+                                            return stock > 5 ? '#059669' : '#dc2626';
+                                        })()
+                                    }}>
+                                        (Stock: {(() => {
+                                            const { product, variant } = pendingProduct;
+                                            if (variant && product.variants) {
+                                                const v = product.variants.find((v: any) => v.name === variant);
+                                                return v ? (v.stockQuantity || 0) : 0;
+                                            }
+                                            return product.stockQuantity || 0;
+                                        })()})
+                                    </span>
+                                </h3>
+                            )}
                             <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
                                 <input
                                     ref={quantityInputRef}
@@ -1206,7 +1232,7 @@ export default function POSManager() {
                         <div className="pos-modal">
                             {pendingProduct && (
                                 <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal', textAlign: 'center' }}>
-                                    {pendingProduct.product.nombre}
+                                    {pendingProduct.product.nombre} {pendingProduct.variant ? `(${pendingProduct.variant})` : ''}
                                     <span style={{ fontSize: '0.8em', color: '#6b7280', display: 'block', marginTop: '5px' }}>
                                         (Stock Actual: {(() => {
                                             const { product, variant } = pendingProduct;
