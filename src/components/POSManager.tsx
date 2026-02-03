@@ -337,82 +337,93 @@ export default function POSManager() {
         fetchProducts();
     }, []);
 
-    const processShortId = (code: string) => {
-        // 1. Check for Top Level Product
-        let product = products.find(p => p.shortId === code);
-        let variantName: string | undefined = undefined;
-
-        // 2. If not found, check inside variants
-        if (!product) {
-            for (const p of products) {
+    const processShortId = async (code: string) => {
+        // Helper to find product/variant in a list
+        const findInList = (list: Product[]) => {
+            // 1. Check Variants FIRST (Priority)
+            for (const p of list) {
                 if (p.variants) {
                     const foundVariant = p.variants.find(v => v.shortId === code);
                     if (foundVariant) {
-                        product = p;
-                        variantName = foundVariant.name;
-                        break;
+                        return { product: p, variantName: foundVariant.name };
                     }
                 }
             }
-        }
 
+            // 2. Check Top Level Product
+            const pFound = list.find(p => p.shortId === code);
+            return { product: pFound, variantName: undefined };
+        };
+
+        // 1. Initial Search (Local State)
+        let { product, variantName } = findInList(products);
+
+        // 2. Logic Check
         if (product) {
-            // If variant found, we must handle it specifically first (SKIP regular logic if variant found)
-            if (variantName) {
-                // If found a variant directly, add it to cart immediately
-                // However, check stock of variant first
-                const targetVariant = product.variants?.find(v => v.name === variantName);
-                const currentStock = targetVariant?.stockQuantity || 0;
+            // Helper to handle logic (reusable for retry)
+            const handleLogic = (prod: Product, vName?: string) => {
+                if (vName) {
+                    // Variant Logic
+                    const targetVariant = prod.variants?.find(v => v.name === vName);
+                    const currentStock = Number(targetVariant?.stockQuantity || 0);
 
-                if (currentStock <= 0) {
-                    setStockModalProduct(product);
-                    // We should ideally set the variant too for context, but current modal logic might need tweak
-                    setStockModalVariant(variantName);
-                    setIsStockModalOpen(true);
-                    return;
+                    if (currentStock <= 0) {
+                        return false; // Out of stock
+                    }
+
+                    if (prod.unitType === 'weight') {
+                        addToCart(prod, vName);
+                        return true;
+                    }
+
+                    setPendingProduct({ product: prod, variant: vName });
+                    setQuantityInput("");
+                    setQuantityModalOpen(true);
+                    setTimeout(() => {
+                        if (quantityInputRef.current) quantityInputRef.current.focus();
+                    }, 100);
+                    return true;
+                } else {
+                    // Simple Product Logic
+                    const currentStock = Number(prod.stockQuantity || 0);
+                    if (currentStock <= 0) {
+                        return false; // Out of stock
+                    }
+                    if (prod.unitType === 'weight') {
+                        addToCart(prod);
+                        return true;
+                    }
+                    setPendingProduct({ product: prod });
+                    setQuantityInput("");
+                    setQuantityModalOpen(true);
+                    setTimeout(() => {
+                        if (quantityInputRef.current) quantityInputRef.current.focus();
+                    }, 100);
+                    return true;
                 }
+            };
 
-                // If weight type, open weight modal for that variant
-                if (product.unitType === 'weight') {
-                    // Need to open weight modal with variant pre-selected
-                    // addToCart handles logic if we pass variantName
-                    addToCart(product, variantName);
-                    return;
-                }
+            // Attempt 1
+            const success = handleLogic(product, variantName);
+            if (success) return;
 
-                // If unit type, open Quantity Modal with variant
-                setPendingProduct({ product, variant: variantName });
-                setQuantityInput("");
-                setQuantityModalOpen(true);
-                setTimeout(() => {
-                    if (quantityInputRef.current) quantityInputRef.current.focus();
-                }, 100);
-                return;
-            }
+            // If failed due to stock <= 0, try fetching FRESH data
+            // Maybe local state is stale.
+            const freshProducts = await fetchProducts(true); // Silent fetch
+            const retry = findInList(freshProducts);
 
-            // Check availability - logic mirror from addToCart
-            const currentStock = product.stockQuantity || 0;
+            if (retry.product) {
+                const freshSuccess = handleLogic(retry.product, retry.variantName);
+                if (freshSuccess) return;
 
-            if (currentStock <= 0) {
-                setStockModalProduct(product);
+                // If still failed, Show Stock Modal with FRESH product data
+                setStockModalProduct(retry.product);
+                setStockModalVariant(retry.variantName);
                 setIsStockModalOpen(true);
-                // Optional warn user? User requested direct open.
-                return;
+            } else {
+                // Should likely not happen if it existed before, unless deleted.
+                showModal('error', 'Producto no encontrado', `El producto parece haber sido eliminado.`);
             }
-
-            // If unit type is weight, addToCart handles it (opens weight modal)
-            if (product.unitType === 'weight') {
-                addToCart(product);
-                return;
-            }
-
-            // If unit type is 'unit', open Quantity Modal
-            setPendingProduct({ product });
-            setQuantityInput(""); // Start empty or "1"? User said "put a number". Empty might be better to type "12" directly without deleting "1".
-            setQuantityModalOpen(true);
-            setTimeout(() => {
-                if (quantityInputRef.current) quantityInputRef.current.focus();
-            }, 100);
 
         } else {
             showModal('error', 'Código no encontrado', `No existe producto con código "${code}"`);
@@ -464,8 +475,8 @@ export default function POSManager() {
         setQuantityInput("");
     };
 
-    const fetchProducts = async () => {
-        setLoading(true);
+    const fetchProducts = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, "products"));
             const prods: Product[] = querySnapshot.docs.map(doc => ({
@@ -478,7 +489,7 @@ export default function POSManager() {
             console.error("Error fetching products:", error);
             return [];
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -1423,8 +1434,9 @@ export default function POSManager() {
             {isStockModalOpen && (
                 <StockAdjustmentModal
                     isOpen={isStockModalOpen}
-                    onClose={() => { setIsStockModalOpen(false); setStockModalProduct(null); setStockModalInitialValue(undefined); }}
+                    onClose={() => { setIsStockModalOpen(false); setStockModalProduct(null); setStockModalInitialValue(undefined); setStockModalVariant(undefined); }}
                     product={stockModalProduct}
+                    initialVariantName={stockModalVariant}
                     onSuccess={async () => {
                         const newProds = await fetchProducts();
                         setIsStockModalOpen(false);
@@ -1444,7 +1456,6 @@ export default function POSManager() {
                             setPendingRetry(null);
                         }
                     }}
-                    initialVariantName={stockModalVariant}
                     initialValue={stockModalInitialValue}
                 />
             )}
