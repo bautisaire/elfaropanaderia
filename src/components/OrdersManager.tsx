@@ -811,7 +811,7 @@ export default function OrdersManager() {
                                                 {searchResults.map(prod => (
                                                     <li key={prod.id} className="search-result-item">
                                                         <span>{prod.nombre}</span>
-                                                        {prod.variants ? (
+                                                        {prod.variants && prod.variants.length > 0 ? (
                                                             <div className="variant-tags">
                                                                 {prod.variants.map((v: any) => (
                                                                     <button key={v.name} onClick={() => handleAddItem(prod, v)} className="variant-tag">
