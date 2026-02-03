@@ -380,8 +380,13 @@ export default function POSManager() {
                     return;
                 }
 
-                // If unit type, addToCart (simple)
-                addToCart(product, variantName);
+                // If unit type, open Quantity Modal with variant
+                setPendingProduct({ product, variant: variantName });
+                setQuantityInput("");
+                setQuantityModalOpen(true);
+                setTimeout(() => {
+                    if (quantityInputRef.current) quantityInputRef.current.focus();
+                }, 100);
                 return;
             }
 
@@ -419,17 +424,19 @@ export default function POSManager() {
         const qty = parseInt(quantityInput);
         if (isNaN(qty) || qty <= 0) return;
 
-        const { product } = pendingProduct;
-
-        // Add to cart with specific quantity
-        // addToCart adds 1 or increments. We need a way to add N.
-        // We can call addToCart N times or modify addToCart to accept qty.
-        // Better: modify logic here to be safe and simple:
+        const { product, variant } = pendingProduct;
 
         setCart(prev => {
-            // Re-check stock just in case
-            const maxStock = product.stockQuantity || 0;
-            const existing = prev.find(item => item.id === product.id && !item.selectedVariant); // Assuming no variant for short ID unit products for now, or handle later. Short ID usually specific.
+            // Re-check stock just in case specifically for the variant or product
+            let maxStock = 0;
+            if (variant && product.variants) {
+                const v = product.variants.find((v: any) => v.name === variant);
+                maxStock = v ? (v.stockQuantity || 0) : 0;
+            } else {
+                maxStock = product.stockQuantity || 0;
+            }
+
+            const existing = prev.find(item => item.id === product.id && item.selectedVariant === variant);
 
             const currentQty = existing ? existing.quantity : 0;
 
@@ -444,12 +451,12 @@ export default function POSManager() {
 
             if (existing) {
                 return prev.map(item =>
-                    item.id === product.id && !item.selectedVariant
+                    item.id === product.id && item.selectedVariant === variant
                         ? { ...item, quantity: item.quantity + qty }
                         : item
                 );
             }
-            return [...prev, { ...product, quantity: qty, selectedVariant: undefined, precio: priceToUse }];
+            return [...prev, { ...product, quantity: qty, selectedVariant: variant, precio: priceToUse }];
         });
 
         setQuantityModalOpen(false);
