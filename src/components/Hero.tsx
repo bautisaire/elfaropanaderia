@@ -61,9 +61,11 @@ export default function Hero() {
                     key={slide.id}
                     className={`hero-slide ${index === currentIndex ? "active" : ""}`}
                 >
-                    <div
+                    <img
+                        src={slide.imageUrl}
+                        alt={slide.title}
                         className={`hero-image ${slide.animation}`}
-                        style={{ backgroundImage: `url(${slide.imageUrl})` }}
+                        {...(index === 0 ? { fetchPriority: "high" } : {})}
                     />
                     <div className="hero-content">
                         <h1 className="hero-title-text">{slide.title}</h1>

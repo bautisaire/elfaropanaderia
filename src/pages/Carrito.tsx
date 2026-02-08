@@ -403,7 +403,7 @@ export default function Carrito() {
       // Telegram
       if (!isAdmin) {
         sendTelegramNotification({
-          items: cart, total: cartTotal, cliente: formData, date: Timestamp.now(), status: "pending", id: newOrderId
+          items: cart, total: finalTotal, shippingCost, cliente: formData, date: Timestamp.now(), status: "pending", id: newOrderId
         }).catch(console.error);
       }
 

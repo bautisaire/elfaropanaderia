@@ -1,4 +1,4 @@
-export const compressImage = (file: File): Promise<Blob> => {
+export const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<Blob> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -7,7 +7,7 @@ export const compressImage = (file: File): Promise<Blob> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                const MAX_WIDTH = 800;
+                const MAX_WIDTH = maxWidth;
                 const scaleSize = MAX_WIDTH / img.width;
 
                 // Si la imagen es más pequeña que el máximo, no redimensionar
@@ -34,7 +34,7 @@ export const compressImage = (file: File): Promise<Blob> => {
                         }
                     },
                     "image/webp",
-                    0.8 // Calidad de compresión (0.0 - 1.0)
+                    quality // Calidad de compresión (0.0 - 1.0)
                 );
             };
             img.onerror = (error) => reject(error);

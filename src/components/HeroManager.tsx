@@ -86,7 +86,7 @@ export default function HeroManager() {
 
             if (imageFile) {
                 setUploading(true);
-                const compressed = await compressImage(imageFile);
+                const compressed = await compressImage(imageFile, 1920, 0.85);
                 const storageRef = ref(storage, `hero_slides/${Date.now()}_${imageFile.name}.webp`);
                 await uploadBytes(storageRef, compressed);
                 url = await getDownloadURL(storageRef);

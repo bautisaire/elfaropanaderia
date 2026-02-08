@@ -15,26 +15,29 @@ export const sendTelegramNotification = async (orderData: any) => {
     const encodedAddress = encodeURIComponent(`${cliente.direccion}, Senillosa, Neuquen`);
     const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
 
-    // Mensaje 1: Para el comercio (Datos copiables)
     const adminMessage = `
 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
-📍 *Dirección:* [${cliente.direccion}](${mapLink})
-📞 *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
-💰 *Método de Pago:* ${cliente.metodoPago}
-📝 *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
+ *Dirección:* [${cliente.direccion}](${mapLink})
+ *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
+ *Método de Pago:* ${cliente.metodoPago}
+ *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
 
 🛒 *Productos:*
 ${itemsList}
+${orderData.shippingCost > 0 ? `\n *Envío:* $${Math.floor(orderData.shippingCost)}` : ''}
 
 💵 *Total:* $${Math.floor(total)}
-🛵 ¡Ya lo estamos preparando! 
+
+ ¡Ya lo estamos preparando! 
+
 ${(cliente.metodoPago === 'transferencia' || cliente.metodoPago === 'transfer') ? `
-🏦 *Datos de Transferencia:*
+ *Datos de Transferencia:*
 ALIAS: \`elfaro80.mp\`
 CVU: \`0000003100006832823516\`
+A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
 _Puedes abonar ahora o esperar al repartidor._` : ''}
 
-    https://www.elfaropanificacion.com
+https://www.elfaropanificacion.com
   `.trim();
 
 
