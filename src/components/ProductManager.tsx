@@ -36,6 +36,9 @@ export interface FirestoreProduct {
         productId: string;
         unitsToDeduct: number;
     };
+    stockReadyTime?: string; // ISO string
+    customBadgeText?: string;
+    badgeExpiresAt?: string;
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -53,7 +56,10 @@ const INITIAL_STATE: FirestoreProduct = {
     variants: [],
     isVisible: true,
     isHiddenInPOS: false,
-    unitType: 'unit'
+    unitType: 'unit',
+    stockReadyTime: "",
+    customBadgeText: "",
+    badgeExpiresAt: ""
 };
 
 export default function ProductManager() {
@@ -101,7 +107,10 @@ export default function ProductManager() {
                     isVisible: data.isVisible !== false,
                     unitType: data.unitType || 'unit',
                     shortId: data.shortId || "",
-                    images: data.images || (data.img ? [data.img] : [])
+                    images: data.images || (data.img ? [data.img] : []),
+                    stockReadyTime: data.stockReadyTime || "",
+                    customBadgeText: data.customBadgeText || "",
+                    badgeExpiresAt: data.badgeExpiresAt || ""
                 } as FirestoreProduct;
             });
             setProducts(prods);
@@ -596,6 +605,42 @@ export default function ProductManager() {
                                             />
                                             <strong style={{ color: '#d97706' }}>Ocultar en POS</strong>
                                         </label>
+                                    </div>
+
+                                    {/* Custom Badge / Ready Time Section */}
+                                    <div className="form-group" style={{ background: '#fffbeb', padding: '10px', borderRadius: '8px', marginTop: '10px', border: '1px solid #fcd34d' }}>
+                                        <label style={{ color: '#b45309' }}><strong>Etiqueta de Estado (Reemplaza Descuento)</strong></label>
+                                        <input
+                                            type="text"
+                                            placeholder="Ej. En el horno, Preparando..."
+                                            value={formData.customBadgeText || ""}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, customBadgeText: e.target.value }))}
+                                            style={{ marginBottom: '8px', width: '100%', padding: '6px' }}
+                                        />
+
+                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
+                                                const time = new Date(Date.now() + 20 * 60000).toISOString();
+                                                setFormData(prev => ({ ...prev, customBadgeText: "En el horno", badgeExpiresAt: time }));
+                                            }}>Horno (20m)</button>
+                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
+                                                const time = new Date(Date.now() + 10 * 60000).toISOString();
+                                                setFormData(prev => ({ ...prev, customBadgeText: "Preparando", badgeExpiresAt: time }));
+                                            }}>Prep (10m)</button>
+                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
+                                                const time = new Date(Date.now() + 60 * 60000).toISOString();
+                                                setFormData(prev => ({ ...prev, badgeExpiresAt: time }));
+                                            }}>+1h Expira</button>
+                                            <button type="button" className="btn-icon-danger" title="Limpiar" onClick={() => setFormData(prev => ({ ...prev, customBadgeText: "", badgeExpiresAt: "" }))}>
+                                                <FaTrash />
+                                            </button>
+                                        </div>
+                                        {formData.badgeExpiresAt && (
+                                            <div style={{ marginTop: '5px', fontSize: '0.85rem', color: '#b45309' }}>
+                                                Expira: {new Date(formData.badgeExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(formData.badgeExpiresAt) < new Date() ? " (Expirado)" : ""}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="form-group">

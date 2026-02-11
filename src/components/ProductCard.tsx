@@ -124,11 +124,32 @@ export default function ProductCard({ product }: Props) {
           decoding="async"
         />
 
-        {hasDiscount && !isOutOfStock && (
-          <div className="discount-badge">
-            -{product.discount}% OFF
-          </div>
-        )}
+
+        {/* Custom Badge Logic */}
+        {(() => {
+          // Check for valid custom badge
+          const hasCustomBadge = product.customBadgeText &&
+            (!product.badgeExpiresAt || new Date(product.badgeExpiresAt) > new Date());
+
+          if (hasCustomBadge && !isOutOfStock) {
+            return (
+              <div className="discount-badge" style={{ backgroundColor: '#eab308', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}>
+                {product.customBadgeText}
+              </div>
+            );
+          }
+
+          // Fallback to discount if no custom badge
+          if (hasDiscount && !isOutOfStock) {
+            return (
+              <div className="discount-badge">
+                -{product.discount}% OFF
+              </div>
+            );
+          }
+          return null;
+        })()}
+
 
         {images.length > 1 && !isOutOfStock && (
           <>

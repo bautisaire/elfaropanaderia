@@ -402,7 +402,7 @@ export default function OrdersManager() {
         if (!editingOrder) return;
         const newItems = [...editingOrder.items];
 
-        const price = variant ? Number(variant.price) : Number(product.precio);
+        const price = (variant && variant.price !== undefined) ? Number(variant.price) : Number(product.precio);
         const name = product.nombre;
         const variantName = variant ? variant.name : null;
         const id = variant ? `${product.id}-${variant.name}` : product.id;
@@ -815,7 +815,7 @@ export default function OrdersManager() {
                                                             <div className="variant-tags">
                                                                 {prod.variants.map((v: any) => (
                                                                     <button key={v.name} onClick={() => handleAddItem(prod, v)} className="variant-tag">
-                                                                        {v.name} (${v.price})
+                                                                        {v.name} (${v.price !== undefined ? v.price : prod.precio})
                                                                     </button>
                                                                 ))}
                                                             </div>

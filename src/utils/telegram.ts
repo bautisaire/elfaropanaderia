@@ -9,7 +9,7 @@ export const sendTelegramNotification = async (orderData: any) => {
         .join("\n");
 
     // Limpiar número para el link (quitar espacios, guiones, etc)
-    const cleanPhone = cliente.telefono.replace(/\D/g, "");
+    // const cleanPhone = cliente.telefono.replace(/\D/g, "");
 
     // Generar link de maps
     const encodedAddress = encodeURIComponent(`${cliente.direccion}, Senillosa, Neuquen`);
@@ -18,8 +18,6 @@ export const sendTelegramNotification = async (orderData: any) => {
     const adminMessage = `
 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
  *Dirección:* [${cliente.direccion}](${mapLink})
- *Teléfono:* [${cliente.telefono}](https://wa.me/549${cleanPhone})
- *Método de Pago:* ${cliente.metodoPago}
  *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
 
 🛒 *Productos:*

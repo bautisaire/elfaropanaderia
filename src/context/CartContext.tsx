@@ -21,6 +21,9 @@ export interface Product {
   discount?: number;
   categoria?: string;
   isVisible?: boolean;
+  stockReadyTime?: string; // ISO string for when stock will be ready (e.g. baking finished)
+  customBadgeText?: string; // "En el horno", "Preparando", etc.
+  badgeExpiresAt?: string; // ISO string for when the badge should disappear
 }
 
 interface CartContextType {

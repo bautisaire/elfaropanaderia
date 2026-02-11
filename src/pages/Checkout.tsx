@@ -305,7 +305,7 @@ export default function Checkout() {
 
   if (confirmedOrder) {
     const paymentLabel = confirmedOrder.paymentMethod === 'efectivo' ? 'pedido para pagar en efectivo' : (confirmedOrder.paymentMethod === 'transferencia' ? 'pedido con transferencia' : 'pedido');
-    const message = `Hola Panadería El Faro! 🥖\nHe realizado un nuevo ${paymentLabel} (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${confirmedOrder.total}`;
+    const message = `Hola Panadería El Faro!\nHe realizado un nuevo ${paymentLabel}.\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${confirmedOrder.total}`;
     const whatsappUrl = `https://wa.me/5492995206821?text=${encodeURIComponent(message)}`;
 
     return (
