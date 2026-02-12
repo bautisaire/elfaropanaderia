@@ -119,7 +119,7 @@ export default function ProductCard({ product }: Props) {
         <img
           src={currentImage}
           alt={product.name}
-          className={`product-image ${isOutOfStock ? "grayscale" : ""}`}
+          className={`product-image ${isOutOfStock && !(product.customBadgeText && (!product.badgeExpiresAt || new Date(product.badgeExpiresAt) > new Date())) ? "grayscale" : ""}`}
           loading="lazy"
           decoding="async"
         />
@@ -131,9 +131,9 @@ export default function ProductCard({ product }: Props) {
           const hasCustomBadge = product.customBadgeText &&
             (!product.badgeExpiresAt || new Date(product.badgeExpiresAt) > new Date());
 
-          if (hasCustomBadge && !isOutOfStock) {
+          if (hasCustomBadge) {
             return (
-              <div className="discount-badge" style={{ backgroundColor: '#eab308', color: '#fff', fontSize: '0.75rem', padding: '4px 8px' }}>
+              <div className="discount-badge" style={{ backgroundColor: '#eab308', color: '#fff', fontSize: '0.75rem', padding: '4px 8px', zIndex: 10 }}>
                 {product.customBadgeText}
               </div>
             );

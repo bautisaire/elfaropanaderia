@@ -3,7 +3,7 @@ import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMoneyBillWave } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import ProductManager from "../components/ProductManager";
@@ -20,12 +20,16 @@ export default function Editor() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "products" | "orders" | "stock" | "pos" | "store_editor" | "settings" | "expenses">("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
+
   const navigate = useNavigate();
+  const location = useLocation();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Determine active tab based on path
+  const currentPath = location.pathname.replace('/editor', '').split('/')[1] || 'dashboard';
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -103,7 +107,7 @@ export default function Editor() {
 
             notification.onclick = () => {
               window.focus();
-              setActiveTab('orders');
+              navigate('/editor/orders/web');
               notification.close();
             };
 
@@ -134,8 +138,8 @@ export default function Editor() {
     navigate("/");
   };
 
-  const handleNavClick = (tab: typeof activeTab) => {
-    setActiveTab(tab);
+  const handleNavClick = (path: string) => {
+    navigate(path);
     setMobileMenuOpen(false);
   };
 
@@ -206,48 +210,48 @@ export default function Editor() {
 
             <nav>
               <button
-                className={activeTab === "dashboard" ? "active" : ""}
-                onClick={() => handleNavClick("dashboard")}
+                className={currentPath === "dashboard" || currentPath === "" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/")}
                 title="Dashboard"
               >
                 <div className="nav-icon" style={{ color: '#3b82f6' }}><FaChartPie /></div>
                 <span className="nav-text">Dashboard</span>
               </button>
               <button
-                className={activeTab === "pos" ? "active" : ""}
-                onClick={() => handleNavClick("pos")}
+                className={currentPath === "pos" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/pos")}
                 title="Punto de Venta"
               >
                 <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
                 <span className="nav-text">Punto de Venta</span>
               </button>
               <button
-                className={activeTab === "expenses" ? "active" : ""}
-                onClick={() => handleNavClick("expenses")}
+                className={currentPath === "expenses" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/expenses")}
                 title="Gastos / Materia Prima"
               >
                 <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaMoneyBillWave /></div>
                 <span className="nav-text">Gastos / Materia Prima</span>
               </button>
               <button
-                className={activeTab === "products" ? "active" : ""}
-                onClick={() => handleNavClick("products")}
+                className={currentPath === "products" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/products")}
                 title="Productos"
               >
                 <div className="nav-icon" style={{ color: '#ef4444' }}><FaBoxOpen /></div>
                 <span className="nav-text">Productos</span>
               </button>
               <button
-                className={activeTab === "stock" ? "active" : ""}
-                onClick={() => handleNavClick("stock")}
+                className={currentPath === "stock" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/stock")}
                 title="Gestión de Stock"
               >
                 <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
                 <span className="nav-text">Gestión de Stock</span>
               </button>
               <button
-                className={activeTab === "orders" ? "active" : ""}
-                onClick={() => handleNavClick("orders")}
+                className={currentPath === "orders" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/orders/pos")}
                 title="Pedidos"
               >
                 <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
@@ -257,16 +261,16 @@ export default function Editor() {
                 )}
               </button>
               <button
-                className={activeTab === "store_editor" ? "active" : ""}
-                onClick={() => handleNavClick("store_editor")}
+                className={currentPath === "store_editor" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/store_editor")}
                 title="Editor de Tienda"
               >
                 <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
                 <span className="nav-text">Editor de Tienda</span>
               </button>
               <button
-                className={activeTab === "settings" ? "active" : ""}
-                onClick={() => handleNavClick("settings")}
+                className={currentPath === "settings" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/settings")}
                 title="Configuración"
               >
                 <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
@@ -286,24 +290,18 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${activeTab === 'pos' ? 'pos-active-tab' : ''}`}>
-            {activeTab === "dashboard" ? (
-              <Dashboard />
-            ) : activeTab === "pos" ? (
-              <POSManager />
-            ) : activeTab === "orders" ? (
-              <OrdersManager />
-            ) : activeTab === "store_editor" ? (
-              <StoreEditor />
-            ) : activeTab === "stock" ? (
-              <StockManager />
-            ) : activeTab === "settings" ? (
-              <AdminSettings />
-            ) : activeTab === "expenses" ? (
-              <ExpenseManager />
-            ) : (
-              <ProductManager />
-            )}
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''}`}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/pos" element={<POSManager />} />
+              <Route path="/orders/*" element={<OrdersManager />} />
+              <Route path="/store_editor" element={<StoreEditor />} />
+              <Route path="/stock" element={<StockManager />} />
+              <Route path="/settings" element={<AdminSettings />} />
+              <Route path="/expenses" element={<ExpenseManager />} />
+              <Route path="/products" element={<ProductManager />} />
+              <Route path="*" element={<Navigate to="/editor/" replace />} />
+            </Routes>
           </main>
         </div>
       )}

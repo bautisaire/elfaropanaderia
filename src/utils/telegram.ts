@@ -1,7 +1,7 @@
 const BOT_TOKEN = import.meta.env.VITE_BOT_TOKEN;
 const CHAT_ID = import.meta.env.VITE_CHAT_ID;
 
-export const sendTelegramNotification = async (orderData: any) => {
+export const generateOrderMessage = (orderData: any) => {
     const { cliente, items, total } = orderData;
 
     const itemsList = items
@@ -11,13 +11,9 @@ export const sendTelegramNotification = async (orderData: any) => {
     // Limpiar número para el link (quitar espacios, guiones, etc)
     // const cleanPhone = cliente.telefono.replace(/\D/g, "");
 
-    // Generar link de maps
-    const encodedAddress = encodeURIComponent(`${cliente.direccion}, Senillosa, Neuquen`);
-    const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-
-    const adminMessage = `
+    return `
 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
- *Dirección:* [${cliente.direccion}](${mapLink})
+ *Dirección:* ${cliente.direccion}
  *Indicaciones:* ${cliente.indicaciones || "Ninguna"}
 
 🛒 *Productos:*
@@ -37,6 +33,10 @@ _Puedes abonar ahora o esperar al repartidor._` : ''}
 
 https://www.elfaropanificacion.com
   `.trim();
+};
+
+export const sendTelegramNotification = async (orderData: any) => {
+    const adminMessage = `Tienes un nuevo pedido de *${orderData.cliente.nombre}*. Visitar https://www.elfaropanificacion.com/editor/orders/web`;
 
 
 

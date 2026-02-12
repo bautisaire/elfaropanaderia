@@ -79,7 +79,10 @@ export default function Home() {
             stockQuantity: data.stockQuantity,
             isVisible: data.isVisible !== false,
             discount: data.discount || 0,
-            categoria: (data.categoria || "Otros").trim()
+            categoria: (data.categoria || "Otros").trim(),
+            stockReadyTime: data.stockReadyTime,
+            customBadgeText: data.customBadgeText,
+            badgeExpiresAt: data.badgeExpiresAt
           } as Product;
         });
 

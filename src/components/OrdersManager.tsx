@@ -1,10 +1,12 @@
 
 import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs } from "firebase/firestore";
-import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaEdit, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
+import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaEdit, FaPlus, FaMinus, FaTrash, FaSave, FaCopy } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
+import { generateOrderMessage } from "../utils/telegram";
 import "./OrdersManager.css";
 
 interface Order {
@@ -32,6 +34,13 @@ const statusOptions = [
 ];
 
 export default function OrdersManager() {
+    const { "*": tab } = useParams(); // Capture the wildcard part
+    const navigate = useNavigate();
+
+    // Derived state from URL, defaulting to 'pos'
+    const cleanTab = tab ? tab.replace(/^\//, '') : 'pos';
+    const activeTab = (cleanTab === 'web' || cleanTab === 'pos') ? cleanTab : 'pos';
+
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +59,10 @@ export default function OrdersManager() {
     const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
 
     // New Tab State
-    const [activeTab, setActiveTab] = useState<'pos' | 'web'>('pos');
+
+
+    // Copy Toast State
+    const [showCopyToast, setShowCopyToast] = useState(false);
 
     useEffect(() => {
         fetchOrders();
@@ -577,6 +589,23 @@ export default function OrdersManager() {
                 </div>
             ) : (
                 <div className="orders-list-container">
+                    {showCopyToast && (
+                        <div style={{
+                            position: 'fixed',
+                            bottom: '20px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: '#333',
+                            color: 'white',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            zIndex: 1000,
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                            animation: 'fadeIn 0.3s ease-in-out'
+                        }}>
+                            Mensaje copiado al portapapeles
+                        </div>
+                    )}
                     <div className="orders-summary-bar">
                         <span className="summary-pill">Cargados: <strong>{orders.length}</strong></span>
                         <span className="summary-pill pending">Pendientes: <strong>{orders.filter(o => o.status === 'pendiente').length}</strong></span>
@@ -587,7 +616,7 @@ export default function OrdersManager() {
                         <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                             <button
                                 className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('pos')}
+                                onClick={() => navigate('/editor/orders/pos')}
                                 style={{
                                     padding: '10px 20px',
                                     borderRadius: '8px',
@@ -602,7 +631,7 @@ export default function OrdersManager() {
                             </button>
                             <button
                                 className={`tab-btn ${activeTab === 'web' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('web')}
+                                onClick={() => navigate('/editor/orders/web')}
                                 style={{
                                     padding: '10px 20px',
                                     borderRadius: '8px',
@@ -699,10 +728,39 @@ export default function OrdersManager() {
                                                     <strong>{order.cliente.nombre}</strong>
                                                 </div>
                                                 <div className="info-row">
-                                                    <FaMapMarkerAlt className="icon-muted" /> {order.cliente.direccion}
+                                                    <FaMapMarkerAlt className="icon-muted" />
+                                                    <a
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: 'inherit', textDecoration: 'underline' }}
+                                                    >
+                                                        {order.cliente.direccion}
+                                                    </a>
                                                 </div>
                                                 <div className="info-row">
-                                                    <FaPhone className="icon-muted" /> {order.cliente.telefono}
+                                                    <FaPhone className="icon-muted" />
+                                                    <a
+                                                        href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: 'inherit', textDecoration: 'underline' }}
+                                                    >
+                                                        {order.cliente.telefono}
+                                                    </a>
+                                                    <button
+                                                        className="action-btn-small"
+                                                        onClick={() => {
+                                                            const msg = generateOrderMessage(order);
+                                                            navigator.clipboard.writeText(msg);
+                                                            setShowCopyToast(true);
+                                                            setTimeout(() => setShowCopyToast(false), 2000);
+                                                        }}
+                                                        title="Copiar mensaje de pedido"
+                                                        style={{ marginLeft: '10px', padding: '2px 5px', fontSize: '0.8rem', cursor: 'pointer', background: 'none', border: 'none', color: '#6b7280' }}
+                                                    >
+                                                        <FaCopy />
+                                                    </button>
                                                 </div>
                                                 <div className="info-row">
                                                     <FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}
