@@ -1,12 +1,12 @@
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs, where, Timestamp } from "firebase/firestore";
 import { FaPhone, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
-import OrderDetailsModal from "./OrderDetailsModal";
+import OrderDetailsExpanded from "./OrderDetailsExpanded";
 import "./OrdersManager.css";
 
 interface Order {
@@ -58,8 +58,8 @@ export default function OrdersManager() {
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
 
-    // Selected Order State for Details Modal
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    // Expanded Order State
+    const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
     // New Tab State
 
@@ -664,70 +664,88 @@ export default function OrdersManager() {
                                         const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
 
                                         return (
-                                            <tr
-                                                key={order.id}
-                                                className={`order-row-status-${order.status}`}
-                                                onClick={() => setSelectedOrder(order)}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <td>
-                                                    <div className="order-cell-time-large">
-                                                        {order.date?.seconds
-                                                            ? new Date(order.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-                                                            : "N/A"}
-                                                    </div>
-                                                    <div className="order-cell-date-small">
-                                                        {order.date?.seconds
-                                                            ? new Date(order.date.seconds * 1000).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-                                                            : ""}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div className="order-cell-client">
-                                                        <strong>{order.cliente.nombre}</strong>
-                                                        {activeTab === 'web' && (
-                                                            <div className="client-contact-icons">
-                                                                {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
-                                                            </div>
+                                            <React.Fragment key={order.id}>
+                                                <tr
+                                                    className={`order-row-status-${order.status} ${expandedOrderId === order.id ? 'expanded-row-parent' : ''}`}
+                                                    onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    {/* Cells remain the same */}
+                                                    <td>
+                                                        <div className="order-cell-time-large">
+                                                            {order.date?.seconds
+                                                                ? new Date(order.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                                                                : "N/A"}
+                                                        </div>
+                                                        <div className="order-cell-date-small">
+                                                            {order.date?.seconds
+                                                                ? new Date(order.date.seconds * 1000).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+                                                                : ""}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="order-cell-client">
+                                                            <strong>{order.cliente.nombre}</strong>
+                                                            {activeTab === 'web' && (
+                                                                <div className="client-contact-icons">
+                                                                    {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="order-cell-total" style={{ color: '#10b981' }}>${Math.ceil(order.total)}</div>
+                                                        <div className="order-cell-items-count" style={{ fontSize: '0.95rem' }}>
+                                                            {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
+                                                            {order.cliente.metodoPago}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div className="status-selector-wrapper-table" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
+                                                            <span className="status-icon-table">{currentStatus.icon}</span>
+                                                            <select
+                                                                value={order.status}
+                                                                onChange={(e) => updateStatus(order.id, e.target.value)}
+                                                                className="status-dropdown-table"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {statusOptions.map(opt => (
+                                                                    <option key={opt.value} value={opt.value}>
+                                                                        {opt.label}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    </td>
+                                                    <td className="order-cell-notes" title={order.cliente.indicaciones || ""}>
+                                                        {order.cliente.indicaciones ? (
+                                                            <span>{order.cliente.indicaciones.length > 30 ? order.cliente.indicaciones.substring(0, 30) + '...' : order.cliente.indicaciones}</span>
+                                                        ) : (
+                                                            <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin notas</span>
                                                         )}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div className="order-cell-total" style={{ color: '#10b981' }}>${Math.floor(order.total)}</div>
-                                                    <div className="order-cell-items-count" style={{ fontSize: '0.95rem' }}>
-                                                        {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
-                                                        {order.cliente.metodoPago}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div className="status-selector-wrapper-table" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
-                                                        <span className="status-icon-table">{currentStatus.icon}</span>
-                                                        <select
-                                                            value={order.status}
-                                                            onChange={(e) => updateStatus(order.id, e.target.value)}
-                                                            className="status-dropdown-table"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            {statusOptions.map(opt => (
-                                                                <option key={opt.value} value={opt.value}>
-                                                                    {opt.label}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                </td>
-                                                <td className="order-cell-notes" title={order.cliente.indicaciones || ""}>
-                                                    {order.cliente.indicaciones ? (
-                                                        <span>{order.cliente.indicaciones.length > 30 ? order.cliente.indicaciones.substring(0, 30) + '...' : order.cliente.indicaciones}</span>
-                                                    ) : (
-                                                        <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin notas</span>
-                                                    )}
-                                                </td>
-                                            </tr>
+                                                    </td>
+                                                </tr>
+                                                {expandedOrderId === order.id && (
+                                                    <tr className="order-details-row">
+                                                        <td colSpan={6}>
+                                                            <OrderDetailsExpanded
+                                                                order={order}
+                                                                onEdit={(order) => {
+                                                                    handleOpenEditModal(order);
+                                                                }}
+                                                                onStatusChange={updateStatus}
+                                                                onSourceChange={updateSource}
+                                                                statusOptions={statusOptions}
+                                                                onClose={() => setExpandedOrderId(null)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
                                         );
                                     })}
                                 </tbody>
@@ -912,20 +930,6 @@ export default function OrdersManager() {
                     )}
 
                     {/* Details Modal */}
-                    {selectedOrder && (
-                        <OrderDetailsModal
-                            order={selectedOrder}
-                            onClose={() => setSelectedOrder(null)}
-                            onEdit={(order) => {
-                                setSelectedOrder(null);
-                                handleOpenEditModal(order);
-                            }}
-                            onStatusChange={updateStatus}
-                            onSourceChange={updateSource}
-                            statusOptions={statusOptions}
-                        />
-                    )}
-
                 </div>
             )}
         </div>

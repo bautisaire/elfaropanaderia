@@ -132,6 +132,287 @@
     background: white;
 }
 
+/* Expanded Order Styles (Accordion) */
+.order-details-row td {
+    padding: 0 !important;
+    border-bottom: none;
+    /* Let the container handle the border */
+}
+
+/* Animation Container */
+.order-details-wrapper {
+    overflow: hidden;
+    animation: slideDown 0.3s ease-out forwards;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        max-height: 0;
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 1000px;
+    }
+}
+
+.order-details-expanded {
+    background: #fff;
+    padding: 24px;
+    margin: 10px 20px 20px 20px;
+    /* Inset from table */
+    border: 2px dashed #d1d5db;
+    /* Ticket dashed look */
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    position: relative;
+    /* Optional: Ticket "cut" effect could go here, but dashed border is what was asked */
+}
+
+.expanded-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px dashed #e5e7eb;
+    /* Dashed separator */
+    padding-bottom: 16px;
+}
+
+.expanded-header-row h4 {
+    margin: 0;
+    font-size: 1.4rem;
+    /* Larger */
+    color: #111827;
+    font-family: 'Courier New', Courier, monospace;
+    /* Ticket font feel */
+    font-weight: 700;
+}
+
+.expanded-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.expanded-section h5 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    /* Larger */
+    text-transform: uppercase;
+    color: #4f46e5;
+    /* colorful (Indigo) */
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px dotted #e5e7eb;
+    padding-bottom: 8px;
+}
+
+.client-section .info-row {
+    margin-bottom: 12px;
+    font-size: 1.05rem;
+    /* Larger */
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Icons Colors */
+.client-section .info-row svg {
+    font-size: 1.1em;
+}
+
+.client-section .info-row .fa-user {
+    color: #2563eb;
+}
+
+/* Blue */
+.client-section .info-row .fa-map-marker-alt {
+    color: #dc2626;
+}
+
+/* Red */
+.client-section .info-row .fa-phone {
+    color: #16a34a;
+}
+
+/* Green */
+.client-section .info-row .fa-credit-card {
+    color: #9333ea;
+}
+
+/* Purple */
+
+.copy-btn-inline {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6b7280;
+    margin-left: 8px;
+    padding: 4px 8px;
+    transition: all 0.2s;
+}
+
+.copy-btn-inline:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.source-selector-wrapper-expanded {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f9fafb;
+    padding: 8px 12px;
+    border-radius: 8px;
+    width: fit-content;
+    /* Ensure compact */
+}
+
+.source-selector-wrapper-expanded label {
+    font-size: 0.95rem;
+    color: #111827;
+    font-weight: 700;
+}
+
+.source-select-inline {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: #374151;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+}
+
+.source-select-inline:focus {
+    border-color: #4f46e5;
+}
+
+.order-items-list-expanded {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.order-item-expanded {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 1rem;
+    /* Larger */
+}
+
+.item-qty {
+    font-weight: 700;
+    color: #111827;
+    min-width: 40px;
+}
+
+.item-name {
+    flex-grow: 1;
+    color: #4b5563;
+}
+
+.item-price {
+    font-weight: 600;
+    color: #111827;
+}
+
+.order-total-row-expanded {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: #111827;
+    font-size: 1.5rem;
+    /* Much Larger */
+    border-top: 2px dashed #111827;
+    /* Ticket footer style */
+    padding-top: 16px;
+    margin-top: 10px;
+}
+
+.total-amount-expanded {
+    color: #10b981;
+}
+
+.expanded-row-parent {
+    background-color: #eff6ff !important;
+    /* Light blue highlight for active row */
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .expanded-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Transform into a full-screen modal/drawer on mobile */
+    .order-details-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2000;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: flex-end;
+        /* Align right if we want a drawer feel, or center */
+        animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    .order-details-expanded {
+        margin: 0;
+        width: 85%;
+        /* Drawer style */
+        max-width: 400px;
+        height: 100%;
+        background: white;
+        border-radius: 0;
+        border-left: 1px solid #e5e7eb;
+        border-right: none;
+        border-top: none;
+        border-bottom: none;
+        overflow-y: auto;
+        box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        /* Animation for the drawer itself */
+        animation: slideInRight 0.3s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
+    }
+}
+
 /* Edit Button */
 .edit-order-btn {
     background: transparent;
@@ -520,7 +801,7 @@
     border-bottom: none;
 }
 
-.orders-table tr:hover {
+.orders-table tr:not(.order-details-row):hover {
     background-color: #f3f4f6;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
@@ -817,4 +1098,45 @@
 
 .btn-secondary:hover {
     background: #f3f4f6;
+}
+
+/* Inline Client Name */
+.client-name-inline {
+    color: #111827;
+    margin-left: 8px;
+    font-weight: 700;
+    text-transform: none;
+    font-size: 1.1rem;
+}
+
+
+/* Mobile Close Button (Hidden on Desktop) */
+.mobile-close-btn {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #f3f4f6;
+        border: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        color: #4b5563;
+        font-size: 1.2rem;
+        z-index: 50;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-close-btn:hover {
+        background: #e5e7eb;
+        color: #111827;
+    }
 }

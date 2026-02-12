@@ -61,6 +61,26 @@ export default function Checkout() {
     }
 
     try {
+      // Helper to correctly extract Base ID
+      const getBaseId = (item: any) => {
+        // If we saved productId explicitly (future proof), use it.
+        if (item.productId) return String(item.productId);
+
+        // Otherwise, try to detect variant suffix
+        const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
+        const variantName = match ? match[1] : null;
+
+        if (variantName) {
+          const suffix = `-${variantName}`;
+          if (String(item.id).endsWith(suffix)) {
+            return String(item.id).substring(0, String(item.id).length - suffix.length);
+          }
+        }
+        // Fallback: If no variant pattern detected, assume ID is the base ID
+        // DO NOT SPLIT BY HYPHEN blindly, as IDs like 'torta-frita' are valid.
+        return String(item.id);
+      };
+
       // 1. PRIMERO: Intentar descontar stock en Firestore (Transacción Atómica)
       // Esto asegura que si dos personas compran lo mismo, el segundo fallará aquí.
       const transactionResult = await runTransaction(db, async (transaction) => {
@@ -69,7 +89,7 @@ export default function Checkout() {
 
         // Recolectar IDs
         cart.forEach(item => {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           cartItemIds.add(baseId);
           productIdsToRead.add(baseId);
         });
