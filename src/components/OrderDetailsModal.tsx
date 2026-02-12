@@ -127,13 +127,13 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                                         <span className="item-qty">{Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x</span>
                                         <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
                                     </div>
-                                    <span className="item-price">${Math.floor(item.price)}</span>
+                                    <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
                                 </li>
                             ))}
                         </ul>
                         <div className="order-total-row">
                             <span>Total a cobrar:</span>
-                            <span className="total-amount">${order.total}</span>
+                            <span className="total-amount">${Math.ceil(order.total)}</span>
                         </div>
                     </div>
                 </div>

@@ -239,12 +239,32 @@ export default function Carrito() {
     }
 
     try {
+      // Helper to correctly extract Base ID
+      const getBaseId = (item: any) => {
+        // If we saved productId explicitly (future proof), use it.
+        if (item.productId) return String(item.productId);
+
+        // Otherwise, try to detect variant suffix
+        const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
+        const variantName = match ? match[1] : null;
+
+        if (variantName) {
+          const suffix = `-${variantName}`;
+          if (String(item.id).endsWith(suffix)) {
+            return String(item.id).substring(0, String(item.id).length - suffix.length);
+          }
+        }
+        // Fallback: If no variant pattern detected, assume ID is the base ID
+        // DO NOT SPLIT BY HYPHEN blindly, as IDs like 'torta-frita' are valid.
+        return String(item.id);
+      };
+
       // 2. TRANSACTION: Descuento de Stock y Creación de Orden Atómica
       const transactionResult = await runTransaction(db, async (transaction) => {
         // A. Preparar Lecturas
         const productIdsToRead = new Set<string>();
         cart.forEach(item => {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           productIdsToRead.add(baseId);
         });
 
@@ -258,7 +278,7 @@ export default function Carrito() {
         // Check Parents for Packs
         const parentIdsToFetch = new Set<string>();
         cart.forEach(item => {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           const pData = productDocsMap[baseId];
           if (pData?.stockDependency?.productId) parentIdsToFetch.add(pData.stockDependency.productId);
         });
@@ -273,7 +293,7 @@ export default function Carrito() {
 
         // B. Procesar Cart Items
         for (const item of cart) {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           const productData = productDocsMap[baseId];
           if (!productData) throw new Error(`Producto no encontrado: ${item.name}`);
 
@@ -359,10 +379,12 @@ export default function Carrito() {
           });
         }
 
+        const sanitize = (obj: any) => JSON.parse(JSON.stringify(obj));
+
         const newOrderData = {
-          items: finalItems,
-          total: finalTotal,
-          cliente: formData,
+          items: sanitize(finalItems),
+          total: Number(finalTotal) || 0,
+          cliente: sanitize(formData),
           date: new Date(),
           status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
           paymentMethod: formData.metodoPago
@@ -471,7 +493,11 @@ export default function Carrito() {
       if (error.message && error.message.includes("Stock insuficiente")) {
         alert(`⚠️ ${error.message}\n\nPor favor revisa tu carrito.`);
       } else {
-        alert("Error al procesar el pedido. Puede que el stock haya cambiado. Inténtalo de nuevo.");
+        if (error.message) {
+          alert(`❌ Error: ${error.message}\n\nSi el problema persiste, contactanos.`);
+        } else {
+          alert("Error al procesar el pedido. Puede que el stock haya cambiado. Inténtalo de nuevo.");
+        }
       }
     }
   };

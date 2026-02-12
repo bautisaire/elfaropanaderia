@@ -5,16 +5,12 @@ import { generateOrderMessage } from "../utils/telegram";
 interface OrderDetailsExpandedProps {
     order: any;
     onEdit: (order: any) => void;
-    onStatusChange: (id: string, status: string) => void;
     onSourceChange: (id: string, source: string) => void;
-    statusOptions: any[];
     onClose: () => void;
 }
 
-const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEdit, onStatusChange, onSourceChange, statusOptions, onClose }) => {
+const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEdit, onSourceChange, onClose }) => {
     if (!order) return null;
-
-    const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
 
     return (
         <div className="order-details-wrapper" onClick={onClose} style={{ cursor: 'pointer' }}>
@@ -114,7 +110,7 @@ const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEd
                                             <span className="item-qty">{Number(item.quantity).toFixed(2).replace(/\.?0+$/, "")}x</span>
                                             <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
                                         </div>
-                                        <span className="item-price">${Math.floor(item.price)}</span>
+                                        <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
                                     </li>
                                 ))}
                             </ul>

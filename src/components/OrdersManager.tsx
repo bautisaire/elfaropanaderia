@@ -737,9 +737,7 @@ export default function OrdersManager() {
                                                                 onEdit={(order) => {
                                                                     handleOpenEditModal(order);
                                                                 }}
-                                                                onStatusChange={updateStatus}
                                                                 onSourceChange={updateSource}
-                                                                statusOptions={statusOptions}
                                                                 onClose={() => setExpandedOrderId(null)}
                                                             />
                                                         </td>

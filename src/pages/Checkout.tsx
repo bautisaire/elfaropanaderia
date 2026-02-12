@@ -109,7 +109,7 @@ export default function Checkout() {
         // Leer dependencias (padres)
         const parentIdsToFetch = new Set<string>();
         cart.forEach(item => {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           const productData = productDocsMap[baseId];
           if (productData?.stockDependency?.productId) {
             const parentId = productData.stockDependency.productId;
@@ -131,7 +131,7 @@ export default function Checkout() {
         const stockMovementsToLog: any[] = [];
 
         for (const item of cart) {
-          const baseId = String(item.id).split('-')[0];
+          const baseId = getBaseId(item);
           const productData = productDocsMap[baseId];
 
           if (!productData) throw new Error(`Producto no encontrado: ${item.name}`);
