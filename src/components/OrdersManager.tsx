@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase/firebaseConfig";
-import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs } from "firebase/firestore";
-import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaEdit, FaPlus, FaMinus, FaTrash, FaSave, FaCopy } from 'react-icons/fa';
+import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs, where, Timestamp } from "firebase/firestore";
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
-import { generateOrderMessage } from "../utils/telegram";
+import OrderDetailsModal from "./OrderDetailsModal";
 import "./OrdersManager.css";
 
 interface Order {
@@ -58,11 +58,10 @@ export default function OrdersManager() {
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [orderToCancelId, setOrderToCancelId] = useState<string | null>(null);
 
+    // Selected Order State for Details Modal
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
     // New Tab State
-
-
-    // Copy Toast State
-    const [showCopyToast, setShowCopyToast] = useState(false);
 
     useEffect(() => {
         fetchOrders();
@@ -71,7 +70,16 @@ export default function OrdersManager() {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const q = query(collection(db, "orders"), orderBy("date", "desc"), limit(50));
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayTimestamp = Timestamp.fromDate(today);
+
+            const q = query(
+                collection(db, "orders"),
+                where("date", ">=", todayTimestamp),
+                orderBy("date", "desc"),
+                limit(50)
+            );
             const snapshot = await getDocs(q);
 
             const ordersData = snapshot.docs.map((doc) => ({
@@ -85,7 +93,7 @@ export default function OrdersManager() {
 
             setOrders(confirmedOrders);
             setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-            setHasMore(snapshot.docs.length === 50);
+            setHasMore(true); // Always allow loading more (history) initially
             setLoading(false);
         } catch (err) {
             console.error("Error fetching orders:", err);
@@ -95,15 +103,26 @@ export default function OrdersManager() {
     };
 
     const loadMoreOrders = async () => {
-        if (!lastVisible) return;
+        // Allow loading more even if no lastVisible (to fetch history if today is empty)
         setLoadingMore(true);
         try {
-            const q = query(
-                collection(db, "orders"),
-                orderBy("date", "desc"),
-                startAfter(lastVisible),
-                limit(50)
-            );
+            let q;
+            if (lastVisible) {
+                q = query(
+                    collection(db, "orders"),
+                    orderBy("date", "desc"),
+                    startAfter(lastVisible),
+                    limit(50)
+                );
+            } else {
+                // Fallback if we have no orders yet (e.g. today was empty), just fetch latest
+                q = query(
+                    collection(db, "orders"),
+                    orderBy("date", "desc"),
+                    limit(50)
+                );
+            }
+
             const snapshot = await getDocs(q);
 
             const newOrders = snapshot.docs.map((doc) => ({
@@ -573,12 +592,7 @@ export default function OrdersManager() {
 
     return (
         <div className="product-manager-container">
-            <div className="pm-header">
-                <div>
-                    <h2>Gestión de Ventas</h2>
-                    <p>Administra tus ventas locales y pedidos web.</p>
-                </div>
-            </div>
+
 
             {error && <div className="pm-alert error">{error}</div>}
 
@@ -589,23 +603,6 @@ export default function OrdersManager() {
                 </div>
             ) : (
                 <div className="orders-list-container">
-                    {showCopyToast && (
-                        <div style={{
-                            position: 'fixed',
-                            bottom: '20px',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            background: '#333',
-                            color: 'white',
-                            padding: '10px 20px',
-                            borderRadius: '8px',
-                            zIndex: 1000,
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                            animation: 'fadeIn 0.3s ease-in-out'
-                        }}>
-                            Mensaje copiado al portapapeles
-                        </div>
-                    )}
                     <div className="orders-summary-bar">
                         <span className="summary-pill">Cargados: <strong>{orders.length}</strong></span>
                         <span className="summary-pill pending">Pendientes: <strong>{orders.filter(o => o.status === 'pendiente').length}</strong></span>
@@ -646,164 +643,97 @@ export default function OrdersManager() {
                             </button>
                         </div>
 
-                        {orders.filter(order => {
-                            const isPos = order.source === 'pos' || order.source === 'pos_public' || order.source === 'pos_wholesale';
-                            return activeTab === 'pos' ? isPos : !isPos;
-                        }).map((order) => {
-                            const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
-                            const dateStr = order.date?.seconds
-                                ? new Date(order.date.seconds * 1000).toLocaleString('es-AR', {
-                                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                                })
-                                : "Fecha desc.";
+                        {/* Orders Table */}
+                        <div className="orders-table-container">
+                            <table className="orders-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Pago</th>
+                                        <th>Estado</th>
+                                        <th>Notas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {orders.filter(order => {
+                                        const isPos = order.source === 'pos' || order.source === 'pos_public' || order.source === 'pos_wholesale';
+                                        return activeTab === 'pos' ? isPos : !isPos;
+                                    }).map((order) => {
+                                        const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
 
-                            return (
-                                <div key={order.id} className={`pm-card order-card order-status-${order.status}`}>
-                                    {/* Card Header */}
-                                    <div className="order-card-header">
-                                        <div className="order-header-info">
-                                            <div className="order-id-badge">#{order.id.slice(-6)}</div>
-                                            <div className="order-date"><FaCalendarAlt /> {dateStr}</div>
-                                            {order.source && (
-                                                <div className="source-selector-wrapper" style={{ marginLeft: '10px' }}>
-                                                    <select
-                                                        value={
-                                                            order.source === 'pos_wholesale' ? 'pos_wholesale' :
-                                                                (order.source === 'pos_public' || order.source === 'pos') ? 'pos_public' :
-                                                                    'delivery'
-                                                        }
-                                                        onChange={(e) => updateSource(order.id, e.target.value)}
-                                                        style={{
-                                                            fontSize: '0.8rem',
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            background: order.source === 'pos_wholesale' ? '#8b5cf6' :
-                                                                (order.source === 'pos_public' || order.source === 'pos') ? '#10b981' :
-                                                                    '#f59e0b',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
-                                                            fontWeight: '500'
-                                                        }}
-                                                    >
-                                                        <option value="pos_public" style={{ color: '#333' }}>Local</option>
-                                                        <option value="delivery" style={{ color: '#333' }}>Delivery</option>
-                                                        <option value="pos_wholesale" style={{ color: '#333' }}>Despensa</option>
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="status-selector-wrapper" style={{ borderColor: currentStatus.color }}>
-                                            <span className="status-icon" style={{ color: currentStatus.color }}>{currentStatus.icon}</span>
-                                            <select
-                                                value={order.status}
-                                                onChange={(e) => updateStatus(order.id, e.target.value)}
-                                                className="status-dropdown"
-                                                style={{ color: currentStatus.color }}
+                                        return (
+                                            <tr
+                                                key={order.id}
+                                                className={`order-row-status-${order.status}`}
+                                                onClick={() => setSelectedOrder(order)}
+                                                style={{ cursor: 'pointer' }}
                                             >
-                                                {statusOptions.map(opt => (
-                                                    <option key={opt.value} value={opt.value}>
-                                                        {opt.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <button
-                                            className="edit-order-btn"
-                                            onClick={() => handleOpenEditModal(order)}
-                                            title="Editar Pedido"
-                                        >
-                                            <FaEdit />
-                                        </button>
-                                    </div>
-
-                                    {/* Card Body */}
-                                    <div className="order-card-body">
-                                        {/* Client Info */}
-                                        {/* Client Info - Conditional */}
-                                        {activeTab === 'web' ? (
-                                            <div className="order-section client-section">
-                                                <h5><FaUser /> Datos del Cliente</h5>
-                                                <div className="info-row">
-                                                    <strong>{order.cliente.nombre}</strong>
-                                                </div>
-                                                <div className="info-row">
-                                                    <FaMapMarkerAlt className="icon-muted" />
-                                                    <a
-                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{ color: 'inherit', textDecoration: 'underline' }}
-                                                    >
-                                                        {order.cliente.direccion}
-                                                    </a>
-                                                </div>
-                                                <div className="info-row">
-                                                    <FaPhone className="icon-muted" />
-                                                    <a
-                                                        href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{ color: 'inherit', textDecoration: 'underline' }}
-                                                    >
-                                                        {order.cliente.telefono}
-                                                    </a>
-                                                    <button
-                                                        className="action-btn-small"
-                                                        onClick={() => {
-                                                            const msg = generateOrderMessage(order);
-                                                            navigator.clipboard.writeText(msg);
-                                                            setShowCopyToast(true);
-                                                            setTimeout(() => setShowCopyToast(false), 2000);
-                                                        }}
-                                                        title="Copiar mensaje de pedido"
-                                                        style={{ marginLeft: '10px', padding: '2px 5px', fontSize: '0.8rem', cursor: 'pointer', background: 'none', border: 'none', color: '#6b7280' }}
-                                                    >
-                                                        <FaCopy />
-                                                    </button>
-                                                </div>
-                                                <div className="info-row">
-                                                    <FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}
-                                                </div>
-                                                {order.cliente.indicaciones && (
-                                                    <div className="order-note">
-                                                        "{order.cliente.indicaciones}"
+                                                <td>
+                                                    <div className="order-cell-time-large">
+                                                        {order.date?.seconds
+                                                            ? new Date(order.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                                                            : "N/A"}
                                                     </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="order-section client-section" style={{ paddingBottom: '0' }}>
-                                                <div className="info-row">
-                                                    <FaCreditCard className="icon-muted" /> <strong>{order.cliente.metodoPago}</strong>
-                                                </div>
-                                            </div>
-                                        )}
+                                                    <div className="order-cell-date-small">
+                                                        {order.date?.seconds
+                                                            ? new Date(order.date.seconds * 1000).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+                                                            : ""}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="order-cell-client">
+                                                        <strong>{order.cliente.nombre}</strong>
+                                                        {activeTab === 'web' && (
+                                                            <div className="client-contact-icons">
+                                                                {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="order-cell-total" style={{ color: '#10b981' }}>${Math.floor(order.total)}</div>
+                                                    <div className="order-cell-items-count" style={{ fontSize: '0.95rem' }}>
+                                                        {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
+                                                        {order.cliente.metodoPago}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div className="status-selector-wrapper-table" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
+                                                        <span className="status-icon-table">{currentStatus.icon}</span>
+                                                        <select
+                                                            value={order.status}
+                                                            onChange={(e) => updateStatus(order.id, e.target.value)}
+                                                            className="status-dropdown-table"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {statusOptions.map(opt => (
+                                                                <option key={opt.value} value={opt.value}>
+                                                                    {opt.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td className="order-cell-notes" title={order.cliente.indicaciones || ""}>
+                                                    {order.cliente.indicaciones ? (
+                                                        <span>{order.cliente.indicaciones.length > 30 ? order.cliente.indicaciones.substring(0, 30) + '...' : order.cliente.indicaciones}</span>
+                                                    ) : (
+                                                        <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin notas</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
 
-                                        {/* Items Info */}
-                                        <div className="order-section items-section">
-                                            <h5>Detalle del Pedido</h5>
-                                            <ul className="order-items-list">
-                                                {order.items.map((item, index) => (
-                                                    <li key={index} className="order-item">
-                                                        <div className="order-item-detail">
-                                                            <span className="item-qty">
-                                                                {Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x
-                                                            </span>
-                                                            <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
-                                                        </div>
-                                                        <span className="item-price">${Math.floor(item.price)}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            <div className="order-total-row">
-                                                <span>Total a cobrar:</span>
-                                                <span className="total-amount">${order.total}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
 
                         {orders.length === 0 && (
                             <div className="empty-state">
@@ -979,6 +909,21 @@ export default function OrdersManager() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Details Modal */}
+                    {selectedOrder && (
+                        <OrderDetailsModal
+                            order={selectedOrder}
+                            onClose={() => setSelectedOrder(null)}
+                            onEdit={(order) => {
+                                setSelectedOrder(null);
+                                handleOpenEditModal(order);
+                            }}
+                            onStatusChange={updateStatus}
+                            onSourceChange={updateSource}
+                            statusOptions={statusOptions}
+                        />
                     )}
 
                 </div>

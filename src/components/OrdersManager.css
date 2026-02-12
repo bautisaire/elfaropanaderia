@@ -309,6 +309,9 @@
     display: flex;
     flex-direction: column;
     max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .edit-modal-body {
@@ -475,4 +478,343 @@
     .orders-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* Orders Table Styles */
+.orders-table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+    /* Ensure it doesn't squish too much */
+}
+
+.orders-table th {
+    background: #f9fafb;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.orders-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.orders-table tr:last-child td {
+    border-bottom: none;
+}
+
+.orders-table tr:hover {
+    background-color: #f3f4f6;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    transition: all 0.1s;
+}
+
+/* Status Border Indicators on Rows */
+.order-row-status-pendiente {
+    border-left: 4px solid #f59e0b;
+}
+
+.order-row-status-preparando {
+    border-left: 4px solid #3b82f6;
+}
+
+.order-row-status-enviado {
+    border-left: 4px solid #8b5cf6;
+}
+
+.order-row-status-entregado {
+    border-left: 4px solid #10b981;
+}
+
+.order-row-status-cancelado {
+    border-left: 4px solid #ef4444;
+}
+
+/* Cell Styles */
+/* Cell Styles update */
+.order-cell-time-large {
+    font-weight: 600;
+    color: #4b5563;
+    font-size: 1rem;
+}
+
+.order-cell-date-small {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+.order-cell-total {
+    font-weight: 800;
+    color: #10b981;
+    /* Fallback */
+    font-size: 1.4rem;
+}
+
+/* Payment Badges */
+.payment-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.payment-efectivo {
+    background-color: #ecfccb;
+    color: #4d7c0f;
+    border-color: #d9f99d;
+}
+
+.payment-transferencia {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.payment-tarjeta,
+.payment-debito,
+.payment-credito {
+    background-color: #f3e8ff;
+    color: #7e22ce;
+    border-color: #d8b4fe;
+}
+
+
+/* Table Status Selector */
+.status-selector-wrapper-table {
+    display: flex;
+    align-items: center;
+    border: 1px solid;
+    padding: 6px 16px;
+    border-radius: 99px;
+    background: white;
+    width: fit-content;
+    gap: 8px;
+    transition: all 0.2s;
+    font-weight: 700;
+    /* Color is set inline, ensuring border and text inherit/use it */
+}
+
+.status-selector-wrapper-table:hover {
+    background: #fdfdfd;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.status-icon-table {
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    color: inherit;
+    /* Should inherit from wrapper if set, or we set usage in TSX */
+}
+
+.status-dropdown-table {
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    appearance: none;
+    /* Remove default arrow to maybe add custom or just leave text */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    text-align: left;
+    padding-right: 12px;
+    /* Space for arrow if we add one, or just to breathe */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: 1em;
+}
+
+/* Old time styles removal/overwrite */
+.order-cell-date-large {
+    display: none;
+}
+
+/* Hide old if I didn't remove it from TSX, but I replaced it. */
+
+.order-cell-client {
+    display: flex;
+    flex-direction: column;
+}
+
+.client-contact-icons {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    color: #6b7280;
+}
+
+.order-cell-total {
+    font-weight: 700;
+    color: #111827;
+}
+
+.order-cell-items-count {
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+.order-cell-payment {
+    font-size: 0.9rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Action Buttons */
+.btn-view-order {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-view-order:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+/* Modal Styles Adjustments */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+.modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f9fafb;
+    border-radius: 8px 8px 0 0;
+}
+
+.text-decoration-underline {
+    text-decoration: underline;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #111827;
+}
+
+.close-modal-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.close-modal-btn:hover {
+    color: #4b5563;
+}
+
+.edit-modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 70vh;
+}
+
+.edit-section {
+    margin-bottom: 24px;
+}
+
+.edit-section h4 {
+    margin-bottom: 12px;
+    font-size: 1rem;
+    color: #4b5563;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-radius: 0 0 8px 8px;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: #111827;
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: #374151;
+}
+
+.btn-secondary {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #f3f4f6;
 }
