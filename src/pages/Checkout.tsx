@@ -63,10 +63,7 @@ export default function Checkout() {
     try {
       // Helper to correctly extract Base ID
       const getBaseId = (item: any) => {
-        // If we saved productId explicitly (future proof), use it.
         if (item.productId) return String(item.productId);
-
-        // Otherwise, try to detect variant suffix
         const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
         const variantName = match ? match[1] : null;
 
@@ -76,25 +73,23 @@ export default function Checkout() {
             return String(item.id).substring(0, String(item.id).length - suffix.length);
           }
         }
-        // Fallback: If no variant pattern detected, assume ID is the base ID
-        // DO NOT SPLIT BY HYPHEN blindly, as IDs like 'torta-frita' are valid.
         return String(item.id);
       };
 
-      // 1. PRIMERO: Intentar descontar stock en Firestore (Transacción Atómica)
-      // Esto asegura que si dos personas compran lo mismo, el segundo fallará aquí.
+      let newOrderData: any = null;
+
+      // START TRANSACTION: Stock Deduction + Order ID Generation + Order Creation
       const transactionResult = await runTransaction(db, async (transaction) => {
+        // --- 1. PREPARE STOCK READS ---
         const productIdsToRead = new Set<string>();
         const cartItemIds = new Set<string>();
 
-        // Recolectar IDs
         cart.forEach(item => {
           const baseId = getBaseId(item);
           cartItemIds.add(baseId);
           productIdsToRead.add(baseId);
         });
 
-        // Leer productos base
         const uniqueIds = Array.from(productIdsToRead);
         const refs = uniqueIds.map(id => doc(db, "products", id));
         const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
@@ -106,7 +101,7 @@ export default function Checkout() {
           }
         });
 
-        // Leer dependencias (padres)
+        // Read parent dependencies if needed
         const parentIdsToFetch = new Set<string>();
         cart.forEach(item => {
           const baseId = getBaseId(item);
@@ -126,7 +121,16 @@ export default function Checkout() {
           });
         }
 
-        // VALIDAR Y CALCULAR ACTUALIZACIONES
+        // Read Config Counter for Order ID
+        const counterRef = doc(db, "config", "order_counter");
+        const counterSnap = await transaction.get(counterRef);
+        let currentOrderId = 1000;
+
+        if (counterSnap.exists()) {
+          currentOrderId = (counterSnap.data().current || 999) + 1;
+        }
+
+        // --- 2. VALIDATE STOCK & PREPARE UPDATES ---
         const productsToUpdate = new Set<string>();
         const stockMovementsToLog: any[] = [];
 
@@ -138,7 +142,7 @@ export default function Checkout() {
 
           const qty = Number(item.quantity) || 1;
 
-          // CASO 1: Derivado
+          // Case 1: Derivative
           if (productData.stockDependency?.productId) {
             const parentId = productData.stockDependency.productId;
             const parentData = productDocsMap[parentId];
@@ -164,7 +168,7 @@ export default function Checkout() {
               observation: `Venta Derivado: ${item.name}`
             });
           }
-          // CASO 2: Normal / Variante
+          // Case 2: Standard/Variant
           else {
             let variantName = "";
             const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
@@ -206,7 +210,9 @@ export default function Checkout() {
           }
         }
 
-        // APLICAR CAMBIOS
+        // --- 3. COMMIT UPDATES ---
+
+        // Update Products
         productsToUpdate.forEach(pid => {
           const data = productDocsMap[pid];
           transaction.update(doc(db, "products", pid), {
@@ -216,7 +222,7 @@ export default function Checkout() {
           });
         });
 
-        // Registrar movimientos
+        // Log Movements
         stockMovementsToLog.forEach(mov => {
           const moveRef = doc(collection(db, "stock_movements"));
           transaction.set(moveRef, {
@@ -227,90 +233,86 @@ export default function Checkout() {
           });
         });
 
+        // Update Order Counter
+        transaction.set(counterRef, { current: currentOrderId }, { merge: true });
+
+        // Create Order
+        const orderIdString = currentOrderId.toString();
+        const orderRef = doc(db, "orders", orderIdString);
+
+        const finalItems = [...cart];
+        if (shippingCost > 0) {
+          finalItems.push({
+            id: 'shipping-cost',
+            name: 'Envío',
+            price: shippingCost,
+            quantity: 1,
+            image: '',
+            stock: true
+          });
+        }
+
+        const orderData = {
+          id: orderIdString,
+          items: finalItems,
+          total: finalTotal,
+          paymentMethod,
+          source: 'online',
+          status: 'pendiente',
+          date: new Date()
+        };
+
+        transaction.set(orderRef, orderData);
+
+        // Save data to return from transaction
+        newOrderData = orderData;
+
+        // Return stocks for sync
         return Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity }));
       });
 
-      // --- SI LLEGAMOS AQUÍ, EL STOCK YA ES NUESTRO (SE DESCONTÓ EXITOSAMENTE) ---
+      // --- POST TRANSACTION ---
 
       // 2. Ejecutar sincronización de hijos (no bloqueante para la UI, pero importante)
       if (transactionResult && transactionResult.length > 0) {
         Promise.all(transactionResult.map(u => syncChildProducts(u.id, u.newStock))).catch(console.error);
       }
 
-      // 3. Crear Orden en Firestore (Directamente)
-      const orderRef = doc(collection(db, "orders"));
+      // If payment is cash/transfer, finalize
+      if (paymentMethod === 'efectivo' || paymentMethod === 'transferencia') {
+        setConfirmedOrder(newOrderData);
+        clearCart();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      const finalItems = [...cart];
-      if (shippingCost > 0) {
-        finalItems.push({
-          id: 'shipping-cost',
-          name: 'Envío',
-          price: shippingCost,
-          quantity: 1,
-          image: '', // No image for shipping
-          stock: true
-        });
+        const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+        if (!existingOrders.includes(newOrderData.id)) {
+          existingOrders.push(newOrderData.id);
+          localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
+          window.dispatchEvent(new Event("storage"));
+        }
+        return;
       }
 
-      const orderData = {
-        id: orderRef.id, // Guardamos el ID dentro del documento también
-        items: finalItems,
-        total: finalTotal,
-        paymentMethod,
-        source: 'online',
-        status: 'pendiente',
-        date: new Date()
-      };
-
-      try {
-        // Guardar orden en Firestore
-        await runTransaction(db, async (t) => {
-          t.set(orderRef, orderData);
+      // If Mercado Pago
+      if (paymentMethod === 'mercadopago') {
+        const response = await fetch("https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: newOrderData.items, orderId: newOrderData.id }),
         });
 
-        // Si es efectivo o transferencia, finalizamos
-        if (paymentMethod === 'efectivo' || paymentMethod === 'transferencia') {
-          setConfirmedOrder(orderData);
-          clearCart();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!response.ok) throw new Error("Error al iniciar pago con Mercado Pago");
 
-          // Guardar en Mis Pedidos (Local Storage)
-          const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
-          if (!existingOrders.includes(orderRef.id)) {
-            existingOrders.push(orderRef.id);
-            localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
-            window.dispatchEvent(new Event("storage"));
-          }
-          return;
+        const { init_point } = await response.json();
+
+        const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
+        if (!existingOrders.includes(newOrderData.id)) {
+          existingOrders.push(newOrderData.id);
+          localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
+          window.dispatchEvent(new Event("storage"));
         }
 
-        // Si es Mercado Pago, llamamos a la Cloud Function
-        if (paymentMethod === 'mercadopago') {
-          const response = await fetch("https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: finalItems, orderId: orderRef.id }),
-          });
-
-          if (!response.ok) throw new Error("Error al iniciar pago con Mercado Pago");
-
-          const { init_point } = await response.json();
-
-          // Guardar en Mis Pedidos antes de redirigir
-          const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
-          if (!existingOrders.includes(orderRef.id)) {
-            existingOrders.push(orderRef.id);
-            localStorage.setItem('mis_pedidos', JSON.stringify(existingOrders));
-            window.dispatchEvent(new Event("storage"));
-          }
-
-          // Redirigir a Mercado Pago
-          window.location.href = init_point;
-        }
-
-      } catch (backendError) {
-        console.error("Error creando orden:", backendError);
-        alert("Hubo un error al procesar la orden. Por favor contáctanos.");
+        window.location.href = init_point;
       }
 
     } catch (error: any) {
@@ -339,7 +341,7 @@ export default function Checkout() {
 
         <div className="success-ticket">
           <div className="ticket-header">
-            <span>ORDEN #{confirmedOrder.id.toString().slice(-6).toUpperCase()}</span>
+            <span>ORDEN #{/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString().slice(-6).toUpperCase()}</span>
             <span>{new Date().toLocaleDateString()}</span>
           </div>
           <div className="ticket-items">

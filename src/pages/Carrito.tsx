@@ -288,6 +288,15 @@ export default function Carrito() {
           parentSnaps.forEach((snap, i) => { if (snap.exists()) productDocsMap[Array.from(parentIdsToFetch)[i]] = snap.data(); });
         }
 
+        // Read Config Counter for Order ID
+        const counterRef = doc(db, "config", "order_counter");
+        const counterSnap = await transaction.get(counterRef);
+        let currentOrderId = 1000;
+
+        if (counterSnap.exists()) {
+          currentOrderId = (counterSnap.data().current || 999) + 1;
+        }
+
         const productsToUpdate = new Set<string>();
         const stockMovementsToLog: any[] = [];
 
@@ -364,8 +373,12 @@ export default function Carrito() {
           });
         });
 
+        // Update Order Counter
+        transaction.set(counterRef, { current: currentOrderId }, { merge: true });
+
         // D. Create Order
-        const orderRef = doc(collection(db, "orders"));
+        const orderIdString = currentOrderId.toString();
+        const orderRef = doc(db, "orders", orderIdString);
 
         const finalItems = [...cart];
         if (shippingCost > 0) {
@@ -382,6 +395,7 @@ export default function Carrito() {
         const sanitize = (obj: any) => JSON.parse(JSON.stringify(obj));
 
         const newOrderData = {
+          id: orderIdString,
           items: sanitize(finalItems),
           total: Number(finalTotal) || 0,
           cliente: sanitize(formData),
@@ -392,13 +406,12 @@ export default function Carrito() {
         transaction.set(orderRef, newOrderData);
 
         // E. Log Movements
-        // E. Log Movements
         stockMovementsToLog.forEach(mov => {
           const mRef = doc(collection(db, "stock_movements"));
           transaction.set(mRef, { ...mov, type: 'OUT', reason: formData.metodoPago === 'mercadopago' ? 'Venta Online (MP)' : 'Venta Online', date: new Date() });
         });
 
-        return { orderId: orderRef.id, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
+        return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
       });
 
       // 3. Post-Transaction Actions
@@ -524,7 +537,7 @@ export default function Carrito() {
 
           <div className="success-ticket">
             <div className="ticket-header">
-              <span>ORDEN #{confirmedOrder.id.toString().slice(-6).toUpperCase()}</span>
+              <span>ORDEN #{/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString().slice(-6).toUpperCase()}</span>
               <span>{new Date().toLocaleDateString()}</span>
             </div>
             <div className="ticket-items">
@@ -587,7 +600,7 @@ export default function Carrito() {
 
           <div className="success-actions">
             <a
-              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${confirmedOrder.id}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}`)}`}
+              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-whatsapp-action"

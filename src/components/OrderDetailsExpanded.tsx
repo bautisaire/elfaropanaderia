@@ -24,7 +24,7 @@ const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEd
                     {/* Header Info - Simplified since table has some already */}
                     <div className="expanded-section">
                         <div className="expanded-header-row">
-                            <h4>Ticket #{order.id.slice(-6)}</h4>
+                            <h4>Ticket #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
                             <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
                                 <FaEdit /> Editar Pedido
                             </button>
