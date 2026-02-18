@@ -11,6 +11,7 @@ export default function Checkout() {
   /* New Stock System imports are assumed at top */
   const { cart, total, clearCart, isAdmin } = useContext(CartContext);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "transferencia" | "">("");
+  const [address, setAddress] = useState("");
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [finalTotal, setFinalTotal] = useState<number>(0);
@@ -55,6 +56,10 @@ export default function Checkout() {
   /* Note: Assuming imports are added at the top. I will add them in a separate chunk or rely on auto-imports if possible, but safer to do it manually. */
 
   const handleConfirm = async () => {
+    if (!address.trim()) {
+      alert("Por favor, ingresa tu dirección de envío (o aclara si retiras en el local).");
+      return;
+    }
     if (!paymentMethod) {
       alert("Selecciona un método de pago antes de continuar.");
       return;
@@ -257,6 +262,7 @@ export default function Checkout() {
           items: finalItems,
           total: finalTotal,
           paymentMethod,
+          address: address.trim(),
           source: 'online',
           status: 'pendiente',
           date: new Date()
@@ -326,8 +332,17 @@ export default function Checkout() {
   };
 
   if (confirmedOrder) {
-    const paymentLabel = confirmedOrder.paymentMethod === 'efectivo' ? 'pedido para pagar en efectivo' : (confirmedOrder.paymentMethod === 'transferencia' ? 'pedido con transferencia' : 'pedido');
-    const message = `Hola Panadería El Faro!\nHe realizado un nuevo ${paymentLabel}.\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${confirmedOrder.total}`;
+    const paymentLabel = confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo');
+
+    const message = `Hola Panadería El Faro! He realizado un nuevo pedido (ID: ${confirmedOrder.id}).
+
+Resumen:
+${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}
+
+Total: $${confirmedOrder.total}
+Método de Pago: ${paymentLabel}
+Dirección: ${confirmedOrder.address}`;
+
     const whatsappUrl = `https://wa.me/5492995206821?text=${encodeURIComponent(message)}`;
 
     return (
@@ -357,7 +372,10 @@ export default function Checkout() {
             <span>${confirmedOrder.total}</span>
           </div>
           <div className="payment-info">
-            Método: {confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo')}
+            <strong>Método:</strong> {confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo')}
+          </div>
+          <div className="payment-info" style={{ marginTop: '5px' }}>
+            <strong>Dirección:</strong> {confirmedOrder.address}
           </div>
 
           {confirmedOrder.paymentMethod === 'transferencia' && (
@@ -441,6 +459,23 @@ export default function Checkout() {
           </div>
 
           <h3>Total: ${finalTotal}</h3>
+
+          <div className="checkout-section" style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>📍 Dirección de Entrega</label>
+            <input
+              type="text"
+              placeholder="Calle, Altura, Barrio, Notas..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
 
           <div className="payment-method">
             <p>Selecciona un método de pago:</p>
