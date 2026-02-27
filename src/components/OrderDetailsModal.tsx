@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
 import { generateOrderMessage } from "../utils/telegram";
 
 interface OrderDetailsModalProps {
@@ -13,7 +12,14 @@ interface OrderDetailsModalProps {
 }
 
 const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, onEdit, onStatusChange, onSourceChange, statusOptions }) => {
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
     if (!order) return null;
+
+    const showToast = (msg: string) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 2000);
+    };
 
     const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
     const dateStr = order.date?.seconds
@@ -103,10 +109,21 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                                 onClick={() => {
                                     const msg = generateOrderMessage(order);
                                     navigator.clipboard.writeText(msg);
-                                    alert("Mensaje copiado"); // Using alert temporarily, should be toast
+                                    showToast("Mensaje copiado");
                                 }}
-                                title="Copiar mensaje"
+                                title="Copiar resumen"
                                 style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                            >
+                                <FaCopy />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia:\nAlias: elfaro80.mp\nCVU: 0000003100006832823516\nPor favor, envíanos el comprobante por este medio.`;
+                                    navigator.clipboard.writeText(msg);
+                                    showToast("Datos copiados");
+                                }}
+                                title="Copiar datos de transferencia"
+                                style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#25D366' }}
                             >
                                 <FaCopy />
                             </button>
@@ -143,6 +160,29 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                     <button className="btn-primary" onClick={onClose}>Cerrar</button>
                 </div>
             </div>
+
+            {toastMessage && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#333',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    zIndex: 9999,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    animation: 'fadeIn 0.3s ease-out'
+                }}>
+                    <FaCheck color="#4ade80" />
+                    {toastMessage}
+                </div>
+            )}
         </div>
     );
 };

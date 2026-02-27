@@ -7,7 +7,7 @@ import { collection, Timestamp, doc, getDoc, runTransaction, onSnapshot, Documen
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
-import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaBell } from "react-icons/fa";
+import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
 import { syncChildProducts } from "../utils/stockUtils";
 
 export default function Carrito() {
@@ -33,24 +33,7 @@ export default function Carrito() {
     metodoPago: "efectivo", // 'efectivo', 'transferencia', 'mercadopago'
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
-  );
 
-  const requestNotificationPermission = async () => {
-    if (typeof Notification === 'undefined') {
-      alert("Tu navegador no soporta notificaciones.");
-      return;
-    }
-    const result = await Notification.requestPermission();
-    setNotificationPermission(result);
-    if (result === "granted") {
-      new Notification("Notificaciones activadas", {
-        body: "Te avisaremos cuando tu pedido esté listo.",
-        icon: "/logo192.png",
-      });
-    }
-  };
 
   // Scroll to form when showCheckout becomes true
   useEffect(() => {
@@ -600,7 +583,7 @@ export default function Carrito() {
 
           <div className="success-actions">
             <a
-              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}`)}`}
+              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! 🥖\nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}\nMétodo de Pago: ${confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo'}\nDirección: ${formData.direccion}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-whatsapp-action"
@@ -608,27 +591,7 @@ export default function Carrito() {
               <FaWhatsapp /> Avisar por WhatsApp
             </a>
 
-            {notificationPermission === 'default' && (
-              <button
-                onClick={requestNotificationPermission}
-                className="btn-secondary-action"
-                style={{ background: '#fffbeb', color: '#b45309', borderColor: '#fcd34d' }}
-              >
-                <FaBell /> Recibir notificaciones del pedido
-              </button>
-            )}
 
-            {notificationPermission === 'granted' && (
-              <div className="btn-secondary-action" style={{ background: '#dcfce7', color: '#166534', cursor: 'default' }}>
-                <FaCheckCircle /> Notificaciones activadas
-              </div>
-            )}
-
-            {notificationPermission === 'denied' && (
-              <div className="btn-secondary-action" style={{ background: '#fee2e2', color: '#991b1b', cursor: 'default' }}>
-                <FaBell /> Notificaciones bloqueadas en navegador
-              </div>
-            )}
 
             <Link to="/mis-pedidos" className="btn-secondary-action">
               <FaShoppingBag /> Ver Seguimiento

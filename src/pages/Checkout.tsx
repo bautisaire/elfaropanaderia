@@ -9,9 +9,10 @@ import { syncChildProducts } from "../utils/stockUtils"; // Import Syncer
 
 export default function Checkout() {
   /* New Stock System imports are assumed at top */
-  const { cart, total, clearCart, isAdmin } = useContext(CartContext);
+  const { cart, total, clearCart, isAdmin, user } = useContext(CartContext);
   const [paymentMethod, setPaymentMethod] = useState<"mercadopago" | "efectivo" | "transferencia" | "">("");
   const [address, setAddress] = useState("");
+  const [userAddresses, setUserAddresses] = useState<any[]>([]);
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [finalTotal, setFinalTotal] = useState<number>(0);
@@ -44,6 +45,37 @@ export default function Checkout() {
 
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (user?.uid) {
+      const fetchAddresses = async () => {
+        try {
+          const docRef = doc(db, 'users', user.uid);
+          const snap = await onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists() && docSnap.data().addresses) {
+              const addrs = docSnap.data().addresses;
+              setUserAddresses(addrs);
+              const main = addrs.find((a: any) => a.isMain) || addrs[0];
+              if (main && !address) {
+                setAddress(`${main.calle} ${main.numero}${main.piso ? ` Piso: ${main.piso}` : ''}${main.depto ? ` Depto: ${main.depto}` : ''}, ${main.ciudad}`);
+              }
+            }
+          });
+          return snap;
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const unsubscribePromise = fetchAddresses();
+
+      return () => {
+        unsubscribePromise.then(unsub => {
+          if (unsub) unsub();
+        });
+      };
+    }
+  }, [user]);
 
   useEffect(() => {
     const numericTotal = Number(total) || 0;
@@ -332,18 +364,7 @@ export default function Checkout() {
   };
 
   if (confirmedOrder) {
-    const paymentLabel = confirmedOrder.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo');
-
-    const message = `Hola Panadería El Faro! He realizado un nuevo pedido (ID: ${confirmedOrder.id}).
-
-Resumen:
-${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}
-
-Total: $${confirmedOrder.total}
-Método de Pago: ${paymentLabel}
-Dirección: ${confirmedOrder.address}`;
-
-    const whatsappUrl = `https://wa.me/5492995206821?text=${encodeURIComponent(message)}`;
+    const paymentLabel = confirmedOrder?.paymentMethod === 'mercadopago' ? 'Mercado Pago' : (confirmedOrder?.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo');
 
     return (
       <div className="checkout-success-container">
@@ -416,7 +437,7 @@ Dirección: ${confirmedOrder.address}`;
         </div>
 
         <div className="success-actions">
-          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-whatsapp-action">
+          <a href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! \nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}\nMétodo de Pago: ${paymentLabel}\nDirección: ${confirmedOrder.address}`)}`} target="_blank" rel="noopener noreferrer" className="btn-whatsapp-action">
             <FaWhatsapp /> Avisar por WhatsApp
           </a>
 
@@ -461,20 +482,54 @@ Dirección: ${confirmedOrder.address}`;
           <h3>Total: ${finalTotal}</h3>
 
           <div className="checkout-section" style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>📍 Dirección de Entrega</label>
-            <input
-              type="text"
-              placeholder="Calle, Altura, Barrio, Notas..."
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #ddd',
-                fontSize: '1rem'
-              }}
-            />
+            {user && userAddresses.length > 0 ? (
+              <div className="saved-addresses-selection">
+                <label style={{ display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📍 Mis Direcciones Guardadas</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {userAddresses.map(addr => {
+                    const strAddr = `${addr.calle} ${addr.numero}${addr.piso ? ` Piso: ${addr.piso}` : ''}${addr.depto ? ` Depto: ${addr.depto}` : ''}, ${addr.ciudad}`;
+                    const isSelected = address === strAddr;
+                    return (
+                      <label key={addr.id} className="address-radio-card" style={{ padding: '15px', border: `2px solid ${isSelected ? '#e65c00' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isSelected ? '#fffcf8' : '#fff' }}>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isSelected ? '#e65c00' : '#ccc'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {isSelected && <div style={{ width: '10px', height: '10px', backgroundColor: '#e65c00', borderRadius: '50%' }} />}
+                        </div>
+                        <div>
+                          <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>{addr.alias || 'Dirección'} {addr.isMain && <span style={{ fontSize: '0.7rem', color: '#fff', background: '#e65c00', padding: '2px 6px', borderRadius: '10px' }}>Principal</span>}</strong>
+                          <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#555' }}>{strAddr}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Link to="/mi-cuenta" style={{ color: '#e65c00', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' }}>Configurar mis direcciones...</Link>
+                </div>
+              </div>
+            ) : (
+              <>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>📍 Dirección de Entrega</label>
+                <input
+                  type="text"
+                  placeholder="Calle, Altura, Barrio, Notas..."
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd',
+                    fontSize: '1rem'
+                  }}
+                />
+                {!user && (
+                  <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>Iniciá sesión para guardar tus direcciones y realizar pedidos más rápido.</p>
+                )}
+              </>
+            )}
           </div>
 
           <div className="payment-method">

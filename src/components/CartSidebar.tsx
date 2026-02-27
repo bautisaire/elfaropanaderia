@@ -5,7 +5,7 @@ import { CartContext } from "../context/CartContext";
 import "./CartSidebar.css";
 
 export default function CartSidebar() {
-    const { cart, addToCart, removeFromCart, cartTotal, isSidebarOpen, setIsSidebarOpen } = useContext(CartContext);
+    const { cart, addToCart, removeFromCart, removeCompletelyFromCart, cartTotal, isSidebarOpen, setIsSidebarOpen } = useContext(CartContext);
     const navigate = useNavigate();
 
     const handleClose = () => {
@@ -90,14 +90,7 @@ export default function CartSidebar() {
 
                                         <button
                                             className="sidebar-btn-remove"
-                                            onClick={() => {
-                                                // Remove all quantity for this item
-                                                // We can loop removeFromCart or add a direct delete method in context. 
-                                                // Since we don't have direct delete, we can loop
-                                                for (let i = 0; i < (item.quantity || 1); i++) {
-                                                    removeFromCart(item.id);
-                                                }
-                                            }}
+                                            onClick={() => removeCompletelyFromCart(item.id)}
                                         >
                                             <FaTrash size={14} />
                                         </button>

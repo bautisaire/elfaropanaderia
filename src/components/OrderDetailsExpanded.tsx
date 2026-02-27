@@ -1,5 +1,5 @@
-import React from 'react';
-import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
 import { generateOrderMessage } from "../utils/telegram";
 
 interface OrderDetailsExpandedProps {
@@ -9,7 +9,15 @@ interface OrderDetailsExpandedProps {
     onClose: () => void;
 }
 
-const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEdit, onSourceChange, onClose }) => {
+export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange }: OrderDetailsExpandedProps) {
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const showToast = (msg: string) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 2000);
+    };
+
+
     if (!order) return null;
 
     return (
@@ -48,8 +56,8 @@ const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEd
                                     style={{ color: 'inherit', textDecoration: 'underline' }}
                                 >
                                     {order.cliente.direccion}
-                                </a>
-                            </div>
+                                </a >
+                            </div >
                             <div className="info-row" style={{ alignItems: 'center' }}>
                                 <FaPhone className="icon-muted" />
                                 <a
@@ -66,42 +74,59 @@ const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEd
                                         e.stopPropagation();
                                         const msg = generateOrderMessage(order);
                                         navigator.clipboard.writeText(msg);
-                                        alert("Mensaje copiado");
+                                        showToast("Mensaje copiado");
                                     }}
-                                    title="Copiar mensaje"
+                                    title="Copiar resumen"
                                     className="copy-btn-inline"
+                                >
+                                    <FaCopy />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia:\nAlias: elfaro80.mp\nCVU: 0000003100006832823516\nPor favor, envíanos el comprobante por este medio.`;
+                                        navigator.clipboard.writeText(msg);
+                                        showToast("Datos copiados al portapapeles");
+                                    }}
+                                    title="Copiar datos de transferencia"
+                                    className="copy-btn-inline"
+                                    style={{ color: '#25D366' }}
                                 >
                                     <FaCopy />
                                 </button>
                             </div>
                             <div className="info-row"><FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}</div>
-                            {order.cliente.indicaciones && (
-                                <div className="order-note-expanded">"{order.cliente.indicaciones}"</div>
-                            )}
+                            {
+                                order.cliente.indicaciones && (
+                                    <div className="order-note-expanded">"{order.cliente.indicaciones}"</div>
+                                )
+                            }
 
-                            {order.source && (
-                                <div className="source-selector-wrapper-expanded">
-                                    <label>Origen:</label>
-                                    <select
-                                        value={
-                                            order.source === 'pos_wholesale' ? 'pos_wholesale' :
-                                                (order.source === 'pos_public' || order.source === 'pos') ? 'pos_public' :
-                                                    'delivery'
-                                        }
-                                        onChange={(e) => onSourceChange(order.id, e.target.value)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="source-select-inline"
-                                    >
-                                        <option value="pos_public">Local</option>
-                                        <option value="delivery">Delivery</option>
-                                        <option value="pos_wholesale">Despensa</option>
-                                    </select>
-                                </div>
-                            )}
-                        </div>
+                            {
+                                order.source && (
+                                    <div className="source-selector-wrapper-expanded">
+                                        <label>Origen:</label>
+                                        <select
+                                            value={
+                                                order.source === 'pos_wholesale' ? 'pos_wholesale' :
+                                                    (order.source === 'pos_public' || order.source === 'pos') ? 'pos_public' :
+                                                        'delivery'
+                                            }
+                                            onChange={(e) => onSourceChange(order.id, e.target.value)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="source-select-inline"
+                                        >
+                                            <option value="pos_public">Local</option>
+                                            <option value="delivery">Delivery</option>
+                                            <option value="pos_wholesale">Despensa</option>
+                                        </select>
+                                    </div>
+                                )
+                            }
+                        </div >
 
                         {/* Items */}
-                        <div className="expanded-section items-section-expanded">
+                        < div className="expanded-section items-section-expanded" >
                             <h5>Detalle de Productos</h5>
                             <ul className="order-items-list-expanded">
                                 {order.items.map((item: any, index: number) => (
@@ -118,12 +143,33 @@ const OrderDetailsExpanded: React.FC<OrderDetailsExpandedProps> = ({ order, onEd
                                 <span>Total</span>
                                 <span className="total-amount-expanded">${Math.ceil(order.total)}</span>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
+                        </div >
+                    </div >
+                </div >
+            </div >
 
-export default OrderDetailsExpanded;
+            {toastMessage && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#333',
+                    color: '#fff',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    zIndex: 9999,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    animation: 'fadeIn 0.3s ease-out'
+                }}>
+                    <FaCheck color="#4ade80" />
+                    {toastMessage}
+                </div>
+            )}
+        </div >
+    );
+}

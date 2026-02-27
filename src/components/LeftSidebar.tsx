@@ -1,16 +1,15 @@
 import { Link } from "react-router-dom";
-import { FaTimes, FaUser, FaShoppingBag, FaShoppingCart } from "react-icons/fa";
+import { FaTimes, FaUser, FaShoppingCart } from "react-icons/fa";
 import "./LeftSidebar.css";
 
 interface LeftSidebarProps {
     isOpen: boolean;
     onClose: () => void;
-    activeOrdersCount: number;
     cartTotalItems: number;
     onOpenCart: () => void;
 }
 
-export default function LeftSidebar({ isOpen, onClose, activeOrdersCount, cartTotalItems, onOpenCart }: LeftSidebarProps) {
+export default function LeftSidebar({ isOpen, onClose, cartTotalItems, onOpenCart }: LeftSidebarProps) {
     return (
         <>
             <div className={`left-sidebar-overlay ${isOpen ? 'open' : ''}`} onClick={onClose} />
@@ -22,10 +21,10 @@ export default function LeftSidebar({ isOpen, onClose, activeOrdersCount, cartTo
                     </button>
                 </div>
                 <div className="left-sidebar-body">
-                    <div className="left-sidebar-item disabled">
+                    <Link to="/mi-cuenta" className="left-sidebar-item" onClick={onClose}>
                         <FaUser className="left-sidebar-icon" />
-                        <span className="left-sidebar-text">Mi Cuenta (Próximamente)</span>
-                    </div>
+                        <span className="left-sidebar-text">Mi Cuenta</span>
+                    </Link>
                     <div className="left-sidebar-item" onClick={() => { onClose(); onOpenCart(); }} style={{ position: 'relative' }}>
                         <FaShoppingCart className="left-sidebar-icon" />
                         <span className="left-sidebar-text">Carrito</span>
@@ -35,15 +34,7 @@ export default function LeftSidebar({ isOpen, onClose, activeOrdersCount, cartTo
                             </span>
                         )}
                     </div>
-                    <Link to="/mis-pedidos" className="left-sidebar-item" onClick={onClose} style={{ position: 'relative' }}>
-                        <FaShoppingBag className="left-sidebar-icon" />
-                        <span className="left-sidebar-text">Mis Pedidos</span>
-                        {activeOrdersCount > 0 && (
-                            <span className="left-sidebar-badge">
-                                {activeOrdersCount}
-                            </span>
-                        )}
-                    </Link>
+
                 </div>
             </div>
         </>

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
 import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import ClosedModal from "../components/ClosedModal";
 export interface Product {
   id: string | number;
@@ -44,6 +44,8 @@ interface CartContextType {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (value: boolean) => void;
   isAdmin: boolean;
+  removeCompletelyFromCart: (id: string | number) => void;
+  user: any;
 }
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -65,6 +67,8 @@ export const CartContext = createContext<CartContextType>({
   isSidebarOpen: false,
   setIsSidebarOpen: () => { },
   isAdmin: false,
+  removeCompletelyFromCart: () => { },
+  user: null,
 });
 
 interface Props {
@@ -80,6 +84,7 @@ export const CartProvider = ({ children }: Props) => {
   const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
 
@@ -111,11 +116,26 @@ export const CartProvider = ({ children }: Props) => {
     fetchStoreStatus();
   }, []);
 
-  // Check Admin Status
+  // Check Admin Status and User
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
-        setIsAdmin(true);
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      setUser(authUser);
+      if (authUser && authUser.email) {
+        if (ADMIN_EMAILS.includes(authUser.email)) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+
+        const saveUser = async () => {
+          try {
+            const userRef = doc(db, 'users', authUser.uid);
+            await setDoc(userRef, { email: authUser.email }, { merge: true });
+          } catch (e) {
+            console.error("Error setting user doc", e);
+          }
+        };
+        saveUser();
       } else {
         setIsAdmin(false);
       }
@@ -153,8 +173,12 @@ export const CartProvider = ({ children }: Props) => {
             ? { ...item, quantity: (item.quantity || 1) - 1 }
             : item
         )
-        .filter((item) => item.quantity > 0)
+        .filter((item) => (item.quantity ?? 1) > 0)
     );
+  };
+
+  const removeCompletelyFromCart = (id: string | number) => {
+    setCartItems(cartItems.filter((item) => item.id !== id));
   };
 
   const clearCart = () => setCartItems([]);
@@ -182,7 +206,9 @@ export const CartProvider = ({ children }: Props) => {
         dismissStoreClosed,
         isSidebarOpen,
         setIsSidebarOpen,
-        isAdmin
+        isAdmin,
+        removeCompletelyFromCart,
+        user
       }}
     >
       {children}

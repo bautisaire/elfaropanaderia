@@ -8,8 +8,8 @@ import Header from "./components/HeaderTemp";
 import Footer from "./components/Footer";
 import Editor from "./pages/Editor";
 import Proximamente from "./pages/Proximamente";
-import MyOrders from "./pages/MyOrders";
 import DebugConsole from "./components/DebugConsole";
+import MyAccount from "./pages/MyAccount";
 
 import CartSidebar from "./components/CartSidebar";
 
@@ -40,7 +40,7 @@ function Layout() {
           <Route path="/carrito" element={<Carrito />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/editor/*" element={<Editor />} />
-          <Route path="/mis-pedidos" element={<MyOrders />} />
+          <Route path="/mi-cuenta" element={<MyAccount />} />
           <Route path="/Proximamente" element={<Proximamente />} />
         </Routes>
       </div>

@@ -21,7 +21,6 @@ export default function Header() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
-  const [activeOrdersCount, setActiveOrdersCount] = useState(0);
   const [orderStatuses, setOrderStatuses] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -57,15 +56,9 @@ export default function Header() {
     fetchProducts();
   }, []);
 
+  // Calculate active orders count if needed elsewhere, otherwise we just maintain statuses.
   useEffect(() => {
-    const dateCutoff = new Date('2025-12-14T00:00:00-03:00').getTime() / 1000;
-    let count = 0;
-    Object.values(orderStatuses).forEach((val: any) => {
-      if (val.date >= dateCutoff && val.status !== 'entregado' && val.status !== 'cancelado' && val.status !== 'done') {
-        count++;
-      }
-    });
-    setActiveOrdersCount(count);
+    // We only keep this useEffect to run some cleanup or nothing
   }, [orderStatuses]);
 
   useEffect(() => {
@@ -192,7 +185,6 @@ export default function Header() {
       <LeftSidebar
         isOpen={isLeftMenuOpen}
         onClose={() => setIsLeftMenuOpen(false)}
-        activeOrdersCount={activeOrdersCount}
         cartTotalItems={totalItems}
         onOpenCart={() => setIsSidebarOpen(true)}
       />

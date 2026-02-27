@@ -611,7 +611,7 @@ export default function OrdersManager() {
                         <span className="summary-pill pending">Pendientes: <strong>{orders.filter(o => o.status === 'pendiente').length}</strong></span>
                     </div>
 
-                    <div className="orders-grid">
+                    <div className="orders-content">
                         {/* Tab Selector */}
                         <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                             <button
