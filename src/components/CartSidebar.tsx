@@ -14,7 +14,7 @@ export default function CartSidebar() {
 
     const handleCheckout = () => {
         setIsSidebarOpen(false);
-        navigate("/carrito");
+        navigate("/checkout");
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 

@@ -59,10 +59,10 @@ const UserCard = ({ user }: { user: any }) => {
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <div style={{ border: `1px solid ${expanded ? '#e65c00' : '#ddd'}`, borderRadius: '8px', padding: '15px', backgroundColor: '#fff', cursor: 'pointer', transition: 'border-color 0.3s' }} onClick={() => setExpanded(!expanded)}>
+        <div style={{ border: `1px solid ${expanded ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', padding: '15px', backgroundColor: '#fff', cursor: 'pointer', transition: 'border-color 0.3s' }} onClick={() => setExpanded(!expanded)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ background: '#e65c00', color: '#fff', padding: '12px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: 'var(--primary-color)', color: '#fff', padding: '12px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <FaUser size={18} />
                     </div>
                     <div>
@@ -90,7 +90,7 @@ const UserCard = ({ user }: { user: any }) => {
                                 <div key={i} style={{ background: '#f9f9f9', padding: '12px', borderRadius: '6px', fontSize: '0.9rem', border: '1px solid #f0f0f0' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                         <strong style={{ color: '#222' }}>{a.alias || 'Dirección'}</strong>
-                                        {a.isMain && <span style={{ color: '#fff', background: '#e65c00', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>Principal</span>}
+                                        {a.isMain && <span style={{ color: '#fff', background: 'var(--primary-color)', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>Principal</span>}
                                     </div>
                                     <div style={{ color: '#555' }}>
                                         {a.calle} {a.numero} {a.piso ? ` - Piso: ${a.piso}` : ''} {a.depto ? ` - Depto: ${a.depto}` : ''}

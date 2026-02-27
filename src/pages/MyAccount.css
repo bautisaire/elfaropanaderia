@@ -26,7 +26,7 @@
 }
 
 .auth-title {
-    color: #e65c00;
+    color: var(--primary-color);
     text-align: center;
     margin-bottom: 25px;
     font-size: 1.5rem;
@@ -75,7 +75,7 @@
 }
 
 .auth-form-group input:focus {
-    border-color: #e65c00;
+    border-color: var(--primary-color);
     outline: none;
     background-color: #fff;
     box-shadow: 0 0 0 3px rgba(230, 92, 0, 0.1);
@@ -88,7 +88,7 @@
     /* aligns with label roughly */
     background: none;
     border: none;
-    color: #e65c00;
+    color: var(--primary-color);
     font-size: 0.85rem;
     cursor: pointer;
     font-weight: 500;
@@ -102,7 +102,7 @@
 .auth-btn-primary {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, #ff8c00, #e65c00);
+    background: linear-gradient(135deg, #ff8c00, var(--primary-color));
     color: white;
     border: none;
     border-radius: 8px;
@@ -144,7 +144,7 @@
 .auth-link-btn {
     background: none;
     border: none;
-    color: #e65c00;
+    color: var(--primary-color);
     font-size: 0.9rem;
     cursor: pointer;
     font-weight: 600;
@@ -203,7 +203,7 @@
 
 /* Dashboard Layout */
 .dashboard-title {
-    color: #e65c00;
+    color: var(--primary-color);
     font-size: 2rem;
     margin-bottom: 25px;
     font-weight: 600;
@@ -255,7 +255,7 @@
 .dashboard-item:hover,
 .dashboard-item.active {
     background: #fff5eb;
-    color: #e65c00;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
@@ -266,16 +266,16 @@
 
 .dashboard-item:hover .item-icon,
 .dashboard-item.active .item-icon {
-    color: #e65c00;
+    color: var(--primary-color);
 }
 
 .admin-item {
-    color: #e65c00;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 .admin-item .item-icon {
-    color: #e65c00;
+    color: var(--primary-color);
 }
 
 .item-logout {
@@ -369,7 +369,7 @@
 }
 
 .btn-verify {
-    background: #e65c00;
+    background: var(--primary-color);
     color: #fff;
     border: none;
     padding: 6px 12px;
@@ -453,7 +453,7 @@
 
 /* Addresses */
 .btn-primary-dashboard {
-    background: #e65c00;
+    background: var(--primary-color);
     color: white;
     border: none;
     padding: 10px 20px;
@@ -483,7 +483,7 @@
 }
 
 .address-card.main-address {
-    border-color: #e65c00;
+    border-color: var(--primary-color);
     background: #fffcf8;
 }
 
@@ -506,7 +506,7 @@
 }
 
 .main-star {
-    color: #e65c00;
+    color: var(--primary-color);
     font-size: 1.2rem;
 }
 
@@ -520,7 +520,7 @@
 }
 
 .btn-set-main:hover {
-    color: #e65c00;
+    color: var(--primary-color);
 }
 
 .btn-delete-addr {
@@ -567,7 +567,7 @@
 
 .form-group-full input:focus,
 .form-group-half input:focus {
-    border-color: #e65c00;
+    border-color: var(--primary-color);
 }
 
 .read-only-input {
@@ -684,7 +684,7 @@
 }
 
 .timeline-step.active .timeline-circle {
-    border-color: #e65c00;
+    border-color: var(--primary-color);
     box-shadow: 0 0 0 4px rgba(230, 92, 0, 0.15);
 }
 
@@ -701,7 +701,7 @@
 }
 
 .timeline-step.active .timeline-label {
-    color: #e65c00;
+    color: var(--primary-color);
     font-weight: 600;
 }
 

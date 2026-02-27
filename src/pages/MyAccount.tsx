@@ -652,7 +652,7 @@ const ComprasCard = ({ order }: { order: Order }) => {
         <div className="compra-card" style={{ cursor: 'pointer' }} onClick={() => setIsExpanded(!isExpanded)}>
             <div className={`compra-header ${isExpanded ? 'expanded' : ''}`} style={{ borderBottom: isExpanded ? '1px solid #f0f0f0' : 'none', paddingBottom: isExpanded ? '20px' : '0', marginBottom: isExpanded ? '25px' : '0' }}>
                 <div className="compra-header-left">
-                    <div className="compra-icon-wrapper" style={{ backgroundColor: '#e65c00' }}>
+                    <div className="compra-icon-wrapper" style={{ backgroundColor: 'var(--primary-color)' }}>
                         <FaBoxOpen color="#fff" />
                     </div>
                     <div>
