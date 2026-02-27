@@ -273,10 +273,7 @@ export default function POSManager() {
                 return;
             }
 
-            // Detectar letras (para búsqueda normal) - ignorar teclas especiales
-            if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && !/^[0-9]$/.test(e.key)) {
-                searchInputRef.current?.focus();
-            }
+            // La función de auto-buscar al escribir letras fue removida a petición. Solo funcionan los números rápidos.
         };
 
         window.addEventListener('keydown', handleGlobalKeyDown);
