@@ -155,8 +155,8 @@ export default function Dashboard() {
 
                         let newVisitsToday = 0;
                         if (data.dailyVisits) {
-                            const todayArr = getArgentinaDate(new Date()).toISOString().split('T')[0];
-                            newVisitsToday = data.dailyVisits[todayArr] || 0;
+                            const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                            newVisitsToday = data.dailyVisits[todayDateString] || 0;
                         }
 
                         setStats(prev => ({ ...prev, visits: data.visits || 0, newVisitsToday }));
@@ -519,15 +519,17 @@ export default function Dashboard() {
                         <p>{rawUsers.length.toLocaleString('es-AR')}</p>
                         {(() => {
                             // Calculate new users today
-                            const todayStart = getArgentinaDate(new Date());
-                            todayStart.setHours(0, 0, 0, 0);
+                            const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
                             const newUsersCount = rawUsers.filter(u => {
+                                if (u.createdDateString) {
+                                    return u.createdDateString === todayDateString;
+                                }
                                 if (!u.createdAt) return false;
                                 let createdDate = u.createdAt;
                                 if (typeof createdDate.toDate === 'function') createdDate = createdDate.toDate();
                                 else createdDate = new Date(createdDate);
-                                const argCreatedDate = getArgentinaDate(createdDate);
-                                return argCreatedDate >= todayStart;
+                                const userDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(createdDate);
+                                return userDateString === todayDateString;
                             }).length;
                             if (newUsersCount > 0) {
                                 return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newUsersCount} hoy</span>

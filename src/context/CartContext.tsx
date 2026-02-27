@@ -126,11 +126,21 @@ export const CartProvider = ({ children }: Props) => {
         } else {
           setIsAdmin(false);
         }
-
         const saveUser = async () => {
           try {
             const userRef = doc(db, 'users', authUser.uid);
-            await setDoc(userRef, { email: authUser.email }, { merge: true });
+            const userSnap = await getDoc(userRef);
+
+            if (!userSnap.exists()) {
+              const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+              await setDoc(userRef, {
+                email: authUser.email,
+                createdAt: new Date(),
+                createdDateString: todayDateString
+              });
+            } else {
+              await setDoc(userRef, { email: authUser.email }, { merge: true });
+            }
           } catch (e) {
             console.error("Error setting user doc", e);
           }

@@ -27,13 +27,22 @@ export default function Home() {
       if (!visited) {
         try {
           const statsRef = doc(db, "stats", "general");
+
+          // Helper to get Argentina date string YYYY-MM-DD
+          const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
           await updateDoc(statsRef, {
-            visits: increment(1)
+            visits: increment(1),
+            [`dailyVisits.${todayDate}`]: increment(1)
           });
         } catch (error: any) {
           if (error.code === 'not-found') {
+            const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
             await setDoc(doc(db, "stats", "general"), {
-              visits: 1
+              visits: 1,
+              dailyVisits: {
+                [todayDate]: 1
+              }
             });
           }
         }
