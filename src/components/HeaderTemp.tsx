@@ -1,19 +1,61 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png";
 import { db } from "../firebase/firebaseConfig";
-import { onSnapshot, documentId, query, collection, where } from "firebase/firestore";
+import { onSnapshot, documentId, query, collection, where, getDocs } from "firebase/firestore";
+import { FaBars, FaSearch, FaTimes } from "react-icons/fa";
+import LeftSidebar from "./LeftSidebar";
+import SearchBar from "./SearchBar";
+import ProductModal from "./ProductModal";
+import { Product } from "../context/CartContext";
 
 export default function Header() {
   const navigate = useNavigate();
 
-  const { cart, isStoreOpen } = useContext(CartContext);
+  const { cart, isStoreOpen, setIsSidebarOpen } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const [activeOrdersCount, setActiveOrdersCount] = useState(0);
   const [orderStatuses, setOrderStatuses] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // Fetch products for global search
+    const fetchProducts = async () => {
+      try {
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const prods: Product[] = productsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.nombre,
+            price: data.precio,
+            image: data.img || "",
+            images: data.images || (data.img ? [data.img] : []),
+            variants: data.variants || [],
+            quantity: 0,
+            stock: data.stock,
+            stockQuantity: data.stockQuantity,
+            isVisible: data.isVisible !== false,
+            discount: data.discount || 0,
+            categoria: (data.categoria || "Otros").trim(),
+            stockReadyTime: data.stockReadyTime,
+            customBadgeText: data.customBadgeText,
+            badgeExpiresAt: data.badgeExpiresAt
+          } as Product;
+        });
+        setProducts(prods.filter(p => p.isVisible !== false));
+      } catch (error) {
+        console.error("Error loading products for search:", error);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     const dateCutoff = new Date('2025-12-14T00:00:00-03:00').getTime() / 1000;
@@ -87,52 +129,73 @@ export default function Header() {
   };
 
   return (
-    <header className="header-container scrolled">
-      <div className="header-content">
-        <div className="logo-section" onClick={handleLogoClick}>
-          <img src={logo} alt="El Faro Panadería" className="logo-img" />
-          <span className="brand-name">EL FARO <span className="brand-suffix">PANADERIA</span></span>
-          {!isStoreOpen && (
-            <span className="closed-badge" style={{
-              backgroundColor: '#ef4444',
-              color: 'white',
-              fontSize: '0.7rem',
-              padding: '4px 8px',
-              borderRadius: '12px',
-              marginLeft: '8px',
-              fontWeight: 'bold',
-              verticalAlign: 'middle'
-            }}>
-              CERRADO
-            </span>
-          )}
+    <>
+      {!isStoreOpen && (
+        <div className="topbar-cerrado">
+          CERRADO
+        </div>
+      )}
+
+      <header className={`header-container scrolled ${!isStoreOpen ? 'with-topbar' : ''}`}>
+        <div className="header-content" style={{ display: isSearchOpen ? 'none' : 'grid' }}>
+          <div className="header-left">
+            <button className="burger-menu-btn" onClick={() => setIsLeftMenuOpen(true)}>
+              <FaBars />
+            </button>
+          </div>
+
+          <div className="logo-section" onClick={handleLogoClick}>
+            <img src={logo} alt="El Faro Panadería" className="logo-img" />
+            <span className="brand-name">EL FARO <span className="brand-suffix">PANADERIA</span></span>
+          </div>
+
+          <div className="header-right">
+            <nav className="nav-menu">
+              <button
+                className="burger-menu-btn"
+                onClick={() => setIsSearchOpen(true)}
+              >
+                <FaSearch />
+              </button>
+            </nav>
+          </div>
         </div>
 
-        <nav className="nav-menu">
-          <Link to="/carrito" className="nav-link cart-link">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-            Carrito
-            {totalItems > 0 && (
-              <span className="cart-badge">{totalItems}</span>
-            )}
-          </Link>
+        {isSearchOpen && (
+          <div className="global-search-container" style={{ width: '100%', display: 'flex', alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <SearchBar
+                products={products}
+                onProductSelect={(prod) => {
+                  setSelectedProduct(prod);
+                  setIsSearchOpen(false); // Optionally close search or keep it open
+                }}
+              />
+            </div>
+            <button
+              onClick={() => setIsSearchOpen(false)}
+              style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: '#666', cursor: 'pointer', padding: '10px', display: 'flex', alignItems: 'center' }}
+            >
+              <FaTimes />
+            </button>
+          </div>
+        )}
+      </header>
 
-          <Link to="/mis-pedidos" className="nav-link" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-              <rect x="1" y="3" width="15" height="13"></rect>
-              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              <circle cx="5.5" cy="18.5" r="2.5"></circle>
-              <circle cx="18.5" cy="18.5" r="2.5"></circle>
-            </svg>
-            Mis Pedidos
-            {activeOrdersCount > 0 && (
-              <span className="cart-badge" style={{ backgroundColor: '#df5d07ff', right: '-10px', top: '-10px' }}>
-                {activeOrdersCount}
-              </span>
-            )}
-          </Link>
-        </nav>
-      </div>
-    </header>
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
+
+      <LeftSidebar
+        isOpen={isLeftMenuOpen}
+        onClose={() => setIsLeftMenuOpen(false)}
+        activeOrdersCount={activeOrdersCount}
+        cartTotalItems={totalItems}
+        onOpenCart={() => setIsSidebarOpen(true)}
+      />
+    </>
   );
 }

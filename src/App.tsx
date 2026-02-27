@@ -11,6 +11,8 @@ import Proximamente from "./pages/Proximamente";
 import MyOrders from "./pages/MyOrders";
 import DebugConsole from "./components/DebugConsole";
 
+import CartSidebar from "./components/CartSidebar";
+
 function Layout() {
   const location = useLocation();
   const isEditor = location.pathname.toLowerCase().startsWith('/editor');
@@ -28,6 +30,10 @@ function Layout() {
       <DebugConsole />
 
       {!isEditor && <Header />}
+
+      {/* Cart Sidebar rendered globally */}
+      {!isEditor && <CartSidebar />}
+
       <div style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<Home />} />

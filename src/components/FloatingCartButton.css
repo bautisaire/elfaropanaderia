@@ -1,0 +1,86 @@
+.floating-cart-btn {
+    position: fixed;
+    bottom: 25px;
+    right: 20px;
+    z-index: 1000;
+    background-color: #d35400;
+    color: white;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    box-shadow: 0 4px 15px rgba(179, 86, 0, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.floating-cart-btn:hover {
+    transform: scale(1.08);
+    background-color: #924600;
+}
+
+.floating-cart-btn:active {
+    transform: scale(0.95);
+}
+
+.floating-cart-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.floating-cart-icon {
+    font-size: 1.5rem;
+}
+
+.floating-cart-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background-color: #e53e3e;
+    /* Red badge */
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    height: 22px;
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    /* Pill shape */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    /* Make it pop against the icon */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Adjust position if on mobile to avoid covering content or bottom bars, optional */
+@media (max-width: 768px) {
+    .floating-cart-btn {
+        bottom: 40px;
+        right: 15px;
+        width: 55px;
+        height: 55px;
+    }
+
+    .floating-cart-icon {
+        font-size: 1.3rem;
+    }
+}

@@ -19,7 +19,7 @@ export default function Carrito() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
-  const [showCheckout, setShowCheckout] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(true);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showStickyCheckout, setShowStickyCheckout] = useState(false);
   const checkoutBtnRef = useRef<HTMLButtonElement>(null);
@@ -839,7 +839,7 @@ export default function Carrito() {
                     <button
                       type="button"
                       className="btn-cancel"
-                      onClick={() => setShowCheckout(false)}
+                      onClick={() => navigate("/")}
                     >
                       Volver
                     </button>

@@ -24,6 +24,7 @@ export interface Product {
   stockReadyTime?: string; // ISO string for when stock will be ready (e.g. baking finished)
   customBadgeText?: string; // "En el horno", "Preparando", etc.
   badgeExpiresAt?: string; // ISO string for when the badge should disappear
+  selectedVariant?: string;
 }
 
 interface CartContextType {
@@ -40,6 +41,8 @@ interface CartContextType {
   closedMessage: string;
   isStoreClosedDismissed: boolean;
   dismissStoreClosed: () => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (value: boolean) => void;
   isAdmin: boolean;
 }
 
@@ -59,6 +62,8 @@ export const CartContext = createContext<CartContextType>({
   closedMessage: "",
   isStoreClosedDismissed: false,
   dismissStoreClosed: () => { },
+  isSidebarOpen: false,
+  setIsSidebarOpen: () => { },
   isAdmin: false,
 });
 
@@ -73,6 +78,7 @@ export const CartProvider = ({ children }: Props) => {
   const [closedMessage, setClosedMessage] = useState("");
   const [showClosedModal, setShowClosedModal] = useState(false); // Modal control
   const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
@@ -174,6 +180,8 @@ export const CartProvider = ({ children }: Props) => {
         closedMessage,
         isStoreClosedDismissed,
         dismissStoreClosed,
+        isSidebarOpen,
+        setIsSidebarOpen,
         isAdmin
       }}
     >

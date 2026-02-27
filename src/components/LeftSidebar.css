@@ -1,0 +1,123 @@
+.left-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 1040;
+}
+
+.left-sidebar-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.left-sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    /* Start off-screen */
+    width: 300px;
+    height: 100vh;
+    background-color: #fff;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1050;
+    transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.left-sidebar.open {
+    left: 0;
+}
+
+.left-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.left-sidebar-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.close-left-sidebar-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.left-sidebar-body {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.left-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+
+.left-sidebar-item:hover:not(.disabled) {
+    background-color: #e9ecef;
+    transform: translateX(5px);
+}
+
+.left-sidebar-item.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.left-sidebar-icon {
+    font-size: 1.2rem;
+    color: #d35400;
+    /* Primary brand color */
+}
+
+.left-sidebar-text {
+    font-size: 1rem;
+}
+
+.left-sidebar-badge {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: #ef4444;
+    /* red */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    height: 20px;
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

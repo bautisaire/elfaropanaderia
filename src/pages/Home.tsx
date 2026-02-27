@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 
-import BottomCartModal from "../components/BottomCartModal";
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
-import SearchBar from "../components/SearchBar";
 import ProductModal from "../components/ProductModal";
+import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
@@ -113,7 +112,6 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <SearchBar products={products} onProductSelect={setSelectedProduct} />
       <Hero />
       <div className="home">
         {loading ? (
@@ -172,14 +170,14 @@ export default function Home() {
         </div>
       )}
 
-      <BottomCartModal />
-
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
         />
       )}
+
+      <FloatingCartButton />
     </div>
   );
 }
