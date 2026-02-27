@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
 import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { FaUserPlus } from "react-icons/fa6";
 
 registerLocale('es', es);
 
@@ -25,6 +26,7 @@ export default function Dashboard() {
     const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
+    const [rawUsers, setRawUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [stats, setStats] = useState({
@@ -38,7 +40,8 @@ export default function Dashboard() {
         publico: 0,     // Local POS
         publicoCount: 0,
         delivery: 0,     // Online
-        deliveryCount: 0
+        deliveryCount: 0,
+        newVisitsToday: 0,
     });
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
@@ -104,6 +107,7 @@ export default function Dashboard() {
     useEffect(() => {
         let unsubOrders: () => void;
         let unsubStats: () => void;
+        let unsubUsers: () => void;
         let unsubProducts: () => void; // New listener for products
 
         const setupListeners = async () => {
@@ -147,8 +151,22 @@ export default function Dashboard() {
                 // 2. Stats
                 unsubStats = onSnapshot(doc(db, "stats", "general"), (docSnap) => {
                     if (docSnap.exists()) {
-                        setStats(prev => ({ ...prev, visits: docSnap.data().visits || 0 }));
+                        const data = docSnap.data();
+
+                        let newVisitsToday = 0;
+                        if (data.dailyVisits) {
+                            const todayArr = getArgentinaDate(new Date()).toISOString().split('T')[0];
+                            newVisitsToday = data.dailyVisits[todayArr] || 0;
+                        }
+
+                        setStats(prev => ({ ...prev, visits: data.visits || 0, newVisitsToday }));
                     }
+                });
+
+                // 3. Users listener
+                unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+                    const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRawUsers(users);
                 });
 
                 setLoading(false);
@@ -165,6 +183,7 @@ export default function Dashboard() {
             if (unsubOrders) unsubOrders();
             if (unsubProducts) unsubProducts();
             if (unsubStats) unsubStats();
+            if (unsubUsers) unsubUsers();
         };
     }, []);
 
@@ -492,12 +511,41 @@ export default function Dashboard() {
                     </div>
                 </div>
 
+                {/* Users (Registered) */}
+                <div className="stat-card users">
+                    <div className="stat-icon" style={{ background: '#ec4899' }}><FaUserPlus /></div>
+                    <div className="stat-info">
+                        <h3>Usuarios</h3>
+                        <p>{rawUsers.length.toLocaleString('es-AR')}</p>
+                        {(() => {
+                            // Calculate new users today
+                            const todayStart = getArgentinaDate(new Date());
+                            todayStart.setHours(0, 0, 0, 0);
+                            const newUsersCount = rawUsers.filter(u => {
+                                if (!u.createdAt) return false;
+                                let createdDate = u.createdAt;
+                                if (typeof createdDate.toDate === 'function') createdDate = createdDate.toDate();
+                                else createdDate = new Date(createdDate);
+                                const argCreatedDate = getArgentinaDate(createdDate);
+                                return argCreatedDate >= todayStart;
+                            }).length;
+                            if (newUsersCount > 0) {
+                                return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newUsersCount} hoy</span>
+                            }
+                            return null;
+                        })()}
+                    </div>
+                </div>
+
                 {/* Visitas (Always Global or maybe tied to timeframe in future, keeping global for now) */}
                 <div className="stat-card visits">
                     <div className="stat-icon"><FaEye /></div>
                     <div className="stat-info">
-                        <h3>Visitas Web</h3>
+                        <h3>Visitas Web Totales</h3>
                         <p>{stats.visits.toLocaleString('es-AR')}</p>
+                        {stats.newVisitsToday > 0 && (
+                            <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{stats.newVisitsToday} hoy</span>
+                        )}
                     </div>
                 </div>
             </div>

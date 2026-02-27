@@ -46,6 +46,7 @@ export default function MyAccount() {
     const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState('');
@@ -67,6 +68,13 @@ export default function MyAccount() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true); setError(''); setMsg('');
+
+        if (password !== confirmPassword) {
+            setError('Las contraseñas no coinciden');
+            setLoading(false);
+            return;
+        }
+
         try {
             await createUserWithEmailAndPassword(auth, email, password);
         } catch (err: any) {
@@ -126,17 +134,34 @@ export default function MyAccount() {
                         </div>
 
                         {mode !== 'forgot' && (
-                            <div className="auth-form-group" style={{ position: 'relative' }}>
-                                <label>Contraseña</label>
-                                <input type="password" placeholder="Tu contraseña" value={password} onChange={e => setPassword(e.target.value)} required />
-                                {mode === 'login' && (
-                                    <div style={{ textAlign: 'right', marginTop: '5px' }}>
-                                        <button type="button" className="auth-link-inline-right" style={{ position: 'static' }} onClick={() => setMode('forgot')}>
-                                            ¿Olvidaste tu contraseña?
-                                        </button>
+                            <>
+                                <div className="auth-form-group" style={{ position: 'relative' }}>
+                                    <label>Contraseña</label>
+                                    <input type="password" placeholder="Tu contraseña" value={password} onChange={e => setPassword(e.target.value)} required />
+                                    {mode === 'login' && (
+                                        <div style={{ textAlign: 'right', marginTop: '5px' }}>
+                                            <button type="button" className="auth-link-inline-right" style={{ position: 'static' }} onClick={() => setMode('forgot')}>
+                                                ¿Olvidaste tu contraseña?
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {mode === 'register' && (
+                                    <div className="auth-form-group" style={{ position: 'relative' }}>
+                                        <label style={{ color: error === 'Las contraseñas no coinciden' ? '#ef4444' : 'inherit' }}>
+                                            {error === 'Las contraseñas no coinciden' ? 'Las contraseñas no coinciden' : 'Confirmar Contraseña'}
+                                        </label>
+                                        <input
+                                            type="password"
+                                            placeholder="Repite tu contraseña"
+                                            value={confirmPassword}
+                                            onChange={e => setConfirmPassword(e.target.value)}
+                                            required
+                                            style={{ borderColor: error === 'Las contraseñas no coinciden' ? '#ef4444' : '' }}
+                                        />
                                     </div>
                                 )}
-                            </div>
+                            </>
                         )}
 
                         {mode === 'forgot' && (
@@ -154,11 +179,11 @@ export default function MyAccount() {
 
                     <div className="auth-links">
                         {mode === 'login' ? (
-                            <span className="auth-link-text">¿No tenés cuenta? <button type="button" className="auth-link-btn" onClick={() => setMode('register')}>Creala aquí.</button></span>
+                            <span className="auth-link-text">¿No tenés cuenta? <button type="button" className="auth-link-btn" onClick={() => { setMode('register'); setError(''); setConfirmPassword(''); }}>Creala aquí.</button></span>
                         ) : mode === 'register' ? (
-                            <span className="auth-link-text">¿Ya tenés cuenta? <button type="button" className="auth-link-btn" onClick={() => setMode('login')}>Iniciá sesión.</button></span>
+                            <span className="auth-link-text">¿Ya tenés cuenta? <button type="button" className="auth-link-btn" onClick={() => { setMode('login'); setError(''); }}>Iniciá sesión.</button></span>
                         ) : (
-                            <button type="button" className="auth-link-btn" onClick={() => setMode('login')} style={{ marginTop: '10px' }}>Volver a iniciar sesión</button>
+                            <span className="auth-link-text">¿Recordaste tu contraseña? <button type="button" className="auth-link-btn" onClick={() => { setMode('login'); setError(''); }}>Iniciá sesión.</button></span>
                         )}
                     </div>
 
