@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
 import { FaBoxes, FaHistory, FaEdit, FaPlus } from 'react-icons/fa';
 import ProductSearch from './ProductSearch';
@@ -47,30 +47,40 @@ export default function StockManager() {
     const [bulkReason, setBulkReason] = useState<string>("Compra a Proveedor");
 
     useEffect(() => {
-        fetchProducts();
+        let unsubscribe: () => void;
+        setLoading(true);
+
+        const setupListener = () => {
+            unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+                const prods = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Product[];
+                setProducts(prods);
+                setLoading(false);
+            }, (error) => {
+                console.error("Error listening to products:", error);
+                setLoading(false);
+            });
+        };
+
+        setupListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
+
+    const fetchProducts = async () => {
+        // Obsolete manually called fetchProducts - handled by onSnapshot now
+        // Keeping the signature so it doesn't break onSuccess callbacks
+    };
 
     useEffect(() => {
         if (activeTab === 'history') {
             fetchHistory();
         }
     }, [activeTab]);
-
-    const fetchProducts = async () => {
-        setLoading(true);
-        try {
-            const querySnapshot = await getDocs(collection(db, "products"));
-            const prods = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Product[];
-            setProducts(prods);
-        } catch (error) {
-            console.error("Error fetching products:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const fetchHistory = async () => {
         setLoading(true);

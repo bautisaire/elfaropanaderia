@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { compressImage } from "../utils/imageUtils";
 import { syncChildProducts } from "../utils/stockUtils";
@@ -76,7 +76,6 @@ export default function ProductManager() {
     const formRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        reloadProducts();
         fetchCategories();
     }, []);
 
@@ -94,32 +93,45 @@ export default function ProductManager() {
         }
     };
 
-    const reloadProducts = async () => {
+    useEffect(() => {
+        let unsubscribe: () => void;
         setLoading(true);
-        try {
-            const querySnapshot = await getDocs(collection(db, "products"));
-            const prods: FirestoreProduct[] = querySnapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    discount: data.discount || 0,
-                    isVisible: data.isVisible !== false,
-                    unitType: data.unitType || 'unit',
-                    shortId: data.shortId || "",
-                    images: data.images || (data.img ? [data.img] : []),
-                    stockReadyTime: data.stockReadyTime || "",
-                    customBadgeText: data.customBadgeText || "",
-                    badgeExpiresAt: data.badgeExpiresAt || ""
-                } as FirestoreProduct;
+
+        const setupListener = () => {
+            unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+                const prods: FirestoreProduct[] = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        discount: data.discount || 0,
+                        isVisible: data.isVisible !== false,
+                        unitType: data.unitType || 'unit',
+                        shortId: data.shortId || "",
+                        images: data.images || (data.img ? [data.img] : []),
+                        stockReadyTime: data.stockReadyTime || "",
+                        customBadgeText: data.customBadgeText || "",
+                        badgeExpiresAt: data.badgeExpiresAt || ""
+                    } as FirestoreProduct;
+                });
+                setProducts(prods);
+                setLoading(false);
+            }, (error) => {
+                console.error("Error listening to products:", error);
+                setMessage("Error al cargar productos");
+                setLoading(false);
             });
-            setProducts(prods);
-        } catch (error) {
-            console.error("Error loading products:", error);
-            setMessage("Error al cargar productos");
-        } finally {
-            setLoading(false);
-        }
+        };
+
+        setupListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, []);
+
+    const reloadProducts = async () => {
+        // Handled by onSnapshot now
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
