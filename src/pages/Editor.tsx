@@ -23,6 +23,11 @@ export default function Editor() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
 
+  // In-app Notification state
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationOrderRef, setNotificationOrderRef] = useState("");
+
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
@@ -113,6 +118,16 @@ export default function Editor() {
 
             console.log("🔔 Notificación enviada");
           }
+
+          // Trigger In-App Notification regardless of native notification permissions
+          const orderIdStr = change.doc.id.slice(-6).toUpperCase();
+          setNotificationMessage(`¡Nuevo Pedido Web de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`);
+          setNotificationOrderRef(orderIdStr);
+          setShowNotification(true);
+
+          setTimeout(() => {
+            setShowNotification(false);
+          }, 6000);
         }
       });
     });
@@ -303,6 +318,20 @@ export default function Editor() {
               <Route path="*" element={<Navigate to="/editor/" replace />} />
             </Routes>
           </main>
+        </div>
+      )}
+
+      {/* IN-APP NOTIFICATION POPUP */}
+      {showNotification && (
+        <div className="admin-inapp-notification" onClick={() => { navigate('/editor/orders/web'); setShowNotification(false); }}>
+          <div className="notification-icon"><FaBoxOpen /></div>
+          <div className="notification-content">
+            <h4>¡Nuevo Pedido #{notificationOrderRef}!</h4>
+            <p>{notificationMessage}</p>
+          </div>
+          <button className="notification-close" onClick={(e) => { e.stopPropagation(); setShowNotification(false); }}>
+            <FaTimes />
+          </button>
         </div>
       )}
     </div>

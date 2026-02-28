@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
-import { collection, getDocs, doc, runTransaction } from "firebase/firestore";
+import { collection, doc, runTransaction, onSnapshot } from "firebase/firestore";
 import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen, FaEdit } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
@@ -331,7 +331,28 @@ export default function POSManager() {
     };
 
     useEffect(() => {
-        fetchProducts();
+        let unsubscribe: () => void;
+        setLoading(true);
+
+        const setupListener = () => {
+            unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+                const prods: Product[] = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                } as Product));
+                setProducts(prods);
+                setLoading(false);
+            }, (error) => {
+                console.error("Error listening to products:", error);
+                setLoading(false);
+            });
+        };
+
+        setupListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
 
     const processShortId = async (code: string) => {
@@ -473,21 +494,9 @@ export default function POSManager() {
     };
 
     const fetchProducts = async (silent = false) => {
-        if (!silent) setLoading(true);
-        try {
-            const querySnapshot = await getDocs(collection(db, "products"));
-            const prods: Product[] = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as Product));
-            setProducts(prods);
-            return prods;
-        } catch (error) {
-            console.error("Error fetching products:", error);
-            return [];
-        } finally {
-            if (!silent) setLoading(false);
-        }
+        // Obsolete manually called fetchProducts - it's handled by onSnapshot now
+        // But keeping it returning the current state for fallback checks
+        return products;
     };
 
     // const fetchCategories = async () => {
