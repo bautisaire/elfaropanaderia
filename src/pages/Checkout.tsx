@@ -475,7 +475,8 @@ export default function Checkout() {
         // Reconstruimos finalItems para el ticket:
         itemsWithShipping: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1 }] : [])],
         total: finalTotal,
-        paymentMethod: formData.metodoPago
+        paymentMethod: formData.metodoPago,
+        cliente: formData
       };
 
       // IF MERCADO PAGO
@@ -625,7 +626,7 @@ export default function Checkout() {
 
           <div className="success-actions">
             <a
-              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! \nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}\nMétodo de Pago: ${confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo'}\nDirección: ${confirmedOrder.address || formData.direccion}`)}`}
+              href={`https://wa.me/5492995206821?text=${encodeURIComponent(`Hola Panadería El Faro! \nHe realizado un nuevo pedido (ID: ${/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString()}).\n\nResumen:\n${confirmedOrder.items.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n')}\n\nTotal: $${Math.floor(confirmedOrder.total)}\nMétodo de Pago: ${confirmedOrder.paymentMethod === 'transferencia' ? 'Transferencia' : 'Efectivo'}${confirmedOrder.cliente?.direccion ? `\n\nDirección: ${confirmedOrder.cliente.direccion}` : ''}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-whatsapp-action"

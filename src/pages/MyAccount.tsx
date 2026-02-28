@@ -687,7 +687,7 @@ const ComprasCard = ({ order }: { order: Order }) => {
                         </span>
                     </div>
                 </div>
-                <div className="compra-header-right" style={{ flexDirection: 'row', alignItems: 'center', gap: '15px' }}>
+                <div className="compra-header-right">
                     <span className="compra-status-badge" style={{ color: statusInfo.color, backgroundColor: `${statusInfo.color}15`, border: `1px solid ${statusInfo.color}30` }}>
                         {statusInfo.label}
                     </span>

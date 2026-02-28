@@ -352,6 +352,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 15px;
+}
+
+.data-info {
+    flex: 1;
+    min-width: 0;
 }
 
 .data-info label {
@@ -388,6 +394,8 @@
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-edit-text {
@@ -396,6 +404,11 @@
     color: #1a73e8;
     cursor: pointer;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+.action-wrapper {
+    flex-shrink: 0;
 }
 
 .edit-actions {
@@ -607,6 +620,19 @@
     display: flex;
     align-items: center;
     gap: 15px;
+    min-width: 0;
+    flex: 1;
+}
+
+.compra-header-left>div:not(.compra-icon-wrapper) {
+    min-width: 0;
+}
+
+.compra-header-left h4,
+.compra-header-left span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .compra-icon-wrapper {
@@ -616,14 +642,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .compra-header-right {
     text-align: right;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 5px;
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
 }
 
 .compra-status-badge {
@@ -800,5 +827,31 @@
     .timeline-label {
         position: static;
         margin-left: 10px;
+    }
+
+    .data-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .compra-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .compra-header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .account-container {
+        padding: 20px 15px;
+        margin-top: 20px;
+    }
+
+    .dashboard-section {
+        padding: 20px 15px;
     }
 }

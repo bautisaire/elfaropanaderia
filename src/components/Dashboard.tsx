@@ -531,10 +531,7 @@ export default function Dashboard() {
                                 const userDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(createdDate);
                                 return userDateString === todayDateString;
                             }).length;
-                            if (newUsersCount > 0) {
-                                return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newUsersCount} hoy</span>
-                            }
-                            return null;
+                            return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newUsersCount} hoy</span>
                         })()}
                     </div>
                 </div>
@@ -545,9 +542,7 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Visitas Web Totales</h3>
                         <p>{stats.visits.toLocaleString('es-AR')}</p>
-                        {stats.newVisitsToday > 0 && (
-                            <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{stats.newVisitsToday} hoy</span>
-                        )}
+                        <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{stats.newVisitsToday} hoy</span>
                     </div>
                 </div>
             </div>
