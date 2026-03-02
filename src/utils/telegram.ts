@@ -34,6 +34,30 @@ _Puedes abonar ahora o esperar al repartidor._` : ''}
 https://www.elfaropanificacion.com
   `.trim();
 };
+export const generateOrderMessageShort = (orderData: any) => {
+    const { cliente, total } = orderData;
+
+
+
+    // Limpiar número para el link (quitar espacios, guiones, etc)
+    // const cleanPhone = cliente.telefono.replace(/\D/g, "");
+
+    return `
+¡Hola ${cliente.nombre}, pedido recibido!
+
+
+ Ya lo estamos preparando 
+*Total:* $${Math.floor(total)}
+${(cliente.metodoPago === 'transferencia' || cliente.metodoPago === 'transfer') ? `
+ *Datos de Transferencia:*
+ALIAS: \`elfaro80.mp\`
+CVU: \`0000003100006832823516\`
+A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
+_Puedes abonar ahora o esperar al repartidor._` : ''}
+
+https://www.elfaropanificacion.com
+  `.trim();
+};
 
 export const sendTelegramNotification = async (orderData: any) => {
     const adminMessage = `Tienes un nuevo pedido de *${orderData.cliente.nombre}*. Visitar https://www.elfaropanificacion.com/editor/orders/web`;

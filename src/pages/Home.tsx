@@ -6,9 +6,11 @@ import Hero from "../components/Hero"; // Import Hero
 import ProductModal from "../components/ProductModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
-import { db } from "../firebase/firebaseConfig";
+import { db, auth } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
 import { Product, useCart } from "../context/CartContext";
+
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 import { FaStoreSlash } from "react-icons/fa";
 
 export default function Home() {
@@ -20,11 +22,18 @@ export default function Home() {
   // Use Context for store status
   const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
 
-  // Registro de visitas
+  // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
     const recordVisit = async () => {
       const visited = sessionStorage.getItem('hasVisited');
       if (!visited) {
+        // No contar visitas de administradores
+        const currentUser = auth.currentUser;
+        if (currentUser?.email && ADMIN_EMAILS.includes(currentUser.email)) {
+          sessionStorage.setItem('hasVisited', 'true');
+          return;
+        }
+
         try {
           const statsRef = doc(db, "stats", "general");
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
-import { generateOrderMessage } from "../utils/telegram";
+import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 
 interface OrderDetailsExpandedProps {
     order: any;
@@ -84,7 +84,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia:\nAlias: elfaro80.mp\nCVU: 0000003100006832823516\nPor favor, envíanos el comprobante por este medio.`;
+                                        const msg = generateOrderMessageShort(order);
                                         navigator.clipboard.writeText(msg);
                                         showToast("Datos copiados al portapapeles");
                                     }}

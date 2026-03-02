@@ -427,7 +427,7 @@ export default function POSManager() {
 
             // If failed due to stock <= 0, try fetching FRESH data
             // Maybe local state is stale.
-            const freshProducts = await fetchProducts(true); // Silent fetch
+            const freshProducts = await fetchProducts(); // Fallback fetch
             const retry = findInList(freshProducts);
 
             if (retry.product) {
@@ -493,7 +493,7 @@ export default function POSManager() {
         setQuantityInput("");
     };
 
-    const fetchProducts = async (silent = false) => {
+    const fetchProducts = async () => {
         // Obsolete manually called fetchProducts - it's handled by onSnapshot now
         // But keeping it returning the current state for fallback checks
         return products;
