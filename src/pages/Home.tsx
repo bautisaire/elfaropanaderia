@@ -8,6 +8,7 @@ import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -24,41 +25,38 @@ export default function Home() {
 
   // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
-    const recordVisit = async () => {
-      const visited = sessionStorage.getItem('hasVisited');
-      if (!visited) {
-        // No contar visitas de administradores
-        const currentUser = auth.currentUser;
-        if (currentUser?.email && ADMIN_EMAILS.includes(currentUser.email)) {
-          sessionStorage.setItem('hasVisited', 'true');
-          return;
-        }
+    const visited = sessionStorage.getItem('hasVisited');
+    if (visited) return; // Already counted this session, do nothing
 
-        try {
-          const statsRef = doc(db, "stats", "general");
+    // Wait for Firebase Auth to resolve before deciding
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      unsubscribe(); // We only need the first resolved state
 
-          // Helper to get Argentina date string YYYY-MM-DD
-          const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-
-          await updateDoc(statsRef, {
-            visits: increment(1),
-            [`dailyVisits.${todayDate}`]: increment(1)
-          });
-        } catch (error: any) {
-          if (error.code === 'not-found') {
-            const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-            await setDoc(doc(db, "stats", "general"), {
-              visits: 1,
-              dailyVisits: {
-                [todayDate]: 1
-              }
-            });
-          }
-        }
+      // No contar visitas de administradores
+      if (currentUser?.email && ADMIN_EMAILS.includes(currentUser.email)) {
         sessionStorage.setItem('hasVisited', 'true');
+        return;
       }
-    };
-    recordVisit();
+
+      try {
+        const statsRef = doc(db, "stats", "general");
+        const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+        await updateDoc(statsRef, {
+          visits: increment(1),
+          [`dailyVisits.${todayDate}`]: increment(1)
+        });
+      } catch (error: any) {
+        if (error.code === 'not-found') {
+          const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+          await setDoc(doc(db, "stats", "general"), {
+            visits: 1,
+            dailyVisits: { [todayDate]: 1 }
+          });
+        }
+      }
+      sessionStorage.setItem('hasVisited', 'true');
+    });
   }, []);
 
   // Removed redundant fetchStoreStatus useEffect since Context handles it
