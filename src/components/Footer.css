@@ -1,7 +1,7 @@
 :root {
     --footer-bg: #2c3e50;
     --footer-text: #ecf0f1;
-    --footer-accent: #d35400;
+    --footer-accent: var(--primary-color);
 }
 
 .footer {

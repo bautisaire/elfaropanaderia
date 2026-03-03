@@ -85,7 +85,7 @@
 }
 
 .carrito-container .btn-checkout {
-  background-color: #ff8c00;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   padding: 16px;
@@ -100,7 +100,7 @@
 
 .carrito-container .btn-checkout:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(255, 140, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(var(--primary-color), 0.3);
 }
 
 .btn-clear {
@@ -142,7 +142,7 @@
   left: 0;
   right: 0;
   height: 6px;
-  background: linear-gradient(90deg, #ff8c00, #ffaa00);
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
 }
 
 .checkout-form h3 {
@@ -209,9 +209,9 @@
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
-  border-color: #ff8c00;
+  border-color: var(--primary-color);
   background-color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(var(--primary-color), 0.15);
   transform: translateY(-1px);
 }
 
@@ -276,7 +276,7 @@
 }
 
 .btn-confirm {
-  background: linear-gradient(135deg, #ff8c00 0%, #ffaa00 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   border: none;
   padding: 16px;
@@ -285,7 +285,7 @@
   font-weight: 800;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.25);
+  box-shadow: 0 4px 12px var(--primary-color);
   text-transform: uppercase;
   letter-spacing: 1px;
   position: relative;
@@ -307,7 +307,7 @@
 
 .btn-confirm:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(255, 140, 0, 0.35);
+  box-shadow: 0 6px 16px var(--primary-color);
 }
 
 .btn-confirm:hover::after {
@@ -316,13 +316,12 @@
 
 .btn-confirm:active {
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(255, 140, 0, 0.25);
+  box-shadow: 0 4px 8px var(--primary-color);
 }
 
 .btn-cancel {
   background: rgba(255, 68, 68, 0.05);
   /* Slight red tint */
-  border: 1px solid rgba(255, 68, 68, 0.3);
   color: #d32f2f;
   padding: 14px;
   border-radius: 12px;
@@ -443,7 +442,7 @@
 }
 
 .btn-sticky-checkout {
-  background: linear-gradient(135deg, #ff8c00 0%, #ffaa00 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   border: none;
   padding: 14px 28px;
@@ -493,7 +492,7 @@
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-  background: #fcfcfc;
+  background: #fcfc fc;
   position: relative;
 }
 
@@ -503,9 +502,9 @@
 }
 
 .radio-card.selected {
-  border-color: #ff8c00;
-  background: #fff8e1;
-  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.15);
+  border-color: var(--primary-color);
+  background: #ffe1ea;
+  box-shadow: 0 4px 12px var(--primary-color);
 }
 
 .radio-input {
@@ -520,7 +519,7 @@
 }
 
 .radio-card.selected .radio-icon {
-  color: #ff8c00;
+  color: var(--primary-color);
 }
 
 .radio-label {
@@ -568,7 +567,7 @@
   width: 80px;
   height: 80px;
   margin-bottom: 20px;
-  color: #ff8c00;
+  color: var(--primary-color);
   animation: bounce 1s infinite;
 }
 
@@ -764,9 +763,9 @@
 }
 
 .phone-input-group:focus-within {
-  border-color: #ff8c00;
+  border-color: var(--primary-color);
   background-color: #fff;
-  box-shadow: 0 4px 12px rgba(255, 140, 0, 0.15);
+  box-shadow: 0 4px 12px var(--primary-color);
   transform: translateY(-1px);
 }
 
@@ -967,5 +966,5 @@
 }
 
 .total-amount-display {
-  color: #ff8c00;
+  color: var(--primary-color);
 }

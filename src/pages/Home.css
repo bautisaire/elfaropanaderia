@@ -39,7 +39,7 @@
   margin-bottom: 0rem;
   margin-left: 10px;
   padding-left: 10px;
-  border-left: 4px solid #ff9100;
+  border-left: 4px solid var(--primary-color);
   font-weight: 700;
   text-transform: capitalize;
 }

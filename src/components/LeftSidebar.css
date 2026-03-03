@@ -95,7 +95,7 @@
 
 .left-sidebar-icon {
     font-size: 1.2rem;
-    color: #d35400;
+    color: var(--primary-color);
     /* Primary brand color */
 }
 

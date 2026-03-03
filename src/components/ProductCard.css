@@ -149,14 +149,14 @@
 }
 
 .variant-bubble:hover:not(:disabled) {
-  border-color: #ff8c00;
-  color: #ff8c00;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .variant-bubble.selected {
-  background-color: #ff8c00;
+  background-color: var(--primary-color);
   color: white;
-  border-color: #ff8c00;
+  border-color: var(--primary-color);
   font-weight: 500;
 }
 
@@ -192,7 +192,7 @@
 .product-price {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #ff8c00;
+  color: var(--primary-color);
 }
 
 .out-of-stock .product-price {
@@ -208,7 +208,7 @@
 
 
 .btn-add {
-  background-color: #ff8c00;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   padding: 8px 8px;
@@ -225,7 +225,8 @@
 }
 
 .btn-add:hover:not(:disabled) {
-  background-color: #e67e00;
+  border-color: var(--secondary-color);
+  color: #ffffff;
 }
 
 .btn-add:disabled {
@@ -294,12 +295,12 @@
   }
 
   .product-title {
-    font-size: 1rem;
+    font-size: .9rem;
     margin-bottom: 6px;
   }
 
   .product-price {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .card-footer {
@@ -336,7 +337,7 @@
   }
 
   .variant-bubble:hover:not(:disabled) {
-    border-color: #ff8c00;
+    border-color: var(--secondary-color);
     color: #ffffff;
   }
 }

@@ -101,7 +101,7 @@
 
 .start-shopping-btn {
     padding: 10px 20px;
-    background-color: #ff9100;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     border-radius: 8px;
@@ -145,7 +145,7 @@
 
 .sidebar-item-price {
     font-size: 0.95rem;
-    color: #ff9100;
+    color: var(--primary-color);
     font-weight: bold;
 }
 
@@ -232,7 +232,7 @@
 .sidebar-checkout-btn {
     width: 100%;
     padding: 14px;
-    background-color: #ff9100;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     border-radius: 10px;
@@ -247,7 +247,7 @@
 }
 
 .sidebar-checkout-btn:hover {
-    background-color: #e68300;
+    background-color: var(--secondary-color);
 }
 
 @media (max-width: 480px) {

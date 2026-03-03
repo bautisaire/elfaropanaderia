@@ -883,13 +883,7 @@ export default function Checkout() {
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
                       {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
                     </button>
-                    <button
-                      type="button"
-                      className="btn-cancel"
-                      onClick={() => navigate("/")}
-                    >
-                      Volver
-                    </button>
+
                   </div>
                 </form>
               </div>
