@@ -16,6 +16,7 @@ interface HeroSlide {
     buttonLink: string;
     animation: "zoom-in" | "zoom-out";
     active?: boolean;
+    order?: number;
 }
 
 const INITIAL_STATE = {
@@ -26,7 +27,8 @@ const INITIAL_STATE = {
     buttonText: "Ver Productos",
     buttonLink: "",
     animation: "zoom-in" as "zoom-in" | "zoom-out",
-    active: true
+    active: true,
+    order: 0
 };
 
 export default function HeroManager() {
@@ -38,6 +40,10 @@ export default function HeroManager() {
     const [msg, setMsg] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
 
+    // Drag and drop state
+    const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+    const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
+
     useEffect(() => {
         fetchSlides();
     }, []);
@@ -46,14 +52,21 @@ export default function HeroManager() {
         setLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, "hero_slides"));
-            const data = querySnapshot.docs.map(doc => ({
+            let data = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as HeroSlide[];
+
+            // Sort by order initially
+            data.sort((a, b) => (a.order || 0) - (b.order || 0));
             setSlides(data);
-        } catch (error) {
-            console.error(error);
-            setMsg("Error cargando slides. Revisa la consola.");
+        } catch (error: any) {
+            if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+                console.log("Fetch aborted, ignoring.");
+            } else {
+                console.error(error);
+                setMsg("Error cargando slides.");
+            }
         } finally {
             setLoading(false);
         }
@@ -93,9 +106,13 @@ export default function HeroManager() {
                 setUploading(false);
             }
 
+            // Assign an order if it's a new slide
+            const newOrder = editingId ? formData.order : slides.length;
+
             const dataToSave = {
                 ...formData,
-                imageUrl: url
+                imageUrl: url,
+                order: newOrder
             };
 
             if (editingId) {
@@ -141,6 +158,47 @@ export default function HeroManager() {
         }
     };
 
+    // DRAG AND DROP HANDLERS
+    const handleDragStart = (index: number) => {
+        setDraggedItemIndex(index);
+    };
+
+    const handleDragEnter = (index: number) => {
+        setDragOverItemIndex(index);
+    };
+
+    const handleDragEnd = async () => {
+        if (draggedItemIndex === null || dragOverItemIndex === null || draggedItemIndex === dragOverItemIndex) {
+            setDraggedItemIndex(null);
+            setDragOverItemIndex(null);
+            return;
+        }
+
+        // Reorder array in memory
+        const newSlides = [...slides];
+        const draggedItem = newSlides[draggedItemIndex];
+        newSlides.splice(draggedItemIndex, 1);
+        newSlides.splice(dragOverItemIndex, 0, draggedItem);
+
+        // Update order property
+        const updatedSlides = newSlides.map((s, index) => ({ ...s, order: index }));
+        setSlides(updatedSlides);
+
+        setDraggedItemIndex(null);
+        setDragOverItemIndex(null);
+
+        // Save order to Firebase
+        try {
+            const updatePromises = updatedSlides.map(slide =>
+                updateDoc(doc(db, "hero_slides", slide.id), { order: slide.order })
+            );
+            await Promise.all(updatePromises);
+        } catch (error) {
+            console.error("Error updating slide order:", error);
+            setMsg("Error al guardar el nuevo orden.");
+        }
+    };
+
     const startEdit = (slide: HeroSlide) => {
         setEditingId(slide.id);
         setFormData({
@@ -151,7 +209,8 @@ export default function HeroManager() {
             buttonText: slide.buttonText || "Ver Productos",
             buttonLink: slide.buttonLink || "",
             animation: slide.animation,
-            active: slide.active !== false
+            active: slide.active !== false,
+            order: slide.order || 0
         });
         setImageFile(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -283,6 +342,7 @@ export default function HeroManager() {
             <div className="hero-list-section">
                 <div className="inventory-header" style={{ marginBottom: '20px' }}>
                     <h3>Slides Activos ({slides.length})</h3>
+                    <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Arrastra las tarjetas para cambiar el orden en el que aparecen en la página principal.</p>
                     <button className="btn-secondary btn-sm" onClick={fetchSlides}><FaSync /> Actualizar Lista</button>
                 </div>
 
@@ -290,10 +350,24 @@ export default function HeroManager() {
                     <p>Cargando slides...</p>
                 ) : (
                     <div className="hero-grid-list">
-                        {slides.map(slide => (
-                            <div key={slide.id} className="hero-admin-card">
+                        {slides.map((slide, index) => (
+                            <div
+                                key={slide.id}
+                                className="hero-admin-card"
+                                draggable
+                                onDragStart={() => handleDragStart(index)}
+                                onDragEnter={() => handleDragEnter(index)}
+                                onDragEnd={handleDragEnd}
+                                onDragOver={(e) => e.preventDefault()}
+                                style={{
+                                    cursor: 'grab',
+                                    opacity: draggedItemIndex === index ? 0.5 : 1,
+                                    border: dragOverItemIndex === index && draggedItemIndex !== index ? '2px dashed var(--primary-color)' : '1px solid #eee',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
                                 <div className="hero-card-img">
-                                    <img src={slide.imageUrl} alt="slide" />
+                                    <img src={slide.imageUrl} alt="slide" draggable={false} />
                                     <span className="hero-anim-badge">{slide.animation}</span>
                                 </div>
                                 <div className="hero-card-body">

@@ -18,20 +18,35 @@ interface HeroSlide {
 export default function Hero() {
     const [slides, setSlides] = useState<HeroSlide[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [hasStarted, setHasStarted] = useState(false);
+
+    // Swipe/Drag States
+    const [touchStartX, setTouchStartX] = useState<number | null>(null);
+    const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
+    // Initial animation trigger
+    useEffect(() => {
+        if (slides.length > 0) {
+            // Wait slightly after slides are rendered so the CSS transition triggers
+            const timer = setTimeout(() => setHasStarted(true), 100);
+            return () => clearTimeout(timer);
+        }
+    }, [slides]);
 
     useEffect(() => {
         const fetchSlides = async () => {
             try {
-                // Fetch slides, ideally ordered by creation time or a custom order field
-                // For now, we'll just fetch them.
+                // Fetch slides
                 const q = query(collection(db, "hero_slides"));
                 const querySnapshot = await getDocs(q);
                 const fetchedSlides = querySnapshot.docs.map(doc => ({
                     id: doc.id,
-                    ...doc.data()
-                })) as HeroSlide[];
+                    ...doc.data(),
+                })) as (HeroSlide & { order?: number })[];
 
                 if (fetchedSlides.length > 0) {
+                    // Sort by the new order field, defaulting to 0 if missing
+                    fetchedSlides.sort((a, b) => (a.order || 0) - (b.order || 0));
                     setSlides(fetchedSlides.filter(s => s.active !== false));
                 }
             } catch (error) {
@@ -47,25 +62,74 @@ export default function Hero() {
 
         const interval = setInterval(() => {
             setCurrentIndex(prev => (prev + 1) % slides.length);
-        }, 15000); // 15 seconds
+        }, 10000); // 10 seconds
 
+        // Changing currentIndex clears the interval, so manually swiping resets the 15s timer!
         return () => clearInterval(interval);
-    }, [slides, currentIndex]);
+    }, [slides.length, currentIndex]);
+
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+        setTouchEndX(null); // Reset end touch
+        if ('touches' in e) {
+            setTouchStartX(e.touches[0].clientX);
+        } else {
+            setTouchStartX((e as React.MouseEvent).clientX);
+        }
+    };
+
+    const onTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+        if ('touches' in e) {
+            setTouchEndX(e.touches[0].clientX);
+        } else {
+            if (touchStartX !== null) {
+                setTouchEndX((e as React.MouseEvent).clientX);
+            }
+        }
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStartX || !touchEndX) return;
+        const distance = touchStartX - touchEndX;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            setCurrentIndex(prev => (prev + 1) % slides.length);
+        } else if (isRightSwipe) {
+            setCurrentIndex(prev => (prev === 0 ? slides.length - 1 : prev - 1));
+        }
+
+        setTouchStartX(null);
+        setTouchEndX(null);
+    };
 
     if (slides.length === 0) return null;
 
     return (
-        <div className="hero-container">
+        <div
+            className="hero-container"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onTouchStart}
+            onMouseMove={onTouchMove}
+            onMouseUp={onTouchEnd}
+            onMouseLeave={onTouchEnd}
+            style={{ cursor: slides.length > 1 ? (touchStartX !== null ? 'grabbing' : 'grab') : 'default' }}
+        >
             {slides.map((slide, index) => (
                 <div
                     key={slide.id}
-                    className={`hero-slide ${index === currentIndex ? "active" : ""}`}
+                    className={`hero-slide ${index === currentIndex ? "active" : ""} ${hasStarted ? "started" : ""}`}
                 >
                     <img
                         src={slide.imageUrl}
                         alt={slide.title}
                         className={`hero-image ${slide.animation}`}
                         {...(index === 0 ? { fetchPriority: "high" } : {})}
+                        draggable={false} // Prevent browser default image dragging
                     />
                     <div className="hero-content">
                         <h1 className="hero-title-text">{slide.title}</h1>
@@ -78,6 +142,7 @@ export default function Hero() {
                                     target={slide.buttonLink.startsWith('http') ? "_blank" : "_self"}
                                     rel={slide.buttonLink.startsWith('http') ? "noopener noreferrer" : ""}
                                     style={{ textDecoration: 'none', display: 'inline-block' }}
+                                    draggable={false}
                                 >
                                     {slide.buttonText || "Ver Productos"}
                                 </a>
@@ -98,7 +163,10 @@ export default function Hero() {
                         <button
                             key={index}
                             className={`indicator ${index === currentIndex ? "active" : ""}`}
-                            onClick={() => setCurrentIndex(index)}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent drag from triggering
+                                setCurrentIndex(index);
+                            }}
                         />
                     ))}
                 </div>
