@@ -23,11 +23,6 @@ export default function Editor() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
 
-  // In-app Notification state
-  const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [notificationOrderRef, setNotificationOrderRef] = useState("");
-
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
@@ -68,91 +63,19 @@ export default function Editor() {
 
 
 
-  // Global Notification Listener for New Orders
-  const isFirstLoad = useRef(true);
+  // Global Listener for Pending Count
   useEffect(() => {
     if (!currentUser) return;
 
     const q = query(collection(db, "orders"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Logic for Pending Count (Existing)
+      // Logic for Pending Count
       const count = snapshot.docs.filter(doc => {
         const data = doc.data();
         const status = data.status || "pendiente";
         return status !== "cancelado" && status !== "entregado";
       }).length;
       setPendingOrdersCount(count);
-
-      // Logic for Notifications (New)
-      if (isFirstLoad.current) {
-        isFirstLoad.current = false;
-        return;
-      }
-
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const newOrder = change.doc.data();
-          const isPos = newOrder.source === 'pos' || newOrder.source === 'pos_public' || newOrder.source === 'pos_wholesale';
-
-          // Skip if source is POS (internal sales don't need alerts)
-          if (isPos) return;
-
-          const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
-          const notificationSupported = typeof Notification !== 'undefined';
-
-          if (alertsEnabled && notificationSupported && Notification.permission === "granted") {
-            console.log("🔔 Nueva orden detectada:", newOrder);
-            const orderId = change.doc.id.slice(-6).toUpperCase();
-
-            const notification = new Notification(`¡Nuevo Pedido Web! #${orderId}`, {
-              body: `Total: $${newOrder.total} - ${newOrder.cliente?.nombre || 'Cliente'}`,
-              tag: change.doc.id, // prevent duplicates
-              icon: '/logo192.png' // Optional: path to favicon/logo if available
-            });
-
-            notification.onclick = () => {
-              window.focus();
-              navigate('/editor/orders/web');
-              notification.close();
-            };
-
-            console.log("🔔 Notificación enviada");
-          }
-
-          // Trigger In-App Notification regardless of native notification permissions
-          const orderIdStr = change.doc.id.slice(-6).toUpperCase();
-          setNotificationMessage(`¡Nuevo Pedido Web de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`);
-          setNotificationOrderRef(orderIdStr);
-          setShowNotification(true);
-
-          // Reproducir sonido "ding" de notificación
-          try {
-            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-            oscillator.frequency.exponentialRampToValueAtTime(880.00, audioCtx.currentTime + 0.1); // A5
-
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.5);
-          } catch (e) {
-            console.log("Audio no soportado o interactuación del usuario requerida primero.", e);
-          }
-
-          setTimeout(() => {
-            setShowNotification(false);
-          }, 6000);
-        }
-      });
     });
 
     return () => unsubscribe();
@@ -344,19 +267,6 @@ export default function Editor() {
         </div>
       )}
 
-      {/* IN-APP NOTIFICATION POPUP */}
-      {showNotification && (
-        <div className="admin-inapp-notification" onClick={() => { navigate('/editor/orders/web'); setShowNotification(false); }}>
-          <div className="notification-icon"><FaBoxOpen /></div>
-          <div className="notification-content">
-            <h4>¡Nuevo Pedido #{notificationOrderRef}!</h4>
-            <p>{notificationMessage}</p>
-          </div>
-          <button className="notification-close" onClick={(e) => { e.stopPropagation(); setShowNotification(false); }}>
-            <FaTimes />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

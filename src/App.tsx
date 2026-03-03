@@ -9,6 +9,7 @@ import Editor from "./pages/Editor";
 import Proximamente from "./pages/Proximamente";
 import DebugConsole from "./components/DebugConsole";
 import MyAccount from "./pages/MyAccount";
+import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
 
 import CartSidebar from "./components/CartSidebar";
 
@@ -16,7 +17,13 @@ function Layout() {
   const location = useLocation();
   const isEditor = location.pathname.toLowerCase().startsWith('/editor');
 
-  const { isStoreOpen, isStoreClosedDismissed } = useContext(CartContext);
+  const cartContext = useContext(CartContext);
+
+  const isStoreOpen = cartContext?.isStoreOpen ?? true;
+  const isStoreClosedDismissed = cartContext?.isStoreClosedDismissed ?? false;
+
+  // Determinamos si es Admin revisando el context o la configuración local
+  const isAdmin = cartContext?.isAdmin ?? false;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
@@ -27,6 +34,9 @@ function Layout() {
 
       {/* Admin Debug Console */}
       <DebugConsole />
+
+      {/* Global Notifications for Admins (Active Anywhere) */}
+      {isAdmin && <GlobalAdminNotifications />}
 
       {!isEditor && <Header />}
 
