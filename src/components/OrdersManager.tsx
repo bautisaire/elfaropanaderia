@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebase/firebaseConfig";
-import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, startAfter, getDocs, where, Timestamp } from "firebase/firestore";
+import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot } from "firebase/firestore";
 import { FaPhone, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
@@ -44,7 +44,8 @@ export default function OrdersManager() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [lastVisible, setLastVisible] = useState<any>(null);
+    const [orderLimit, setOrderLimit] = useState(50);
+    const [isHistorical, setIsHistorical] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
 
@@ -64,83 +65,61 @@ export default function OrdersManager() {
     // New Tab State
 
     useEffect(() => {
-        fetchOrders();
-    }, []);
-
-    const fetchOrders = async () => {
         setLoading(true);
-        try {
+        let q;
+
+        if (!isHistorical) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const todayTimestamp = Timestamp.fromDate(today);
 
-            const q = query(
+            q = query(
                 collection(db, "orders"),
                 where("date", ">=", todayTimestamp),
                 orderBy("date", "desc"),
-                limit(50)
+                limit(orderLimit)
             );
-            const snapshot = await getDocs(q);
+        } else {
+            q = query(
+                collection(db, "orders"),
+                orderBy("date", "desc"),
+                limit(orderLimit)
+            );
+        }
 
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             const ordersData = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
                 status: doc.data().status || "pendiente"
             })) as Order[];
 
-            // Filter out pending_payment orders (waiting for MP)
             const confirmedOrders = ordersData.filter(o => o.status !== 'pending_payment');
-
             setOrders(confirmedOrders);
-            setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-            setHasMore(true); // Always allow loading more (history) initially
+
+            // Check if we can load more
+            setHasMore(snapshot.docs.length >= orderLimit);
             setLoading(false);
-        } catch (err) {
-            console.error("Error fetching orders:", err);
+            setLoadingMore(false);
+        }, (err) => {
+            console.error("Error listening to orders:", err);
             setError("Error al cargar pedidos.");
             setLoading(false);
-        }
-    };
+            setLoadingMore(false);
+        });
 
-    const loadMoreOrders = async () => {
-        // Allow loading more even if no lastVisible (to fetch history if today is empty)
+        return () => unsubscribe();
+    }, [orderLimit, isHistorical]);
+
+    const loadMoreOrders = () => {
         setLoadingMore(true);
-        try {
-            let q;
-            if (lastVisible) {
-                q = query(
-                    collection(db, "orders"),
-                    orderBy("date", "desc"),
-                    startAfter(lastVisible),
-                    limit(50)
-                );
-            } else {
-                // Fallback if we have no orders yet (e.g. today was empty), just fetch latest
-                q = query(
-                    collection(db, "orders"),
-                    orderBy("date", "desc"),
-                    limit(50)
-                );
-            }
-
-            const snapshot = await getDocs(q);
-
-            const newOrders = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-                status: doc.data().status || "pendiente"
-            })) as Order[];
-
-            // Filter out pending_payment
-            const confirmedNewOrders = newOrders.filter(o => o.status !== 'pending_payment');
-
-            setOrders(prev => [...prev, ...confirmedNewOrders]);
-            setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-            setHasMore(snapshot.docs.length === 50);
-            setLoadingMore(false);
-        } catch (err) {
-            console.error("Error loading more orders:", err);
-            setLoadingMore(false);
+        if (!isHistorical && !hasMore) {
+            // We ran out of "today's" orders, switch to historical with initial chunk + next chunk
+            setIsHistorical(true);
+            setOrderLimit(prev => prev + 50);
+        } else {
+            // Just load more from the current context
+            setOrderLimit(prev => prev + 50);
         }
     };
 

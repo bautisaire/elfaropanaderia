@@ -82,7 +82,7 @@ export default function POSManager() {
     const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
     const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
     const [stockModalInitialValue, setStockModalInitialValue] = useState<number | undefined>(undefined);
-    const [pendingRetry, setPendingRetry] = useState<{ type: 'unit' | 'weight', productId: string, variant?: string, quantity?: number, priceToUse?: number } | null>(null);
+    const [pendingRetry, setPendingRetry] = useState<{ type: 'unit' | 'weight' | 'unit_exact', productId: string, variant?: string, quantity?: number, priceToUse?: number } | null>(null);
 
     // Short ID Input Buffer
     // Short ID Input Buffer
@@ -380,38 +380,16 @@ export default function POSManager() {
         if (product) {
             // Helper to handle logic (reusable for retry)
             const handleLogic = (prod: Product, vName?: string) => {
-                if (vName) {
-                    // Variant Logic
-                    const targetVariant = prod.variants?.find(v => v.name === vName);
-                    const currentStock = Number(targetVariant?.stockQuantity || 0);
-
-                    if (currentStock <= 0) {
-                        return false; // Out of stock
-                    }
-
-                    if (prod.unitType === 'weight') {
-                        addToCart(prod, vName);
-                        return true;
-                    }
-
+                if (prod.unitType === 'weight') {
                     setPendingProduct({ product: prod, variant: vName });
-                    setQuantityInput("");
-                    setQuantityModalOpen(true);
-                    setTimeout(() => {
-                        if (quantityInputRef.current) quantityInputRef.current.focus();
-                    }, 100);
+                    setWeightInput("");
+                    setPriceInput("");
+                    setSmartInputUsed(false);
+                    setInputMode('weight');
+                    setWeightModalOpen(true);
                     return true;
                 } else {
-                    // Simple Product Logic
-                    const currentStock = Number(prod.stockQuantity || 0);
-                    if (currentStock <= 0) {
-                        return false; // Out of stock
-                    }
-                    if (prod.unitType === 'weight') {
-                        addToCart(prod);
-                        return true;
-                    }
-                    setPendingProduct({ product: prod });
+                    setPendingProduct({ product: prod, variant: vName });
                     setQuantityInput("");
                     setQuantityModalOpen(true);
                     setTimeout(() => {
@@ -470,7 +448,8 @@ export default function POSManager() {
             const currentQty = existing ? existing.quantity : 0;
 
             if (currentQty + qty > maxStock) {
-                handleStockError(product, `No hay suficiente stock. Solicitado: ${currentQty + qty}, Disponible: ${maxStock}`);
+                const deficit = (currentQty + qty) - maxStock;
+                handleStockError(product, `No hay suficiente stock. Solicitado: ${currentQty + qty}, Disponible: ${maxStock}`, deficit, { type: 'unit_exact', productId: product.id, variant, quantity: qty });
                 return prev;
             }
 
@@ -568,25 +547,11 @@ export default function POSManager() {
         setWeightInput("");
     };
 
-    const addToCart = (product: Product, variantName?: string) => {
+    const addToCart = (product: Product, variantName?: string, checkStock = true) => {
         // Determine Price to use
         const priceToUse = priceMode === 'wholesale'
             ? (product.wholesalePrice || product.precio)
             : product.precio;
-
-        // Stock Check
-        let maxStock = 0;
-        if (variantName && product.variants) {
-            const v = product.variants.find((v: any) => v.name === variantName);
-            maxStock = v ? (v.stockQuantity || 0) : 0;
-        } else {
-            maxStock = product.stockQuantity || 0;
-        }
-
-        if (maxStock <= 0) {
-            handleStockError(product, "No hay stock disponible de este producto.", 1, { type: 'unit', productId: product.id, variant: variantName });
-            return;
-        }
 
         // Weight Logic
         if (product.unitType === 'weight') {
@@ -601,10 +566,24 @@ export default function POSManager() {
             return;
         }
 
+        // Stock Check
+        let maxStock = 0;
+        if (variantName && product.variants) {
+            const v = product.variants.find((v: any) => v.name === variantName);
+            maxStock = v ? (v.stockQuantity || 0) : 0;
+        } else {
+            maxStock = product.stockQuantity || 0;
+        }
+
+        if (checkStock && maxStock <= 0) {
+            handleStockError(product, "No hay stock disponible de este producto.", 1, { type: 'unit', productId: product.id, variant: variantName });
+            return;
+        }
+
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id && item.selectedVariant === variantName);
             if (existing) {
-                if (existing.quantity >= maxStock) {
+                if (checkStock && existing.quantity >= maxStock) {
                     handleStockError(product, "No hay más unidades disponibles de este producto.", 1, { type: 'unit', productId: product.id, variant: variantName });
                     return prev;
                 }
@@ -651,10 +630,10 @@ export default function POSManager() {
         return cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
     }, [cart]);
 
-    // Effect to update cart prices when mode changes
+    // Effect to update cart prices and stock when mode or products change
     useEffect(() => {
         setCart(prev => prev.map(item => {
-            // Find original product to get prices
+            // Find original product to get prices and fresh stock
             const original = products.find(p => p.id === item.id);
             if (!original) return item;
 
@@ -662,7 +641,12 @@ export default function POSManager() {
                 ? (original.wholesalePrice || original.precio)
                 : original.precio;
 
-            return { ...item, precio: newPrice };
+            return {
+                ...item,
+                precio: newPrice,
+                stockQuantity: original.stockQuantity,
+                variants: original.variants
+            };
         }));
     }, [priceMode, products]);
 
@@ -1454,9 +1438,22 @@ export default function POSManager() {
                             const freshProduct = newProds.find(p => p.id === pendingRetry.productId);
                             if (freshProduct) {
                                 if (pendingRetry.type === 'unit') {
-                                    addToCart(freshProduct, pendingRetry.variant);
+                                    addToCart(freshProduct, pendingRetry.variant, false);
+                                } else if (pendingRetry.type === 'unit_exact' && pendingRetry.quantity) {
+                                    const pToUse = priceMode === 'wholesale' ? (freshProduct.wholesalePrice || freshProduct.precio) : freshProduct.precio;
+                                    setCart(prev => {
+                                        const ex = prev.find(item => item.id === freshProduct.id && item.selectedVariant === pendingRetry.variant);
+                                        if (ex) {
+                                            return prev.map(item =>
+                                                item.id === freshProduct.id && item.selectedVariant === pendingRetry.variant
+                                                    ? { ...item, quantity: item.quantity + pendingRetry.quantity! }
+                                                    : item
+                                            );
+                                        }
+                                        return [...prev, { ...freshProduct, quantity: pendingRetry.quantity!, selectedVariant: pendingRetry.variant, precio: pToUse }];
+                                    });
                                 } else if (pendingRetry.type === 'weight' && pendingRetry.quantity) {
-                                    addWeightToCart(freshProduct, pendingRetry.variant, pendingRetry.quantity);
+                                    addWeightToCart(freshProduct, pendingRetry.variant, pendingRetry.quantity, false);
                                 }
                             }
                             setPendingRetry(null);
