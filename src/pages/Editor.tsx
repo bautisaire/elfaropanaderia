@@ -22,7 +22,7 @@ export default function Editor() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false); // Collapsed state for desktop
+  const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
 
   const navigate = useNavigate();
   const location = useLocation();

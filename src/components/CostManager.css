@@ -181,12 +181,17 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    padding: 6px;
-    border-radius: 4px;
+    padding: 10px;
+    font-size: 1.2rem;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.cm-icon-btn:active {
+    transform: scale(0.95);
 }
 
 .cm-icon-btn.edit {
@@ -258,4 +263,196 @@
 .price-ok {
     color: #059669 !important;
     font-weight: bold;
+}
+
+/* --- Price History Tooltip --- */
+.cm-price-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    width: fit-content;
+}
+
+.cm-price-increase-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 12px;
+    cursor: help;
+    position: relative;
+}
+
+.cm-price-history-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: 120%;
+    /* Puts it above the price */
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background-color: #1e293b;
+    color: #f8fafc;
+    text-align: left;
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 200px;
+    z-index: 100;
+    transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    pointer-events: none;
+}
+
+/* Caret/Triangle on the bottom of tooltip */
+.cm-price-history-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: #1e293b transparent transparent transparent;
+}
+
+.cm-price-increase-indicator:hover .cm-price-history-tooltip {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.cm-price-history-tooltip h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 5px;
+}
+
+.cm-price-history-tooltip ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cm-price-history-tooltip li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.cm-price-history-tooltip li span {
+    color: #cbd5e1;
+}
+
+.cm-price-history-tooltip li strong {
+    color: #10b981;
+}
+
+/* --- Generic Tooltip for Descriptions --- */
+.cm-tooltip-wrapper {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+}
+
+.cm-tooltip-content {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #1e293b;
+    color: #f8fafc;
+    text-align: left;
+    border-radius: 8px;
+    padding: 10px 14px;
+    width: 280px;
+    white-space: pre-wrap;
+    z-index: 100;
+    font-size: 0.85rem;
+    font-weight: normal;
+    transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.cm-tooltip-content::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: #1e293b transparent transparent transparent;
+}
+
+.cm-tooltip-wrapper:hover .cm-tooltip-content {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* --- Yellow Paper Recipe Style --- */
+.recipe-paper-container {
+    background-color: #fef9c3;
+    /* Yellowish paper color */
+    border: 1px solid #fde047;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.02);
+}
+
+.cm-table.recipe-paper {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border-collapse: collapse;
+}
+
+.cm-table.recipe-paper thead th {
+    background: transparent;
+    color: #854d0e;
+    border-bottom: 2px solid #ca8a04;
+    padding: 8px 10px;
+}
+
+.cm-table.recipe-paper td {
+    border-bottom: 1px dashed #eab308;
+    padding: 6px 10px;
+    vertical-align: middle;
+}
+
+.cm-table.recipe-paper tr:hover td {
+    background: rgba(253, 224, 71, 0.2);
+}
+
+.cm-table.recipe-paper input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #ca8a04;
+    border-radius: 0;
+    outline: none;
+}
+
+.cm-table.recipe-paper input:focus {
+    border-bottom: 2px solid #a16207;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.cm-table.recipe-paper tfoot td {
+    border-top: 2px solid #ca8a04;
+    border-bottom: none;
 }

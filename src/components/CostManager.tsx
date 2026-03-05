@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
-import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle } from 'react-icons/fa';
 import './CostManager.css';
 import ProductManager from './ProductManager';
 
@@ -12,6 +12,8 @@ export interface RawMaterial {
     unit: string;
     price: number;
     lastUpdated?: any;
+    priceHistory?: { price: number; date: string; baseQuantity?: number; unit?: string }[];
+    description?: string;
 }
 
 export interface RecipeIngredient {
@@ -60,7 +62,7 @@ export default function CostManager() {
     const [newIngredient, setNewIngredient] = useState<RecipeIngredient>({ rawMaterialId: '', quantity: 0 });
 
     // Quick Add Form
-    const [newMaterial, setNewMaterial] = useState({ name: '', baseQuantity: 1000, unit: 'g', price: 0 });
+    const [newMaterial, setNewMaterial] = useState({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '' });
 
     // Sort & Search State
     const [matSortBy, setMatSortBy] = useState<'name_asc' | 'date_desc' | 'price_asc' | 'price_desc' | 'qty_asc' | 'qty_desc'>('name_asc');
@@ -109,19 +111,45 @@ export default function CostManager() {
         try {
             await addDoc(collection(db, "raw_materials"), {
                 ...newMaterial,
-                lastUpdated: Timestamp.now()
+                lastUpdated: Timestamp.now(),
+                priceHistory: [{ price: newMaterial.price, baseQuantity: newMaterial.baseQuantity, unit: newMaterial.unit, date: new Date().toISOString() }]
             });
-            setNewMaterial({ name: '', baseQuantity: 1000, unit: 'g', price: 0 });
+            setNewMaterial({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '' });
         } catch (error) {
             console.error(error);
             alert("Error al guardar.");
         }
     };
 
-    const handleUpdateMaterial = async (id: string) => {
+    const handleUpdateMaterial = async () => {
+        if (!isEditingMaterial) return;
         try {
-            await updateDoc(doc(db, "raw_materials", id), {
+            const currentMat = rawMaterials.find(m => m.id === isEditingMaterial);
+            let updatedHistory = currentMat?.priceHistory || [];
+
+            // Only update history if price or quantity has been modified
+            if (currentMat && (editMaterialForm.price !== currentMat.price || editMaterialForm.baseQuantity !== currentMat.baseQuantity || editMaterialForm.unit !== currentMat.unit)) {
+                // Si el historial está vacío, metemos el precio anterior como punto de partida
+                if (updatedHistory.length === 0) {
+                    updatedHistory.push({
+                        price: currentMat.price,
+                        baseQuantity: currentMat.baseQuantity,
+                        unit: currentMat.unit,
+                        date: currentMat.lastUpdated?.seconds ? new Date(currentMat.lastUpdated.seconds * 1000).toISOString() : new Date().toISOString()
+                    });
+                }
+
+                updatedHistory = [
+                    ...updatedHistory,
+                    { price: editMaterialForm.price || 0, baseQuantity: editMaterialForm.baseQuantity, unit: editMaterialForm.unit, date: new Date().toISOString() }
+                ];
+                // Limit history to last 10 changes to avoid massive docs
+                if (updatedHistory.length > 10) updatedHistory.shift();
+            }
+
+            await updateDoc(doc(db, "raw_materials", isEditingMaterial), {
                 ...editMaterialForm,
+                priceHistory: updatedHistory,
                 lastUpdated: Timestamp.now()
             });
             setIsEditingMaterial(null);
@@ -177,6 +205,7 @@ export default function CostManager() {
         });
         setNewIngredient({ rawMaterialId: '', quantity: 0 });
         setIngredientSearch(""); // Limpiar buscador
+        ingredientInputRef.current?.focus(); // Foco de vuelta al buscador
     };
 
     const handleRemoveIngredient = (matId: string) => {
@@ -331,42 +360,110 @@ export default function CostManager() {
                         <h3>Gestión de Materias Primas e Insumos</h3>
                         <p style={{ color: '#64748b', marginBottom: '20px' }}>Registra el costo base de tus ingredientes, envases y tiempo de mano de obra.</p>
 
-                        <div className="cm-add-bar">
-                            <input
-                                type="text"
-                                placeholder="Nombre (ej. Harina)"
-                                value={newMaterial.name}
-                                onChange={e => setNewMaterial({ ...newMaterial, name: e.target.value })}
-                            />
-                            <div className="cm-input-group">
+                        {isEditingMaterial ? (
+                            <div className="cm-add-bar" style={{ background: '#f0f9ff', borderColor: '#bae6fd', flexWrap: 'wrap' }}>
                                 <input
-                                    type="number"
-                                    placeholder="Cant."
-                                    style={{ width: '80px' }}
-                                    value={newMaterial.baseQuantity || ''}
-                                    onChange={e => setNewMaterial({ ...newMaterial, baseQuantity: Number(e.target.value) })}
+                                    type="text"
+                                    placeholder="Nombre (ej. Harina)"
+                                    value={editMaterialForm.name || ''}
+                                    style={{ flex: '1 1 200px' }}
+                                    onChange={e => setEditMaterialForm({ ...editMaterialForm, name: e.target.value })}
+                                    onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
                                 />
-                                <select
-                                    value={newMaterial.unit}
-                                    onChange={e => setNewMaterial({ ...newMaterial, unit: e.target.value })}
-                                >
-                                    <option value="g">g</option>
-                                    <option value="ml">ml</option>
-                                    <option value="min">min (Tiempo)</option>
-                                    <option value="un">un (Unidades)</option>
-                                </select>
-                            </div>
-                            <div className="cm-input-group">
-                                <span className="currency-symbol">$</span>
+                                <div className="cm-input-group">
+                                    <input
+                                        type="number"
+                                        placeholder="Cant."
+                                        style={{ width: '100px' }}
+                                        value={editMaterialForm.baseQuantity || ''}
+                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, baseQuantity: Number(e.target.value) })}
+                                        onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
+                                    />
+                                    <select
+                                        style={{ width: '70px' }}
+                                        value={editMaterialForm.unit || 'g'}
+                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, unit: e.target.value })}
+                                        onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
+                                    >
+                                        <option value="g">g</option>
+                                        <option value="ml">ml</option>
+                                        <option value="min">min (Tiempo)</option>
+                                        <option value="un">un (Unidades)</option>
+                                    </select>
+                                </div>
+                                <div className="cm-input-group">
+                                    <span className="currency-symbol">$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Precio total"
+                                        value={editMaterialForm.price || ''}
+                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, price: Number(e.target.value) })}
+                                        onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
+                                    />
+                                </div>
                                 <input
-                                    type="number"
-                                    placeholder="Precio total"
-                                    value={newMaterial.price || ''}
-                                    onChange={e => setNewMaterial({ ...newMaterial, price: Number(e.target.value) })}
+                                    type="text"
+                                    placeholder="Descripción (opcional)"
+                                    value={editMaterialForm.description || ''}
+                                    style={{ flex: '1 1 200px' }}
+                                    onChange={e => setEditMaterialForm({ ...editMaterialForm, description: e.target.value })}
+                                    onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
                                 />
+                                <button className="cm-btn-primary" style={{ background: '#3b82f6' }} onClick={handleUpdateMaterial}><FaSave /> Guardar Cambios</button>
+                                <button className="cm-icon-btn cancel" style={{ background: 'white', border: '1px solid #cbd5e1' }} onClick={() => setIsEditingMaterial(null)}><FaTimes /> Cancelar</button>
                             </div>
-                            <button className="cm-btn-primary" onClick={handleAddMaterial}><FaPlus /> Añadir</button>
-                        </div>
+                        ) : (
+                            <div className="cm-add-bar" style={{ flexWrap: 'wrap' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre (ej. Harina)"
+                                    value={newMaterial.name}
+                                    style={{ flex: '1 1 200px' }}
+                                    onChange={e => setNewMaterial({ ...newMaterial, name: e.target.value })}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                />
+                                <div className="cm-input-group">
+                                    <input
+                                        type="number"
+                                        placeholder="Cant."
+                                        style={{ width: '100px' }}
+                                        value={newMaterial.baseQuantity || ''}
+                                        onChange={e => setNewMaterial({ ...newMaterial, baseQuantity: Number(e.target.value) })}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                    />
+                                    <select
+                                        style={{ width: '70px' }}
+                                        value={newMaterial.unit}
+                                        onChange={e => setNewMaterial({ ...newMaterial, unit: e.target.value })}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                    >
+                                        <option value="g">g</option>
+                                        <option value="ml">ml</option>
+                                        <option value="min">min (Tiempo)</option>
+                                        <option value="un">un (Unidades)</option>
+                                    </select>
+                                </div>
+                                <div className="cm-input-group">
+                                    <span className="currency-symbol">$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Precio total"
+                                        value={newMaterial.price || ''}
+                                        onChange={e => setNewMaterial({ ...newMaterial, price: Number(e.target.value) })}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                    />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Descripción (opcional)"
+                                    value={newMaterial.description}
+                                    style={{ flex: '1 1 200px' }}
+                                    onChange={e => setNewMaterial({ ...newMaterial, description: e.target.value })}
+                                    onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
+                                />
+                                <button className="cm-btn-primary" onClick={handleAddMaterial}><FaPlus /> Añadir</button>
+                            </div>
+                        )}
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', alignItems: 'center', gap: '10px' }}>
                             <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>Ordenar por:</label>
@@ -398,45 +495,55 @@ export default function CostManager() {
                                         <tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>No hay materias primas registradas.</td></tr>
                                     ) : sortedMaterials.map(mat => (
                                         <tr key={mat.id}>
-                                            <td>
-                                                {isEditingMaterial === mat.id ? (
-                                                    <input
-                                                        type="text"
-                                                        value={editMaterialForm.name || ''}
-                                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, name: e.target.value })}
-                                                    />
-                                                ) : <strong>{mat.name}</strong>}
-                                            </td>
-                                            <td>
-                                                {isEditingMaterial === mat.id ? (
-                                                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                                                        <input
-                                                            type="number"
-                                                            style={{ width: '60px' }}
-                                                            value={editMaterialForm.baseQuantity || ''}
-                                                            onChange={e => setEditMaterialForm({ ...editMaterialForm, baseQuantity: Number(e.target.value) })}
-                                                        />
-                                                        <select
-                                                            value={editMaterialForm.unit || ''}
-                                                            onChange={e => setEditMaterialForm({ ...editMaterialForm, unit: e.target.value })}
-                                                        >
-                                                            <option value="g">g</option>
-                                                            <option value="ml">ml</option>
-                                                            <option value="min">min</option>
-                                                            <option value="un">un</option>
-                                                        </select>
+                                            <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <strong style={{ background: isEditingMaterial === mat.id ? '#f0f9ff' : 'transparent', padding: isEditingMaterial === mat.id ? '4px 8px' : '0', borderRadius: '4px' }}>{mat.name}</strong>
+                                                {mat.description && (
+                                                    <div className="cm-tooltip-wrapper">
+                                                        <FaQuestionCircle style={{ color: '#94a3b8', cursor: 'help' }} />
+                                                        <div className="cm-tooltip-content">
+                                                            {mat.description}
+                                                        </div>
                                                     </div>
-                                                ) : formatQuantity(mat.baseQuantity, mat.unit)}
+                                                )}
                                             </td>
                                             <td>
-                                                {isEditingMaterial === mat.id ? (
-                                                    <input
-                                                        type="number"
-                                                        style={{ width: '100px' }}
-                                                        value={editMaterialForm.price || ''}
-                                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, price: Number(e.target.value) })}
-                                                    />
-                                                ) : <span style={{ color: '#059669', fontWeight: 'bold' }}>${mat.price}</span>}
+                                                {formatQuantity(mat.baseQuantity, mat.unit)}
+                                            </td>
+                                            <td>
+                                                <div className="cm-price-container">
+                                                    <span style={{ color: '#059669', fontWeight: 'bold' }}>${mat.price.toLocaleString('es-AR')}</span>
+                                                    {(() => {
+                                                        if (!mat.priceHistory || mat.priceHistory.length < 2) return null;
+                                                        const current = mat.priceHistory[mat.priceHistory.length - 1];
+                                                        const previous = mat.priceHistory[mat.priceHistory.length - 2];
+                                                        if (!current || !previous) return null;
+
+                                                        const diff = current.price - previous.price;
+                                                        if (diff <= 0) return null; // Solo mostrar aumentos
+
+                                                        const daysSince = (new Date().getTime() - new Date(current.date).getTime()) / (1000 * 3600 * 24);
+                                                        if (daysSince > 90) return null; // Solo mostrar si fue en ultimos 3 meses
+
+                                                        const percent = ((diff / previous.price) * 100).toFixed(1);
+
+                                                        return (
+                                                            <div className="cm-price-increase-indicator">
+                                                                <span className="cm-increase-text">+{percent}%</span>
+                                                                <div className="cm-price-history-tooltip">
+                                                                    <h4>Historial de Precio</h4>
+                                                                    <ul>
+                                                                        {[...mat.priceHistory].reverse().slice(0, 5).map((h, i) => (
+                                                                            <li key={i}>
+                                                                                <span>{new Date(h.date).toLocaleDateString()}</span>
+                                                                                <strong>${h.price.toLocaleString('es-AR')} {h.baseQuantity && `(${formatQuantity(h.baseQuantity, h.unit || 'u')})`}</strong>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
                                             </td>
                                             <td>
                                                 <small style={{ color: '#94a3b8' }}>
@@ -444,20 +551,12 @@ export default function CostManager() {
                                                 </small>
                                             </td>
                                             <td className="cm-actions">
-                                                {isEditingMaterial === mat.id ? (
-                                                    <>
-                                                        <button className="cm-icon-btn save" onClick={() => handleUpdateMaterial(mat.id)}><FaSave /></button>
-                                                        <button className="cm-icon-btn cancel" onClick={() => setIsEditingMaterial(null)}><FaTimes /></button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button className="cm-icon-btn edit" onClick={() => {
-                                                            setIsEditingMaterial(mat.id);
-                                                            setEditMaterialForm(mat);
-                                                        }}><FaEdit /></button>
-                                                        <button className="cm-icon-btn delete" onClick={() => handleDeleteMaterial(mat.id)}><FaTrash /></button>
-                                                    </>
-                                                )}
+                                                <button className="cm-icon-btn edit" onClick={() => {
+                                                    setIsEditingMaterial(mat.id);
+                                                    setEditMaterialForm(mat);
+                                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                }}><FaEdit /></button>
+                                                <button className="cm-icon-btn delete" onClick={() => handleDeleteMaterial(mat.id)}><FaTrash /></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -475,7 +574,8 @@ export default function CostManager() {
                             <select
                                 value={selectedProductId}
                                 onChange={e => setSelectedProductId(e.target.value)}
-                                className="cm-select-large"
+                                className="cm-select-large cm-select-recipe-product"
+                                style={{ maxWidth: '400px' }}
                             >
                                 <option value="">-- Elige un Producto --</option>
                                 {products
@@ -516,7 +616,7 @@ export default function CostManager() {
                                         <div style={{ display: 'flex', flex: 1, gap: '5px', minWidth: '200px', position: 'relative' }}>
                                             <input
                                                 type="text"
-                                                placeholder="🔍 Buscar materia prima..."
+                                                placeholder="🔍 Buscar materia prima... (Enter para la 1ra)"
                                                 value={ingredientSearch}
                                                 ref={ingredientInputRef}
                                                 onChange={e => {
@@ -524,6 +624,17 @@ export default function CostManager() {
                                                     setShowIngredientDropdown(true);
                                                     if (!e.target.value) {
                                                         setNewIngredient({ ...newIngredient, rawMaterialId: '' });
+                                                    }
+                                                }}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        const results = rawMaterials.filter(m => m.name.toLowerCase().includes(ingredientSearch.toLowerCase()));
+                                                        if (results.length > 0) {
+                                                            setNewIngredient({ ...newIngredient, rawMaterialId: results[0].id });
+                                                            setIngredientSearch(results[0].name);
+                                                            setShowIngredientDropdown(false);
+                                                        }
                                                     }
                                                 }}
                                                 onFocus={() => setShowIngredientDropdown(true)}
@@ -579,9 +690,11 @@ export default function CostManager() {
                                         <div className="cm-input-group">
                                             <input
                                                 type="number"
-                                                placeholder="Usado en receta"
+                                                placeholder="Cant. usada"
+                                                style={{ width: '100px' }}
                                                 value={newIngredient.quantity || ''}
                                                 onChange={e => setNewIngredient({ ...newIngredient, quantity: Number(e.target.value) })}
+                                                onKeyDown={e => e.key === 'Enter' && handleAddIngredient()}
                                             />
                                             <span className="currency-symbol">
                                                 {rawMaterials.find(m => m.id === newIngredient.rawMaterialId)?.unit || 'u'}
@@ -590,13 +703,12 @@ export default function CostManager() {
                                         <button className="cm-btn-primary" onClick={handleAddIngredient}><FaPlus /> Añadir a Fórmula</button>
                                     </div>
 
-                                    {/* Tabla de Ficha de Costos */}
-                                    <div className="cm-table-container">
-                                        <table className="cm-table recipe-table">
+                                    {/* Tabla de Ficha de Costos estilo Papel */}
+                                    <div className="cm-table-container recipe-paper-container">
+                                        <table className="cm-table recipe-table recipe-paper">
                                             <thead>
                                                 <tr>
                                                     <th>Materia Prima / Insumo</th>
-                                                    <th>Unidad</th>
                                                     <th>Cantidad Usada</th>
                                                     <th>Costo Subtotal</th>
                                                     <th></th>
@@ -604,28 +716,30 @@ export default function CostManager() {
                                             </thead>
                                             <tbody>
                                                 {editingRecipe.ingredients.length === 0 ? (
-                                                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>Fórmula vacía. Añade ingredientes arriba.</td></tr>
+                                                    <tr><td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>Fórmula vacía. Añade ingredientes arriba.</td></tr>
                                                 ) : editingRecipe.ingredients.map(ing => {
                                                     const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
                                                     if (!mat) return null;
                                                     return (
-                                                        <tr key={mat.id}>
+                                                        <tr key={mat.id} className="recipe-paper-row">
                                                             <td><strong>{mat.name}</strong></td>
-                                                            <td>{mat.unit}</td>
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    value={ing.quantity || ''}
-                                                                    style={{ width: '100px' }}
-                                                                    onChange={e => {
-                                                                        const newQ = Number(e.target.value);
-                                                                        const newIngs = editingRecipe.ingredients.map(i => i.rawMaterialId === mat.id ? { ...i, quantity: newQ } : i);
-                                                                        setEditingRecipe({ ...editingRecipe, ingredients: newIngs });
-                                                                    }}
-                                                                />
+                                                                <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={ing.quantity || ''}
+                                                                        style={{ width: '80px', textAlign: 'right', padding: '4px 8px' }}
+                                                                        onChange={e => {
+                                                                            const newQ = Number(e.target.value);
+                                                                            const newIngs = editingRecipe.ingredients.map(i => i.rawMaterialId === mat.id ? { ...i, quantity: newQ } : i);
+                                                                            setEditingRecipe({ ...editingRecipe, ingredients: newIngs });
+                                                                        }}
+                                                                    />
+                                                                    <span className="currency-symbol" style={{ padding: '4px 8px', background: 'transparent', borderLeft: 'none', borderStyle: 'none', fontWeight: 'bold' }}>{mat.unit}</span>
+                                                                </div>
                                                             </td>
-                                                            <td style={{ color: '#b91c1c', fontWeight: 'bold' }}>
-                                                                ${calculateIngredientCost(ing).toFixed(2)}
+                                                            <td style={{ color: '#000', fontWeight: 'bold' }}>
+                                                                ${calculateIngredientCost(ing).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </td>
                                                             <td className="cm-actions">
                                                                 <button className="cm-icon-btn delete" onClick={() => handleRemoveIngredient(mat.id)}><FaTrash /></button>
@@ -636,36 +750,36 @@ export default function CostManager() {
                                             </tbody>
                                             <tfoot>
                                                 <tr className="recipe-footer-row totals">
-                                                    <td colSpan={3} style={{ textAlign: 'right', fontWeight: 'bold', color: '#b91c1c' }}>COSTO Y PRODUCCIÓN TOTAL:</td>
-                                                    <td colSpan={2} style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '1.2rem' }}>${calculateRecipeTotalCost(editingRecipe).toFixed(2)}</td>
+                                                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444' }}>COSTO DE PRODUCCIÓN:</td>
+                                                    <td colSpan={2} style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.2rem' }}>${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                                 <tr className="recipe-footer-row yield">
-                                                    <td colSpan={3} style={{ textAlign: 'right', padding: '15px' }}>
-                                                        <strong>¿Cuántas unidades rinde esta receta entera?</strong><br />
+                                                    <td colSpan={2} style={{ textAlign: 'right', padding: '15px' }}>
+                                                        <strong>¿En cuántas unidades rinde?</strong><br />
                                                     </td>
                                                     <td colSpan={2}>
-                                                        <div className="cm-input-group yield-group">
+                                                        <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto' }}>
                                                             <input
                                                                 type="number"
                                                                 value={editingRecipe.yield || 1}
                                                                 onChange={e => setEditingRecipe({ ...editingRecipe, yield: Number(e.target.value) })}
-                                                                style={{ fontSize: '1.2rem', textAlign: 'center', width: '80px', padding: '10px' }}
+                                                                style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px' }}
                                                             />
-                                                            <span className="currency-symbol">uds.</span>
+                                                            <span className="currency-symbol" style={{ background: 'transparent', borderStyle: 'none' }}>unidades</span>
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 {selectedProduct && selectedProduct.stockDependency?.productId && parentProduct && (
-                                                    <tr className="recipe-footer-row" style={{ background: '#f0f9ff' }}>
-                                                        <td colSpan={3} style={{ textAlign: 'right', color: '#0369a1' }}>+ COSTO HEREDADO ({parentProduct.nombre} x{selectedProduct.stockDependency.unitsToDeduct}):</td>
+                                                    <tr className="recipe-footer-row" style={{ background: 'rgba(240, 249, 255, 0.5)' }}>
+                                                        <td colSpan={2} style={{ textAlign: 'right', color: '#0369a1' }}>+ COSTO HEREDADO ({parentProduct.nombre} x{selectedProduct.stockDependency.unitsToDeduct}):</td>
                                                         <td colSpan={2} style={{ color: '#0369a1', fontWeight: 'bold' }}>
-                                                            ${(calculateRealProductCost(parentProduct) * selectedProduct.stockDependency.unitsToDeduct).toFixed(2)}
+                                                            ${(calculateRealProductCost(parentProduct) * selectedProduct.stockDependency.unitsToDeduct).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                         </td>
                                                     </tr>
                                                 )}
-                                                <tr className="recipe-footer-row unit-cost" style={{ background: '#fef2f2' }}>
-                                                    <td colSpan={3} style={{ textAlign: 'right', fontWeight: 'bold', color: '#b91c1c', fontSize: '1.2rem' }}>COSTO TOTAL POR UNIDAD:</td>
-                                                    <td colSpan={2} style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '1.5rem' }}>${calculateRealProductCost({ ...selectedProduct!, recipe: editingRecipe }).toFixed(2)}</td>
+                                                <tr className="recipe-footer-row unit-cost" style={{ background: 'rgba(254, 242, 242, 0.5)' }}>
+                                                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#b91c1c', fontSize: '1.2rem' }}>COSTO TOTAL POR UNIDAD:</td>
+                                                    <td colSpan={2} style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '1.5rem' }}>${calculateRealProductCost({ ...selectedProduct!, recipe: editingRecipe }).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
