@@ -20,6 +20,19 @@
 .cm-tabs {
     display: flex;
     gap: 10px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+}
+
+.cm-tabs::-webkit-scrollbar {
+    height: 6px;
+}
+
+.cm-tabs::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
 }
 
 .cm-tab {

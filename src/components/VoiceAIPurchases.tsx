@@ -70,35 +70,49 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
     const [isProcessingAI, setIsProcessingAI] = useState(false);
     const [aiDetectedProducts, setAiDetectedProducts] = useState<any[]>([]);
     const recognitionRef = useRef<any>(null);
+    const finalTranscriptRef = useRef('');
 
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'es-AR';
+        if (!SpeechRecognition) return;
 
-            recognitionRef.current.onresult = (event: any) => {
-                let currentTranscript = '';
-                for (let i = 0; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'es-AR';
+
+        recognition.onresult = (event: any) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscriptRef.current += event.results[i][0].transcript + ' ';
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
                 }
-                setTranscript(currentTranscript);
-            };
+            }
 
-            recognitionRef.current.onerror = (event: any) => {
-                console.error("Speech recognition error", event.error);
-                setIsRecording(false);
-            };
+            // Clean up possible weird Android duplicate issues with spaces
+            const currentTotalText = finalTranscriptRef.current + interimTranscript;
+            setTranscript(currentTotalText);
+        };
 
-            recognitionRef.current.onend = () => {
-                if (isRecording) {
-                    setIsRecording(false);
-                }
-            };
-        }
-    }, [isRecording]);
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            setIsRecording(false);
+        };
+
+        recognition.onend = () => {
+            setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+
+        return () => {
+            if (recognitionRef.current) {
+                recognitionRef.current.abort();
+            }
+        };
+    }, []);
 
     const toggleRecording = () => {
         if (!recognitionRef.current) {
@@ -111,6 +125,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
             setIsRecording(false);
         } else {
             setTranscript('');
+            finalTranscriptRef.current = '';
             setAiDetectedProducts([]);
             recognitionRef.current.start();
             setIsRecording(true);
@@ -349,7 +364,10 @@ Texto del usuario: "${transcript}"
                     <h4>Texto Capturado:</h4>
                     <textarea
                         value={transcript}
-                        onChange={(e) => setTranscript(e.target.value)}
+                        onChange={(e) => {
+                            setTranscript(e.target.value);
+                            finalTranscriptRef.current = e.target.value;
+                        }}
                         placeholder="Aquí aparecerá lo que dictes..."
                     />
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
