@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
-import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot } from 'react-icons/fa';
 import './CostManager.css';
 import ProductManager from './ProductManager';
+import VoiceAIPurchases from './VoiceAIPurchases';
 
 export interface RawMaterial {
     id: string;
@@ -43,7 +44,7 @@ export interface Product {
 
 
 export default function CostManager() {
-    const [activeTab, setActiveTab] = useState<'products' | 'raw_materials' | 'recipes' | 'simulator'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'raw_materials' | 'recipes' | 'simulator' | 'ai_voice'>('products');
 
     // --- SYSTEM CONFIG (MARGINS) ---
     // En una DB real deberíamos guardar o leer los porcentajes, aquí usamos un estado local.
@@ -66,6 +67,7 @@ export default function CostManager() {
 
     // Sort & Search State
     const [matSortBy, setMatSortBy] = useState<'name_asc' | 'date_desc' | 'price_asc' | 'price_desc' | 'qty_asc' | 'qty_desc'>('name_asc');
+    const [matSearchTerm, setMatSearchTerm] = useState('');
     const [ingredientSearch, setIngredientSearch] = useState('');
     const [showIngredientDropdown, setShowIngredientDropdown] = useState(false);
     const ingredientInputRef = useRef<HTMLInputElement>(null);
@@ -348,6 +350,13 @@ export default function CostManager() {
                     >
                         <FaChartLine /> 4. Precios y Ganancias
                     </button>
+                    <button
+                        className={`cm-tab ${activeTab === 'ai_voice' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('ai_voice')}
+                        style={{ color: '#8b5cf6', borderColor: activeTab === 'ai_voice' ? '#8b5cf6' : '' }}
+                    >
+                        <FaRobot /> 5. Carga Voz IA
+                    </button>
                 </div>
             </header>
 
@@ -465,16 +474,27 @@ export default function CostManager() {
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', alignItems: 'center', gap: '10px' }}>
-                            <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>Ordenar por:</label>
-                            <select value={matSortBy} onChange={e => setMatSortBy(e.target.value as any)} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                                <option value="name_asc">A-Z</option>
-                                <option value="date_desc">Más Recientes</option>
-                                <option value="price_desc">Mayor Precio</option>
-                                <option value="price_asc">Menor Precio</option>
-                                <option value="qty_desc">Mayor Cantidad</option>
-                                <option value="qty_asc">Menor Cantidad</option>
-                            </select>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 300px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Buscar materia prima..."
+                                    value={matSearchTerm}
+                                    onChange={(e) => setMatSearchTerm(e.target.value)}
+                                    style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%', maxWidth: '400px' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>Ordenar por:</label>
+                                <select value={matSortBy} onChange={e => setMatSortBy(e.target.value as any)} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                                    <option value="name_asc">A-Z</option>
+                                    <option value="date_desc">Más Recientes</option>
+                                    <option value="price_desc">Mayor Precio</option>
+                                    <option value="price_asc">Menor Precio</option>
+                                    <option value="qty_desc">Mayor Cantidad</option>
+                                    <option value="qty_asc">Menor Cantidad</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="cm-table-container">
@@ -491,9 +511,9 @@ export default function CostManager() {
                                 <tbody>
                                     {loadingMaterials ? (
                                         <tr><td colSpan={5} style={{ textAlign: 'center' }}>Cargando...</td></tr>
-                                    ) : sortedMaterials.length === 0 ? (
-                                        <tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>No hay materias primas registradas.</td></tr>
-                                    ) : sortedMaterials.map(mat => (
+                                    ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).length === 0 ? (
+                                        <tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>No se encontraron materias primas.</td></tr>
+                                    ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).map(mat => (
                                         <tr key={mat.id}>
                                             <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <strong style={{ background: isEditingMaterial === mat.id ? '#f0f9ff' : 'transparent', padding: isEditingMaterial === mat.id ? '4px 8px' : '0', borderRadius: '4px' }}>{mat.name}</strong>
@@ -879,6 +899,9 @@ export default function CostManager() {
                             </table>
                         </div>
                     </div>
+                )}
+                {activeTab === 'ai_voice' && (
+                    <VoiceAIPurchases rawMaterials={rawMaterials} />
                 )}
             </main>
         </div>
