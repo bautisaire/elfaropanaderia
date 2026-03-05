@@ -13,7 +13,7 @@ export default function Cart() {
         <>
           {cart.map((item) => (
             <div key={item.id}>
-              {item.name} x {item.quantity} = ${item.price * (item.quantity || 1)}
+              {item.name} x {item.quantity} = ${Math.round(item.price * (item.quantity || 1) * 100) / 100}
               <button onClick={() => removeFromCart(item.id)}>❌</button>
             </div>
           ))}

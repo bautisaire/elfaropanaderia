@@ -4,15 +4,16 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaBoxOpen, FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMoneyBillWave } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMoneyBillWave } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
-import ProductManager from "../components/ProductManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
 import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
+import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
 import ExpenseManager from "../components/ExpenseManager";
+import CostManager from "../components/CostManager";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -195,12 +196,12 @@ export default function Editor() {
                 <span className="nav-text">Gastos / Materia Prima</span>
               </button>
               <button
-                className={currentPath === "products" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/products")}
-                title="Productos"
+                className={currentPath === "costs" || currentPath === "products" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/costs")}
+                title="Productos, Costos y Recetas"
               >
-                <div className="nav-icon" style={{ color: '#ef4444' }}><FaBoxOpen /></div>
-                <span className="nav-text">Productos</span>
+                <div className="nav-icon" style={{ color: '#f97316' }}><AiOutlineRead /></div>
+                <span className="nav-text">Productos, Costos y Recetas</span>
               </button>
               <button
                 className={currentPath === "stock" ? "active" : ""}
@@ -260,7 +261,8 @@ export default function Editor() {
               <Route path="/stock" element={<StockManager />} />
               <Route path="/settings" element={<AdminSettings />} />
               <Route path="/expenses" element={<ExpenseManager />} />
-              <Route path="/products" element={<ProductManager />} />
+              <Route path="/costs" element={<CostManager />} />
+              <Route path="/products" element={<Navigate to="/editor/costs" replace />} />
               <Route path="*" element={<Navigate to="/editor/" replace />} />
             </Routes>
           </main>

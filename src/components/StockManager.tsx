@@ -250,8 +250,8 @@ export default function StockManager() {
                         <tbody>
                             {filteredProducts.map(p => {
                                 const totalStock = (p.variants && p.variants.length > 0)
-                                    ? Math.round(p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0) * 1000) / 1000
-                                    : (p.stockQuantity || 0);
+                                    ? Math.round(p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0) * 100) / 100
+                                    : Math.round((p.stockQuantity || 0) * 100) / 100;
 
                                 const isWeight = p.unitType === 'weight';
                                 const stockLabel = totalStock + (isWeight ? ' kg' : '');

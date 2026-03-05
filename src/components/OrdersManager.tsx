@@ -405,7 +405,7 @@ export default function OrdersManager() {
         }
 
         // Recalculate total
-        const newTotal = newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+        const newTotal = Math.round(newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0) * 100) / 100;
         setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
     };
 
@@ -435,7 +435,7 @@ export default function OrdersManager() {
             });
         }
 
-        const newTotal = newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0);
+        const newTotal = Math.round(newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0) * 100) / 100;
         setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
         setEditSearchTerm("");
     };

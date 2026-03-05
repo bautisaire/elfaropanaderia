@@ -1,0 +1,261 @@
+.cost-manager-container {
+    padding: 20px;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.cm-header {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.cm-header h2 {
+    margin: 0 0 15px 0;
+    color: #1e293b;
+}
+
+.cm-tabs {
+    display: flex;
+    gap: 10px;
+}
+
+.cm-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    background: #f1f5f9;
+    color: #64748b;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.cm-tab:hover {
+    background: #e2e8f0;
+}
+
+.cm-tab.active {
+    background: #3b82f6;
+    color: white;
+}
+
+.cm-content {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.cm-tab-content h3 {
+    margin-top: 0;
+    color: #334155;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+}
+
+.cm-add-bar {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.cm-add-bar input,
+.cm-add-bar select {
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    font-family: inherit;
+}
+
+.cm-add-bar input:focus {
+    border-color: #3b82f6;
+}
+
+.cm-input-group {
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.cm-input-group input,
+.cm-input-group select {
+    border: none;
+    border-radius: 0;
+}
+
+.cm-input-group input:focus {
+    border-color: transparent;
+}
+
+.currency-symbol {
+    padding: 0 10px;
+    color: #64748b;
+    font-weight: 500;
+    background: #f1f5f9;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #cbd5e1;
+}
+
+.cm-btn-primary {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.cm-btn-primary:hover {
+    background: #059669;
+}
+
+.cm-table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.cm-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.cm-table th {
+    background: #f1f5f9;
+    padding: 12px 15px;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.cm-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.cm-table tr:hover td {
+    background: #f8fafc;
+}
+
+.cm-table input,
+.cm-table select {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    outline: none;
+}
+
+.cm-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.cm-icon-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.cm-icon-btn.edit {
+    color: #3b82f6;
+}
+
+.cm-icon-btn.edit:hover {
+    background: #eff6ff;
+}
+
+.cm-icon-btn.delete {
+    color: #ef4444;
+}
+
+.cm-icon-btn.delete:hover {
+    background: #fef2f2;
+}
+
+.cm-icon-btn.save {
+    color: #10b981;
+}
+
+.cm-icon-btn.save:hover {
+    background: #ecfdf5;
+}
+
+.cm-icon-btn.cancel {
+    color: #64748b;
+}
+
+.cm-icon-btn.cancel:hover {
+    background: #f1f5f9;
+}
+
+/* Simulator Specific */
+.cm-margins-config {
+    display: flex;
+    gap: 30px;
+    background: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 20px;
+}
+
+.cm-margins-config label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #334155;
+}
+
+.cm-margins-config input {
+    width: 70px;
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    color: #3b82f6;
+}
+
+.price-warning {
+    color: #b91c1c !important;
+    background-color: #fef2f2 !important;
+    font-weight: bold;
+}
+
+.price-ok {
+    color: #059669 !important;
+    font-weight: bold;
+}

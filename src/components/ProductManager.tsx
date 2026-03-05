@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { compressImage } from "../utils/imageUtils";
 import { syncChildProducts } from "../utils/stockUtils";
-import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash, FaCheckCircle, FaFileSignature } from 'react-icons/fa';
 import "./ProductManager.css";
 
 // Interface matching Firestore data structure
@@ -22,6 +22,11 @@ export interface FirestoreProduct {
     stock: boolean;
     stockQuantity?: number;
     discount?: number;
+    requiresRecipe?: boolean;
+    recipe?: {
+        costPerUnit: number;
+        [key: string]: any;
+    };
     variants?: {
         name: string;
         shortId?: string; // Código Rápido de variante
@@ -39,6 +44,8 @@ export interface FirestoreProduct {
     stockReadyTime?: string; // ISO string
     customBadgeText?: string;
     badgeExpiresAt?: string;
+    createdAt?: any;
+    updatedAt?: any;
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -57,12 +64,13 @@ const INITIAL_STATE: FirestoreProduct = {
     isVisible: true,
     isHiddenInPOS: false,
     unitType: 'unit',
+    requiresRecipe: true,
     stockReadyTime: "",
     customBadgeText: "",
     badgeExpiresAt: ""
 };
 
-export default function ProductManager() {
+export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: string) => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [formData, setFormData] = useState<FirestoreProduct>(INITIAL_STATE);
@@ -71,9 +79,32 @@ export default function ProductManager() {
     const [uploading, setUploading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [sortBy, setSortBy] = useState<'a-z' | 'price_desc' | 'price_asc' | 'newest'>('a-z');
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
+
+    const calculateRealProductCost = (product: FirestoreProduct, visitedIds: Set<string> = new Set()): number => {
+        if (!product) return 0;
+        if (visitedIds.has(product.id!)) return 0;
+
+        visitedIds.add(product.id!);
+        let totalCost = 0;
+
+        if (product.stockDependency && product.stockDependency.productId) {
+            const parent = products.find(p => p.id === product.stockDependency?.productId);
+            if (parent) {
+                const parentUnitCost = calculateRealProductCost(parent, visitedIds);
+                totalCost += parentUnitCost * product.stockDependency.unitsToDeduct;
+            }
+        }
+
+        if (product.recipe && product.recipe.costPerUnit) {
+            totalCost += product.recipe.costPerUnit;
+        }
+
+        return totalCost;
+    };
 
     useEffect(() => {
         fetchCategories();
@@ -155,8 +186,8 @@ export default function ProductManager() {
         const { name, value, type } = e.target;
         if (type === 'number' && value !== "") {
             let num = parseFloat(value);
-            // Round to 3 decimals on blur
-            num = Math.round(num * 1000) / 1000;
+            // Round to 2 decimals on blur
+            num = Math.round(num * 100) / 100;
             setFormData(prev => ({
                 ...prev,
                 [name]: num
@@ -173,7 +204,7 @@ export default function ProductManager() {
         let finalValue = value;
         if (field === 'unitsToDeduct') {
             finalValue = Number(value);
-            finalValue = Math.round(finalValue * 1000) / 1000;
+            finalValue = Math.round(finalValue * 100) / 100;
         }
 
         setFormData(prev => {
@@ -336,14 +367,21 @@ export default function ProductManager() {
         try {
             if (isEditing && formData.id) {
                 const { id, ...dataToUpdate } = formData;
-                await updateDoc(doc(db, "products", id), dataToUpdate);
+                await updateDoc(doc(db, "products", id), {
+                    ...dataToUpdate,
+                    updatedAt: serverTimestamp()
+                });
 
                 // Sync children if stock changed
                 await syncChildProducts(id, dataToUpdate.stockQuantity || 0);
 
                 setMessage("Producto actualizado correctamente");
             } else {
-                await addDoc(collection(db, "products"), formData);
+                await addDoc(collection(db, "products"), {
+                    ...formData,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
                 setMessage("Producto creado exitosamente");
             }
             reloadProducts();
@@ -399,24 +437,33 @@ export default function ProductManager() {
         p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a, b) => {
-        // Sort by shortId if available
-        const codeA = a.shortId || "";
-        const codeB = b.shortId || "";
+        if (sortBy === 'a-z') {
+            const codeA = a.shortId || "";
+            const codeB = b.shortId || "";
 
-        if (codeA && codeB) {
-            // Try numeric sort first
-            const numA = parseInt(codeA);
-            const numB = parseInt(codeB);
-            if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
-                return numA - numB;
+            if (codeA && codeB) {
+                const numA = parseInt(codeA);
+                const numB = parseInt(codeB);
+                if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+                    return numA - numB;
+                }
+                return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
             }
-            return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
-        }
-        if (codeA) return -1; // Products with code come first
-        if (codeB) return 1;
+            if (codeA) return -1;
+            if (codeB) return 1;
 
-        // Fallback to name sort
-        return a.nombre.localeCompare(b.nombre);
+            return a.nombre.localeCompare(b.nombre);
+        } else if (sortBy === 'price_desc') {
+            return b.precio - a.precio;
+        } else if (sortBy === 'price_asc') {
+            return a.precio - b.precio;
+        } else if (sortBy === 'newest') {
+            // Newest first based on updatedAt or createdAt
+            const timeA = a.updatedAt?.seconds || a.createdAt?.seconds || 0;
+            const timeB = b.updatedAt?.seconds || b.createdAt?.seconds || 0;
+            return timeB - timeA;
+        }
+        return 0;
     });
 
     return (
@@ -619,6 +666,18 @@ export default function ProductManager() {
                                         </label>
                                     </div>
 
+                                    <div className="form-group quarter checkbox-group-styled">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="requiresRecipe"
+                                                checked={formData.requiresRecipe !== false}
+                                                onChange={handleInputChange}
+                                            />
+                                            Requiere Receta
+                                        </label>
+                                    </div>
+
                                     {/* Custom Badge / Ready Time Section */}
                                     <div className="form-group" style={{ background: '#fffbeb', padding: '10px', borderRadius: '8px', marginTop: '10px', border: '1px solid #fcd34d' }}>
                                         <label style={{ color: '#b45309' }}><strong>Etiqueta de Estado (Reemplaza Descuento)</strong></label>
@@ -764,12 +823,35 @@ export default function ProductManager() {
             }
 
             <div className="inventory-toolbar">
-                <div className="search-bar" style={{ display: 'block', maxWidth: '400px' }}>
+                <div className="search-bar" style={{ display: 'flex', gap: '15px', alignItems: 'center', maxWidth: '600px', flexWrap: 'wrap' }}>
                     <ProductSearch
                         value={searchTerm}
                         onChange={setSearchTerm}
                         placeholder="Buscar por nombre o categoría..."
                     />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Ordenar:</label>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                minWidth: '150px'
+                            }}
+                        >
+                            <option value="a-z">A-Z / Código</option>
+                            <option value="price_desc">Mayor Precio</option>
+                            <option value="price_asc">Menor Precio</option>
+                            <option value="newest">Última Actual. / Agregado</option>
+                        </select>
+                    </div>
                 </div>
                 <div className="inventory-stats">
                     <span className="stat-pill">Total: <strong>{products.length}</strong></span>
@@ -779,7 +861,7 @@ export default function ProductManager() {
                 </div>
             </div>
 
-            {/* Grid de Productos */}
+            {/* Lista de Productos (Compacta) */}
             {
                 loading ? (
                     <div className="loading-state">
@@ -787,54 +869,89 @@ export default function ProductManager() {
                         <p>Cargando inventario...</p>
                     </div>
                 ) : (
-                    <div className="pm-inventory-grid">
+                    <div className="pm-inventory-list">
                         {filteredProducts.map(product => {
                             const totalStock = (product.variants && product.variants.length > 0)
                                 ? product.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
                                 : (product.stockQuantity || 0);
 
                             return (
-                                <div key={product.id} className="inventory-card">
-                                    <div className="card-image">
+                                <div key={product.id} className="inventory-list-item">
+                                    <div className="list-item-image">
                                         <img src={product.img || product.images?.[0]} alt={product.nombre} className={product.isVisible === false ? "opacity-50" : ""} />
                                         {product.discount ? <span className="badge-discount">-{product.discount}%</span> : null}
-                                        <div style={{ position: 'absolute', top: '5px', left: '5px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /> Oculto Web</span>}
-                                            {product.isHiddenInPOS && <span className="badge-hidden" style={{ background: '#d97706' }}><FaEyeSlash /> Oculto POS</span>}
+                                        <div style={{ position: 'absolute', top: '2px', left: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /></span>}
+                                            {product.isHiddenInPOS && <span className="badge-hidden" style={{ background: '#d97706' }}><FaEyeSlash /></span>}
                                         </div>
-                                        {product.shortId && (
-                                            <span style={{
-                                                position: 'absolute',
-                                                bottom: '5px',
-                                                right: '5px',
-                                                backgroundColor: 'rgba(0,0,0,0.6)',
-                                                color: 'white',
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 'bold',
-                                                zIndex: 10
-                                            }}>
-                                                #{product.shortId}
-                                            </span>
-                                        )}
                                     </div>
-                                    <div className="card-content">
-                                        <div className="card-info">
-                                            <h4>{product.nombre}</h4>
-                                            <span className="card-category">{product.categoria}</span>
-                                            <div className="card-price-row">
-                                                <span className="price">${product.precio}</span>
-                                                <span className={`stock-status ${totalStock > 0 ? 'active' : 'inactive'}`}>
-                                                    {totalStock} unid.
-                                                </span>
+
+                                    <div className="list-item-content">
+                                        <div className="list-item-main-info">
+                                            <div className="list-item-title-row">
+                                                <h4>{product.nombre}</h4>
+                                                {product.shortId && <span className="list-item-code">#{product.shortId}</span>}
+                                            </div>
+                                            <span className="list-item-category">{product.categoria}</span>
+                                        </div>
+
+                                        <div className="list-item-prices">
+                                            {(() => {
+                                                const realCost = calculateRealProductCost(product);
+                                                const hasCost = realCost > 0;
+                                                return (
+                                                    <>
+                                                        <div className="price-block">
+                                                            <small>Costo</small>
+                                                            <span className="price-cost" style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: '600' }}>
+                                                                {hasCost ? `$${(Math.round(realCost * 100) / 100).toFixed(2)}` : '-'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="price-block">
+                                                            <small>Directo</small>
+                                                            <span className="price">${(Math.round(product.precio * 100) / 100).toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="price-block">
+                                                            <small>Ganancia</small>
+                                                            <span className="price-profit" style={{ fontSize: '0.95rem', color: '#10b981', fontWeight: 'bold' }}>
+                                                                {hasCost ? `$${(Math.round((product.precio - realCost) * 100) / 100).toFixed(2)}` : '-'}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                            <div className="price-block">
+                                                <small>Mayorista</small>
+                                                <span className="price-wholesale">${product.wholesalePrice ? (Math.round(product.wholesalePrice * 100) / 100).toFixed(2) : '-'}</span>
                                             </div>
                                         </div>
-                                        <div className="card-actions">
-                                            <button className="btn-action edit" onClick={() => handleEditClick(product)}>
+
+                                        <div className="list-item-stock">
+                                            <span className={`stock-status ${totalStock > 0 ? 'active' : 'inactive'}`}>
+                                                {Math.round(totalStock * 100) / 100} unid.
+                                            </span>
+                                        </div>
+
+                                        <div className="list-item-actions">
+                                            {product.requiresRecipe !== false && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginRight: '10px' }}>
+                                                    {product.recipe && product.recipe.ingredients?.length > 0 ? (
+                                                        <FaCheckCircle title="Receta Configurada" style={{ color: '#10b981', fontSize: '1.2rem' }} />
+                                                    ) : null}
+                                                    <button
+                                                        className="btn-action"
+                                                        style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px' }}
+                                                        onClick={() => onGoToRecipe && product.id ? onGoToRecipe(product.id) : null}
+                                                        title="Ir a la Receta"
+                                                    >
+                                                        <FaFileSignature /> Receta
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <button className="btn-action edit" onClick={() => handleEditClick(product)} title="Editar">
                                                 <FaEdit />
                                             </button>
-                                            <button className="btn-action delete" onClick={() => product.id && handleDelete(product.id)}>
+                                            <button className="btn-action delete" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
                                                 <FaTrash />
                                             </button>
                                         </div>

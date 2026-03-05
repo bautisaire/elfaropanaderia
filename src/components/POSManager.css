@@ -72,7 +72,7 @@
     flex-direction: column;
 }
 
-.pos-product-card:hover {
+.pos-products-grid .pos-product-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -443,9 +443,9 @@
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid #d1d5db;
     color: #4b5563;
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     display: flex;
@@ -468,4 +468,111 @@
     position: relative;
     padding-bottom: 35px;
     /* Importante para que el botón no tape info */
+}
+
+/* List View Styles */
+.pos-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.pos-products-list .pos-product-card {
+    flex-direction: row;
+    min-height: 80px;
+    align-items: center;
+    padding-bottom: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #eee;
+    transition: none;
+    box-shadow: none;
+}
+
+.pos-products-list .pos-product-card:hover {
+    background-color: #f1f5f9;
+    transform: none;
+    box-shadow: none;
+}
+
+.pos-products-list .pos-product-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px 0 0 8px;
+}
+
+.pos-products-list .pos-product-info {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+}
+
+.pos-products-list .pos-product-name {
+    font-size: 1rem;
+    margin-bottom: 0;
+    flex: 2;
+}
+
+.pos-products-list .pos-product-price {
+    font-size: 1.1rem;
+    flex: 1;
+    text-align: center;
+}
+
+.pos-products-list .btn-quick-stock-edit {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    margin-top: 5px;
+}
+
+/* List View Headers */
+.pos-list-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 15px;
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: bold;
+    color: #475569;
+}
+
+.pos-list-header .header-product {
+    flex: 2;
+    padding-left: 95px;
+    /* Aligns with text after the 80px image + 15px gap */
+}
+
+.pos-list-header .header-price {
+    flex: 1;
+    text-align: center;
+}
+
+.pos-list-header .header-stock {
+    flex: 1;
+    text-align: right;
+    padding-right: 15px;
+}
+
+.pos-products-list .pos-product-stock {
+    flex: 1;
+    text-align: right;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.pos-products-list .btn-quick-stock-edit {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    margin-top: 0;
+    padding: 6px 10px;
 }

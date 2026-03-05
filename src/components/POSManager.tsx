@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import ProductSearch from './ProductSearch';
 import { db } from "../firebase/firebaseConfig";
 import { collection, doc, runTransaction, onSnapshot } from "firebase/firestore";
-import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen, FaEdit } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaArrowLeft, FaShoppingCart, FaTimes, FaBoxOpen, FaEdit, FaThLarge, FaList } from 'react-icons/fa';
 import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
@@ -53,6 +53,13 @@ export default function POSManager() {
     const [paymentMethod, setPaymentMethod] = useState<"Efectivo" | "Tarjeta" | "Transferencia">("Efectivo");
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+        return (localStorage.getItem('posViewMode') as "grid" | "list") || "grid";
+    });
+
+    useEffect(() => {
+        localStorage.setItem('posViewMode', viewMode);
+    }, [viewMode]);
 
     // Weight Logic State
     const [weightModalOpen, setWeightModalOpen] = useState(false);
@@ -627,7 +634,8 @@ export default function POSManager() {
     };
 
     const total = useMemo(() => {
-        return cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
+        const sum = cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
+        return Math.round(sum * 100) / 100;
     }, [cart]);
 
     // Effect to update cart prices and stock when mode or products change
@@ -880,22 +888,44 @@ export default function POSManager() {
 
                 <div className="pos-header-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <h2 style={{ margin: 0 }}>POS</h2>
-                    <button
-                        onClick={() => setPriceMode(prev => prev === 'public' ? 'wholesale' : 'public')}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: '20px',
-                            border: 'none',
-                            background: priceMode === 'wholesale' ? '#8b5cf6' : '#e5e7eb',
-                            color: priceMode === 'wholesale' ? 'white' : '#374151',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                        }}
-                    >
-                        {priceMode === 'public' ? '🛒 Público' : '🏢 Despensa'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', background: '#e5e7eb', borderRadius: '8px', padding: '4px' }}>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                style={{
+                                    border: 'none', background: viewMode === 'grid' ? 'white' : 'transparent', color: viewMode === 'grid' ? '#3b82f6' : '#6b7280', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                                title="Vista Cuadrícula"
+                            >
+                                <FaThLarge />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                style={{
+                                    border: 'none', background: viewMode === 'list' ? 'white' : 'transparent', color: viewMode === 'list' ? '#3b82f6' : '#6b7280', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                                }}
+                                title="Vista Lista"
+                            >
+                                <FaList />
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => setPriceMode(prev => prev === 'public' ? 'wholesale' : 'public')}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: priceMode === 'wholesale' ? '#8b5cf6' : '#e5e7eb',
+                                color: priceMode === 'wholesale' ? 'white' : '#374151',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            {priceMode === 'public' ? '🛒 Público' : '🏢 Despensa'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="pos-search-bar" style={{ padding: '0', background: 'transparent', boxShadow: 'none' }}>
@@ -919,7 +949,14 @@ export default function POSManager() {
                     ))}
                 </div>
 
-                <div className="pos-products-grid">
+                <div className={viewMode === 'list' ? "pos-products-list" : "pos-products-grid"}>
+                    {viewMode === 'list' && !loading && filteredItems.length > 0 && (
+                        <div className="pos-list-header">
+                            <div className="header-product">Producto</div>
+                            <div className="header-price">Precio</div>
+                            <div className="header-stock">Stock</div>
+                        </div>
+                    )}
                     {loading ? (
                         <div style={{ padding: '20px', textAlign: 'center', width: '100%' }}>Cargando productos...</div>
                     ) : filteredItems.map((item, index) => {
@@ -949,10 +986,10 @@ export default function POSManager() {
                                     <div className="pos-product-info">
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">
-                                            ${product.precio}
+                                            ${Math.round(product.precio * 100) / 100}
                                         </div>
                                         <div className={`pos-product-stock ${(v.stockQuantity || 0) < 5 ? "low" : ""}`}>
-                                            Stock: {v.stockQuantity}
+                                            Stock: {Number((v.stockQuantity || 0).toFixed(3))}
                                             {/* Boton de edicion rapida de stock */}
                                             <button
                                                 className="btn-quick-stock-edit"
@@ -994,10 +1031,10 @@ export default function POSManager() {
                                     <div className="pos-product-info">
                                         <div className="pos-product-name">{product.nombre}</div>
                                         <div className="pos-product-price">
-                                            ${product.precio}
+                                            ${Math.round(product.precio * 100) / 100}
                                         </div>
                                         <div className={`pos-product-stock ${(product.stockQuantity || 0) < 5 ? "low" : ""}`}>
-                                            Stock: {product.stockQuantity}
+                                            Stock: {Number((product.stockQuantity || 0).toFixed(3))}
                                             {/* Boton de edicion rapida de stock */}
                                             <button
                                                 className="btn-quick-stock-edit"
@@ -1060,7 +1097,7 @@ export default function POSManager() {
                         <div key={`${item.id}-${item.selectedVariant || 'base'}`} className="pos-cart-item">
                             <div className="pos-item-details">
                                 <span className="pos-item-name">{item.nombre} {item.selectedVariant ? `(${item.selectedVariant})` : ''}</span>
-                                <span className="pos-item-price">${item.precio} x {item.unitType === 'weight' ? item.quantity.toFixed(3) : item.quantity} = ${(item.precio * item.quantity).toFixed(2)}</span>
+                                <span className="pos-item-price">${Math.round(item.precio * 100) / 100} x {item.unitType === 'weight' ? (Math.round(item.quantity * 1000) / 1000) : item.quantity} = ${Math.round(item.precio * item.quantity * 100) / 100}</span>
                             </div>
                             <div className="pos-item-controls">
                                 <button className="btn-qty" onClick={() => updateQuantity(item.id, item.selectedVariant, -1)}><FaMinus size={10} /></button>

@@ -94,7 +94,7 @@ export const CartProvider = ({ children }: Props) => {
     [cartItems]
   );
   const cartTotal = useMemo(
-    () => cartItems.reduce((acc, it) => acc + (it.quantity ?? 1) * (it.price ?? 0), 0),
+    () => Math.round(cartItems.reduce((acc, it) => acc + (it.quantity ?? 1) * (it.price ?? 0), 0) * 100) / 100,
     [cartItems]
   );
 
@@ -193,10 +193,10 @@ export const CartProvider = ({ children }: Props) => {
 
   const clearCart = () => setCartItems([]);
 
-  const total = cartItems.reduce(
+  const total = Math.round(cartItems.reduce(
     (acc, item) => acc + item.price * (item.quantity || 1),
     0
-  );
+  ) * 100) / 100;
 
   return (
     <CartContext.Provider

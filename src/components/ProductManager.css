@@ -421,39 +421,47 @@ button {
     font-size: 0.9rem;
 }
 
-/* Inventory Grid */
-.pm-inventory-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px;
-}
-
-.inventory-card {
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
+/* Inventory List (Compact) */
+.pm-inventory-list {
     display: flex;
     flex-direction: column;
+    gap: 0;
+    /* Sin separación entre items como pidió el usuario */
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    overflow: hidden;
 }
 
-.inventory-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+.inventory-list-item {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s;
+    padding: 0;
+    /* Eliminamos el padding general para controlar lo de adentro */
 }
 
-.card-image {
-    height: 180px;
+.inventory-list-item:last-child {
+    border-bottom: none;
+}
+
+.inventory-list-item:hover {
+    background-color: #f8fafc;
+}
+
+.list-item-image {
+    width: 60px;
+    height: 60px;
     background: #f3f4f6;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
 }
 
-.card-image img {
+.list-item-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -461,80 +469,121 @@ button {
 
 .badge-discount {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 2px;
+    right: 2px;
     background: #ef4444;
     color: white;
     font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 0.65rem;
 }
 
 .badge-hidden {
-    position: absolute;
-    top: 12px;
-    left: 12px;
     background: rgba(0, 0, 0, 0.6);
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8rem;
+    padding: 2px;
+    border-radius: 2px;
+    font-size: 0.65rem;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
 }
 
 .opacity-50 {
     opacity: 0.5;
 }
 
-.card-content {
-    padding: 16px;
+.list-item-content {
+    display: flex;
     flex: 1;
+    align-items: center;
+    padding: 8px 16px;
+    gap: 16px;
+}
+
+.list-item-main-info {
+    flex: 2;
+    min-width: 150px;
     display: flex;
     flex-direction: column;
 }
 
-.card-info {
-    flex: 1;
+.list-item-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.card-info h4 {
-    margin: 0 0 4px 0;
-    font-size: 1.05rem;
+.list-item-main-info h4 {
+    margin: 0;
+    font-size: 1rem;
     color: #111827;
-    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.card-category {
-    font-size: 0.8rem;
+.list-item-code {
+    background: #f3f4f6;
+    color: #4b5563;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.list-item-category {
+    font-size: 0.75rem;
     color: #6b7280;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: block;
-    margin-bottom: 12px;
 }
 
-.card-price-row {
+.list-item-prices {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+    gap: 16px;
+    flex: 1.5;
+    min-width: 140px;
+}
+
+.price-block {
+    display: flex;
+    flex-direction: column;
+}
+
+.price-block small {
+    font-size: 0.65rem;
+    color: #9ca3af;
+    text-transform: uppercase;
 }
 
 .price {
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #0b74ff;
 }
 
-.stock-status {
-    font-size: 0.8rem;
+.price-wholesale {
+    font-size: 0.95rem;
     font-weight: 600;
-    padding: 2px 8px;
+    color: #059669;
+    /* Verde para mayorista para diferenciar */
+}
+
+.list-item-stock {
+    flex: 1;
+    min-width: 80px;
+    display: flex;
+    justify-content: center;
+}
+
+.stock-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 8px;
     border-radius: 12px;
+    white-space: nowrap;
 }
 
 .stock-status.active {
@@ -547,24 +596,28 @@ button {
     color: #991b1b;
 }
 
-.card-actions {
+.list-item-actions {
     display: flex;
-    gap: 8px;
-    border-top: 1px solid #f3f4f6;
-    padding-top: 12px;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .btn-action {
-    flex: 1;
-    padding: 8px;
+    padding: 10px;
+    font-size: 1.2rem;
     border: 1px solid transparent;
     border-radius: 6px;
-    background: #f9fafb;
-    color: #4b5563;
+    background: transparent;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 }
 
 .btn-action:hover {
     background: #e5e7eb;
+    color: #111827;
 }
 
 .btn-action.edit:hover {
@@ -612,10 +665,25 @@ button {
         width: 100%;
     }
 
-    .pm-inventory-grid {
-        grid-template-columns: 1fr;
-        /* Full width on mobile */
-        gap: 16px;
+    .list-item-content {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .list-item-main-info {
+        width: 100%;
+        flex: none;
+    }
+
+    .list-item-prices {
+        width: 100%;
+        flex: none;
+        justify-content: space-between;
+    }
+
+    .list-item-stock {
+        justify-content: flex-start;
     }
 
     .inventory-toolbar {
