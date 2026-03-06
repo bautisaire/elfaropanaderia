@@ -6,10 +6,11 @@ interface OrderDetailsExpandedProps {
     order: any;
     onEdit: (order: any) => void;
     onSourceChange: (id: string, source: string) => void;
+    onPaymentMethodChange?: (id: string, newMethod: string) => void;
     onClose: () => void;
 }
 
-export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange }: OrderDetailsExpandedProps) {
+export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange }: OrderDetailsExpandedProps) {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     const showToast = (msg: string) => {
@@ -95,7 +96,29 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     <FaCopy />
                                 </button>
                             </div>
-                            <div className="info-row"><FaCreditCard className="icon-muted" /> {order.cliente.metodoPago}</div>
+
+                            <div className="info-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                <FaCreditCard className="icon-muted" />
+                                {onPaymentMethodChange ? (
+                                    <div className="source-selector-wrapper-expanded" style={{ margin: 0 }}>
+                                        <select
+                                            value={order.cliente.metodoPago}
+                                            onChange={(e) => onPaymentMethodChange(order.id, e.target.value)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="source-select-inline"
+                                            style={{ padding: '2px 8px', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="Efectivo">Efectivo</option>
+                                            <option value="Transferencia">Transferencia</option>
+                                            <option value="Débito">Débito</option>
+                                            <option value="Tarjeta">Tarjeta</option>
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <span>{order.cliente.metodoPago}</span>
+                                )}
+                            </div>
+
                             {
                                 order.cliente.indicaciones && (
                                     <div className="order-note-expanded">"{order.cliente.indicaciones}"</div>

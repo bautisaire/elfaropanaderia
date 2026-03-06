@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 
@@ -42,10 +42,37 @@ export default function Dashboard() {
         delivery: 0,     // Online
         deliveryCount: 0,
         newVisitsToday: 0,
+        // Breakdown
+        totalEfectivo: 0,
+        totalTransferencia: 0,
+        totalDebito: 0,
+        // Category Breakdown
+        despensaEfectivo: 0,
+        despensaTransferencia: 0,
+        despensaDebito: 0,
+        publicoEfectivo: 0,
+        publicoTransferencia: 0,
+        publicoDebito: 0,
+        deliveryEfectivo: 0,
+        deliveryTransferencia: 0,
+        deliveryDebito: 0,
     });
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
     const [productData, setProductData] = useState<Map<string, any>>(new Map());
+    const [activeHover, setActiveHover] = useState<string | null>(null);
+    const [activeClick, setActiveClick] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.bubble-trigger-container')) {
+                setActiveClick(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Chart Data State
     const [salesTrendData, setSalesTrendData] = useState<any[]>([]);
@@ -207,6 +234,18 @@ export default function Dashboard() {
         let publicoCount = 0;
         let delivery = 0;
         let deliveryCount = 0;
+        let totalEfectivo = 0;
+        let totalTransferencia = 0;
+        let totalDebito = 0;
+        let despensaEfectivo = 0;
+        let despensaTransferencia = 0;
+        let despensaDebito = 0;
+        let publicoEfectivo = 0;
+        let publicoTransferencia = 0;
+        let publicoDebito = 0;
+        let deliveryEfectivo = 0;
+        let deliveryTransferencia = 0;
+        let deliveryDebito = 0;
 
         const productMap = new Map<string, ProductSale>();
 
@@ -214,16 +253,35 @@ export default function Dashboard() {
             const amount = Number(order.total) || 0;
             plata += amount;
 
+            // Payment method breakdown
+            const pm = order.cliente?.metodoPago?.toLowerCase() || '';
+            if (pm.includes('efectivo')) {
+                totalEfectivo += amount;
+            } else if (pm.includes('transferencia')) {
+                totalTransferencia += amount;
+            } else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) {
+                totalDebito += amount;
+            }
+
             // Categories
             if (order.source === 'pos_wholesale') {
                 despensa += amount;
                 despensaCount++;
+                if (pm.includes('efectivo')) despensaEfectivo += amount;
+                else if (pm.includes('transferencia')) despensaTransferencia += amount;
+                else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) despensaDebito += amount;
             } else if (order.source === 'pos_public' || order.source === 'pos') {
                 publico += amount;
                 publicoCount++;
+                if (pm.includes('efectivo')) publicoEfectivo += amount;
+                else if (pm.includes('transferencia')) publicoTransferencia += amount;
+                else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) publicoDebito += amount;
             } else {
                 delivery += amount;
                 deliveryCount++;
+                if (pm.includes('efectivo')) deliveryEfectivo += amount;
+                else if (pm.includes('transferencia')) deliveryTransferencia += amount;
+                else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) deliveryDebito += amount;
             }
 
             // Products Aggregation with Dependency Logic
@@ -304,7 +362,19 @@ export default function Dashboard() {
             publico,
             publicoCount,
             delivery,
-            deliveryCount
+            deliveryCount,
+            totalEfectivo,
+            totalTransferencia,
+            totalDebito,
+            despensaEfectivo,
+            despensaTransferencia,
+            despensaDebito,
+            publicoEfectivo,
+            publicoTransferencia,
+            publicoDebito,
+            deliveryEfectivo,
+            deliveryTransferencia,
+            deliveryDebito
         }));
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
@@ -472,40 +542,180 @@ export default function Dashboard() {
 
             <div className="stats-grid">
                 {/* Total Plata */}
-                <div className="stat-card sales main-stat">
+                <div
+                    className="stat-card sales main-stat"
+                    style={{ position: 'relative' }}
+                >
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Total ({getTimeframeLabel()})</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Total ({getTimeframeLabel()})
+                            <div
+                                className="bubble-trigger-container"
+                                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
+                                onMouseEnter={() => setActiveHover('total')}
+                                onMouseLeave={() => setActiveHover(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (activeClick === 'total') setActiveClick(null);
+                                    else setActiveClick('total');
+                                }}
+                            >
+                                <FaInfoCircle color="#10b981" size={18} title="Ver desglose de medios de pago" />
+                                {(activeHover === 'total' || activeClick === 'total') && (
+                                    <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
+                                        {/* Bubble pointer */}
+                                        <div className="bubble-pointer" />
+
+                                        <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.totalEfectivo).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.totalTransferencia).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.totalDebito).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </h3>
                         <p>${Math.floor(stats.plata).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.totalOrders} pedidos</span>
                     </div>
                 </div>
 
                 {/* Despensa */}
-                <div className="stat-card wholesale-sales">
+                <div className="stat-card wholesale-sales" style={{ position: 'relative' }}>
                     <div className="stat-icon-small" style={{ color: '#8b5cf6' }}><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Despensa</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Despensa
+                            <div
+                                className="bubble-trigger-container"
+                                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
+                                onMouseEnter={() => setActiveHover('despensa')}
+                                onMouseLeave={() => setActiveHover(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (activeClick === 'despensa') setActiveClick(null);
+                                    else setActiveClick('despensa');
+                                }}
+                            >
+                                <FaInfoCircle color="#8b5cf6" size={18} title="Ver desglose de medios de pago" />
+                                {(activeHover === 'despensa' || activeClick === 'despensa') && (
+                                    <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
+                                        <div className="bubble-pointer" />
+
+                                        <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.despensaEfectivo).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.despensaTransferencia).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.despensaDebito).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </h3>
                         <p>${Math.floor(stats.despensa).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.despensaCount} tickets</span>
                     </div>
                 </div>
 
                 {/* Publico */}
-                <div className="stat-card local-sales">
+                <div className="stat-card local-sales" style={{ position: 'relative' }}>
                     <div className="stat-icon-small" style={{ color: '#10b981' }}><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Público</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Público
+                            <div
+                                className="bubble-trigger-container"
+                                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
+                                onMouseEnter={() => setActiveHover('publico')}
+                                onMouseLeave={() => setActiveHover(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (activeClick === 'publico') setActiveClick(null);
+                                    else setActiveClick('publico');
+                                }}
+                            >
+                                <FaInfoCircle color="#10b981" size={18} title="Ver desglose de medios de pago" />
+                                {(activeHover === 'publico' || activeClick === 'publico') && (
+                                    <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
+                                        <div className="bubble-pointer" />
+
+                                        <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.publicoEfectivo).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.publicoTransferencia).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.publicoDebito).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </h3>
                         <p>${Math.floor(stats.publico).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.publicoCount} tickets</span>
                     </div>
                 </div>
 
                 {/* Delivery */}
-                <div className="stat-card online-sales">
+                <div className="stat-card online-sales" style={{ position: 'relative' }}>
                     <div className="stat-icon-small" style={{ color: '#3b82f6' }}><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Delivery</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Delivery
+                            <div
+                                className="bubble-trigger-container"
+                                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
+                                onMouseEnter={() => setActiveHover('delivery')}
+                                onMouseLeave={() => setActiveHover(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (activeClick === 'delivery') setActiveClick(null);
+                                    else setActiveClick('delivery');
+                                }}
+                            >
+                                <FaInfoCircle color="#3b82f6" size={18} title="Ver desglose de medios de pago" />
+                                {(activeHover === 'delivery' || activeClick === 'delivery') && (
+                                    <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
+                                        <div className="bubble-pointer" />
+
+                                        <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.deliveryEfectivo).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.deliveryTransferencia).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.deliveryDebito).toLocaleString('es-AR')}</strong>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </h3>
                         <p>${Math.floor(stats.delivery).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.deliveryCount} pedidos</span>
                     </div>

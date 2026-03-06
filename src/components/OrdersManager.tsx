@@ -151,6 +151,21 @@ export default function OrdersManager() {
         }
     };
 
+    const updatePaymentMethod = async (id: string, newMethod: string) => {
+        try {
+            await updateDoc(doc(db, "orders", id), { "cliente.metodoPago": newMethod });
+            setOrders(prev => prev.map(o => o.id === id ? {
+                ...o, cliente: {
+                    ...o.cliente,
+                    metodoPago: newMethod
+                }
+            } : o));
+        } catch (err) {
+            console.error("Error updating payment method:", err);
+            alert("Error al actualizar el método de pago");
+        }
+    };
+
     const handleConfirmCancellation = async (restoreStock: boolean) => {
         if (!orderToCancelId) return;
 
@@ -720,6 +735,7 @@ export default function OrdersManager() {
                                                                     handleOpenEditModal(order);
                                                                 }}
                                                                 onSourceChange={updateSource}
+                                                                onPaymentMethodChange={updatePaymentMethod}
                                                                 onClose={() => setExpandedOrderId(null)}
                                                             />
                                                         </td>

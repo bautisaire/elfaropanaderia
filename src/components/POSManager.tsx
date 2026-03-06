@@ -50,7 +50,7 @@ export default function POSManager() {
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("Todas");
-    const [paymentMethod, setPaymentMethod] = useState<"Efectivo" | "Tarjeta" | "Transferencia">("Efectivo");
+    const [paymentMethod, setPaymentMethod] = useState<"Efectivo" | "Débito" | "Transferencia">("Efectivo");
     const [loading, setLoading] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
@@ -181,7 +181,7 @@ export default function POSManager() {
                 if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                     e.preventDefault();
                     setPaymentMethod((prev) => {
-                        const methods: ("Efectivo" | "Tarjeta" | "Transferencia")[] = ['Efectivo', 'Tarjeta', 'Transferencia'];
+                        const methods: ("Efectivo" | "Débito" | "Transferencia")[] = ['Efectivo', 'Débito', 'Transferencia'];
                         const currentIndex = methods.indexOf(prev);
                         let newIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
                         if (newIndex >= methods.length) newIndex = 0;
@@ -285,7 +285,7 @@ export default function POSManager() {
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing]);
+    }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing, paymentMethod]);
 
     // Force focus on weight input when switching back to weight mode
     useEffect(() => {
@@ -1124,10 +1124,10 @@ export default function POSManager() {
                             <FaMoneyBillWave /> Efectivo
                         </button>
                         <button
-                            className={`payment-btn ${paymentMethod === 'Tarjeta' ? 'active' : ''}`}
-                            onClick={() => setPaymentMethod('Tarjeta')}
+                            className={`payment-btn ${paymentMethod === 'Débito' ? 'active' : ''}`}
+                            onClick={() => setPaymentMethod('Débito')}
                         >
-                            <FaCreditCard /> Tarjeta
+                            <FaCreditCard /> Débito
                         </button>
                         <button
                             className={`payment-btn ${paymentMethod === 'Transferencia' ? 'active' : ''}`}
