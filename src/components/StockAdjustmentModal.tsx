@@ -42,7 +42,7 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
-    const reasonsOut = ["Venta Local", "Merma/Desperdicio", "Consumo Interno", "Ajuste de Inventario", "Vencimiento"];
+    const reasonsOut = ["Ajuste de Inventario", "Venta Local", "Merma/Desperdicio", "Consumo Interno", "Vencimiento"];
 
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -225,13 +225,13 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                         <div className="stock-action-type">
                             <button
                                 className={`action-btn add ${adjustmentType === 'IN' ? 'selected' : ''}`}
-                                onClick={() => setAdjustmentType('IN')}
+                                onClick={() => { setAdjustmentType('IN'); setReason(reasonsIn[0]); }}
                             >
                                 <FaPlus /> Añadir (Entrada)
                             </button>
                             <button
                                 className={`action-btn subtract ${adjustmentType === 'OUT' ? 'selected' : ''}`}
-                                onClick={() => setAdjustmentType('OUT')}
+                                onClick={() => { setAdjustmentType('OUT'); setReason(reasonsOut[0]); }}
                             >
                                 <FaMinus /> Restar (Salida)
                             </button>

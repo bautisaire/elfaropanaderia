@@ -8,9 +8,11 @@ interface OrderDetailsExpandedProps {
     onSourceChange: (id: string, source: string) => void;
     onPaymentMethodChange?: (id: string, newMethod: string) => void;
     onClose: () => void;
+    onDelete?: (id: string, restoreStock: boolean) => void;
+    isSuperAdmin?: boolean;
 }
 
-export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange }: OrderDetailsExpandedProps) {
+export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onDelete, isSuperAdmin }: OrderDetailsExpandedProps) {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     const showToast = (msg: string) => {
@@ -34,9 +36,20 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     <div className="expanded-section">
                         <div className="expanded-header-row">
                             <h4>Ticket #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
-                            <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
-                                <FaEdit /> Editar Pedido
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
+                                    <FaEdit /> Editar Pedido
+                                </button>
+                                {isSuperAdmin && onDelete && (
+                                    <button
+                                        className="btn-secondary btn-sm"
+                                        style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }}
+                                        onClick={(e) => { e.stopPropagation(); onDelete(order.id, order.status !== 'cancelado'); }}
+                                    >
+                                        <FaTimes /> Eliminar
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -102,12 +115,13 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 {onPaymentMethodChange ? (
                                     <div className="source-selector-wrapper-expanded" style={{ margin: 0 }}>
                                         <select
-                                            value={order.cliente.metodoPago}
+                                            value={order.cliente.metodoPago ? order.cliente.metodoPago.charAt(0).toUpperCase() + order.cliente.metodoPago.slice(1).toLowerCase() : ""}
                                             onChange={(e) => onPaymentMethodChange(order.id, e.target.value)}
                                             onClick={(e) => e.stopPropagation()}
                                             className="source-select-inline"
                                             style={{ padding: '2px 8px', fontSize: '0.9rem' }}
                                         >
+                                            <option value="" disabled>— Cambiar método —</option>
                                             <option value="Efectivo">Efectivo</option>
                                             <option value="Transferencia">Transferencia</option>
                                             <option value="Débito">Débito</option>

@@ -683,6 +683,7 @@ export default function POSManager() {
                 });
 
                 const productsToUpdate = new Set<string>();
+                const stockAlertsToLog: any[] = [];
 
                 // 2. Apply Deductions in Memory
                 for (const item of cart) {
@@ -709,6 +710,14 @@ export default function POSManager() {
                             parentDoc.stock = parentDoc.stockQuantity > 0;
 
                             productsToUpdate.add(parentId);
+
+                            if (currentStock > 0 && parentDoc.stockQuantity <= 0 && parentDoc.isVisible !== false) {
+                                stockAlertsToLog.push({
+                                    productId: parentId,
+                                    productName: parentDoc.nombre,
+                                    date: new Date()
+                                });
+                            }
                         }
                     }
                     // CASE B: Standard Product (or Variant) -> Deduct from Self
@@ -729,6 +738,14 @@ export default function POSManager() {
                                 variant.stockQuantity = currentStock - item.quantity;
                                 variant.stock = variant.stockQuantity > 0;
                                 productsToUpdate.add(item.id);
+
+                                if (currentStock > 0 && variant.stockQuantity <= 0 && itemDoc.isVisible !== false) {
+                                    stockAlertsToLog.push({
+                                        productId: item.id,
+                                        productName: `${item.nombre} (${variant.name})`,
+                                        date: new Date()
+                                    });
+                                }
                             } else {
                                 throw new Error(`Variante no encontrada: ${variantName}`);
                             }
@@ -743,6 +760,14 @@ export default function POSManager() {
                             itemDoc.stockQuantity = currentStock - item.quantity;
                             itemDoc.stock = itemDoc.stockQuantity > 0;
                             productsToUpdate.add(item.id);
+
+                            if (currentStock > 0 && itemDoc.stockQuantity <= 0 && itemDoc.isVisible !== false) {
+                                stockAlertsToLog.push({
+                                    productId: item.id,
+                                    productName: item.nombre,
+                                    date: new Date()
+                                });
+                            }
                         }
                     }
                 }
@@ -793,6 +818,12 @@ export default function POSManager() {
                         date: new Date()
                     };
                     transaction.set(moveRef, movementData);
+                });
+
+                // 6. Create Stock Alerts
+                stockAlertsToLog.forEach(alert => {
+                    const aRef = doc(collection(db, "stock_alerts"));
+                    transaction.set(aRef, alert);
                 });
 
                 return Array.from(productsToUpdate).map(id => ({ id, newStock: productDataMap[id].stockQuantity }));

@@ -17,6 +17,7 @@ interface ProductSale {
     name: string;
     variant?: string;
     quantity: number;
+    units: number;
     total: number;
 }
 
@@ -288,9 +289,26 @@ export default function Dashboard() {
             if (order.items && Array.isArray(order.items)) {
                 order.items.forEach((item: any) => {
                     // 1. Identify Product
-                    // Some items have ID "parentID-variantID" or just "productID"
-                    const isVariant = String(item.id).includes('-');
-                    const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                    let baseId = String(item.id);
+                    let variantName = item.variant;
+                    if (!variantName) {
+                        const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
+                        if (match) variantName = match[1];
+                    }
+
+                    if (item.productId) {
+                        baseId = String(item.productId);
+                    } else if (variantName) {
+                        const suffix = `-${variantName}`;
+                        if (String(item.id).endsWith(suffix)) {
+                            baseId = String(item.id).substring(0, String(item.id).length - suffix.length);
+                        } else {
+                            const parts = String(item.id).split('-');
+                            if (parts.length > 1 && parts[parts.length - 1] === variantName) {
+                                baseId = parts.slice(0, -1).join('-');
+                            }
+                        }
+                    }
 
                     const productInfo = productData.get(baseId);
 
@@ -298,6 +316,7 @@ export default function Dashboard() {
                     let finalName = item.name;
                     let finalVariant = item.variant;
                     let finalQty = Number(item.quantity) || 0;
+                    let finalUnits = 0;
 
                     // 2. Check Dependency (Roll-up)
                     if (productInfo && productInfo.stockDependency && productInfo.stockDependency.productId) {
@@ -316,11 +335,37 @@ export default function Dashboard() {
                         }
                     }
 
-                    // 3. Update Name from Current DB (Consolidate renames)
+                    // 3. Update Name and Unit Type from Current DB
                     // We look up the product by the final ID we decided on (base or parent)
                     const currentInfo = productData.get(finalId);
                     if (currentInfo) {
                         finalName = currentInfo.nombre;
+                    }
+
+                    // 4. Calculate Units based on Name parsing or Unit Type
+                    const lowerName = String(finalName).toLowerCase();
+
+                    // Regex for "xN" or "x N" (e.g. "Facturas x12" -> 12 units)
+                    const multiplierMatch = lowerName.match(/x\s*(\d+)/);
+
+                    // Regex for "N g" or "N gr" or "N gramos" (e.g. "Pan (500 g)" -> 5 units)
+                    // We want to extract the number before the 'g'
+                    const gramsMatch = lowerName.match(/(\d+)\s*(g|gr|gramos)\b/);
+
+                    if (gramsMatch) {
+                        const grams = parseInt(gramsMatch[1], 10);
+                        // Every 100g = 1 unit
+                        const unitsPerItem = grams / 100;
+                        finalUnits = finalQty * unitsPerItem;
+                    } else if (multiplierMatch) {
+                        const multiplier = parseInt(multiplierMatch[1], 10);
+                        finalUnits = finalQty * multiplier;
+                    } else if (currentInfo && currentInfo.unitType === 'weight') {
+                        // Fallback to weight calculation if no regex matched
+                        finalUnits = finalQty * 10;
+                    } else {
+                        // Standard 1:1 item
+                        finalUnits = finalQty;
                     }
 
                     // Normalize variant
@@ -338,6 +383,7 @@ export default function Dashboard() {
 
                     if (current) {
                         current.quantity += finalQty;
+                        current.units += finalUnits;
                         current.total += lineTotal;
                     } else {
                         productMap.set(key, {
@@ -345,6 +391,7 @@ export default function Dashboard() {
                             name: nameForDisplay,
                             variant: finalVariant,
                             quantity: finalQty,
+                            units: finalUnits,
                             total: lineTotal
                         });
                     }
@@ -853,9 +900,11 @@ export default function Dashboard() {
                             </tbody>
                             <tfoot>
                                 <tr style={{ background: '#f9fafb', fontWeight: 'bold' }}>
-                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '10px' }}>Total Lista:</td>
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '10px' }}>
+                                        Unidades vendidas: {Math.floor(topProducts.reduce((sum, p) => sum + p.units, 0)).toLocaleString('es-AR')}
+                                    </td>
                                     <td style={{ color: '#10b981' }}>
-                                        ${Math.floor(topProducts.reduce((sum, p) => sum + p.total, 0)).toLocaleString('es-AR')}
+                                        Monto: ${Math.floor(topProducts.reduce((sum, p) => sum + p.total, 0)).toLocaleString('es-AR')}
                                     </td>
                                 </tr>
                             </tfoot>

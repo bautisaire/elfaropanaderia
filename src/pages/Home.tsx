@@ -19,6 +19,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
+  const [categoryVisibility, setCategoryVisibility] = useState<Record<string, boolean>>({});
 
   // Use Context for store status
   const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
@@ -71,13 +72,16 @@ export default function Home() {
           getDocs(collection(db, "categories"))
         ]);
 
-        // Procesar Categorías para obtener orden
+        // Procesar Categorías para obtener orden y visibilidad
         const orders: Record<string, number> = {};
+        const visibility: Record<string, boolean> = {};
         categoriesSnapshot.docs.forEach(doc => {
           const data = doc.data();
           orders[data.name] = data.order ?? 9999;
+          visibility[data.name] = data.isVisible !== false; // Default to true if undefined
         });
         setCategoryOrder(orders);
+        setCategoryVisibility(visibility);
 
         // Procesar Productos
         const prods: Product[] = productsSnapshot.docs.map(doc => {
@@ -144,6 +148,7 @@ export default function Home() {
               return acc;
             }, {} as Record<string, Product[]>)
           )
+            .filter(([category]) => categoryVisibility[category] !== false)
             .sort(([a], [b]) => {
               const orderA = categoryOrder[a] ?? 9999;
               const orderB = categoryOrder[b] ?? 9999;

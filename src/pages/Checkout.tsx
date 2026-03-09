@@ -324,6 +324,7 @@ export default function Checkout() {
 
         const productsToUpdate = new Set<string>();
         const stockMovementsToLog: any[] = [];
+        const stockAlertsToLog: any[] = [];
 
         // B. Procesar Cart Items
         for (const item of cart) {
@@ -434,6 +435,12 @@ export default function Checkout() {
         stockMovementsToLog.forEach(mov => {
           const mRef = doc(collection(db, "stock_movements"));
           transaction.set(mRef, { ...mov, type: 'OUT', reason: formData.metodoPago === 'mercadopago' ? 'Venta Online (MP)' : 'Venta Online', date: new Date() });
+        });
+
+        // F. Create Stock Alerts
+        stockAlertsToLog.forEach(alert => {
+          const aRef = doc(collection(db, "stock_alerts"));
+          transaction.set(aRef, alert);
         });
 
         return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };

@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "../firebase/firebaseConfig";
-import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../firebase/firebaseConfig";
+import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
 import { FaPhone, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
@@ -40,6 +40,45 @@ export default function OrdersManager() {
     // Derived state from URL, defaulting to 'pos'
     const cleanTab = tab ? tab.replace(/^\//, '') : 'pos';
     const activeTab = (cleanTab === 'web' || cleanTab === 'pos') ? cleanTab : 'pos';
+
+    const isSuperAdmin = auth.currentUser?.email === 'sairebautista@gmail.com';
+
+    // Delete Modal State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [orderToDeleteParams, setOrderToDeleteParams] = useState<{ id: string, restoreStock: boolean } | null>(null);
+    const [deleteSuccessModalOpen, setDeleteSuccessModalOpen] = useState(false);
+
+    const handleDeleteOrder = (id: string, restoreStock: boolean) => {
+        setOrderToDeleteParams({ id, restoreStock });
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDeleteOrder = async () => {
+        if (!orderToDeleteParams) return;
+        const { id, restoreStock } = orderToDeleteParams;
+
+        try {
+            if (restoreStock) {
+                const orderToDeleteObj = orders.find(o => o.id === id);
+                if (orderToDeleteObj && orderToDeleteObj.status !== 'cancelado') {
+                    // Solo devolver el stock si no estaba cancelado antes (porque si lo estaba ya se devolvió)
+                    await restoreOrderStock(orderToDeleteObj);
+                }
+            }
+            await deleteDoc(doc(db, "orders", id));
+            setOrders(prev => prev.filter(o => o.id !== id));
+            setExpandedOrderId(null);
+
+            setDeleteModalOpen(false);
+            setOrderToDeleteParams(null);
+            setDeleteSuccessModalOpen(true);
+        } catch (error) {
+            console.error("Error deleting order:", error);
+            alert("Error al eliminar el pedido. Revisa los permisos.");
+            setDeleteModalOpen(false);
+            setOrderToDeleteParams(null);
+        }
+    };
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
@@ -207,12 +246,41 @@ export default function OrdersManager() {
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
     };
 
+    // Helper to correctly extract Base ID
+    const getBaseId = (item: any) => {
+        if (item.productId) return String(item.productId);
+
+        let variantName = item.variant;
+        if (!variantName) {
+            const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
+            if (match) variantName = match[1];
+        }
+
+        if (variantName) {
+            const suffix = `-${variantName}`;
+            if (String(item.id).endsWith(suffix)) {
+                return String(item.id).substring(0, String(item.id).length - suffix.length);
+            }
+        }
+
+        // Fallback: If no variant pattern detected, assume ID is the base ID
+        // Evita romper IDs como 'torta-frita'
+        // Si originalmente el ID tenía guiones y lo guardamos con '-Variante', 
+        // lo mejor es buscar siempre la variante. Si todo falla, intentamos remover la variante del final.
+        const parts = String(item.id).split('-');
+        if (parts.length > 1 && variantName && parts[parts.length - 1] === variantName) {
+            return parts.slice(0, -1).join('-');
+        }
+
+        return String(item.id);
+    };
+
     // Helper: Restore Stock Logic (Refactored from original updateStatus)
     const restoreOrderStock = async (order: Order) => {
         for (const item of order.items) {
             try {
-                const isVariant = String(item.id).includes('-');
-                const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                const baseId = getBaseId(item);
+                const isVariant = item.variant || (item.name && item.name.includes('('));
                 const itemRef = doc(db, "products", baseId);
                 const itemSnap = await getDoc(itemRef);
 
@@ -250,10 +318,13 @@ export default function OrdersManager() {
                     }
                     // --- Fin Lógica Derivados ---
                     else {
-                        let variantName = "";
+                        let variantName = item.variant || "";
                         if (isVariant && data.variants) {
-                            const match = item.name.match(/\(([^)]+)\)$/);
-                            if (match) variantName = match[1];
+                            if (!variantName) {
+                                // Fallback para pedidos viejos que no guardaban item.variant
+                                const match = item.name.match(/\(([^)]+)\)$/);
+                                if (match) variantName = match[1];
+                            }
 
                             if (variantName) {
                                 const variants = [...data.variants];
@@ -274,6 +345,7 @@ export default function OrdersManager() {
                             await syncChildProducts(baseId, newStock);
                         }
 
+                        // Guardar el movimiento de stock en cualquiera de los dos casos (variante o base)
                         await addDoc(collection(db, "stock_movements"), {
                             productId: baseId,
                             productName: item.name,
@@ -294,12 +366,9 @@ export default function OrdersManager() {
     // Helper: Deduct Stock Logic (Refactored from original updateStatus)
     const deductOrderStock = async (order: Order, reasonObs: string) => {
         for (const item of order.items) {
-            // We can reuse adjustStock logic actually, but let's keep it explicit as it was originally intertwined
-            // Or even better, let's allow adjustStock to be used if suitable. 
-            // For now, to minimize risk, I'll paste the logic that was already there for "Reactivation"
             try {
-                const isVariant = String(item.id).includes('-');
-                const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+                const baseId = getBaseId(item);
+                const isVariant = item.variant || (item.name && item.name.includes('('));
                 const itemRef = doc(db, "products", baseId);
                 const itemSnap = await getDoc(itemRef);
 
@@ -333,10 +402,12 @@ export default function OrdersManager() {
                             await syncChildProducts(parentId, newParentStock);
                         }
                     } else {
-                        let variantName = "";
+                        let variantName = item.variant || "";
                         if (isVariant && data.variants) {
-                            const match = item.name.match(/\(([^)]+)\)$/);
-                            if (match) variantName = match[1];
+                            if (!variantName) {
+                                const match = item.name.match(/\(([^)]+)\)$/);
+                                if (match) variantName = match[1];
+                            }
 
                             if (variantName) {
                                 const variants = [...data.variants];
@@ -502,8 +573,8 @@ export default function OrdersManager() {
 
     // Helper for Stock Adjustment
     const adjustStock = async (item: any, type: 'IN' | 'OUT', reasonObs: string) => {
-        const isVariant = String(item.id).includes('-');
-        const baseId = isVariant ? String(item.id).split('-')[0] : String(item.id);
+        const baseId = getBaseId(item);
+        const isVariant = item.variant || (item.name && item.name.includes('('));
         const itemRef = doc(db, "products", baseId);
         const itemSnap = await getDoc(itemRef);
 
@@ -737,6 +808,8 @@ export default function OrdersManager() {
                                                                 onSourceChange={updateSource}
                                                                 onPaymentMethodChange={updatePaymentMethod}
                                                                 onClose={() => setExpandedOrderId(null)}
+                                                                onDelete={handleDeleteOrder}
+                                                                isSuperAdmin={isSuperAdmin}
                                                             />
                                                         </td>
                                                     </tr>
@@ -926,6 +999,63 @@ export default function OrdersManager() {
                     )}
 
                     {/* Details Modal */}
+
+                    {/* Delete Confirmation Modal */}
+                    {deleteModalOpen && orderToDeleteParams && (
+                        <div className="pm-modal-overlay">
+                            <div className="pm-modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '20px', color: '#dc2626' }}>
+                                    <FaTrash size={40} />
+                                </div>
+                                <h3>Eliminar Pedido</h3>
+                                <p style={{ margin: '15px 0', color: '#4b5563' }}>
+                                    Estás a punto de <strong>eliminar permanentemente</strong> el pedido #{orderToDeleteParams.id.slice(-6)}.<br />
+                                    Esta acción no se puede deshacer.
+                                </p>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                                    <button
+                                        className="cancel-btn"
+                                        style={{ flex: 1 }}
+                                        onClick={() => {
+                                            setDeleteModalOpen(false);
+                                            setOrderToDeleteParams(null);
+                                        }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        className="save-btn"
+                                        style={{ flex: 1, backgroundColor: '#dc2626', borderColor: '#dc2626' }}
+                                        onClick={confirmDeleteOrder}
+                                    >
+                                        Sí, Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delete Success Modal */}
+                    {deleteSuccessModalOpen && (
+                        <div className="pm-modal-overlay">
+                            <div className="pm-modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '20px', color: '#10b981' }}>
+                                    <FaCheckCircle size={50} />
+                                </div>
+                                <h3>Pedido Eliminado</h3>
+                                <p style={{ margin: '15px 0', color: '#4b5563' }}>
+                                    El pedido se ha borrado correctamente de la base de datos.
+                                </p>
+                                <button
+                                    className="save-btn"
+                                    style={{ width: '100%', marginTop: '10px', backgroundColor: '#10b981', borderColor: '#10b981' }}
+                                    onClick={() => setDeleteSuccessModalOpen(false)}
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

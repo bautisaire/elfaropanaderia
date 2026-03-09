@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
-import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaGripVertical } from 'react-icons/fa';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where } from 'firebase/firestore';
+import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaGripVertical, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -11,11 +11,12 @@ interface Category {
     id: string;
     name: string;
     order?: number;
+    isVisible?: boolean;
 }
 
 // Subcomponente para cada fila arrastrable
-function SortableItem(props: { category: Category; editingId: string | null; editName: string; setEditName: (s: string) => void; saveEdit: () => void; cancelEdit: () => void; startEdit: (c: Category) => void; handleDelete: (id: string) => void }) {
-    const { category, editingId, editName, setEditName, saveEdit, cancelEdit, startEdit, handleDelete } = props;
+function SortableItem(props: { category: Category; editingId: string | null; editName: string; setEditName: (s: string) => void; saveEdit: () => void; cancelEdit: () => void; startEdit: (c: Category) => void; handleDelete: (id: string) => void; toggleVisibility: (c: Category) => void }) {
+    const { category, editingId, editName, setEditName, saveEdit, cancelEdit, startEdit, handleDelete, toggleVisibility } = props;
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
 
@@ -46,8 +47,11 @@ function SortableItem(props: { category: Category; editingId: string | null; edi
                 </div>
             ) : (
                 <div className="cat-view-mode">
-                    <span>{category.name}</span>
+                    <span style={{ textDecoration: category.isVisible === false ? 'line-through' : 'none', color: category.isVisible === false ? '#999' : 'inherit' }}>{category.name}</span>
                     <div className="cat-actions">
+                        <button onClick={() => toggleVisibility(category)} className="btn-edit" style={{ background: 'transparent', color: '#666' }} title={category.isVisible !== false ? "Ocultar en Home" : "Mostrar en Home"}>
+                            {category.isVisible !== false ? <FaEye /> : <FaEyeSlash color="#999" />}
+                        </button>
                         <button onClick={() => startEdit(category)} className="btn-edit" title="Editar"><FaEdit /></button>
                         <button onClick={() => handleDelete(category.id)} className="btn-delete" title="Eliminar"><FaTrash /></button>
                     </div>
@@ -76,7 +80,8 @@ export default function CategoryManager() {
             let cats = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 name: doc.data().name,
-                order: doc.data().order ?? 9999
+                order: doc.data().order ?? 9999,
+                isVisible: doc.data().isVisible !== false
             })) as Category[];
 
             // Ordenar por campo 'order', luego alfabéticamente
@@ -141,15 +146,53 @@ export default function CategoryManager() {
 
     const saveEdit = async () => {
         if (!editingId || !editName.trim()) return;
-        try {
-            await updateDoc(doc(db, "categories", editingId), { name: editName.trim() });
-            setEditingId(null);
-            setMsg("Categoría actualizada");
 
-            setCategories(prev => prev.map(c => c.id === editingId ? { ...c, name: editName.trim() } : c));
+        const cat = categories.find(c => c.id === editingId);
+        if (!cat) return;
+
+        const oldName = cat.name;
+        const newName = editName.trim();
+
+        if (oldName === newName) {
+            cancelEdit();
+            return;
+        }
+
+        try {
+            await updateDoc(doc(db, "categories", editingId), { name: newName });
+
+            // Actualización en cascada a todos los productos con esta categoría
+            const productsRef = collection(db, "products");
+            const q = query(productsRef, where("categoria", "==", oldName));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const batch = writeBatch(db);
+                querySnapshot.forEach((docSnap) => {
+                    batch.update(docSnap.ref, { categoria: newName });
+                });
+                await batch.commit();
+            }
+
+            setEditingId(null);
+            setMsg("Categoría y productos actualizados");
+
+            setCategories(prev => prev.map(c => c.id === editingId ? { ...c, name: newName } : c));
         } catch (error) {
             console.error(error);
             setMsg("Error al actualizar");
+        }
+    };
+
+    const toggleVisibility = async (cat: Category) => {
+        const newVis = cat.isVisible === false ? true : false;
+        try {
+            await updateDoc(doc(db, "categories", cat.id), { isVisible: newVis });
+            setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isVisible: newVis } : c));
+            setMsg(newVis ? "Categoría visible" : "Categoría oculta");
+        } catch (error) {
+            console.error("Error al cambiar visibilidad:", error);
+            setMsg("Error al cambiar visibilidad");
         }
     };
 
@@ -224,6 +267,7 @@ export default function CategoryManager() {
                                         cancelEdit={cancelEdit}
                                         startEdit={startEdit}
                                         handleDelete={handleDelete}
+                                        toggleVisibility={toggleVisibility}
                                     />
                                 ))}
                                 {categories.length === 0 && <p className="empty-msg">No hay categorías. Crea una.</p>}
