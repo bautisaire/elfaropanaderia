@@ -2,17 +2,26 @@ import { useState } from 'react';
 import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 
+const statusOptions = [
+    { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
+    { value: "preparando", label: "Preparando", color: "#3b82f6" },
+    { value: "enviado", label: "Enviado", color: "#8b5cf6" },
+    { value: "entregado", label: "Entregado", color: "#10b981" },
+    { value: "cancelado", label: "Cancelado", color: "#ef4444" },
+];
+
 interface OrderDetailsExpandedProps {
     order: any;
     onEdit: (order: any) => void;
     onSourceChange: (id: string, source: string) => void;
     onPaymentMethodChange?: (id: string, newMethod: string) => void;
+    onStatusChange?: (id: string, newStatus: string) => void;
     onClose: () => void;
     onDelete?: (id: string, restoreStock: boolean) => void;
     isSuperAdmin?: boolean;
 }
 
-export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onDelete, isSuperAdmin }: OrderDetailsExpandedProps) {
+export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onStatusChange, onDelete, isSuperAdmin }: OrderDetailsExpandedProps) {
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     const showToast = (msg: string) => {
@@ -25,17 +34,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
 
     return (
         <div className="order-details-wrapper" onClick={onClose} style={{ cursor: 'pointer' }}>
-            <div className="order-details-expanded" onClick={(e) => e.stopPropagation()} style={{ cursor: 'default' }}>
-                {/* Mobile Close Button */}
-                <button className="mobile-close-btn" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-                    <FaTimes />
-                </button>
-
+            <div className={`order-details-expanded status-border-${order.status}`} onClick={(e) => e.stopPropagation()} style={{ cursor: 'default' }}>
                 <div className="expanded-content">
                     {/* Header Info - Simplified since table has some already */}
                     <div className="expanded-section">
                         <div className="expanded-header-row">
-                            <h4>Ticket #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <h4>Ticket #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
+                                {/* Mobile Close Button */}
+                                <button className="mobile-close-btn" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                                    <FaTimes />
+                                </button>
+                            </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
                                     <FaEdit /> Editar Pedido
@@ -132,6 +142,27 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     <span>{order.cliente.metodoPago}</span>
                                 )}
                             </div>
+
+                            {/* Status Selector - visible on mobile in sidebar */}
+                            {onStatusChange && (() => {
+                                const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
+                                return (
+                                    <div className="info-row sidebar-status-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                        <div className="status-selector-wrapper-table sidebar-status-selector" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
+                                            <select
+                                                value={order.status}
+                                                onChange={(e) => { e.stopPropagation(); onStatusChange(order.id, e.target.value); }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="status-dropdown-table"
+                                            >
+                                                {statusOptions.map(opt => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {
                                 order.cliente.indicaciones && (

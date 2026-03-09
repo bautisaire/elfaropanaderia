@@ -70,7 +70,7 @@
 
 /* Header */
 .order-card-header {
-    background: #f9fafb;
+    background: #0c4f92;
     padding: 8px;
     border-bottom: 1px solid #e5e7eb;
     display: flex;
@@ -270,7 +270,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #f9fafb;
+    background: #fbf9f9;
     padding: 8px 12px;
     border-radius: 8px;
     width: fit-content;
@@ -288,7 +288,7 @@
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 0.95rem;
-    color: #374151;
+    color: #513737;
     font-weight: 600;
     cursor: pointer;
     outline: none;
@@ -337,7 +337,7 @@
     color: #111827;
     font-size: 1.5rem;
     /* Much Larger */
-    border-top: 2px dashed #111827;
+    border-top: 2px dashed #271111;
     /* Ticket footer style */
     padding-top: 16px;
     margin-top: 10px;
@@ -353,9 +353,104 @@
     font-weight: 600;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
     .expanded-grid {
         grid-template-columns: 1fr;
+    }
+
+    /* ── MOBILE TABLE: full-width flex rows ── */
+    .orders-list-container,
+    .orders-content,
+    .orders-table-container {
+        overflow-x: hidden !important;
+        max-width: 100vw;
+    }
+
+    /* Kill the table min-width and make it flex-friendly */
+    .orders-table {
+        min-width: 0 !important;
+        width: 100% !important;
+        display: block;
+    }
+
+    .orders-table thead,
+    .orders-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    /* Header row */
+    .orders-table thead tr {
+        display: flex;
+        width: 100%;
+        padding: 4px 0;
+    }
+
+    /* Each data row */
+    .orders-table tbody tr {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    /* Hide unwanted columns */
+    .col-fecha,
+    .col-pago,
+    .col-estado,
+    .col-notas {
+        display: none !important;
+    }
+
+    /* Keep details row spanning full width */
+    .order-details-row {
+        display: block !important;
+        width: 100%;
+    }
+
+    .order-details-row td {
+        display: block !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    /* Cliente cell: 60% */
+    .col-cliente {
+        flex: 6;
+        padding: 10px 8px;
+        overflow: hidden;
+    }
+
+    /* Total cell (3rd th/td) */
+    .orders-table th:nth-child(3),
+    .orders-table td:nth-child(3) {
+        flex: 4;
+        padding: 10px 8px;
+        text-align: right;
+    }
+
+    /* Clip long client names */
+    .order-cell-client strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+
+    .order-cell-total {
+        font-size: 1.1rem;
+    }
+
+    .order-cell-items-count {
+        font-size: 0.8rem;
+    }
+
+
+
+    .orders-table th,
+    .orders-table td {
+        padding: 6px 8px;
     }
 
     /* Transform into a full-screen modal on mobile */
@@ -379,10 +474,30 @@
         height: 100%;
         background: white;
         border-radius: 0;
-        border: none;
         overflow-y: auto;
         padding: 15px;
         animation: slideInRight 0.3s ease-out forwards;
+    }
+
+    /* Status color borders for expanded sidebar */
+    .status-border-pendiente {
+        border-left: 6px solid #f59e0b !important;
+    }
+
+    .status-border-preparando {
+        border-left: 6px solid #3b82f6 !important;
+    }
+
+    .status-border-enviado {
+        border-left: 6px solid #8b5cf6 !important;
+    }
+
+    .status-border-entregado {
+        border-left: 6px solid #10b981 !important;
+    }
+
+    .status-border-cancelado {
+        border-left: 6px solid #ef4444 !important;
     }
 
     .edit-order-modal {
@@ -806,7 +921,6 @@
 
 .orders-table th {
     background: #f9fafb;
-    padding: 12px 16px;
     text-align: left;
     font-size: 0.85rem;
     font-weight: 600;
@@ -814,10 +928,10 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid #e5e7eb;
+
 }
 
 .orders-table td {
-    padding: 12px 16px;
     border-bottom: 1px solid #f3f4f6;
     vertical-align: middle;
     color: #374151;
@@ -1142,28 +1256,40 @@
     display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
     .mobile-close-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        position: absolute;
-        top: 15px;
-        right: 15px;
         background: #f3f4f6;
-        border: none;
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        color: #4b5563;
-        font-size: 1.2rem;
-        z-index: 50;
+        border: 1px solid #d1d5db;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        color: #ef4444;
+        /* Close button more visible */
+        font-size: 1rem;
         cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .mobile-close-btn:hover {
-        background: #e5e7eb;
-        color: #111827;
+    /* Status Borders for Expanded View */
+    .status-border-pendiente {
+        border-left: 8px solid #f59e0b !important;
+    }
+
+    .status-border-preparando {
+        border-left: 8px solid #3b82f6 !important;
+    }
+
+    .status-border-enviado {
+        border-left: 8px solid #8b5cf6 !important;
+    }
+
+    .status-border-entregado {
+        border-left: 8px solid #10b981 !important;
+    }
+
+    .status-border-cancelado {
+        border-left: 8px solid #ef4444 !important;
     }
 }

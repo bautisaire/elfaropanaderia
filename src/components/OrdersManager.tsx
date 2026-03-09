@@ -716,12 +716,12 @@ export default function OrdersManager() {
                             <table className="orders-table">
                                 <thead>
                                     <tr>
-                                        <th>Fecha</th>
+                                        <th className="col-fecha">Fecha</th>
                                         <th>Cliente</th>
                                         <th>Total</th>
-                                        <th>Pago</th>
-                                        <th>Estado</th>
-                                        <th>Notas</th>
+                                        <th className="col-pago">Pago</th>
+                                        <th className="col-estado">Estado</th>
+                                        <th className="col-notas">Notas</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -738,8 +738,7 @@ export default function OrdersManager() {
                                                     onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                                                     style={{ cursor: 'pointer' }}
                                                 >
-                                                    {/* Cells remain the same */}
-                                                    <td>
+                                                    <td className="col-fecha">
                                                         <div className="order-cell-time-large">
                                                             {order.date?.seconds
                                                                 ? new Date(order.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
@@ -751,7 +750,7 @@ export default function OrdersManager() {
                                                                 : ""}
                                                         </div>
                                                     </td>
-                                                    <td>
+                                                    <td className="col-cliente">
                                                         <div className="order-cell-client">
                                                             <strong>{order.cliente.nombre}</strong>
                                                             {activeTab === 'web' && (
@@ -767,12 +766,12 @@ export default function OrdersManager() {
                                                             {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.
                                                         </div>
                                                     </td>
-                                                    <td>
+                                                    <td className="col-pago">
                                                         <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
                                                             {order.cliente.metodoPago}
                                                         </div>
                                                     </td>
-                                                    <td>
+                                                    <td className="col-estado">
                                                         <div className="status-selector-wrapper-table" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
                                                             <span className="status-icon-table">{currentStatus.icon}</span>
                                                             <select
@@ -789,7 +788,7 @@ export default function OrdersManager() {
                                                             </select>
                                                         </div>
                                                     </td>
-                                                    <td className="order-cell-notes" title={order.cliente.indicaciones || ""}>
+                                                    <td className="col-notas order-cell-notes" title={order.cliente.indicaciones || ''}>
                                                         {order.cliente.indicaciones ? (
                                                             <span>{order.cliente.indicaciones.length > 30 ? order.cliente.indicaciones.substring(0, 30) + '...' : order.cliente.indicaciones}</span>
                                                         ) : (
@@ -807,6 +806,7 @@ export default function OrdersManager() {
                                                                 }}
                                                                 onSourceChange={updateSource}
                                                                 onPaymentMethodChange={updatePaymentMethod}
+                                                                onStatusChange={updateStatus}
                                                                 onClose={() => setExpandedOrderId(null)}
                                                                 onDelete={handleDeleteOrder}
                                                                 isSuperAdmin={isSuperAdmin}
