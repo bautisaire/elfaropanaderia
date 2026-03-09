@@ -39,7 +39,7 @@ export default function OrdersManager() {
 
     // Derived state from URL, defaulting to 'pos'
     const cleanTab = tab ? tab.replace(/^\//, '') : 'pos';
-    const activeTab = (cleanTab === 'web' || cleanTab === 'pos') ? cleanTab : 'pos';
+    const activeTab = (cleanTab === 'web' || cleanTab === 'pos' || cleanTab === 'expenses') ? cleanTab : 'pos';
 
     const isSuperAdmin = auth.currentUser?.email === 'sairebautista@gmail.com';
 
@@ -88,6 +88,10 @@ export default function OrdersManager() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
 
+    // Expenses State
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
+
     // Edit Modal State
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -101,7 +105,17 @@ export default function OrdersManager() {
     // Expanded Order State
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-    // New Tab State
+    // Expenses fetch
+    useEffect(() => {
+        if (activeTab !== 'expenses') return;
+        setLoadingExpenses(true);
+        const q = query(collection(db, "expenses"), orderBy("date", "desc"), limit(100));
+        const unsub = onSnapshot(q, (snap) => {
+            setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setLoadingExpenses(false);
+        }, () => setLoadingExpenses(false));
+        return () => unsub();
+    }, [activeTab]);
 
     useEffect(() => {
         setLoading(true);
@@ -678,7 +692,7 @@ export default function OrdersManager() {
 
                     <div className="orders-content">
                         {/* Tab Selector */}
-                        <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                        <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
                             <button
                                 className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
                                 onClick={() => navigate('/editor/orders/pos')}
@@ -709,10 +723,97 @@ export default function OrdersManager() {
                             >
                                 Pedidos Web
                             </button>
+                            <button
+                                className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+                                onClick={() => navigate('/editor/orders/expenses')}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: activeTab === 'expenses' ? '#f59e0b' : '#f3f4f6',
+                                    color: activeTab === 'expenses' ? 'white' : '#4b5563',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                💸 Gastos
+                            </button>
                         </div>
 
+                        {/* Expenses Table */}
+                        {activeTab === 'expenses' && (
+                            <div className="orders-table-container">
+                                {loadingExpenses ? (
+                                    <div className="loading-state"><FaSync className="spin" size={24} /><p>Cargando gastos...</p></div>
+                                ) : expenses.length === 0 ? (
+                                    <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>No hay gastos registrados.</p>
+                                ) : (
+                                    <table className="orders-table">
+                                        <thead>
+                                            <tr>
+                                                <th className="col-fecha">Fecha</th>
+                                                <th>Tipo</th>
+                                                <th>Descripción</th>
+                                                <th style={{ textAlign: 'right' }}>Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {expenses.map((exp) => {
+                                                const typeLabels: Record<string, string> = {
+                                                    materia_prima: '🛒 Materia Prima',
+                                                    servicio: '💡 Servicio',
+                                                    otro: '📦 Otro'
+                                                };
+                                                const typeLabel = typeLabels[exp.type] || exp.type;
+                                                const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
+                                                return (
+                                                    <tr key={exp.id}>
+                                                        <td className="col-fecha">
+                                                            <div className="order-cell-time-large">
+                                                                {dateObj ? dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                            </div>
+                                                            <div className="order-cell-date-small">
+                                                                {dateObj ? dateObj.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span style={{
+                                                                background: exp.type === 'materia_prima' ? '#d1fae5' : exp.type === 'servicio' ? '#dbeafe' : '#fef3c7',
+                                                                color: exp.type === 'materia_prima' ? '#065f46' : exp.type === 'servicio' ? '#1e40af' : '#92400e',
+                                                                padding: '3px 10px',
+                                                                borderRadius: '12px',
+                                                                fontSize: '0.82rem',
+                                                                fontWeight: 600,
+                                                                whiteSpace: 'nowrap'
+                                                            }}>{typeLabel}</span>
+                                                        </td>
+                                                        <td style={{ fontSize: '0.9rem', color: '#374151' }}>
+                                                            {exp.description || (exp.items?.length > 0 ? exp.items.map((i: any) => i.name).join(', ') : '—')}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right' }}>
+                                                            <div className="order-cell-total" style={{ color: '#ef4444' }}>
+                                                                -${Number(exp.totalAmount || 0).toLocaleString('es-AR')}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td colSpan={3} style={{ textAlign: 'right', fontWeight: 'bold', padding: '10px 16px', color: '#374151' }}>Total Gastos:</td>
+                                                <td style={{ textAlign: 'right', fontWeight: 'bold', padding: '10px 16px', color: '#ef4444', fontSize: '1.1rem' }}>
+                                                    -${expenses.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0).toLocaleString('es-AR')}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                )}
+                            </div>
+                        )}
+
                         {/* Orders Table */}
-                        <div className="orders-table-container">
+                        {activeTab !== 'expenses' && (<div className="orders-table-container">
                             <table className="orders-table">
                                 <thead>
                                     <tr>
@@ -819,14 +920,12 @@ export default function OrdersManager() {
                                     })}
                                 </tbody>
                             </table>
-                        </div>
-
-
-                        {orders.length === 0 && (
-                            <div className="empty-state">
-                                <p>No hay pedidos registrados.</p>
-                            </div>
-                        )}
+                            {orders.length === 0 && (
+                                <div className="empty-state">
+                                    <p>No hay pedidos registrados.</p>
+                                </div>
+                            )}
+                        </div>)}
                     </div>
 
                     {/* Load More Button */}
