@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
+import { db } from "../firebase/firebaseConfig";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
@@ -28,6 +30,60 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
         setToastMessage(msg);
         setTimeout(() => setToastMessage(null), 2000);
     };
+
+    // --- Customer Notes Logic ---
+    const customerId = order?.cliente?.deviceId || order?.cliente?.telefono?.replace(/\D/g, '') || "unknown";
+    const [notes, setNotes] = useState<{ adminNotes: string; correctedDireccion: string; correctedTelefono: string } | null>(null);
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [editingNotesData, setEditingNotesData] = useState({ adminNotes: "", correctedDireccion: "", correctedTelefono: "" });
+    const [loadingNotes, setLoadingNotes] = useState(false);
+
+    useEffect(() => {
+        if (!order) return;
+        const fetchNotes = async () => {
+            setLoadingNotes(true);
+            try {
+                const docRef = doc(db, "customer_notes", customerId);
+                const snap = await getDoc(docRef);
+                if (snap.exists()) {
+                    setNotes(snap.data() as any);
+                } else {
+                    setNotes(null);
+                }
+            } catch (err) {
+                console.error("Error fetching customer notes:", err);
+            } finally {
+                setLoadingNotes(false);
+            }
+        };
+        fetchNotes();
+    }, [customerId, order]);
+
+    const handleSaveNotes = async () => {
+        setLoadingNotes(true);
+        try {
+            const docRef = doc(db, "customer_notes", customerId);
+            await setDoc(docRef, editingNotesData, { merge: true });
+            setNotes(editingNotesData);
+            setIsEditingNotes(false);
+            showToast("Observaciones guardadas");
+        } catch (err) {
+            console.error("Error saving notes:", err);
+            alert("Error al guardar las observaciones");
+        } finally {
+            setLoadingNotes(false);
+        }
+    };
+
+    const startEditingNotes = () => {
+        setEditingNotesData({
+            adminNotes: notes?.adminNotes || "",
+            correctedDireccion: notes?.correctedDireccion || "",
+            correctedTelefono: notes?.correctedTelefono || ""
+        });
+        setIsEditingNotes(true);
+    };
+
 
 
     if (!order) return null;
@@ -212,6 +268,116 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 <span className="total-amount-expanded">${Math.ceil(order.total)}</span>
                             </div>
                         </div >
+
+                        {/* Admin Customer Notes Section */}
+                        <div className="expanded-section admin-notes-section" style={{ marginTop: '15px', padding: '15px', backgroundColor: '#fdfbf7', borderRadius: '8px', border: '1px solid #fcd34d' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <h5 style={{ margin: 0, color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FaEdit /> Observaciones Internas (Por Cliente)
+                                </h5>
+                                {!isEditingNotes && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); startEditingNotes(); }}
+                                        className="btn-secondary btn-sm"
+                                        style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                                    >
+                                        <FaEdit /> {notes && (notes.adminNotes || notes.correctedDireccion || notes.correctedTelefono) ? 'Editar' : 'Agregar'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {loadingNotes ? (
+                                <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Cargando...</p>
+                            ) : isEditingNotes ? (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                                        <label style={{ fontSize: '0.85rem', color: '#4b5563' }}>Dirección Corregida:</label>
+                                        <input
+                                            type="text"
+                                            value={editingNotesData.correctedDireccion}
+                                            onChange={(e) => setEditingNotesData({ ...editingNotesData, correctedDireccion: e.target.value })}
+                                            placeholder="Ej: Misiones 342, Neuquén"
+                                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                                        <label style={{ fontSize: '0.85rem', color: '#4b5563' }}>Teléfono Corregido:</label>
+                                        <input
+                                            type="text"
+                                            value={editingNotesData.correctedTelefono}
+                                            onChange={(e) => setEditingNotesData({ ...editingNotesData, correctedTelefono: e.target.value })}
+                                            placeholder="Ej: 2995485619"
+                                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                                        <label style={{ fontSize: '0.85rem', color: '#4b5563' }}>Observaciones del Admin (Texto Llano):</label>
+                                        <textarea
+                                            value={editingNotesData.adminNotes}
+                                            onChange={(e) => setEditingNotesData({ ...editingNotesData, adminNotes: e.target.value })}
+                                            placeholder="Ej: Cliente problemático, siempre pide a las 14hs..."
+                                            rows={3}
+                                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '0.9rem', resize: 'vertical' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                        <button
+                                            onClick={handleSaveNotes}
+                                            className="btn-primary btn-sm"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        >
+                                            <FaSave /> Guardar
+                                        </button>
+                                        <button
+                                            onClick={() => setIsEditingNotes(false)}
+                                            className="btn-secondary btn-sm"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : notes && (notes.adminNotes || notes.correctedDireccion || notes.correctedTelefono) ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {notes.correctedDireccion && (
+                                        <div className="info-row" style={{ fontSize: '0.9rem', margin: 0 }}>
+                                            <FaMapMarkerAlt style={{ color: '#b45309' }} />
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(notes.correctedDireccion + ", Senillosa, Neuquen, Argentina")}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{ color: '#b45309', textDecoration: 'underline', fontWeight: 600 }}
+                                            >
+                                                {notes.correctedDireccion} (Corregida)
+                                            </a>
+                                        </div>
+                                    )}
+                                    {notes.correctedTelefono && (
+                                        <div className="info-row" style={{ fontSize: '0.9rem', margin: 0 }}>
+                                            <FaPhone style={{ color: '#b45309' }} />
+                                            <a
+                                                href={`https://wa.me/+549${notes.correctedTelefono.replace(/\D/g, '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{ color: '#b45309', textDecoration: 'underline', fontWeight: 600 }}
+                                            >
+                                                {notes.correctedTelefono} (Corregido)
+                                            </a>
+                                        </div>
+                                    )}
+                                    {notes.adminNotes && (
+                                        <div style={{ marginTop: '5px', padding: '10px', background: '#fef3c7', borderRadius: '4px', fontSize: '0.9rem', color: '#92400e', whiteSpace: 'pre-wrap' }}>
+                                            <strong>Nota Admin:</strong><br />
+                                            {notes.adminNotes}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: '#9ca3af', margin: 0 }}>No hay observaciones para este cliente.</p>
+                            )}
+                        </div>
+
                     </div >
                 </div >
             </div >

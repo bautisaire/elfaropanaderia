@@ -103,6 +103,11 @@ export default function Checkout() {
         console.error("Error loading customer info", e);
       }
     }
+
+    // Ensure deviceId exists
+    if (!localStorage.getItem('device_id')) {
+      localStorage.setItem('device_id', 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36));
+    }
   }, []);
 
   // Check for Mercado Pago Redirect
@@ -424,7 +429,10 @@ export default function Checkout() {
           id: orderIdString,
           items: sanitize(finalItems),
           total: Number(finalTotal) || 0,
-          cliente: sanitize(formData),
+          cliente: {
+            ...sanitize(formData),
+            deviceId: user?.uid || localStorage.getItem('device_id') || 'unknown'
+          },
           date: new Date(),
           status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
           paymentMethod: formData.metodoPago
