@@ -19,6 +19,7 @@ interface ProductSale {
     quantity: number;
     units: number;
     total: number;
+    totalCost: number;
 }
 
 export default function Dashboard() {
@@ -385,14 +386,19 @@ export default function Dashboard() {
                         current.quantity += finalQty;
                         current.units += finalUnits;
                         current.total += lineTotal;
+                        // Add cost: costPerUnit * quantity sold
+                        const costPerUnit = currentInfo?.recipe?.costPerUnit || 0;
+                        current.totalCost += costPerUnit * finalQty;
                     } else {
+                        const costPerUnit = currentInfo?.recipe?.costPerUnit || 0;
                         productMap.set(key, {
                             id: finalId,
                             name: nameForDisplay,
                             variant: finalVariant,
                             quantity: finalQty,
                             units: finalUnits,
-                            total: lineTotal
+                            total: lineTotal,
+                            totalCost: costPerUnit * finalQty
                         });
                     }
                 });
@@ -887,6 +893,7 @@ export default function Dashboard() {
                                     <th>Producto</th>
                                     <th>Cantidad</th>
                                     <th>Total Generado</th>
+                                    <th style={{ color: '#ef4444' }}>Total Costo</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -895,6 +902,9 @@ export default function Dashboard() {
                                         <td>{p.name} {p.variant ? <span className="text-sm text-gray light">({p.variant})</span> : ''}</td>
                                         <td>{Number(p.quantity).toFixed(3).replace(/\.?0+$/, "")}</td>
                                         <td>${Math.floor(p.total).toLocaleString('es-AR')}</td>
+                                        <td style={{ color: p.totalCost > 0 ? '#ef4444' : '#d1d5db', fontStyle: p.totalCost > 0 ? 'normal' : 'italic', fontSize: p.totalCost > 0 ? 'inherit' : '0.85rem' }}>
+                                            {p.totalCost > 0 ? `$${Math.floor(p.totalCost).toLocaleString('es-AR')}` : '—'}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -905,6 +915,9 @@ export default function Dashboard() {
                                     </td>
                                     <td style={{ color: '#10b981' }}>
                                         Monto: ${Math.floor(topProducts.reduce((sum, p) => sum + p.total, 0)).toLocaleString('es-AR')}
+                                    </td>
+                                    <td style={{ color: '#ef4444' }}>
+                                        Costo: ${Math.floor(topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}
                                     </td>
                                 </tr>
                             </tfoot>
