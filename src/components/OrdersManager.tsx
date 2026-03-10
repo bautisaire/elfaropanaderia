@@ -929,7 +929,7 @@ export default function OrdersManager() {
                     </div>
 
                     {/* Load More Button */}
-                    {hasMore && (
+                    {(hasMore || !isHistorical) && activeTab !== 'expenses' && (
                         <div className="load-more-container">
                             <button
                                 className="load-more-btn"
