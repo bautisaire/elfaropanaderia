@@ -25,6 +25,7 @@ export interface RecipeIngredient {
 export interface ProductRecipe {
     ingredients: RecipeIngredient[];
     yield: number; // Rendimiento
+    yieldType?: 'units' | 'kg'; // Tipo de rendimiento
     costPerUnit?: number;
 }
 
@@ -60,6 +61,7 @@ export default function CostManager() {
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [editingRecipe, setEditingRecipe] = useState<ProductRecipe | null>(null);
+    const [recipeYieldType, setRecipeYieldType] = useState<'units' | 'kg'>('units');
     const [newIngredient, setNewIngredient] = useState<RecipeIngredient>({ rawMaterialId: '', quantity: 0 });
 
     // Quick Add Form
@@ -179,13 +181,17 @@ export default function CostManager() {
             const prod = products.find(p => p.id === selectedProductId);
             if (prod) {
                 if (prod.recipe) {
-                    setEditingRecipe(JSON.parse(JSON.stringify(prod.recipe))); // Deep clone
+                    const cloned = JSON.parse(JSON.stringify(prod.recipe));
+                    setEditingRecipe(cloned);
+                    setRecipeYieldType(cloned.yieldType || 'units');
                 } else {
-                    setEditingRecipe({ ingredients: [], yield: 1 });
+                    setEditingRecipe({ ingredients: [], yield: 1, yieldType: 'units' });
+                    setRecipeYieldType('units');
                 }
             }
         } else {
             setEditingRecipe(null);
+            setRecipeYieldType('units');
             setNewIngredient({ rawMaterialId: '', quantity: 0 });
         }
     }, [selectedProductId, products]);
@@ -222,12 +228,13 @@ export default function CostManager() {
         if (!selectedProductId || !editingRecipe) return;
 
         // Guardar costo unitario también (para el cache en el simulador)
-        const unitCost = calculateRecipeUnitCost(editingRecipe);
+        const unitCost = calculateRecipeUnitCost(editingRecipe, recipeYieldType);
 
         try {
             await updateDoc(doc(db, "products", selectedProductId), {
                 recipe: {
                     ...editingRecipe,
+                    yieldType: recipeYieldType,
                     costPerUnit: unitCost
                 }
             });
@@ -251,8 +258,13 @@ export default function CostManager() {
         return recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing), 0);
     };
 
-    const calculateRecipeUnitCost = (recipe: ProductRecipe | null): number => {
+    const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
         if (!recipe || recipe.yield <= 0) return 0;
+        const type = yieldType || recipe.yieldType || 'units';
+        if (type === 'kg') {
+            // Costo por KG: costo total / kg que rinde
+            return calculateRecipeTotalCost(recipe) / recipe.yield;
+        }
         return calculateRecipeTotalCost(recipe) / recipe.yield;
     };
 
@@ -775,7 +787,37 @@ export default function CostManager() {
                                                 </tr>
                                                 <tr className="recipe-footer-row yield">
                                                     <td colSpan={2} style={{ textAlign: 'right', padding: '15px' }}>
-                                                        <strong>¿En cuántas unidades rinde?</strong><br />
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                            <strong>{recipeYieldType === 'kg' ? '¿Cuántos kg rinde?' : '¿En cuántas unidades rinde?'}</strong>
+                                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                                <button
+                                                                    onClick={() => setRecipeYieldType('units')}
+                                                                    style={{
+                                                                        padding: '4px 12px',
+                                                                        borderRadius: '20px',
+                                                                        border: '1.5px solid #b91c1c',
+                                                                        background: recipeYieldType === 'units' ? '#b91c1c' : 'white',
+                                                                        color: recipeYieldType === 'units' ? 'white' : '#b91c1c',
+                                                                        fontWeight: 'bold',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.82rem'
+                                                                    }}
+                                                                >📦 Unidades</button>
+                                                                <button
+                                                                    onClick={() => setRecipeYieldType('kg')}
+                                                                    style={{
+                                                                        padding: '4px 12px',
+                                                                        borderRadius: '20px',
+                                                                        border: '1.5px solid #0891b2',
+                                                                        background: recipeYieldType === 'kg' ? '#0891b2' : 'white',
+                                                                        color: recipeYieldType === 'kg' ? 'white' : '#0891b2',
+                                                                        fontWeight: 'bold',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.82rem'
+                                                                    }}
+                                                                >⚖️ Kg</button>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                     <td colSpan={2}>
                                                         <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto' }}>
@@ -785,7 +827,9 @@ export default function CostManager() {
                                                                 onChange={e => setEditingRecipe({ ...editingRecipe, yield: Number(e.target.value) })}
                                                                 style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px' }}
                                                             />
-                                                            <span className="currency-symbol" style={{ background: 'transparent', borderStyle: 'none' }}>unidades</span>
+                                                            <span className="currency-symbol" style={{ background: 'transparent', borderStyle: 'none' }}>
+                                                                {recipeYieldType === 'kg' ? 'kg' : 'unidades'}
+                                                            </span>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -797,9 +841,18 @@ export default function CostManager() {
                                                         </td>
                                                     </tr>
                                                 )}
-                                                <tr className="recipe-footer-row unit-cost" style={{ background: 'rgba(254, 242, 242, 0.5)' }}>
-                                                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#b91c1c', fontSize: '1.2rem' }}>COSTO TOTAL POR UNIDAD:</td>
-                                                    <td colSpan={2} style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '1.5rem' }}>${calculateRealProductCost({ ...selectedProduct!, recipe: editingRecipe }).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                <tr className="recipe-footer-row unit-cost" style={{ background: recipeYieldType === 'kg' ? 'rgba(224, 242, 254, 0.6)' : 'rgba(254, 242, 242, 0.5)' }}>
+                                                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: recipeYieldType === 'kg' ? '#0369a1' : '#b91c1c', fontSize: '1.2rem' }}>
+                                                        {recipeYieldType === 'kg' ? 'COSTO TOTAL POR KG:' : 'COSTO TOTAL POR UNIDAD:'}
+                                                    </td>
+                                                    <td colSpan={2} style={{ color: recipeYieldType === 'kg' ? '#0369a1' : '#b91c1c', fontWeight: 'bold', fontSize: '1.5rem' }}>
+                                                        ${calculateRecipeUnitCost(editingRecipe, recipeYieldType).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {recipeYieldType === 'kg' && editingRecipe.yield > 0 && (
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal', marginTop: '2px' }}>
+                                                                Regla de 3: ${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} kg
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -863,8 +916,8 @@ export default function CostManager() {
                                         const cost = calculateRealProductCost(p);
                                         const sugWholesale = calculateSuggestedPrice(cost, margins.wholesale);
                                         const sugRetail = calculateSuggestedPrice(cost, margins.retail);
-                                        const currentWholesale = p.wholesalePrice || 0;
-                                        const currentRetail = p.precio || 0;
+                                        const currentWholesale = Number(p.wholesalePrice) || 0;
+                                        const currentRetail = Number(p.precio) || 0;
                                         const profit = currentRetail - cost;
 
                                         return (
