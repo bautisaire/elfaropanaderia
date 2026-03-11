@@ -37,6 +37,7 @@ export interface FirestoreProduct {
     isVisible?: boolean;
     isHiddenInPOS?: boolean;
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
+    unitsPerProduct?: number; // Equivalencia de unidades
     stockDependency?: {
         productId: string;
         unitsToDeduct: number;
@@ -64,6 +65,7 @@ const INITIAL_STATE: FirestoreProduct = {
     isVisible: true,
     isHiddenInPOS: false,
     unitType: 'unit',
+    unitsPerProduct: 1,
     requiresRecipe: true,
     stockReadyTime: "",
     customBadgeText: "",
@@ -138,6 +140,7 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                         discount: data.discount || 0,
                         isVisible: data.isVisible !== false,
                         unitType: data.unitType || 'unit',
+                        unitsPerProduct: data.unitsPerProduct !== undefined ? data.unitsPerProduct : 1,
                         shortId: data.shortId || "",
                         images: data.images || (data.img ? [data.img] : []),
                         stockReadyTime: data.stockReadyTime || "",
@@ -587,7 +590,11 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                                                 <option value="weight">Peso (kg)</option>
                                             </select>
                                         </div>
-                                        <div className="form-group half">
+                                        <div className="form-group quarter">
+                                            <label>Unidades (Estadística)</label>
+                                            <input type="number" name="unitsPerProduct" value={formData.unitsPerProduct !== undefined ? formData.unitsPerProduct : 1} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" step="0.1" title="Cuántas unidades representa para el resumen (ej. Facturas x12 = 12)" />
+                                        </div>
+                                        <div className="form-group quarter">
                                             <label>Descuento (%)</label>
                                             <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" />
                                         </div>

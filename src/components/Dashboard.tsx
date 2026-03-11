@@ -343,29 +343,12 @@ export default function Dashboard() {
                         finalName = currentInfo.nombre;
                     }
 
-                    // 4. Calculate Units based on Name parsing or Unit Type
-                    const lowerName = String(finalName).toLowerCase();
-
-                    // Regex for "xN" or "x N" (e.g. "Facturas x12" -> 12 units)
-                    const multiplierMatch = lowerName.match(/x\s*(\d+)/);
-
-                    // Regex for "N g" or "N gr" or "N gramos" (e.g. "Pan (500 g)" -> 5 units)
-                    // We want to extract the number before the 'g'
-                    const gramsMatch = lowerName.match(/(\d+)\s*(g|gr|gramos)\b/);
-
-                    if (gramsMatch) {
-                        const grams = parseInt(gramsMatch[1], 10);
-                        // Every 100g = 1 unit
-                        const unitsPerItem = grams / 100;
-                        finalUnits = finalQty * unitsPerItem;
-                    } else if (multiplierMatch) {
-                        const multiplier = parseInt(multiplierMatch[1], 10);
-                        finalUnits = finalQty * multiplier;
+                    // 4. Calculate Units using explicit unitsPerProduct or default fallback
+                    if (currentInfo && currentInfo.unitsPerProduct !== undefined) {
+                        finalUnits = finalQty * currentInfo.unitsPerProduct;
                     } else if (currentInfo && currentInfo.unitType === 'weight') {
-                        // Fallback to weight calculation if no regex matched
                         finalUnits = finalQty * 10;
                     } else {
-                        // Standard 1:1 item
                         finalUnits = finalQty;
                     }
 
@@ -892,6 +875,7 @@ export default function Dashboard() {
                                 <tr>
                                     <th>Producto</th>
                                     <th>Cantidad</th>
+                                    <th>Unidades</th>
                                     <th>Total Generado</th>
                                     <th style={{ color: '#ef4444' }}>Total Costo</th>
                                 </tr>
@@ -901,6 +885,7 @@ export default function Dashboard() {
                                     <tr key={`${index}-${p.name}`}>
                                         <td>{p.name} {p.variant ? <span className="text-sm text-gray light">({p.variant})</span> : ''}</td>
                                         <td>{Number(p.quantity).toFixed(3).replace(/\.?0+$/, "")}</td>
+                                        <td>{Number(p.units).toFixed(2).replace(/\.?0+$/, "")}</td>
                                         <td>${Math.floor(p.total).toLocaleString('es-AR')}</td>
                                         <td style={{ color: p.totalCost > 0 ? '#ef4444' : '#d1d5db', fontStyle: p.totalCost > 0 ? 'normal' : 'italic', fontSize: p.totalCost > 0 ? 'inherit' : '0.85rem' }}>
                                             {p.totalCost > 0 ? `$${Math.floor(p.totalCost).toLocaleString('es-AR')}` : '—'}
@@ -910,8 +895,8 @@ export default function Dashboard() {
                             </tbody>
                             <tfoot>
                                 <tr style={{ background: '#f9fafb', fontWeight: 'bold' }}>
-                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '10px' }}>
-                                        Unidades vendidas: {Math.floor(topProducts.reduce((sum, p) => sum + p.units, 0)).toLocaleString('es-AR')}
+                                    <td colSpan={3} style={{ textAlign: 'right', paddingRight: '10px' }}>
+                                        Unidades vendidas totales: {Math.floor(topProducts.reduce((sum, p) => sum + p.units, 0)).toLocaleString('es-AR')}
                                     </td>
                                     <td style={{ color: '#10b981' }}>
                                         Monto: ${Math.floor(topProducts.reduce((sum, p) => sum + p.total, 0)).toLocaleString('es-AR')}
