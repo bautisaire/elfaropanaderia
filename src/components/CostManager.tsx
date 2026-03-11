@@ -15,6 +15,7 @@ export interface RawMaterial {
     lastUpdated?: any;
     priceHistory?: { price: number; date: string; baseQuantity?: number; unit?: string }[];
     description?: string;
+    trackInDashboard?: boolean;
 }
 
 export interface RecipeIngredient {
@@ -430,6 +431,14 @@ export default function CostManager() {
                                     onChange={e => setEditMaterialForm({ ...editMaterialForm, description: e.target.value })}
                                     onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
                                 />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!editMaterialForm.trackInDashboard}
+                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, trackInDashboard: e.target.checked })}
+                                    />
+                                    Seguimiento en Dashboard
+                                </label>
                                 <button className="cm-btn-primary" style={{ background: '#3b82f6' }} onClick={handleUpdateMaterial}><FaSave /> Guardar Cambios</button>
                                 <button className="cm-icon-btn cancel" style={{ background: 'white', border: '1px solid #cbd5e1' }} onClick={() => setIsEditingMaterial(null)}><FaTimes /> Cancelar</button>
                             </div>
@@ -482,6 +491,14 @@ export default function CostManager() {
                                     onChange={e => setNewMaterial({ ...newMaterial, description: e.target.value })}
                                     onKeyDown={e => e.key === 'Enter' && handleAddMaterial()}
                                 />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!(newMaterial as any).trackInDashboard}
+                                        onChange={e => setNewMaterial({ ...newMaterial, trackInDashboard: e.target.checked } as any)}
+                                    />
+                                    Seguimiento en Dashboard
+                                </label>
                                 <button className="cm-btn-primary" onClick={handleAddMaterial}><FaPlus /> Añadir</button>
                             </div>
                         )}

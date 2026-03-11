@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 
@@ -62,6 +62,8 @@ export default function Dashboard() {
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
     const [productData, setProductData] = useState<Map<string, any>>(new Map());
+    const [rawMaterialsData, setRawMaterialsData] = useState<Map<string, any>>(new Map());
+    const [trackedMaterials, setTrackedMaterials] = useState<any[]>([]);
     const [activeHover, setActiveHover] = useState<string | null>(null);
     const [activeClick, setActiveClick] = useState<string | null>(null);
 
@@ -138,6 +140,7 @@ export default function Dashboard() {
         let unsubStats: () => void;
         let unsubUsers: () => void;
         let unsubProducts: () => void; // New listener for products
+        let unsubRawMaterials: () => void;
 
         const setupListeners = async () => {
             try {
@@ -159,6 +162,13 @@ export default function Dashboard() {
                     // We need a state for product map to trigger reprocessing
                 });
 
+                unsubRawMaterials = onSnapshot(collection(db, "raw_materials"), (snapshot) => {
+                    const materialsMap = new Map<string, any>();
+                    snapshot.docs.forEach(doc => {
+                        materialsMap.set(doc.id, { id: doc.id, ...doc.data() });
+                    });
+                    setRawMaterialsData(materialsMap);
+                });
 
                 // 1. Orders Listener
                 unsubOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
@@ -211,6 +221,7 @@ export default function Dashboard() {
         return () => {
             if (unsubOrders) unsubOrders();
             if (unsubProducts) unsubProducts();
+            if (unsubRawMaterials) unsubRawMaterials();
             if (unsubStats) unsubStats();
             if (unsubUsers) unsubUsers();
         };
@@ -250,6 +261,19 @@ export default function Dashboard() {
         let deliveryDebito = 0;
 
         const productMap = new Map<string, ProductSale>();
+
+        const newTrackedMaterialsMap = new Map<string, { id: string, name: string, quantity: number, unit: string, cost: number }>();
+        rawMaterialsData.forEach(mat => {
+            if (mat.trackInDashboard) {
+                newTrackedMaterialsMap.set(mat.id, {
+                    id: mat.id,
+                    name: mat.name,
+                    quantity: 0,
+                    unit: mat.unit,
+                    cost: 0
+                });
+            }
+        });
 
         filteredOrders.forEach(order => {
             const amount = Number(order.total) || 0;
@@ -344,7 +368,11 @@ export default function Dashboard() {
                     }
 
                     // 4. Calculate Units using explicit unitsPerProduct or default fallback
-                    if (currentInfo && currentInfo.unitsPerProduct !== undefined) {
+                    const isShipping = finalId === 'shipping-cost' || String(finalName).toLowerCase().includes('envío') || String(finalName).toLowerCase().includes('envio');
+
+                    if (isShipping) {
+                        finalUnits = 0;
+                    } else if (currentInfo && currentInfo.unitsPerProduct !== undefined) {
                         finalUnits = finalQty * currentInfo.unitsPerProduct;
                     } else if (currentInfo && currentInfo.unitType === 'weight') {
                         finalUnits = finalQty * 10;
@@ -357,6 +385,26 @@ export default function Dashboard() {
                         finalVariant = String(finalVariant).trim();
                     }
 
+                    // Calculate used tracked materials for this sale
+                    if (currentInfo?.recipe?.ingredients && newTrackedMaterialsMap.size > 0 && !isShipping) {
+                        const yieldRatio = currentInfo.recipe.yield || 1;
+                        currentInfo.recipe.ingredients.forEach((ing: any) => {
+                            const tm = newTrackedMaterialsMap.get(ing.rawMaterialId);
+                            if (tm) {
+                                const matData = rawMaterialsData.get(ing.rawMaterialId);
+                                if (matData) {
+                                    const qtyPerUnit = ing.quantity / yieldRatio;
+                                    const totalQtyUsed = qtyPerUnit * finalQty;
+                                    const costPerBaseUnit = matData.price / (matData.baseQuantity || 1);
+                                    const totalCost = totalQtyUsed * costPerBaseUnit;
+
+                                    tm.quantity += totalQtyUsed;
+                                    tm.cost += totalCost;
+                                }
+                            }
+                        });
+                    }
+
                     // GROUP BY ID to ensure consistency across renames
                     const key = `${finalId}-${finalVariant || 'base'}`;
                     const nameForDisplay = String(finalName).trim();
@@ -365,15 +413,15 @@ export default function Dashboard() {
                     const price = Number(item.price) || 0;
                     const lineTotal = (Number(item.quantity) || 0) * price;
 
+                    const costPerUnit = isShipping ? price : (currentInfo?.recipe?.costPerUnit || 0);
+
                     if (current) {
                         current.quantity += finalQty;
                         current.units += finalUnits;
                         current.total += lineTotal;
                         // Add cost: costPerUnit * quantity sold
-                        const costPerUnit = currentInfo?.recipe?.costPerUnit || 0;
                         current.totalCost += costPerUnit * finalQty;
                     } else {
-                        const costPerUnit = currentInfo?.recipe?.costPerUnit || 0;
                         productMap.set(key, {
                             id: finalId,
                             name: nameForDisplay,
@@ -414,6 +462,7 @@ export default function Dashboard() {
         }));
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
+        setTrackedMaterials(Array.from(newTrackedMaterialsMap.values()).sort((a, b) => b.cost - a.cost));
 
         // --- Chart Data Processing ---
 
@@ -577,7 +626,7 @@ export default function Dashboard() {
             </div >
 
             <div className="stats-grid">
-                {/* Total Plata */}
+                {/* Ingresos brutos */}
                 <div
                     className="stat-card sales main-stat"
                     style={{ position: 'relative' }}
@@ -585,7 +634,7 @@ export default function Dashboard() {
                     <div className="stat-icon"><FaMoneyBillWave /></div>
                     <div className="stat-info">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Total ({getTimeframeLabel()})
+                            Ingresos brutos ({getTimeframeLabel()})
                             <div
                                 className="bubble-trigger-container"
                                 style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
@@ -598,6 +647,7 @@ export default function Dashboard() {
                                 }}
                             >
                                 <FaInfoCircle color="#10b981" size={18} title="Ver desglose de medios de pago" />
+                                {/* Info Bubble for Total */}
                                 {(activeHover === 'total' || activeClick === 'total') && (
                                     <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
                                         {/* Bubble pointer */}
@@ -622,6 +672,30 @@ export default function Dashboard() {
                         </h3>
                         <p>${Math.floor(stats.plata).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.totalOrders} pedidos</span>
+                    </div>
+                </div>
+
+                {/* Costos */}
+                <div
+                    className="stat-card orders"
+                    style={{ position: 'relative' }}
+                >
+                    <div className="stat-icon" style={{ color: '#ef4444', backgroundColor: '#fee2e2' }}><FaShoppingCart /></div>
+                    <div className="stat-info">
+                        <h3>Costos ({getTimeframeLabel()})</h3>
+                        <p style={{ color: '#ef4444' }}>${Math.floor(topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                {/* Ganancia */}
+                <div
+                    className="stat-card visits"
+                    style={{ position: 'relative' }}
+                >
+                    <div className="stat-icon" style={{ color: '#10b981', backgroundColor: '#d1fae5' }}><FaMoneyBillWave /></div>
+                    <div className="stat-info">
+                        <h3>Ganancia ({getTimeframeLabel()})</h3>
+                        <p style={{ color: '#10b981' }}>${Math.floor(stats.plata - topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
                     </div>
                 </div>
 
@@ -862,6 +936,35 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Tracked Materials Section */}
+            {trackedMaterials.length > 0 && (
+                <div className="products-stats-section" style={{ marginBottom: '30px' }}>
+                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaChartLine color="#8b5cf6" /> Seguimiento de Materias Primas e Insumos ({getTimeframeLabel()})
+                    </h3>
+                    <div className="products-table-container">
+                        <table className="products-stats-table">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Cantidad Consumida</th>
+                                    <th>Costo Generado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {trackedMaterials.map((tm, index) => (
+                                    <tr key={index}>
+                                        <td><strong>{tm.name}</strong></td>
+                                        <td>{Number(tm.quantity).toFixed(2).replace(/\.?0+$/, "")} {tm.unit}</td>
+                                        <td style={{ color: '#ef4444', fontWeight: 'bold' }}>${Math.floor(tm.cost).toLocaleString('es-AR')}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Product List Section */}
             <div className="products-stats-section">
