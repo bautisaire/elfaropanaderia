@@ -262,7 +262,7 @@ export default function Dashboard() {
 
         const productMap = new Map<string, ProductSale>();
 
-        const newTrackedMaterialsMap = new Map<string, { id: string, name: string, quantity: number, unit: string, cost: number }>();
+        const newTrackedMaterialsMap = new Map<string, { id: string, name: string, quantity: number, unit: string, cost: number, isProduct?: boolean }>();
         rawMaterialsData.forEach(mat => {
             if (mat.trackInDashboard) {
                 newTrackedMaterialsMap.set(mat.id, {
@@ -270,7 +270,22 @@ export default function Dashboard() {
                     name: mat.name,
                     quantity: 0,
                     unit: mat.unit,
-                    cost: 0
+                    cost: 0,
+                    isProduct: false
+                });
+            }
+        });
+
+        // Also track specially marked products
+        productData.forEach(prod => {
+            if (prod.trackInDashboard) {
+                newTrackedMaterialsMap.set(prod.id, {
+                    id: prod.id,
+                    name: prod.nombre,
+                    quantity: 0,
+                    unit: prod.unitType === 'weight' ? 'kg' : 'u',
+                    cost: 0, // Records sales revenue or pass-through cost
+                    isProduct: true
                 });
             }
         });
@@ -343,6 +358,14 @@ export default function Dashboard() {
                     let finalQty = Number(item.quantity) || 0;
                     let finalUnits = 0;
 
+                    // Normalize Shipping Items Early
+                    const isShipping = finalId === 'shipping-cost' || String(finalName).toLowerCase().includes('envío') || String(finalName).toLowerCase().includes('envio');
+                    if (isShipping) {
+                        finalId = 'shipping-cost';
+                        finalName = 'Envío';
+                        finalVariant = undefined;
+                    }
+
                     // 2. Check Dependency (Roll-up)
                     if (productInfo && productInfo.stockDependency && productInfo.stockDependency.productId) {
                         const parentId = productInfo.stockDependency.productId;
@@ -360,15 +383,14 @@ export default function Dashboard() {
                         }
                     }
 
-                    // 3. Update Name and Unit Type from Current DB
+                    // 3. Update Name and Unit Type from Current DB (Skip if Shipping)
                     // We look up the product by the final ID we decided on (base or parent)
                     const currentInfo = productData.get(finalId);
-                    if (currentInfo) {
+                    if (currentInfo && !isShipping) {
                         finalName = currentInfo.nombre;
                     }
 
                     // 4. Calculate Units using explicit unitsPerProduct or default fallback
-                    const isShipping = finalId === 'shipping-cost' || String(finalName).toLowerCase().includes('envío') || String(finalName).toLowerCase().includes('envio');
 
                     if (isShipping) {
                         finalUnits = 0;
@@ -413,7 +435,33 @@ export default function Dashboard() {
                     const price = Number(item.price) || 0;
                     const lineTotal = (Number(item.quantity) || 0) * price;
 
-                    const costPerUnit = isShipping ? price : (currentInfo?.recipe?.costPerUnit || 0);
+                    // If the product itself is tracked in Dashboard
+                    // Automatically track shipping if any shipping item was tracked in the DB.
+                    const isTrackedProduct = currentInfo?.trackInDashboard;
+
+                    if (isTrackedProduct || isShipping) {
+                        // For shipping, we might need to find if there's any tracked shipping product to sum into, 
+                        // or we can just ensure 'Envío' appears in tracked materials if there's a shipping product tracked.
+                        // Let's find the matching tracked item. For shipping, it's 'shipping-cost' or the specific ID.
+                        const trackedItemKey = isShipping ? 'shipping-cost' : currentInfo?.id;
+                        let trackedItem = newTrackedMaterialsMap.get(trackedItemKey);
+
+                        // If it's shipping but we don't have a specific 'shipping-cost' tracker, maybe they tracked the new Envio product.
+                        // Let's find any tracked item named 'Envío'
+                        if (isShipping && !trackedItem) {
+                            const found = Array.from(newTrackedMaterialsMap.values()).find(tm => String(tm.name).toLowerCase().includes('enví') || String(tm.name).toLowerCase().includes('envi'));
+                            if (found) {
+                                trackedItem = newTrackedMaterialsMap.get(found.id);
+                            }
+                        }
+
+                        if (trackedItem) {
+                            trackedItem.quantity += finalQty;
+                            trackedItem.cost += lineTotal;
+                        }
+                    }
+
+                    const costPerUnit = (isShipping || isTrackedProduct) ? price : (currentInfo?.recipe?.costPerUnit || 0);
 
                     if (current) {
                         current.quantity += finalQty;
@@ -941,26 +989,60 @@ export default function Dashboard() {
             {trackedMaterials.length > 0 && (
                 <div className="products-stats-section" style={{ marginBottom: '30px' }}>
                     <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FaChartLine color="#8b5cf6" /> Seguimiento de Materias Primas e Insumos ({getTimeframeLabel()})
+                        <FaChartLine color="#8b5cf6" /> Seguimiento Especial (Insumos y Productos) ({getTimeframeLabel()})
                     </h3>
                     <div className="products-table-container">
                         <table className="products-stats-table">
                             <thead>
                                 <tr>
                                     <th>Concepto</th>
-                                    <th>Cantidad Consumida</th>
-                                    <th>Costo Generado</th>
+                                    <th>Cantidad Consumida/Vendida</th>
+                                    <th>Monto Total</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {trackedMaterials.map((tm, index) => (
                                     <tr key={index}>
-                                        <td><strong>{tm.name}</strong></td>
+                                        <td>
+                                            <strong>{tm.name}</strong>
+                                            {tm.isProduct && <span className="text-muted" style={{ fontSize: '0.8rem', marginLeft: '6px' }}>(Producto)</span>}
+                                        </td>
                                         <td>{Number(tm.quantity).toFixed(2).replace(/\.?0+$/, "")} {tm.unit}</td>
-                                        <td style={{ color: '#ef4444', fontWeight: 'bold' }}>${Math.floor(tm.cost).toLocaleString('es-AR')}</td>
+                                        <td style={{ color: tm.isProduct ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                                            ${Math.floor(tm.cost).toLocaleString('es-AR')}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '15px', fontWeight: 'bold' }}>
+                                        Total Costos Calculados (Todos los productos)
+                                    </td>
+                                    <td style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                                        ${Math.floor(topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}
+                                    </td>
+                                </tr>
+                                <tr style={{ background: '#f9fafb' }}>
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '15px', color: '#8b5cf6', fontWeight: 'bold' }}>
+                                        (-) Seguimiento Especial (Insumos y Productos)
+                                    </td>
+                                    <td style={{ color: '#8b5cf6', fontWeight: 'bold' }}>
+                                        ${Math.floor(trackedMaterials.reduce((sum, tm) => sum + tm.cost, 0)).toLocaleString('es-AR')}
+                                    </td>
+                                </tr>
+                                <tr style={{ background: '#ecfdf5', borderTop: '1px solid #d1fae5' }}>
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '15px', color: '#059669', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        (=) Materia Prima Real
+                                    </td>
+                                    <td style={{ color: '#059669', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        ${Math.floor(
+                                            topProducts.reduce((sum, p) => sum + p.totalCost, 0) -
+                                            trackedMaterials.reduce((sum, tm) => sum + tm.cost, 0)
+                                        ).toLocaleString('es-AR')}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

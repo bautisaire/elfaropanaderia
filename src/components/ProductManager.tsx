@@ -38,6 +38,7 @@ export interface FirestoreProduct {
     isHiddenInPOS?: boolean;
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
     unitsPerProduct?: number; // Equivalencia de unidades
+    trackInDashboard?: boolean;
     stockDependency?: {
         productId: string;
         unitsToDeduct: number;
@@ -66,6 +67,7 @@ const INITIAL_STATE: FirestoreProduct = {
     isHiddenInPOS: false,
     unitType: 'unit',
     unitsPerProduct: 1,
+    trackInDashboard: false,
     requiresRecipe: true,
     stockReadyTime: "",
     customBadgeText: "",
@@ -141,6 +143,7 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                         isVisible: data.isVisible !== false,
                         unitType: data.unitType || 'unit',
                         unitsPerProduct: data.unitsPerProduct !== undefined ? data.unitsPerProduct : 1,
+                        trackInDashboard: !!data.trackInDashboard,
                         shortId: data.shortId || "",
                         images: data.images || (data.img ? [data.img] : []),
                         stockReadyTime: data.stockReadyTime || "",
@@ -682,6 +685,18 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                                                 onChange={handleInputChange}
                                             />
                                             Requiere Receta
+                                        </label>
+                                    </div>
+
+                                    <div className="form-group quarter checkbox-group-styled">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="trackInDashboard"
+                                                checked={!!formData.trackInDashboard}
+                                                onChange={handleInputChange}
+                                            />
+                                            <strong style={{ color: '#8b5cf6' }}>Seguimiento en Dashboard</strong>
                                         </label>
                                     </div>
 
