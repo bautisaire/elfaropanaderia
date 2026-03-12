@@ -311,6 +311,7 @@ export default function Checkout() {
       // Preparar Ticket
       const ticketData = {
         id: orderId,
+        items: cart, // Needed for ticket render and whatsapp link
         itemsWithShipping: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1 }] : [])],
         total: finalTotal,
         paymentMethod: formData.metodoPago,

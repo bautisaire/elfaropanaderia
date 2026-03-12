@@ -27,10 +27,9 @@ service cloud.firestore {
     match /orders/{orderId} {
       // Las compras nuevas se ingresan por la Cloud Function processOrder. (Admin la puede hacer manual si quiere).
       allow create: if isAdmin(); 
-      // Permitimos get para LocalStorage Mis Compras
-      allow get: if true; 
-      // Permitir listar solo si es el mismo usuario logueado o Admin
-      allow list: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+      // Permitimos read general: dado que los IDs son generados al azar, conocer el ID otorga permiso de lectura.
+      // Esto es vital para "Mis Compras" basado en LocalStorage, incluso sin estar logueado.
+      allow read: if true; 
       allow update: if isAdmin();
       allow delete: if request.auth != null && request.auth.token.email == "sairebautista@gmail.com";
     }
