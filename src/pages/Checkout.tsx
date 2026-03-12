@@ -2,13 +2,13 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
-import { db } from "../firebase/firebaseConfig";
-import { collection, Timestamp, doc, getDoc, runTransaction, onSnapshot, DocumentSnapshot } from "firebase/firestore";
+import { db, functions } from "../firebase/firebaseConfig";
+import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
-import { syncChildProducts } from "../utils/stockUtils";
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user } = useContext(CartContext);
@@ -269,261 +269,63 @@ export default function Checkout() {
     }
 
     try {
-      // Helper to correctly extract Base ID
-      const getBaseId = (item: any) => {
-        // If we saved productId explicitly (future proof), use it.
-        if (item.productId) return String(item.productId);
-
-        // Otherwise, try to detect variant suffix
-        const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
-        const variantName = match ? match[1] : null;
-
-        if (variantName) {
-          const suffix = `-${variantName}`;
-          if (String(item.id).endsWith(suffix)) {
-            return String(item.id).substring(0, String(item.id).length - suffix.length);
-          }
-        }
-        // Fallback: If no variant pattern detected, assume ID is the base ID
-        // DO NOT SPLIT BY HYPHEN blindly, as IDs like 'torta-frita' are valid.
-        return String(item.id);
+      // LLAMADA AL BACKEND
+      const processOrderFn = httpsCallable(functions, 'processOrder');
+      
+      const requestData = {
+        cart,
+        formData,
+        shippingCost,
+        finalTotal,
+        userId: user?.uid || null
       };
 
-      // 2. TRANSACTION: Descuento de Stock y Creación de Orden Atómica
-      const transactionResult = await runTransaction(db, async (transaction) => {
-        // A. Preparar Lecturas
-        const productIdsToRead = new Set<string>();
-        cart.forEach(item => {
-          const baseId = getBaseId(item);
-          productIdsToRead.add(baseId);
-        });
+      const { data } = await processOrderFn(requestData) as any;
+      const { success, orderId, init_point } = data;
 
-        // Leer Productos
-        const uniqueIds = Array.from(productIdsToRead);
-        const refs = uniqueIds.map(id => doc(db, "products", id));
-        const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
-        const productDocsMap: Record<string, any> = {};
-        docsSnap.forEach((snap, i) => { if (snap.exists()) productDocsMap[uniqueIds[i]] = snap.data(); });
-
-        // Check Parents for Packs
-        const parentIdsToFetch = new Set<string>();
-        cart.forEach(item => {
-          const baseId = getBaseId(item);
-          const pData = productDocsMap[baseId];
-          if (pData?.stockDependency?.productId) parentIdsToFetch.add(pData.stockDependency.productId);
-        });
-        if (parentIdsToFetch.size > 0) {
-          const parentRefs = Array.from(parentIdsToFetch).map(id => doc(db, "products", id));
-          const parentSnaps = await Promise.all(parentRefs.map(ref => transaction.get(ref)));
-          parentSnaps.forEach((snap, i) => { if (snap.exists()) productDocsMap[Array.from(parentIdsToFetch)[i]] = snap.data(); });
-        }
-
-        // Read Config Counter for Order ID
-        const counterRef = doc(db, "config", "order_counter");
-        const counterSnap = await transaction.get(counterRef);
-        let currentOrderId = 1000;
-
-        if (counterSnap.exists()) {
-          currentOrderId = (counterSnap.data().current || 999) + 1;
-        }
-
-        const productsToUpdate = new Set<string>();
-        const stockMovementsToLog: any[] = [];
-        const stockAlertsToLog: any[] = [];
-
-        // B. Procesar Cart Items
-        for (const item of cart) {
-          const baseId = getBaseId(item);
-          const productData = productDocsMap[baseId];
-          if (!productData) throw new Error(`Producto no encontrado: ${item.name}`);
-
-          const qty = Number(item.quantity) || 1;
-
-          // CASE A: Derived (Pack)
-          if (productData.stockDependency?.productId) {
-            const parentId = productData.stockDependency.productId;
-            const parentData = productDocsMap[parentId];
-            if (!parentData) throw new Error(`Producto padre no encontrado para: ${item.name}`);
-
-            const unitsToDeduct = Number(productData.stockDependency.unitsToDeduct) || 1;
-            const totalDeduct = qty * unitsToDeduct;
-            const currentStock = Number(parentData.stockQuantity) || 0;
-
-            // Strict Validation
-            if (currentStock < totalDeduct) throw new Error(`Stock insuficiente: ${item.name} (Pack)`);
-
-            parentData.stockQuantity = currentStock - totalDeduct;
-            parentData.stock = parentData.stockQuantity > 0;
-            productsToUpdate.add(parentId);
-
-            stockMovementsToLog.push({
-              productId: parentId, productName: parentData.nombre, quantity: totalDeduct,
-              observation: `Venta Derivado: ${item.name}`
-            });
-          }
-          // CASE B: Standard / Variant
-          else {
-            let variantName = "";
-            const match = item.name.match(/\(([^)]+)\)$/);
-            if (match) variantName = match[1];
-
-            if (variantName && productData.variants) {
-              const vIdx = productData.variants.findIndex((v: any) => v.name === variantName);
-              if (vIdx < 0) throw new Error(`Variante no encontrada: ${variantName}`);
-
-              const variant = productData.variants[vIdx];
-              const currentStock = Number(variant.stockQuantity) || 0;
-              // Strict Validation
-              if (currentStock < qty) throw new Error(`Stock insuficiente: ${item.name} (${variantName})`);
-
-              variant.stockQuantity = currentStock - qty;
-              variant.stock = variant.stockQuantity > 0;
-              productsToUpdate.add(baseId);
-            } else {
-              const currentStock = Number(productData.stockQuantity) || 0;
-              // Strict Validation
-              if (currentStock < qty) throw new Error(`Stock insuficiente: ${item.name}`);
-
-              productData.stockQuantity = currentStock - qty;
-              productData.stock = productData.stockQuantity > 0;
-              productsToUpdate.add(baseId);
-            }
-
-            stockMovementsToLog.push({
-              productId: baseId, productName: item.name, quantity: qty,
-              observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`
-            });
-          }
-        }
-
-        // C. Writes
-        productsToUpdate.forEach(pid => {
-          const d = productDocsMap[pid];
-          transaction.update(doc(db, "products", pid), {
-            stockQuantity: d.stockQuantity, stock: d.stock, variants: d.variants || []
-          });
-        });
-
-        // Update Order Counter
-        transaction.set(counterRef, { current: currentOrderId }, { merge: true });
-
-        // D. Create Order
-        const orderIdString = currentOrderId.toString();
-        const orderRef = doc(db, "orders", orderIdString);
-
-        const finalItems = [...cart];
-        if (shippingCost > 0) {
-          finalItems.push({
-            id: 'shipping-cost',
-            name: 'Envío',
-            price: shippingCost,
-            quantity: 1,
-            image: '',
-            stock: true
-          });
-        }
-
-        const sanitize = (obj: any) => JSON.parse(JSON.stringify(obj));
-
-        const newOrderData = {
-          id: orderIdString,
-          items: sanitize(finalItems),
-          total: Number(finalTotal) || 0,
-          cliente: {
-            ...sanitize(formData),
-            deviceId: user?.uid || localStorage.getItem('device_id') || 'unknown'
-          },
-          date: new Date(),
-          status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
-          paymentMethod: formData.metodoPago
-        };
-        transaction.set(orderRef, newOrderData);
-
-        // E. Log Movements
-        stockMovementsToLog.forEach(mov => {
-          const mRef = doc(collection(db, "stock_movements"));
-          transaction.set(mRef, { ...mov, type: 'OUT', reason: formData.metodoPago === 'mercadopago' ? 'Venta Online (MP)' : 'Venta Online', date: new Date() });
-        });
-
-        // F. Create Stock Alerts
-        stockAlertsToLog.forEach(alert => {
-          const aRef = doc(collection(db, "stock_alerts"));
-          transaction.set(aRef, alert);
-        });
-
-        return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
-      });
-
-      // 3. Post-Transaction Actions
-      // Sync Children
-      if (transactionResult.productsToUpdate) {
-        Promise.all(transactionResult.productsToUpdate.map(u => syncChildProducts(u.id, u.newStock))).catch(console.error);
+      if (!success) {
+        throw new Error("Respuesta inválida del servidor");
       }
 
-      const newOrderId = transactionResult.orderId;
-      console.log("Pedido confirmado ID:", newOrderId);
+      console.log("Pedido confirmado por backend ID:", orderId);
 
-      // Save to LocalStorage
+      // Guardar LocalStorage
       try {
         const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
         const cleanOrders = existingOrders.map((o: any) => typeof o === 'object' ? (o.id || o.orderId) : o);
-        if (!cleanOrders.includes(newOrderId)) {
-          cleanOrders.push(newOrderId);
+        if (!cleanOrders.includes(orderId)) {
+          cleanOrders.push(orderId);
           localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
           window.dispatchEvent(new Event("storage"));
         }
         localStorage.setItem('customer_info', JSON.stringify(formData));
       } catch (e) { console.error("Storage error", e); }
 
-      // Telegram
+      // Telegram local (Se podría mover al backend)
       if (!isAdmin) {
         sendTelegramNotification({
-          items: cart, total: finalTotal, shippingCost, cliente: formData, date: Timestamp.now(), status: "pending", id: newOrderId
+          items: cart, total: finalTotal, shippingCost, cliente: formData, date: Timestamp.now(), status: "pending", id: orderId
         }).catch(console.error);
       }
 
-      // Prepara Ticket Data
+      // Preparar Ticket
       const ticketData = {
-        id: newOrderId,
-        items: [...cart], // Visualmente en el ticket quizás queramos mostrarlo separado o incluido. 
-        // Si mostramos `cart` aquí, no saldrá el envío. Deberíamos usar finalItems si lo tenemos disponible fuera de la transacción.
-        // Reconstruimos finalItems para el ticket:
+        id: orderId,
         itemsWithShipping: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1 }] : [])],
         total: finalTotal,
         paymentMethod: formData.metodoPago,
         cliente: formData
       };
 
-      // IF MERCADO PAGO
+      // Si es MercadoPago, redirect
       if (formData.metodoPago === 'mercadopago') {
-        try {
-          const response = await fetch('https://us-central1-el-faro-panaderia.cloudfunctions.net/createPreference', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              items: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1, stock: true }] : [])],
-              orderId: newOrderId
-            })
-          });
-          const data = await response.json();
-
-          if (data.init_point) {
-            // Clear local cart but don't show success modal yet, redirect immediately
-            // Note: User might come back to empty cart if they cancel. 
-            // Ideally we keep cart until success return, but for now this is standard.
-            clearCart();
-            window.location.href = data.init_point;
-            return;
-          } else {
-            alert("Error al conectar con Mercado Pago.");
-            setIsSubmitting(false);
-            return;
-          }
-        } catch (error) {
-          console.error("MP Error:", error);
-          alert("Error al iniciar el pago.");
-          setIsSubmitting(false);
+        if (init_point) {
+          clearCart();
+          window.location.href = init_point;
           return;
+        } else {
+          alert("El pedido se creó, pero hubo un error al generar de link de Mercado Pago. Contáctenos.");
+          // Aún así mostrar éxito
         }
       }
 
@@ -544,14 +346,12 @@ export default function Checkout() {
     } catch (error: any) {
       console.error("Error al enviar el pedido:", error);
       setIsSubmitting(false);
-      if (error.message && error.message.includes("Stock insuficiente")) {
-        alert(`⚠️ ${error.message}\n\nPor favor revisa tu carrito.`);
+      
+      const msg = error.message || "";
+      if (msg.includes("Stock insuficiente")) {
+        alert(`⚠️ ${msg}\n\nPor favor revisa tu carrito.`);
       } else {
-        if (error.message) {
-          alert(`❌ Error: ${error.message}\n\nSi el problema persiste, contactanos.`);
-        } else {
-          alert("Error al procesar el pedido. Puede que el stock haya cambiado. Inténtalo de nuevo.");
-        }
+        alert(`❌ Error al procesar el pedido: ${msg}\n\nSi el problema persiste, contactanos al WhatsApp.`);
       }
     }
   };

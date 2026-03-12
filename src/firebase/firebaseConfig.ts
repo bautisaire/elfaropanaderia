@@ -4,6 +4,7 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
+import { getFunctions } from "firebase/functions";
 
 
 const firebaseConfig = {
@@ -22,6 +23,7 @@ const analytics = getAnalytics(app);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
+const functions = getFunctions(app);
 
 let messaging: any = null;
 isSupported().then(supported => {
@@ -34,4 +36,4 @@ const googleProvider = new GoogleAuthProvider();
 const facebookProvider = new FacebookAuthProvider();
 
 
-export { app, analytics, db, auth, googleProvider, facebookProvider, storage, messaging };
+export { app, analytics, db, auth, googleProvider, facebookProvider, storage, messaging, functions };

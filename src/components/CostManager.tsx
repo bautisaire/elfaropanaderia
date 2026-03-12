@@ -64,6 +64,7 @@ export default function CostManager() {
     const [editingRecipe, setEditingRecipe] = useState<ProductRecipe | null>(null);
     const [recipeYieldType, setRecipeYieldType] = useState<'units' | 'kg'>('units');
     const [newIngredient, setNewIngredient] = useState<RecipeIngredient>({ rawMaterialId: '', quantity: 0 });
+    const [cloneFromId, setCloneFromId] = useState<string>('');
 
     // Quick Add Form
     const [newMaterial, setNewMaterial] = useState({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '' });
@@ -314,7 +315,19 @@ export default function CostManager() {
         }
     };
 
-    // --- FORMATTERS ---
+    const handleCloneRecipe = () => {
+        if (!cloneFromId) return;
+        const sourceProduct = products.find(p => p.id === cloneFromId);
+        if (sourceProduct && sourceProduct.recipe) {
+            // Copy ingredients and yield
+            const clonedRecipe = JSON.parse(JSON.stringify(sourceProduct.recipe));
+            setEditingRecipe(clonedRecipe);
+            setRecipeYieldType(clonedRecipe.yieldType || 'units');
+            setCloneFromId('');
+        }
+    };
+
+    // --- RENDER ---
     const formatQuantity = (qty: number, unit: string) => {
         if (unit === 'g' && qty >= 1000) return `${(qty / 1000).toFixed(1).replace(/\.0$/, '')} kg`;
         if (unit === 'ml' && qty >= 1000) return `${(qty / 1000).toFixed(1).replace(/\.0$/, '')} L`;
@@ -660,6 +673,37 @@ export default function CostManager() {
                                             </p>
                                         </div>
                                     )}
+
+                                    {/* --- SECCIÓN COPIAR RECETA --- */}
+                                    <div className="cm-copy-recipe-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#e0e7ff', padding: '10px 15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #c7d2fe' }}>
+                                        <FaRobot color="#4f46e5" />
+                                        <label style={{ color: '#3730a3', fontWeight: 'bold' }}>Cargar receta desde:</label>
+                                        <select
+                                            value={cloneFromId}
+                                            onChange={e => setCloneFromId(e.target.value)}
+                                            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #a5b4fc', flex: 1, maxWidth: '300px' }}
+                                        >
+                                            <option value="">-- Seleccionar producto base --</option>
+                                            {products
+                                                .filter(p => p.id !== selectedProductId && p.recipe && p.recipe.ingredients.length > 0)
+                                                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                                                .map(p => (
+                                                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                                                ))}
+                                        </select>
+                                        <button
+                                            className="cm-btn-secondary"
+                                            onClick={handleCloneRecipe}
+                                            disabled={!cloneFromId}
+                                            style={{
+                                                background: cloneFromId ? '#4f46e5' : '#e2e8f0',
+                                                color: cloneFromId ? 'white' : '#94a3b8',
+                                                borderColor: cloneFromId ? '#4338ca' : '#cbd5e1'
+                                            }}
+                                        >
+                                            Copiar Fórmula
+                                        </button>
+                                    </div>
 
                                     <div className="cm-add-bar" style={{ background: '#eff6ff', borderColor: '#bfdbfe', flexWrap: 'wrap' }}>
                                         <div style={{ display: 'flex', flex: 1, gap: '5px', minWidth: '200px', position: 'relative' }}>

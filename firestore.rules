@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función auxiliar para verificar si es admin
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == "sairebautista@gmail.com" || 
+        request.auth.token.email == "mariacoronel160478@gmail.com" ||
+        request.auth.token.email == "litijunior@hotmail.com.ar" 
+      );
+    }
+    
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      // Ya no permitimos update desde cliente para stock regular. Admin controla todo.
+      allow update: if isAdmin();
+    }
+    
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Pedidos (Permitir lectura para poder usar LocalStorage y "Mis Compras")
+    match /orders/{orderId} {
+      // Las compras nuevas se ingresan por la Cloud Function processOrder. (Admin la puede hacer manual si quiere).
+      allow create: if isAdmin(); 
+      // Permitimos get para LocalStorage Mis Compras
+      allow get: if true; 
+      // Permitir listar solo si es el mismo usuario logueado o Admin
+      allow list: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+      allow update: if isAdmin();
+      allow delete: if request.auth != null && request.auth.token.email == "sairebautista@gmail.com";
+    }
+    
+    match /hero_slides/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /config/store_settings {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    match /config/order_counter {
+        allow read: if true;
+        // El incremento automático ahora es desde Backend. 
+        allow update, create: if isAdmin(); 
+    }
+    
+    match /config/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /stock_movements/{movementId} {
+      // Movimientos generados manualmente solo por Admin, los web los genera Backend
+      allow create, read, update, delete: if isAdmin();
+    }
+    
+    match /stats/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // --- TICKETS DE IA / VOZ ---
+    match /voice_purchases/{documentId} {
+      // Permitimos crear tickets a cualquier usuario registrado (para no bloquear el dictado)
+      // Pero solo los admins pueden modificar o borrar el registro después.
+      allow create: if request.auth != null;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // --- MÓDULO DE USUARIOS ---
+    match /users/{userId} {
+      // Un usuario solo puede leer y guardar (direcciones/info) en su propio documento
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Admins pueden leer toda la colección libremente (para la pestaña "UsersManager")
+      allow read: if isAdmin();
+    }
+    
+    // --- MÓDULO DE COSTOS Y RECETAS ---
+    match /raw_materials/{materialId} {
+      // Solo administradores pueden ver, crear, editar o eliminar materias primas
+      allow read, write: if isAdmin();
+    }
+    
+    // --- ALERTAS DE STOCK ---
+    match /stock_alerts/{alertId} {
+      // Generadas solo por Admin en web, cloud function se encarga de automáticas.
+      allow create, read, update, delete: if isAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- NUEVO: Observaciones de Clientes (Tickets) ---
+    match /customer_notes/{noteId} {
+      // Solo el administrador puede leer, agregar o editar las notas de los clientes
+      allow read, write: if isAdmin();
+    }
+
+  } 
+}
