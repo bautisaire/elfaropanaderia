@@ -11,7 +11,7 @@ import {
     sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
-import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaBoxOpen, FaChevronDown } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaBoxOpen, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
 import { FcGoogle } from 'react-icons/fc';
 import './MyAccount.css';
 
@@ -618,7 +618,7 @@ function OrdersTab() {
             <div className="dashboard-section">
                 <h2 className="section-title">Mis Compras</h2>
                 <div className="placeholder-card empty-state-card">
-                    <FaBoxOpen size={50} color="#ffdecc" style={{ marginBottom: '15px' }} />
+                    <FaMotorcycle size={50} color="#ffdecc" style={{ marginBottom: '15px' }} />
                     <h3>Aún no has hecho compras</h3>
                     <p>Cuando realices un pedido, podrás hacerle seguimiento desde aquí.</p>
                 </div>
@@ -678,7 +678,7 @@ const ComprasCard = ({ order }: { order: Order }) => {
             <div className={`compra-header ${isExpanded ? 'expanded' : ''}`} style={{ borderBottom: isExpanded ? '1px solid #f0f0f0' : 'none', paddingBottom: isExpanded ? '20px' : '0', marginBottom: isExpanded ? '25px' : '0' }}>
                 <div className="compra-header-left">
                     <div className="compra-icon-wrapper" style={{ backgroundColor: 'var(--primary-color)' }}>
-                        <FaBoxOpen color="#fff" />
+                        <FaMotorcycle color="#fff" />
                     </div>
                     <div>
                         <h4 style={{ margin: 0, color: '#333' }}>Pedido #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6).toUpperCase()}</h4>

@@ -1,0 +1,60 @@
+.floating-tracker-container {
+    position: fixed;
+    bottom: 25px;
+    right: 25px; /* Change to left if needed */
+    z-index: 1000;
+    cursor: pointer;
+    animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.floating-tracker-btn {
+    background-color: var(--primary-color);
+    color: white;
+    width: 65px;
+    height: 65px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: relative;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.floating-tracker-btn:hover {
+    transform: scale(1.08);
+    background-color: var(--primary-dark);
+}
+
+.floating-tracker-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #ef4444; /* Red badge */
+    color: white;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid white;
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* If CartFloating is also on the right, we might need to adjust bottom or right.
+   Assuming cart is bottom: 100px or so, let's keep it here or we can adjust it later. */
+@media (max-width: 768px) {
+    .floating-tracker-container {
+        bottom: 20px;
+        left: 20px; /* Put on the left on mobile to avoid clashing with chat/cart */
+        right: auto;
+    }
+}

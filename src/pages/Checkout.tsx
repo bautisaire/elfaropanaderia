@@ -8,7 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
-import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft } from "react-icons/fa";
+import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle } from "react-icons/fa";
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user } = useContext(CartContext);
@@ -292,11 +292,13 @@ export default function Checkout() {
       // Guardar LocalStorage
       try {
         const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
-        const cleanOrders = existingOrders.map((o: any) => typeof o === 'object' ? (o.id || o.orderId) : o);
-        if (!cleanOrders.includes(orderId)) {
-          cleanOrders.push(orderId);
+        const cleanOrders = existingOrders.map((o: any) => String(typeof o === 'object' ? (o.id || o.orderId) : o));
+        
+        if (!cleanOrders.includes(String(orderId))) {
+          cleanOrders.push(String(orderId));
           localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
           window.dispatchEvent(new Event("storage"));
+          window.dispatchEvent(new Event('mis_pedidos_updated'));
         }
         localStorage.setItem('customer_info', JSON.stringify(formData));
       } catch (e) { console.error("Storage error", e); }
@@ -775,12 +777,7 @@ export default function Checkout() {
         showConfirmation && (
           <div className="order-modal" role="dialog" aria-modal="true">
             <div className="order-modal-content">
-              <svg xmlns="http://www.w3.org/2000/svg" className="order-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-                <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                <circle cx="18.5" cy="18.5" r="2.5"></circle>
-              </svg>
+              <FaMotorcycle className="order-icon-large" />
               <h3>Pedido realizado!</h3>
               <p>En breves nos comunicaremos con usted</p>
               <p>¡Gracias por su compra!</p>

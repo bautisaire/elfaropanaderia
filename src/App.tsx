@@ -10,6 +10,8 @@ import Proximamente from "./pages/Proximamente";
 import DebugConsole from "./components/DebugConsole";
 import MyAccount from "./pages/MyAccount";
 import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
+import MisPedidos from "./pages/MisPedidos";
+import FloatingOrderTracker from "./components/FloatingOrderTracker";
 
 import CartSidebar from "./components/CartSidebar";
 
@@ -43,12 +45,16 @@ function Layout() {
       {/* Cart Sidebar rendered globally */}
       {!isEditor && <CartSidebar />}
 
+      {/* Floating Order Tracker for non-admins to track local orders */}
+      {!isEditor && !isAdmin && <FloatingOrderTracker />}
+
       <div style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/editor/*" element={<Editor />} />
           <Route path="/mi-cuenta" element={<MyAccount />} />
+          <Route path="/mis-pedidos" element={<MisPedidos />} />
           <Route path="/Proximamente" element={<Proximamente />} />
         </Routes>
       </div>

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
-import { FaPhone, FaSync, FaCheckCircle, FaClock, FaTruck, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
@@ -28,7 +28,7 @@ interface Order {
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b", icon: <FaClock /> },
     { value: "preparando", label: "Preparando", color: "#3b82f6", icon: <FaBoxOpen /> },
-    { value: "enviado", label: "Enviado", color: "#8b5cf6", icon: <FaTruck /> },
+    { value: "enviado", label: "Enviado", color: "#8b5cf6", icon: <FaMotorcycle /> },
     { value: "entregado", label: "Entregado", color: "#10b981", icon: <FaCheckCircle /> },
     { value: "cancelado", label: "Cancelado", color: "#ef4444", icon: <FaTimesCircle /> },
 ];

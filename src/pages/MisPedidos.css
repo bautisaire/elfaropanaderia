@@ -1,0 +1,91 @@
+.mis-pedidos-page-container {
+  padding: 80px 20px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 80vh;
+}
+
+.mis-pedidos-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.mis-pedidos-header h2 {
+  font-size: 2rem;
+  color: var(--text-dark);
+  margin-bottom: 10px;
+}
+
+.mis-pedidos-header p {
+  color: var(--text-light);
+  font-size: 1.1rem;
+}
+
+.mis-pedidos-login-banner {
+  margin-top: 60px;
+  background-color: #fca5a5; /* Fallback */
+  background: linear-gradient(135deg, var(--primary-color, #ff8c00) 0%, var(--primary-dark, #e07b00) 100%);
+  border-radius: 16px;
+  padding: 30px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.banner-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.banner-text {
+  flex: 1;
+  min-width: 250px;
+}
+
+.banner-text h4 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.banner-text p {
+  font-size: 1rem;
+  opacity: 0.9;
+  line-height: 1.5;
+}
+
+.btn-banner-login {
+  background: white;
+  color: var(--primary-color);
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-banner-login:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .banner-content {
+      flex-direction: column;
+      text-align: center;
+  }
+  
+  .btn-banner-login {
+      width: 100%;
+  }
+}
