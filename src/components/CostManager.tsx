@@ -16,6 +16,7 @@ export interface RawMaterial {
     priceHistory?: { price: number; date: string; baseQuantity?: number; unit?: string }[];
     description?: string;
     trackInDashboard?: boolean;
+    category?: 'materia prima' | 'mano de obra' | 'gasto por ventas' | 'impuestos' | 'cif';
 }
 
 export interface RecipeIngredient {
@@ -28,6 +29,7 @@ export interface ProductRecipe {
     yield: number; // Rendimiento
     yieldType?: 'units' | 'kg'; // Tipo de rendimiento
     costPerUnit?: number;
+    merma?: number; // Porcentaje de desperdicio/pérdida
 }
 
 export interface Product {
@@ -67,7 +69,7 @@ export default function CostManager() {
     const [cloneFromId, setCloneFromId] = useState<string>('');
 
     // Quick Add Form
-    const [newMaterial, setNewMaterial] = useState({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '' });
+    const [newMaterial, setNewMaterial] = useState<Partial<RawMaterial>>({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '', category: 'materia prima' });
 
     // Sort & Search State
     const [matSortBy, setMatSortBy] = useState<'name_asc' | 'date_desc' | 'price_asc' | 'price_desc' | 'qty_asc' | 'qty_desc'>('name_asc');
@@ -76,6 +78,11 @@ export default function CostManager() {
     const [showIngredientDropdown, setShowIngredientDropdown] = useState(false);
     const ingredientInputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Global Replace State
+    const [replaceFromId, setReplaceFromId] = useState<string>('');
+    const [replaceToId, setReplaceToId] = useState<string>('');
+    const [isReplacing, setIsReplacing] = useState(false);
 
     // Click outside handler for dropdown
     useEffect(() => {
@@ -113,14 +120,14 @@ export default function CostManager() {
 
     // --- RAW MATERIALS CRUD ---
     const handleAddMaterial = async () => {
-        if (!newMaterial.name || newMaterial.price <= 0) return alert("Nombre y Precio requerido.");
+        if (!newMaterial.name || (newMaterial.price ?? 0) <= 0) return alert("Nombre y Precio requerido.");
         try {
             await addDoc(collection(db, "raw_materials"), {
                 ...newMaterial,
                 lastUpdated: Timestamp.now(),
                 priceHistory: [{ price: newMaterial.price, baseQuantity: newMaterial.baseQuantity, unit: newMaterial.unit, date: new Date().toISOString() }]
             });
-            setNewMaterial({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '' });
+            setNewMaterial({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '', category: 'materia prima' });
         } catch (error) {
             console.error(error);
             alert("Error al guardar.");
@@ -187,7 +194,7 @@ export default function CostManager() {
                     setEditingRecipe(cloned);
                     setRecipeYieldType(cloned.yieldType || 'units');
                 } else {
-                    setEditingRecipe({ ingredients: [], yield: 1, yieldType: 'units' });
+                    setEditingRecipe({ ingredients: [], yield: 1, yieldType: 'units', merma: 0 });
                     setRecipeYieldType('units');
                 }
             }
@@ -248,16 +255,23 @@ export default function CostManager() {
     };
 
     // --- MATH HELPERS ---
-    const calculateIngredientCost = (ing: RecipeIngredient): number => {
+    const calculateIngredientCost = (ing: RecipeIngredient, recipeMermaPercentage: number = 0): number => {
         const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
         if (!mat || mat.baseQuantity === 0) return 0;
         // Regla de 3: (Precio / Base) * CantidadUsada
-        return (mat.price / mat.baseQuantity) * ing.quantity;
+        let baseCost = (mat.price / mat.baseQuantity) * ing.quantity;
+        
+        // Aplicar merma SÓLO si es de categoría 'materia prima' y si hay porcentaje de merma definido
+        if ((mat.category === 'materia prima' || !mat.category) && recipeMermaPercentage > 0) {
+           baseCost += baseCost * (recipeMermaPercentage / 100);
+        }
+        
+        return baseCost;
     };
 
     const calculateRecipeTotalCost = (recipe: ProductRecipe | null): number => {
         if (!recipe) return 0;
-        return recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing), 0);
+        return recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
     };
 
     const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
@@ -324,6 +338,79 @@ export default function CostManager() {
             setEditingRecipe(clonedRecipe);
             setRecipeYieldType(clonedRecipe.yieldType || 'units');
             setCloneFromId('');
+        }
+    };
+
+    const handleGlobalReplace = async () => {
+        if (!replaceFromId || !replaceToId) return alert("Selecciona ambos ingredientes para el reemplazo.");
+        if (replaceFromId === replaceToId) return alert("El ingrediente a reemplazar y el nuevo no pueden ser el mismo.");
+        
+        const fromMat = rawMaterials.find(m => m.id === replaceFromId);
+        const toMat = rawMaterials.find(m => m.id === replaceToId);
+        
+        if (!fromMat || !toMat) return;
+
+        // Buscar productos que tengan el ingrediente 'replaceFromId'
+        const productsToUpdate = products.filter(p => 
+            p.recipe && 
+            p.recipe.ingredients.some(ing => ing.rawMaterialId === replaceFromId)
+        );
+
+        if (productsToUpdate.length === 0) {
+            return alert(`No se encontraron recetas que usen "${fromMat.name}".`);
+        }
+
+        if (!window.confirm(`¿Estás seguro de reemplazar "${fromMat.name}" por "${toMat.name}" en ${productsToUpdate.length} receta(s)? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+
+        setIsReplacing(true);
+        try {
+            // Actualizar cada producto
+            for (const prod of productsToUpdate) {
+                if (!prod.recipe) continue;
+                
+                // Si la receta ya tiene el ingrediente destino, sumar las cantidades y eliminar el origen.
+                // Si no, simplemente cambiar el ID.
+                const newIngredients = [...prod.recipe.ingredients];
+                const fromIndex = newIngredients.findIndex(i => i.rawMaterialId === replaceFromId);
+                const toIndex = newIngredients.findIndex(i => i.rawMaterialId === replaceToId);
+                
+                if (fromIndex !== -1) {
+                    const fromQty = newIngredients[fromIndex].quantity;
+                    
+                    if (toIndex !== -1) {
+                        // Ya existe el destino, sumamos y eliminamos el origen
+                        newIngredients[toIndex].quantity += fromQty;
+                        newIngredients.splice(fromIndex, 1);
+                    } else {
+                        // No existe el destino, cambiamos el ID del origen
+                        newIngredients[fromIndex].rawMaterialId = replaceToId;
+                    }
+                    
+                    // Recalcular el unitCost de esta receta actualizada
+                    const updatedRecipe = {
+                        ...prod.recipe,
+                        ingredients: newIngredients
+                    };
+                    const unitCost = calculateRecipeUnitCost(updatedRecipe, prod.recipe.yieldType || 'units');
+                    
+                    await updateDoc(doc(db, "products", prod.id), {
+                        recipe: {
+                            ...updatedRecipe,
+                            costPerUnit: unitCost
+                        }
+                    });
+                }
+            }
+            alert(`Reemplazo global completado en ${productsToUpdate.length} receta(s).`);
+            setReplaceFromId('');
+            setReplaceToId('');
+        } catch (error) {
+            console.error("Error global replace:", error);
+            alert("Ocurrió un error al intentar reemplazar los ingredientes.");
+        } finally {
+            setIsReplacing(false);
         }
     };
 
@@ -425,6 +512,17 @@ export default function CostManager() {
                                         <option value="min">min (Tiempo)</option>
                                         <option value="un">un (Unidades)</option>
                                     </select>
+                                    <select
+                                        style={{ width: '140px', marginLeft: '5px' }}
+                                        value={editMaterialForm.category || 'materia prima'}
+                                        onChange={e => setEditMaterialForm({ ...editMaterialForm, category: e.target.value as any })}
+                                    >
+                                        <option value="materia prima">Materia Prima</option>
+                                        <option value="mano de obra">Mano de Obra</option>
+                                        <option value="gasto por ventas">Gasto x Ventas</option>
+                                        <option value="impuestos">Impuestos</option>
+                                        <option value="cif">CIF</option>
+                                    </select>
                                 </div>
                                 <div className="cm-input-group">
                                     <span className="currency-symbol">$</span>
@@ -485,6 +583,17 @@ export default function CostManager() {
                                         <option value="min">min (Tiempo)</option>
                                         <option value="un">un (Unidades)</option>
                                     </select>
+                                    <select
+                                        style={{ width: '140px', marginLeft: '5px' }}
+                                        value={newMaterial.category || 'materia prima'}
+                                        onChange={e => setNewMaterial({ ...newMaterial, category: e.target.value as any })}
+                                    >
+                                        <option value="materia prima">Materia Prima</option>
+                                        <option value="mano de obra">Mano de Obra</option>
+                                        <option value="gasto por ventas">Gasto x Ventas</option>
+                                        <option value="impuestos">Impuestos</option>
+                                        <option value="cif">CIF</option>
+                                    </select>
                                 </div>
                                 <div className="cm-input-group">
                                     <span className="currency-symbol">$</span>
@@ -539,11 +648,67 @@ export default function CostManager() {
                             </div>
                         </div>
 
+                        {/* --- SECCIÓN REEMPLAZO GLOBAL --- */}
+                        <div className="cm-copy-recipe-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#fff1f2', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #fecdd3', flexWrap: 'wrap' }}>
+                            <FaRobot color="#e11d48" />
+                            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: '200px' }}>
+                                <label style={{ color: '#9f1239', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '4px' }}>Reemplazo Global en Recetas</label>
+                                <span style={{ fontSize: '0.8rem', color: '#be123c' }}>Sustituye una materia prima por otra en todas las recetas donde se utilice. (Ej: Cambiar una marca de dulce de leche por otra). Mantendrá la misma cantidad y actualizará los costos.</span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', width: '100%', marginTop: '10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: '200px' }}>
+                                    <label style={{ fontSize: '0.8rem', color: '#881337', fontWeight: 'bold' }}>Reemplazar (Original):</label>
+                                    <select
+                                        value={replaceFromId}
+                                        onChange={e => setReplaceFromId(e.target.value)}
+                                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #fda4af', width: '100%' }}
+                                    >
+                                        <option value="">-- Seleccionar original --</option>
+                                        {[...rawMaterials].sort((a,b) => a.name.localeCompare(b.name)).map(m => (
+                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <span style={{ color: '#e11d48', fontWeight: 'bold', marginTop: '18px' }}>➔</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: '200px' }}>
+                                    <label style={{ fontSize: '0.8rem', color: '#881337', fontWeight: 'bold' }}>Por (Nuevo):</label>
+                                    <select
+                                        value={replaceToId}
+                                        onChange={e => setReplaceToId(e.target.value)}
+                                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #fda4af', width: '100%' }}
+                                    >
+                                        <option value="">-- Seleccionar nuevo --</option>
+                                        {[...rawMaterials].filter(m => m.id !== replaceFromId).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
+                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                <button
+                                    className="cm-btn-secondary"
+                                    onClick={handleGlobalReplace}
+                                    disabled={!replaceFromId || !replaceToId || isReplacing}
+                                    style={{
+                                        background: (!replaceFromId || !replaceToId || isReplacing) ? '#f3f4f6' : '#e11d48',
+                                        color: (!replaceFromId || !replaceToId || isReplacing) ? '#9ca3af' : 'white',
+                                        borderColor: (!replaceFromId || !replaceToId || isReplacing) ? '#d1d5db' : '#be123c',
+                                        marginTop: '18px',
+                                        padding: '8px 16px',
+                                        height: 'fit-content'
+                                    }}
+                                >
+                                    {isReplacing ? 'Cambiando...' : 'Aplicar Reemplazo'}
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="cm-table-container">
                             <table className="cm-table">
                                 <thead>
                                     <tr>
                                         <th>Materia Prima / Concepto</th>
+                                        <th>Categoría</th>
                                         <th>Cantidad Base</th>
                                         <th>Precio</th>
                                         <th>Última Act.</th>
@@ -552,9 +717,9 @@ export default function CostManager() {
                                 </thead>
                                 <tbody>
                                     {loadingMaterials ? (
-                                        <tr><td colSpan={5} style={{ textAlign: 'center' }}>Cargando...</td></tr>
+                                        <tr><td colSpan={6} style={{ textAlign: 'center' }}>Cargando...</td></tr>
                                     ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).length === 0 ? (
-                                        <tr><td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>No se encontraron materias primas.</td></tr>
+                                        <tr><td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8' }}>No se encontraron materias primas.</td></tr>
                                     ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).map(mat => (
                                         <tr key={mat.id}>
                                             <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -567,6 +732,11 @@ export default function CostManager() {
                                                         </div>
                                                     </div>
                                                 )}
+                                            </td>
+                                            <td>
+                                                <span style={{ fontSize: '0.85em', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', textTransform: 'capitalize', color: '#475569' }}>
+                                                    {mat.category || 'materia prima'}
+                                                </span>
                                             </td>
                                             <td>
                                                 {formatQuantity(mat.baseQuantity, mat.unit)}
@@ -881,16 +1051,36 @@ export default function CostManager() {
                                                         </div>
                                                     </td>
                                                     <td colSpan={2}>
-                                                        <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto' }}>
-                                                            <input
-                                                                type="number"
-                                                                value={editingRecipe.yield || 1}
-                                                                onChange={e => setEditingRecipe({ ...editingRecipe, yield: Number(e.target.value) })}
-                                                                style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px' }}
-                                                            />
-                                                            <span className="currency-symbol" style={{ background: 'transparent', borderStyle: 'none' }}>
-                                                                {recipeYieldType === 'kg' ? 'kg' : 'unidades'}
-                                                            </span>
+                                                        <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto', gap: '15px' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Rendimiento</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingRecipe.yield || 1}
+                                                                        onChange={e => setEditingRecipe({ ...editingRecipe, yield: Number(e.target.value) })}
+                                                                        style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
+                                                                    />
+                                                                    <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
+                                                                        {recipeYieldType === 'kg' ? 'kg' : 'un'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Merma Categ. Prima</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingRecipe.merma || 0}
+                                                                        onChange={e => setEditingRecipe({ ...editingRecipe, merma: Number(e.target.value) })}
+                                                                        style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
+                                                                    />
+                                                                    <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
+                                                                        %
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>

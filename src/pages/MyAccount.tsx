@@ -11,7 +11,7 @@ import {
     sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
-import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaBoxOpen, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
 import { FcGoogle } from 'react-icons/fc';
 import './MyAccount.css';
 

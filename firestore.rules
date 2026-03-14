@@ -65,6 +65,10 @@ service cloud.firestore {
       allow create, read, update, delete: if isAdmin();
     }
     
+    match /stats/general {
+      allow read, update, create: if true;
+    }
+    
     match /stats/{document=**} {
       allow read, write: if isAdmin();
     }

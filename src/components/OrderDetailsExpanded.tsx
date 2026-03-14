@@ -32,7 +32,10 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
     };
 
     // --- Customer Notes Logic ---
-    const customerId = order?.cliente?.deviceId || order?.cliente?.telefono?.replace(/\D/g, '') || "unknown";
+    // Priorizamos teléfono porque los pedidos creados manualmente por el admin comparten su deviceId.
+    const customerId = order?.cliente?.telefono?.replace(/\D/g, '') && order?.cliente?.telefono?.replace(/\D/g, '').length > 0
+        ? order?.cliente?.telefono?.replace(/\D/g, '')
+        : order?.cliente?.deviceId || "unknown";
     const [notes, setNotes] = useState<{ adminNotes: string; correctedDireccion: string; correctedTelefono: string } | null>(null);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [editingNotesData, setEditingNotesData] = useState({ adminNotes: "", correctedDireccion: "", correctedTelefono: "" });
