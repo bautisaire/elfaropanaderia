@@ -466,9 +466,8 @@ export default function CostManager() {
                     <button
                         className={`cm-tab ${activeTab === 'ai_voice' ? 'active' : ''}`}
                         onClick={() => setActiveTab('ai_voice')}
-                        style={{ color: '#8b5cf6', borderColor: activeTab === 'ai_voice' ? '#8b5cf6' : '' }}
                     >
-                        <FaRobot /> 5. Carga Voz IA
+                        5. Tickets
                     </button>
                 </div>
             </header>
