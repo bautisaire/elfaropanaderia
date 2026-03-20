@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, Timestamp, writeBatch } from 'firebase/firestore';
-import { FaTimes, FaCheckCircle, FaTrash, FaPlus } from 'react-icons/fa';
+import { collection, doc, Timestamp, writeBatch, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { FaTimes, FaCheckCircle, FaTrash, FaPlus, FaList } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { RawMaterial } from './CostManager';
 
 interface VoiceAIPurchasesProps {
@@ -11,7 +12,17 @@ interface VoiceAIPurchasesProps {
 
 export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps) {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [ticketItems, setTicketItems] = useState<any[]>([]);
+    const [ticketName, setTicketName] = useState<string>("");
+    const [ticketDate, setTicketDate] = useState<string>(() => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        return now.toISOString().split('T')[0];
+    });
+    const [ticketType, setTicketType] = useState<string>("materia_prima");
+    const [priceConflicts, setPriceConflicts] = useState<any[]>([]);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     
     // Generador de Refs para mover foco
     const inputRefs = useRef<{ [key: string]: HTMLInputElement | HTMLSelectElement }>({});
@@ -63,14 +74,18 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
         const newItems = [...ticketItems];
         newItems[idx].nombre = newName;
         
-        // Exact match to auto-populate
-        const exactMatch = rawMaterials.find(m => m.name.toLowerCase().trim() === newName.toLowerCase().trim());
-        
-        if (exactMatch) {
-            newItems[idx].rawMaterialId = exactMatch.id;
-            newItems[idx].unidad = exactMatch.unit || 'unidad';
-            newItems[idx].cantidad = exactMatch.baseQuantity || 0;
-            newItems[idx].precioEditado = exactMatch.price || 0;
+        if (ticketType === "materia_prima") {
+            // Exact match to auto-populate
+            const exactMatch = rawMaterials.find(m => m.name.toLowerCase().trim() === newName.toLowerCase().trim());
+            
+            if (exactMatch) {
+                newItems[idx].rawMaterialId = exactMatch.id;
+                newItems[idx].unidad = exactMatch.unit || 'unidad';
+                newItems[idx].cantidad = exactMatch.baseQuantity || 0;
+                newItems[idx].precioEditado = exactMatch.price || 0;
+            } else {
+                newItems[idx].rawMaterialId = null;
+            }
         } else {
             newItems[idx].rawMaterialId = null;
         }
@@ -78,12 +93,41 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
         setTicketItems(newItems);
     };
 
-    const confirmTicket = async () => {
+    const handleConfirmClick = () => {
         if (ticketItems.length === 0) return;
 
         const invalidItems = ticketItems.filter(i => !i.nombre.trim());
         if (invalidItems.length > 0) return alert("Hay filas con nombres vacíos.");
 
+        if (ticketType !== "materia_prima") {
+            proceedWithCommit([]);
+            return;
+        }
+
+        const conflicts: any[] = [];
+        for (const item of ticketItems) {
+            if (item.rawMaterialId) {
+                const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
+                if (matData && item.cantidad === matData.baseQuantity && item.unidad === matData.unit && item.precioEditado !== matData.price) {
+                    conflicts.push({
+                        id: item.rawMaterialId,
+                        name: item.nombre,
+                        oldPrice: matData.price,
+                        newPrice: item.precioEditado,
+                        updatePrice: true
+                    });
+                }
+            }
+        }
+
+        if (conflicts.length > 0) {
+            setPriceConflicts(conflicts);
+        } else {
+            proceedWithCommit([]);
+        }
+    };
+
+    const proceedWithCommit = async (resolvedConflicts: any[]) => {
         try {
             const batch = writeBatch(db);
 
@@ -103,19 +147,35 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                 };
             });
 
+            // Logica auto-incremental de ID de ticket
+            const expensesRef = collection(db, "expenses");
+            const q = query(expensesRef, orderBy("ticketNumber", "desc"), limit(1));
+            const snap = await getDocs(q);
+            let nextTicketNumber = 1;
+            if (!snap.empty) {
+                nextTicketNumber = (snap.docs[0].data().ticketNumber || 0) + 1;
+            }
+            const formattedTicketId = nextTicketNumber.toString().padStart(5, '0');
+
+            const [y, m, d] = ticketDate.split('-');
+            const orderDate = new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0);
+
             batch.set(ticketRef, {
-                date: Timestamp.now(),
-                type: "materia_prima",
-                description: "Carga de Tickets",
+                date: Timestamp.fromDate(orderDate),
+                type: ticketType,
+                description: ticketName.trim() ? `Carga de Tickets - ${ticketName.trim()}` : "Carga de Tickets",
                 totalAmount: totalAmount,
                 items: itemsToSave,
                 createdByEmail: user?.email || "admin",
+                ticketNumber: nextTicketNumber,
+                formattedTicketId: formattedTicketId
+
             });
 
             // Update or Create Raw Materials
-            for (const item of ticketItems) {
-                // Determine if we need to base convert exactly like the user edits manually
-                const isNew = !item.rawMaterialId;
+            if (ticketType === "materia_prima") {
+                for (const item of ticketItems) {
+                    const isNew = !item.rawMaterialId;
                 
                 if (isNew) {
                     const newMatRef = doc(collection(db, "raw_materials"));
@@ -140,7 +200,6 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                     const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
                     
                     if (matData) {
-                        // Standard conversion
                         let qtyAddedToStock = item.cantidad;
                         if (item.unidad === 'kg' && matData.unit === 'g') qtyAddedToStock *= 1000;
                         else if (item.unidad === 'l' && matData.unit === 'ml') qtyAddedToStock *= 1000;
@@ -149,21 +208,38 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                         const newStock = currentStock + qtyAddedToStock;
                         let history = matData.priceHistory || [];
                         
-                        batch.update(matRef, {
+                        const updates: any = {
                             stockQuantity: newStock,
-                            // we just overwrite currentPrice and base price logic for simplicity
-                            currentPrice: item.precioEditado,
-                            price: item.precioEditado,
-                            priceHistory: history,
                             lastUpdated: Timestamp.now()
-                        });
+                        };
+
+                        const conflict = resolvedConflicts.find(c => c.id === item.rawMaterialId);
+                        
+                        if (conflict && conflict.updatePrice) {
+                            updates.currentPrice = item.precioEditado;
+                            updates.price = item.precioEditado;
+                            history = [ ...history, { date: new Date().toISOString(), price: item.precioEditado, baseQuantity: item.cantidad, unit: item.unidad } ];
+                            if(history.length > 10) history.shift();
+                            updates.priceHistory = history;
+                        }
+                        
+                        batch.update(matRef, updates);
                     }
                 }
             }
+            } // end if materia_prima
 
             await batch.commit();
-            alert("¡Ticket guardado con éxito! Se han actualizado/creado los productos.");
+            setShowSuccessModal(true);
             setTicketItems([]);
+            setPriceConflicts([]);
+            setTicketName("");
+
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            setTicketDate(now.toISOString().split('T')[0]);
+            setTicketType("materia_prima");
+
         } catch (error) {
             console.error(error);
             alert("Error al guardar el ticket.");
@@ -206,6 +282,14 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                     <FaPlus style={{ marginRight: '8px' }} /> Cargar Ticket
                 </button>
 
+                <button
+                    className="cm-btn-secondary"
+                    style={{ background: '#f8fafc', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content', marginLeft: '10px', color: '#475569', border: '1px solid #cbd5e1' }}
+                    onClick={() => navigate('/editor/orders/expenses')}
+                >
+                    <FaList style={{ marginRight: '8px' }} /> Ver Historial de Gastos
+                </button>
+
                 {ticketItems.length > 0 && (
                     <div style={{
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -221,9 +305,38 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                         }}>
                             <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '2px dashed #94a3b8', paddingBottom: '15px' }}>
                                 <h2 style={{ margin: 0, color: '#0f172a', fontWeight: 'bold', fontSize: '2rem' }}>TICKET MULTIPLE</h2>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', color: '#334155', marginTop: '10px' }}>
-                                    <span>FECHA: {new Date().toLocaleDateString()}</span>
-                                    <span>USUARIO: {user?.email || 'Administrador'}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', color: '#334155', marginTop: '10px', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: 'bold' }}>FECHA:</label>
+                                        <input 
+                                            type="date" 
+                                            value={ticketDate} 
+                                            onChange={(e) => setTicketDate(e.target.value)} 
+                                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit' }} 
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: 'bold' }}>TIPO:</label>
+                                        <select 
+                                            value={ticketType} 
+                                            onChange={(e) => setTicketType(e.target.value)} 
+                                            style={{ padding: '5px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit', background: '#fff' }}
+                                        >
+                                            <option value="materia_prima">Materia Prima</option>
+                                            <option value="servicio">Servicio (Luz, agua...)</option>
+                                            <option value="otro">Otro (Limpieza, resurtido...)</option>
+                                        </select>
+                                    </div>
+                                    <span style={{ fontWeight: 'bold' }}>USUARIO: {user?.email || 'Administrador'}</span>
+                                </div>
+                                <div style={{ marginTop: '15px' }}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Nombre del proveedor o Ticket Opcional (ej. Distribuidora Ecoherederos)" 
+                                        value={ticketName} 
+                                        onChange={(e) => setTicketName(e.target.value)} 
+                                        style={{ width: '100%', padding: '10px', fontSize: '1.2rem', borderRadius: '6px', border: '1px solid #94a3b8', boxSizing: 'border-box' }}
+                                    />
                                 </div>
                                 <div style={{ fontSize: '1rem', color: '#16a34a', marginTop: '10px' }}>
                                     <em>Atajos:</em> <b>Tab / Flechas Der-Izq</b> para moverte entre campos, <b>Enter</b> crea otra fila hacia abajo.
@@ -233,7 +346,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', fontSize: '1.2rem' }}>
-                                        <th style={{ padding: '12px' }}>Materia Prima</th>
+                                        <th style={{ padding: '12px' }}>{ticketType === 'materia_prima' ? 'Materia Prima' : 'Concepto / Ítem'}</th>
                                         <th style={{ padding: '12px', width: '15%' }}>Cantidad</th>
                                         <th style={{ padding: '12px', width: '15%' }}>Unidad</th>
                                         <th style={{ padding: '12px', width: '20%' }}>Precio Total</th>
@@ -357,16 +470,99 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             </div>
 
                             <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                <button onClick={() => setTicketItems([])} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
+                                <button onClick={() => { setTicketItems([]); setTicketName(""); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
                                     <FaTimes style={{ marginRight: '8px' }} /> Descartar
                                 </button>
-                                <button onClick={confirmTicket} style={{ background: '#0f172a', padding: '15px 40px', fontSize: '1.4rem', fontWeight: 'bold', borderRadius: '6px', border: 'none', color: 'white', cursor: 'pointer' }}>
+                                <button onClick={handleConfirmClick} style={{ background: '#0f172a', padding: '15px 40px', fontSize: '1.4rem', fontWeight: 'bold', borderRadius: '6px', border: 'none', color: 'white', cursor: 'pointer' }}>
                                     <FaCheckCircle style={{ marginRight: '8px' }} /> Confirmar y Guardar
                                 </button>
                             </div>
                         </div>
                     </div>
                 )}
+
+            {/* Price Conflicts Modal */}
+            {priceConflicts.length > 0 && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        background: '#fff', width: '90%', maxWidth: '600px',
+                        padding: '30px', borderRadius: '8px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        borderTop: '5px solid #f59e0b'
+                    }}>
+                        <h3 style={{ color: '#b45309', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FaList /> ¡Actualizaciones de Precio Detectadas!
+                        </h3>
+                        <p style={{ color: '#4b5563', marginBottom: '20px' }}>
+                            Algunos productos del ticket tienen un precio diferente al costo base guardado para la misma cantidad.
+                            ¿Deseas actualizar el precio de estos productos en tu inventario general?
+                        </p>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '20px' }}>
+                            {priceConflicts.map((c, idx) => {
+                                const cambioPct = (((c.newPrice - c.oldPrice) / c.oldPrice) * 100).toFixed(1);
+                                const isSubida = c.newPrice > c.oldPrice;
+                                return (
+                                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', borderBottom: '1px solid #e2e8f0', background: isSubida ? '#fef2f2' : '#f0fdf4', borderRadius: '8px', marginBottom: '10px', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={c.updatePrice}
+                                            onChange={(e) => {
+                                                const nw = [...priceConflicts];
+                                                nw[idx].updatePrice = e.target.checked;
+                                                setPriceConflicts(nw);
+                                            }}
+                                            style={{ width: '20px', height: '20px' }}
+                                        />
+                                        <div style={{ flex: 1 }}>
+                                            <strong style={{ display: 'block', fontSize: '1.1rem' }}>{c.name}</strong>
+                                            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                                                Anterior: <span style={{ textDecoration: 'line-through' }}>${c.oldPrice}</span> 👉 Nuevo: <strong>${c.newPrice}</strong>
+                                            </div>
+                                        </div>
+                                        <div style={{ color: isSubida ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                                            {isSubida ? '🔺' : '🔻'} {Math.abs(Number(cambioPct))}%
+                                        </div>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button className="cm-btn-secondary" onClick={() => setPriceConflicts([])}>Volver a Editar Ticket</button>
+                            <button className="cm-btn-primary" onClick={() => proceedWithCommit(priceConflicts)} style={{ background: '#10b981' }}>
+                                Continuar y Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+                    zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        background: '#fff', width: '90%', maxWidth: '400px',
+                        padding: '40px 30px', borderRadius: '12px', textAlign: 'center',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    }}>
+                        <FaCheckCircle style={{ color: '#10b981', fontSize: '64px', marginBottom: '20px' }} />
+                        <h2 style={{ color: '#0f172a', marginBottom: '10px' }}>¡Ticket Creado Exitosamente!</h2>
+                        <p style={{ color: '#475569', marginBottom: '30px' }}>Los productos y el inventario han sido actualizados.</p>
+                        <button className="cm-btn-primary" onClick={() => setShowSuccessModal(false)} style={{ width: '100%', padding: '12px' }}>
+                            Aceptar y Continuar
+                        </button>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );

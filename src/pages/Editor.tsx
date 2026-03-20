@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMoneyBillWave } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -12,7 +12,6 @@ import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
 import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
-import ExpenseManager from "../components/ExpenseManager";
 import CostManager from "../components/CostManager";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -187,14 +186,7 @@ export default function Editor() {
                 <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
                 <span className="nav-text">Punto de Venta</span>
               </button>
-              <button
-                className={currentPath === "expenses" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/expenses")}
-                title="Gastos / Materia Prima"
-              >
-                <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaMoneyBillWave /></div>
-                <span className="nav-text">Gastos / Materia Prima</span>
-              </button>
+
               <button
                 className={currentPath === "costs" || currentPath === "products" ? "active" : ""}
                 onClick={() => handleNavClick("/editor/costs")}
@@ -260,9 +252,8 @@ export default function Editor() {
               <Route path="/store_editor" element={<StoreEditor />} />
               <Route path="/stock" element={<StockManager />} />
               <Route path="/settings" element={<AdminSettings />} />
-              <Route path="/expenses" element={<ExpenseManager />} />
-              <Route path="/costs" element={<CostManager />} />
-              <Route path="/products" element={<Navigate to="/editor/costs" replace />} />
+              <Route path="/costs/*" element={<CostManager />} />
+              <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />
               <Route path="*" element={<Navigate to="/editor/" replace />} />
             </Routes>
           </main>

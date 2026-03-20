@@ -29,6 +29,7 @@ export default function Dashboard() {
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
     const [rawUsers, setRawUsers] = useState<any[]>([]);
+    const [rawExpenses, setRawExpenses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [stats, setStats] = useState({
@@ -44,6 +45,8 @@ export default function Dashboard() {
         delivery: 0,     // Online
         deliveryCount: 0,
         newVisitsToday: 0,
+        totalEgresos: 0,
+        egresosCount: 0,
         // Breakdown
         totalEfectivo: 0,
         totalTransferencia: 0,
@@ -139,6 +142,7 @@ export default function Dashboard() {
         let unsubOrders: () => void;
         let unsubStats: () => void;
         let unsubUsers: () => void;
+        let unsubExpenses: () => void;
         let unsubProducts: () => void; // New listener for products
         let unsubRawMaterials: () => void;
 
@@ -187,6 +191,22 @@ export default function Dashboard() {
                     setRawOrders(processedOrders.sort((a, b) => b.dateTyped.getTime() - a.dateTyped.getTime()));
                 });
 
+                unsubExpenses = onSnapshot(collection(db, "expenses"), (snapshot) => {
+                    const exps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    const processedExps = exps.map((o: any) => {
+                        let orderDate: Date;
+                        if (o.date && typeof o.date.toDate === 'function') {
+                            orderDate = o.date.toDate();
+                        } else if (o.date) {
+                            orderDate = new Date(o.date);
+                        } else {
+                            orderDate = new Date(0);
+                        }
+                        return { ...o, dateTyped: orderDate };
+                    });
+                    setRawExpenses(processedExps.sort((a, b) => b.dateTyped.getTime() - a.dateTyped.getTime()));
+                });
+
                 // 2. Stats
                 unsubStats = onSnapshot(doc(db, "stats", "general"), (docSnap) => {
                     if (docSnap.exists()) {
@@ -224,6 +244,7 @@ export default function Dashboard() {
             if (unsubRawMaterials) unsubRawMaterials();
             if (unsubStats) unsubStats();
             if (unsubUsers) unsubUsers();
+            if (unsubExpenses) unsubExpenses();
         };
     }, []);
 
@@ -239,6 +260,13 @@ export default function Dashboard() {
 
         const validOrders = rawOrders.filter((o: any) => o.status !== 'cancelado');
         const filteredOrders = validOrders.filter(o => isInTimeframe(o.dateTyped, timeframe));
+        const filteredExpenses = rawExpenses.filter(e => isInTimeframe(e.dateTyped, timeframe));
+
+        let totalEgresos = 0;
+        let egresosCount = filteredExpenses.length;
+        filteredExpenses.forEach(exp => {
+            totalEgresos += Number(exp.totalAmount) || 0;
+        });
 
         let plata = 0;
         let despensa = 0;
@@ -488,6 +516,8 @@ export default function Dashboard() {
             ...prev,
             totalSales: plata,
             totalOrders: filteredOrders.length,
+            totalEgresos,
+            egresosCount,
             plata,
             despensa,
             despensaCount,
@@ -730,8 +760,21 @@ export default function Dashboard() {
                 >
                     <div className="stat-icon" style={{ color: '#ef4444', backgroundColor: '#fee2e2' }}><FaShoppingCart /></div>
                     <div className="stat-info">
-                        <h3>Costos ({getTimeframeLabel()})</h3>
+                        <h3>Costos estimado ({getTimeframeLabel()})</h3>
                         <p style={{ color: '#ef4444' }}>${Math.floor(topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
+                    </div>
+                </div>
+
+                {/* Egresos */}
+                <div
+                    className="stat-card orders"
+                    style={{ position: 'relative' }}
+                >
+                    <div className="stat-icon" style={{ color: '#f59e0b', backgroundColor: '#fef3c7' }}><FaMoneyBillWave /></div>
+                    <div className="stat-info">
+                        <h3>Egresos ({getTimeframeLabel()})</h3>
+                        <p style={{ color: '#f59e0b' }}>${Math.floor(stats.totalEgresos).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">{stats.egresosCount} tickets</span>
                     </div>
                 </div>
 
@@ -742,7 +785,7 @@ export default function Dashboard() {
                 >
                     <div className="stat-icon" style={{ color: '#10b981', backgroundColor: '#d1fae5' }}><FaMoneyBillWave /></div>
                     <div className="stat-info">
-                        <h3>Ganancia ({getTimeframeLabel()})</h3>
+                        <h3>Ganancia estimada ({getTimeframeLabel()})</h3>
                         <p style={{ color: '#10b981' }}>${Math.floor(stats.plata - topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
                     </div>
                 </div>

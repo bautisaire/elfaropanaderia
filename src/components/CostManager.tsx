@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot } from 'react-icons/fa';
@@ -48,7 +49,13 @@ export interface Product {
 
 
 export default function CostManager() {
-    const [activeTab, setActiveTab] = useState<'products' | 'raw_materials' | 'recipes' | 'simulator' | 'ai_voice'>('products');
+    const { "*": tab } = useParams();
+    const navigate = useNavigate();
+    
+    // Parseo de la ruta actual
+    const cleanTab = tab ? tab.replace(/^\//, '') : 'products';
+    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'tickets'];
+    const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'products';
 
     // --- SYSTEM CONFIG (MARGINS) ---
     // En una DB real deberíamos guardar o leer los porcentajes, aquí usamos un estado local.
@@ -64,6 +71,7 @@ export default function CostManager() {
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [editingRecipe, setEditingRecipe] = useState<ProductRecipe | null>(null);
+    const loadedRecipeProductId = useRef<string | null>(null);
     const [recipeYieldType, setRecipeYieldType] = useState<'units' | 'kg'>('units');
     const [newIngredient, setNewIngredient] = useState<RecipeIngredient>({ rawMaterialId: '', quantity: 0 });
     const [cloneFromId, setCloneFromId] = useState<string>('');
@@ -186,22 +194,28 @@ export default function CostManager() {
     // --- RECIPES CRUD & LOGIC ---
     useEffect(() => {
         // Al seleccionar un producto, cargamos su receta actual a la memoria de edición
+        // Usamos loadedRecipeProductId para evitar sobreescribir la receta si la lista de 'products'
+        // cambia por actualizaciones de stock en background (ej. un POS hace una venta).
         if (selectedProductId) {
-            const prod = products.find(p => p.id === selectedProductId);
-            if (prod) {
-                if (prod.recipe) {
-                    const cloned = JSON.parse(JSON.stringify(prod.recipe));
-                    setEditingRecipe(cloned);
-                    setRecipeYieldType(cloned.yieldType || 'units');
-                } else {
-                    setEditingRecipe({ ingredients: [], yield: 1, yieldType: 'units', merma: 0 });
-                    setRecipeYieldType('units');
+            if (loadedRecipeProductId.current !== selectedProductId) {
+                const prod = products.find(p => p.id === selectedProductId);
+                if (prod) {
+                    if (prod.recipe) {
+                        const cloned = JSON.parse(JSON.stringify(prod.recipe));
+                        setEditingRecipe(cloned);
+                        setRecipeYieldType(cloned.yieldType || 'units');
+                    } else {
+                        setEditingRecipe({ ingredients: [], yield: 1, yieldType: 'units', merma: 0 });
+                        setRecipeYieldType('units');
+                    }
+                    loadedRecipeProductId.current = selectedProductId;
                 }
             }
         } else {
             setEditingRecipe(null);
             setRecipeYieldType('units');
             setNewIngredient({ rawMaterialId: '', quantity: 0 });
+            loadedRecipeProductId.current = null;
         }
     }, [selectedProductId, products]);
 
@@ -441,31 +455,31 @@ export default function CostManager() {
                 <div className="cm-tabs">
                     <button
                         className={`cm-tab ${activeTab === 'products' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('products')}
+                        onClick={() => navigate('/editor/costs/products')}
                     >
                         <FaBoxOpen /> 1. Productos
                     </button>
                     <button
                         className={`cm-tab ${activeTab === 'raw_materials' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('raw_materials')}
+                        onClick={() => navigate('/editor/costs/raw_materials')}
                     >
                         <FaList /> 2. Materias Primas
                     </button>
                     <button
                         className={`cm-tab ${activeTab === 'recipes' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('recipes')}
+                        onClick={() => navigate('/editor/costs/recipes')}
                     >
                         <FaCalculator /> 3. Fichas de Recetas
                     </button>
                     <button
                         className={`cm-tab ${activeTab === 'simulator' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('simulator')}
+                        onClick={() => navigate('/editor/costs/simulator')}
                     >
                         <FaChartLine /> 4. Precios y Ganancias
                     </button>
                     <button
-                        className={`cm-tab ${activeTab === 'ai_voice' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('ai_voice')}
+                        className={`cm-tab ${activeTab === 'tickets' ? 'active' : ''}`}
+                        onClick={() => navigate('/editor/costs/tickets')}
                     >
                         5. Tickets
                     </button>
@@ -474,7 +488,7 @@ export default function CostManager() {
 
             <main className="cm-content">
                 {activeTab === 'products' && (
-                    <ProductManager onGoToRecipe={(id) => { setSelectedProductId(id); setActiveTab('recipes'); }} />
+                    <ProductManager onGoToRecipe={(id) => { setSelectedProductId(id); navigate('/editor/costs/recipes'); }} />
                 )}
                 {activeTab === 'raw_materials' && (
                     <div className="cm-tab-content">
@@ -1203,7 +1217,7 @@ export default function CostManager() {
                         </div>
                     </div>
                 )}
-                {activeTab === 'ai_voice' && (
+                {activeTab === 'tickets' && (
                     <VoiceAIPurchases rawMaterials={rawMaterials} />
                 )}
             </main>

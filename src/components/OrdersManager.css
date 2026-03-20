@@ -942,10 +942,7 @@
     border-bottom: none;
 }
 
-.orders-table tr:not(.order-details-row):hover {
-    background-color: #f3f4f6;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+.orders-table tr:not(.order-details-row) {
     transition: all 0.1s;
 }
 
