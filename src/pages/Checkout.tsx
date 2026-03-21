@@ -8,7 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "../components/StockErrorModal";
-import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle } from "react-icons/fa";
+import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user } = useContext(CartContext);
@@ -34,6 +34,9 @@ export default function Checkout() {
     metodoPago: "efectivo", // 'efectivo', 'transferencia', 'mercadopago'
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
+  const [storeAddressConfig, setStoreAddressConfig] = useState<string>("");
+  const [storeMapUrlConfig, setStoreMapUrlConfig] = useState<string>("");
 
 
   // Scroll to form when showCheckout becomes true
@@ -184,7 +187,7 @@ export default function Checkout() {
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.nombre.trim()) newErrors.nombre = "El nombre es requerido";
-    if (!formData.direccion.trim()) newErrors.direccion = "La dirección es requerida";
+    if (deliveryMethod === 'delivery' && !formData.direccion.trim()) newErrors.direccion = "La dirección es requerida";
     if (!formData.telefono.trim()) newErrors.telefono = "El teléfono es requerido";
     else if (!validatePhone(formData.telefono)) newErrors.telefono = "El teléfono debe tener al menos 10 dígitos";
     setErrors(newErrors);
@@ -215,14 +218,17 @@ export default function Checkout() {
         const data = docSnap.data();
         setMinPurchaseConfig(data.minPurchase || 0);
         setShippingCost(Number(data.shippingCost) || 0);
+        setStoreAddressConfig(data.storeAddress || "");
+        setStoreMapUrlConfig(data.storeMapUrl || "");
       }
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
-    setFinalTotal(cartTotal + shippingCost);
-  }, [cartTotal, shippingCost]);
+    const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
+    setFinalTotal(cartTotal + effectiveShipping);
+  }, [cartTotal, shippingCost, deliveryMethod]);
 
   const handleProcederAlPago = async () => {
     // 0. Validar Compra Mínima
@@ -272,10 +278,17 @@ export default function Checkout() {
       // LLAMADA AL BACKEND
       const processOrderFn = httpsCallable(functions, 'processOrder');
       
+      const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
+      const orderFormData = {
+        ...formData,
+        metodoEntrega: deliveryMethod,
+        direccion: deliveryMethod === 'pickup' ? 'Retiro en local' : formData.direccion
+      };
+
       const requestData = {
         cart,
-        formData,
-        shippingCost,
+        formData: orderFormData,
+        shippingCost: effectiveShipping,
         finalTotal,
         userId: user?.uid || null
       };
@@ -300,13 +313,13 @@ export default function Checkout() {
           window.dispatchEvent(new Event("storage"));
           window.dispatchEvent(new Event('mis_pedidos_updated'));
         }
-        localStorage.setItem('customer_info', JSON.stringify(formData));
+        localStorage.setItem('customer_info', JSON.stringify(orderFormData));
       } catch (e) { console.error("Storage error", e); }
 
       // Telegram local (Se podría mover al backend)
       if (!isAdmin) {
         sendTelegramNotification({
-          items: cart, total: finalTotal, shippingCost, cliente: formData, date: Timestamp.now(), status: "pending", id: orderId
+          items: cart, total: finalTotal, shippingCost: effectiveShipping, cliente: orderFormData, date: Timestamp.now(), status: "pending", id: orderId
         }).catch(console.error);
       }
 
@@ -314,10 +327,11 @@ export default function Checkout() {
       const ticketData = {
         id: orderId,
         items: cart, // Needed for ticket render and whatsapp link
-        itemsWithShipping: [...cart, ...(shippingCost > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: shippingCost, quantity: 1 }] : [])],
+        itemsWithShipping: [...cart, ...(effectiveShipping > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 }] : [])],
         total: finalTotal,
-        paymentMethod: formData.metodoPago,
-        cliente: formData
+        paymentMethod: orderFormData.metodoPago,
+        cliente: orderFormData,
+        deliveryMethod: deliveryMethod
       };
 
       // Si es MercadoPago, redirect
@@ -539,7 +553,57 @@ export default function Checkout() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '20px' }}>
-                    {userAddresses.length > 0 ? (
+                    <label>Método de entrega <span className="required">*</span></label>
+                    <div className="radio-group" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+                      <label className={`radio-card ${deliveryMethod === 'delivery' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: deliveryMethod === 'delivery' ? '#fffcf8' : '#fff' }}>
+                        <input
+                          type="radio"
+                          name="deliveryMethod"
+                          value="delivery"
+                          checked={deliveryMethod === 'delivery'}
+                          onChange={() => setDeliveryMethod('delivery')}
+                          style={{ display: 'none' }}
+                        />
+                        <FaMotorcycle style={{ fontSize: '24px', color: deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
+                        <div style={{ fontWeight: 'bold', color: '#333' }}>Envío a domicilio</div>
+                      </label>
+                      <label className={`radio-card ${deliveryMethod === 'pickup' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: deliveryMethod === 'pickup' ? '#fffcf8' : '#fff' }}>
+                        <input
+                          type="radio"
+                          name="deliveryMethod"
+                          value="pickup"
+                          checked={deliveryMethod === 'pickup'}
+                          onChange={() => {
+                            setDeliveryMethod('pickup');
+                            if (errors.direccion) setErrors(prev => ({ ...prev, direccion: '' }));
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                        <FaStore style={{ fontSize: '24px', color: deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
+                        <div style={{ fontWeight: 'bold', color: '#333' }}>Retirar en local</div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {deliveryMethod === 'pickup' ? (
+                    <div className="form-group pickup-info-card" style={{ marginBottom: '20px', padding: '20px', borderRadius: '8px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px', color: '#0369a1' }}>
+                          <FaStore /> Dirección del local
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '1rem', color: '#334155' }}>
+                          {storeAddressConfig || "Dirección no configurada"}
+                        </p>
+                      </div>
+                      {storeMapUrlConfig && (
+                        <a href={storeMapUrlConfig} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#e0f2fe', color: '#0284c7', padding: '10px 15px', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', width: 'fit-content' }}>
+                          <FaMapMarkerAlt /> Ver en Google Maps
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
+                      {userAddresses.length > 0 ? (
                       <div className="saved-addresses-selection">
                         <label style={{ display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>Dirección de Entrega <span className="required">*</span></label>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -594,6 +658,7 @@ export default function Checkout() {
                       </>
                     )}
                   </div>
+                  )}
 
                   <div className="form-group">
                     <label htmlFor="telefono">
@@ -740,7 +805,7 @@ export default function Checkout() {
                     </div>
                     <div className="summary-row">
                       <span>Costo de envío</span>
-                      <span>${shippingCost}</span>
+                      <span>${deliveryMethod === 'pickup' ? 0 : shippingCost}</span>
                     </div>
                     <div className="summary-row total">
                       <span>Total</span>

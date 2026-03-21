@@ -9,6 +9,8 @@ export default function StoreStatusManager() {
     const [shippingCost, setShippingCost] = useState<number>(0);
     const [isOpen, setIsOpen] = useState<boolean>(true);
     const [closeMessage, setCloseMessage] = useState<string>("Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
+    const [storeAddress, setStoreAddress] = useState<string>("");
+    const [storeMapUrl, setStoreMapUrl] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
@@ -22,6 +24,8 @@ export default function StoreStatusManager() {
                     setShippingCost(data.shippingCost || 0);
                     setIsOpen(data.isOpen !== undefined ? data.isOpen : true);
                     setCloseMessage(data.closeMessage || "");
+                    setStoreAddress(data.storeAddress || "");
+                    setStoreMapUrl(data.storeMapUrl || "");
                 }
             } catch (error) {
                 console.error("Error loading settings:", error);
@@ -37,7 +41,9 @@ export default function StoreStatusManager() {
                 minPurchase: Number(minPurchase),
                 shippingCost: Number(shippingCost),
                 isOpen: isOpen,
-                closeMessage: closeMessage
+                closeMessage: closeMessage,
+                storeAddress: storeAddress,
+                storeMapUrl: storeMapUrl
             }, { merge: true });
             setMessage("🎉 Configuración guardada correctamente");
             setTimeout(() => setMessage(""), 3000);
@@ -121,7 +127,27 @@ export default function StoreStatusManager() {
                         onChange={(e) => setShippingCost(Number(e.target.value))}
                         placeholder="0"
                     />
-                    <small>Este monto se sumará automáticamente al total del pedido en el checkout.</small>
+                    <small>Este monto se sumará automáticamente al total del pedido en el checkout para envíos a domicilio.</small>
+                </div>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                    <label>Dirección del Local (Texto)</label>
+                    <input
+                        type="text"
+                        value={storeAddress}
+                        onChange={(e) => setStoreAddress(e.target.value)}
+                        placeholder="Ej: Calle Principal 123"
+                    />
+                    <small>Se mostrará a los clientes cuando elijan 'Retirar en el local'.</small>
+                </div>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                    <label>URL de Google Maps (Ubicación)</label>
+                    <input
+                        type="text"
+                        value={storeMapUrl}
+                        onChange={(e) => setStoreMapUrl(e.target.value)}
+                        placeholder="Ej: https://maps.app.goo.gl/..."
+                    />
+                    <small>Enlace que se abrirá al hacer clic en el botón de ubicación en el checkout.</small>
                 </div>
             </div>
 
