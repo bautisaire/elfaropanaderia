@@ -447,6 +447,15 @@ export default function CostManager() {
     });
 
     // --- RENDER ---
+    const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
+    const marginsArray = validProductsForSim.map(p => {
+        const cost = calculateRealProductCost(p);
+        const currentRetail = Number(p.precio) || 0;
+        return cost > 0 ? ((currentRetail / cost) - 1) * 100 : 0;
+    }).filter(m => m > 0);
+    const avgMargin = marginsArray.length > 0 ? marginsArray.reduce((acc, val) => acc + val, 0) / marginsArray.length : 0;
+    const minMargin = marginsArray.length > 0 ? Math.min(...marginsArray) : 0;
+    const maxMargin = marginsArray.length > 0 ? Math.max(...marginsArray) : 0;
 
     return (
         <div className="cost-manager-container">
@@ -1138,25 +1147,45 @@ export default function CostManager() {
                         <h3>Simulador de Ganancias y Precios Sugeridos</h3>
                         <p style={{ color: '#64748b', marginBottom: '20px' }}>Analiza la rentabilidad de tus productos según su costo de fabricación y actualiza los precios de la tienda con un solo clic.</p>
 
-                        <div className="cm-margins-config">
-                            <label>
-                                <strong>% Ganancia Despensa/Mayorista:</strong>
-                                <input
-                                    type="number"
-                                    value={margins.wholesale}
-                                    onChange={e => setMargins({ ...margins, wholesale: Number(e.target.value) })}
-                                />
-                                %
-                            </label>
-                            <label>
-                                <strong>% Ganancia Venta Directa:</strong>
-                                <input
-                                    type="number"
-                                    value={margins.retail}
-                                    onChange={e => setMargins({ ...margins, retail: Number(e.target.value) })}
-                                />
-                                %
-                            </label>
+                        <div className="cm-margins-config" style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '15px' }}>
+                                <label>
+                                    <strong>% Ganancia Despensa/Mayorista:</strong>
+                                    <input
+                                        type="number"
+                                        value={margins.wholesale}
+                                        onChange={e => setMargins({ ...margins, wholesale: Number(e.target.value) })}
+                                    />
+                                    %
+                                </label>
+                                <label>
+                                    <strong>% Ganancia Venta Directa:</strong>
+                                    <input
+                                        type="number"
+                                        value={margins.retail}
+                                        onChange={e => setMargins({ ...margins, retail: Number(e.target.value) })}
+                                    />
+                                    %
+                                </label>
+                            </div>
+                            {marginsArray.length > 0 && (
+                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '15px', fontSize: '0.85rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: '#64748b' }}>Ganancia Promedio Actual</span>
+                                    <strong style={{ color: '#0ea5e9', fontSize: '1.05rem' }}>+{avgMargin.toFixed(0)}%</strong>
+                                </div>
+                                <div style={{ borderLeft: '2px dashed #cbd5e1' }}></div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: '#64748b' }}>Menor Ganancia Detectada</span>
+                                    <strong style={{ color: '#ef4444', fontSize: '1.05rem' }}>+{minMargin.toFixed(0)}%</strong>
+                                </div>
+                                <div style={{ borderLeft: '2px dashed #cbd5e1' }}></div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: '#64748b' }}>Mayor Ganancia Detectada</span>
+                                    <strong style={{ color: '#10b981', fontSize: '1.05rem' }}>+{maxMargin.toFixed(0)}%</strong>
+                                </div>
+                            </div>
+                            )}
                         </div>
 
                         <div className="cm-table-container">
@@ -1174,15 +1203,16 @@ export default function CostManager() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients.length > 0) || p.stockDependency?.productId)).length === 0 ? (
+                                    {validProductsForSim.length === 0 ? (
                                         <tr><td colSpan={8} style={{ textAlign: 'center', color: '#94a3b8' }}>No hay productos con recetas o dependencias configuradas. Ve a la pestaña de "Fichas de Recetas".</td></tr>
-                                    ) : products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients.length > 0) || p.stockDependency?.productId)).map(p => {
+                                    ) : validProductsForSim.map(p => {
                                         const cost = calculateRealProductCost(p);
                                         const sugWholesale = calculateSuggestedPrice(cost, margins.wholesale);
                                         const sugRetail = calculateSuggestedPrice(cost, margins.retail);
                                         const currentWholesale = Number(p.wholesalePrice) || 0;
                                         const currentRetail = Number(p.precio) || 0;
                                         const profit = currentRetail - cost;
+                                        const realRetailMargin = cost > 0 ? ((currentRetail / cost) - 1) * 100 : 0;
 
                                         return (
                                             <tr key={p.id}>
@@ -1195,7 +1225,22 @@ export default function CostManager() {
                                                     ${currentWholesale.toFixed(2)}
                                                 </td>
                                                 <td className={currentRetail < sugRetail ? 'price-warning' : 'price-ok'}>
-                                                    ${currentRetail.toFixed(2)}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span>${currentRetail.toFixed(2)}</span>
+                                                        {realRetailMargin > 0 && (
+                                                            <span style={{ 
+                                                                fontSize: '0.75rem', 
+                                                                background: '#d1fae5', 
+                                                                color: '#047857', 
+                                                                padding: '2px 6px', 
+                                                                borderRadius: '12px',
+                                                                fontWeight: 'bold',
+                                                                border: '1px solid #34d399'
+                                                            }}>
+                                                                +{realRetailMargin.toFixed(0)}%
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
 
                                                 <td style={{ color: '#059669', fontWeight: 'bold' }}>${profit.toFixed(2)}</td>

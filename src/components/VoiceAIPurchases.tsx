@@ -37,7 +37,8 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                 cantidad: 0,
                 unidad: "unidad",
                 rawMaterialId: null,
-                precioEditado: 0
+                precioEditado: 0,
+                multiplicador: 1
             }]);
             setTimeout(() => {
                 const nextId = `${ticketItems.length}_name`;
@@ -46,7 +47,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
             return;
         }
 
-        const fields = ['name', 'qty', 'unit', 'price'];
+        const fields = ['name', 'qty', 'unit', 'multiplier', 'price'];
         const currentFieldIndex = fields.indexOf(field);
 
         if (e.key === "ArrowRight") {
@@ -136,14 +137,17 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
             let totalAmount = 0;
 
             const itemsToSave = ticketItems.map(item => {
-                totalAmount += item.precioEditado || 0;
+                const mult = item.multiplicador || 1;
+                const subtotal = (item.precioEditado || 0) * mult;
+                totalAmount += subtotal;
                 return {
                     name: item.nombre,
                     quantity: item.cantidad,
                     unit: item.unidad,
                     price: item.precioEditado,
                     materialId: item.rawMaterialId,
-                    subtotal: item.precioEditado
+                    multiplier: mult,
+                    subtotal: subtotal
                 };
             });
 
@@ -185,7 +189,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                         baseQuantity: item.cantidad > 0 ? item.cantidad : 1000, 
                         price: item.precioEditado,
                         currentPrice: item.precioEditado,
-                        stockQuantity: item.cantidad,
+                        stockQuantity: item.cantidad * (item.multiplicador || 1),
                         category: "materia prima",
                         lastUpdated: Timestamp.now(),
                         priceHistory: [{ 
@@ -200,7 +204,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                     const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
                     
                     if (matData) {
-                        let qtyAddedToStock = item.cantidad;
+                        let qtyAddedToStock = item.cantidad * (item.multiplicador || 1);
                         if (item.unidad === 'kg' && matData.unit === 'g') qtyAddedToStock *= 1000;
                         else if (item.unidad === 'l' && matData.unit === 'ml') qtyAddedToStock *= 1000;
                         
@@ -218,6 +222,18 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                         if (conflict && conflict.updatePrice) {
                             updates.currentPrice = item.precioEditado;
                             updates.price = item.precioEditado;
+                            
+                            // Si el historial está vacío (producto creado antes de añadir soporte), 
+                            // inyectamos el precio antiguo como "base" inicial.
+                            if (history.length === 0) {
+                                history.push({
+                                    price: matData.price || 0,
+                                    baseQuantity: matData.baseQuantity || 1000,
+                                    unit: matData.unit || 'g',
+                                    date: (matData as any).lastUpdated?.seconds ? new Date((matData as any).lastUpdated.seconds * 1000).toISOString() : new Date().toISOString()
+                                });
+                            }
+
                             history = [ ...history, { date: new Date().toISOString(), price: item.precioEditado, baseQuantity: item.cantidad, unit: item.unidad } ];
                             if(history.length > 10) history.shift();
                             updates.priceHistory = history;
@@ -274,7 +290,8 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             cantidad: 0,
                             unidad: "unidad",
                             rawMaterialId: null,
-                            precioEditado: 0
+                            precioEditado: 0,
+                            multiplicador: 1
                         }]);
                         setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
                     }}
@@ -347,9 +364,11 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', fontSize: '1.2rem' }}>
                                         <th style={{ padding: '12px' }}>{ticketType === 'materia_prima' ? 'Materia Prima' : 'Concepto / Ítem'}</th>
-                                        <th style={{ padding: '12px', width: '15%' }}>Cantidad</th>
-                                        <th style={{ padding: '12px', width: '15%' }}>Unidad</th>
-                                        <th style={{ padding: '12px', width: '20%' }}>Precio Total</th>
+                                        <th style={{ padding: '12px', width: '12%' }}>Cantidad</th>
+                                        <th style={{ padding: '12px', width: '12%' }}>Unidad</th>
+                                        <th style={{ padding: '12px', width: '12%' }}>Multipl.</th>
+                                        <th style={{ padding: '12px', width: '15%' }}>Precio Costo</th>
+                                        <th style={{ padding: '12px', width: '15%' }}>Subtotal</th>
                                         <th style={{ padding: '12px', width: '5%' }}></th>
                                     </tr>
                                 </thead>
@@ -402,6 +421,24 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                                 </select>
                                             </td>
                                             <td style={{ padding: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: 'bold' }}>x</span>
+                                                    <input
+                                                        type="number"
+                                                        value={prod.multiplicador || 1}
+                                                        onChange={e => {
+                                                            const newItems = [...ticketItems];
+                                                            newItems[idx].multiplicador = Number(e.target.value);
+                                                            setTicketItems(newItems);
+                                                        }}
+                                                        onKeyDown={e => handleKeyDown(e, idx, 'multiplier')}
+                                                        ref={el => { if (el) inputRefs.current[`${idx}_multiplier`] = el }}
+                                                        style={bigInputStyle}
+                                                        min="1"
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '12px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     <span style={{ marginRight: '8px', fontSize: '1.2rem', fontWeight: 'bold' }}>$</span>
                                                     <input
@@ -416,6 +453,11 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                                         ref={el => { if (el) inputRefs.current[`${idx}_price`] = el }}
                                                         style={{ ...bigInputStyle, fontWeight: 'bold' }}
                                                     />
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '12px' }}>
+                                                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f172a' }}>
+                                                    ${((prod.precioEditado || 0) * (prod.multiplicador || 1))}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
@@ -447,7 +489,8 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                             cantidad: 0,
                                             unidad: "unidad",
                                             rawMaterialId: null,
-                                            precioEditado: 0
+                                            precioEditado: 0,
+                                            multiplicador: 1
                                         }]);
                                         setTimeout(() => inputRefs.current[`${ticketItems.length}_name`]?.focus(), 50);
                                     }}
@@ -465,7 +508,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             <div style={{ borderTop: '2px dashed #94a3b8', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                                 <span style={{ fontWeight: 'bold', fontSize: '1.8rem', color: '#0f172a' }}>TOTAL TICKET:</span>
                                 <span style={{ fontWeight: 'bold', fontSize: '2.5rem', color: '#166534' }}>
-                                    ${ticketItems.reduce((sum, p) => sum + (p.precioEditado || 0), 0)}
+                                    ${ticketItems.reduce((sum, p) => sum + ((p.precioEditado || 0) * (p.multiplicador || 1)), 0)}
                                 </span>
                             </div>
 

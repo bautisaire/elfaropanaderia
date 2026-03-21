@@ -925,17 +925,21 @@ export default function OrdersManager() {
                                                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '15px', color: '#475569' }}>
                                                                         <thead>
                                                                             <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#94a3b8' }}>
-                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Cant.</th>
+                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Cant. Base</th>
+                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Multipl.</th>
                                                                                 <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Detalle</th>
-                                                                                <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Precio</th>
+                                                                                <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Precio Base</th>
+                                                                                <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Subtotal</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
                                                                             {exp.items.map((item: any, i: number) => (
                                                                                 <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
                                                                                     <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{item.quantity} <span style={{fontSize: '0.75rem', fontWeight: 'normal'}}>{item.unit}</span></td>
+                                                                                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#3b82f6' }}>x{item.multiplier || 1}</td>
                                                                                     <td style={{ padding: '8px 0' }}>{item.name}</td>
-                                                                                    <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
+                                                                                    <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
+                                                                                    <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${Number(item.subtotal || item.price || 0).toLocaleString('es-AR')}</td>
                                                                                 </tr>
                                                                             ))}
                                                                         </tbody>
