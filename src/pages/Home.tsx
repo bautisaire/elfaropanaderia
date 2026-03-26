@@ -12,8 +12,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
-import { FaStoreSlash } from "react-icons/fa";
-
+import { FaStoreSlash, FaWhatsapp } from "react-icons/fa";
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +198,16 @@ export default function Home() {
       )}
 
       <FloatingCartButton />
+      
+      <a
+        href="https://wa.me/5492995206821"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="floating-whatsapp-btn"
+        aria-label="Chat en WhatsApp"
+      >
+        <FaWhatsapp size={32} />
+      </a>
     </div>
   );
 }

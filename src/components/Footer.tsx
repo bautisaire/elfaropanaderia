@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
                     <a href="https://www.instagram.com/faro.panificacion" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                         <FaInstagram size={24} />
                     </a>
-                    <a href="https://wa.me/5492995206811" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                    <a href="https://wa.me/5492995206821" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
                         <FaWhatsapp size={24} />
                     </a>
                 </div>
