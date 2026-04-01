@@ -549,15 +549,13 @@ export default function Dashboard() {
 
         // Initialize Trend Map with 0s based on timeframe
         if (timeframe === 'day') {
-            for (let i = 0; i < 24; i++) {
+            const workingHours = [8, 9, 10, 11, 12, 16, 17, 18, 19, 20];
+            workingHours.forEach(i => {
                 const hour = i.toString().padStart(2, '0');
                 trendMap.set(`${hour}:00`, 0);
-            }
+            });
         } else if (timeframe === 'week') {
-            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            // Reorder to start with Monday if desired, or keep Sunday first. 
-            // Let's adhere to standard JS getDay() for simplicity but maybe sort later.
-            // Actually, for "This Week", it usually means current week.
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             days.forEach(d => trendMap.set(d, 0));
         } else if (timeframe === 'month') {
             // Initialize days 1-31 (or max days in month? keeping simple 1-31 for now or dynamic)
@@ -571,6 +569,11 @@ export default function Dashboard() {
             const amount = Number(order.total) || 0;
             const d = order.dateTyped as Date;
             const dArg = getArgentinaDate(d);
+
+            // Avoid adding Sundays to trend charts as it creates drops
+            if (timeframe !== 'day' && dArg.getDay() === 0) {
+                return;
+            }
 
             let key = '';
             if (timeframe === 'day') {
@@ -588,7 +591,7 @@ export default function Dashboard() {
             trendMap.set(key, currentVal + amount);
         });
 
-        const trendData = Array.from(trendMap.entries()).map(([name, total]) => ({ name, total }));
+        let trendData = Array.from(trendMap.entries()).map(([name, total]) => ({ name, total }));
 
         // Sort for Month/Custom to ensure chronological order
         if (timeframe === 'month' || timeframe === 'custom') {
@@ -597,10 +600,17 @@ export default function Dashboard() {
                 const [db, mb] = b.name.split('/').map(Number);
                 return (ma - mb) || (da - db);
             });
+        } else if (timeframe === 'day') {
+            // Clean up non-working hours that have 0 sales
+            const workingHoursKeys = [8, 9, 10, 11, 12, 16, 17, 18, 19, 20].map(h => `${h.toString().padStart(2, '0')}:00`);
+            trendData = trendData.filter(d => workingHoursKeys.includes(d.name) || d.total > 0);
+            
+            // Sort by hour
+            trendData.sort((a, b) => parseInt(a.name) - parseInt(b.name));
         }
         // week sort? (Mon-Sun generally expected)
-        if (timeframe === 'week') {
-            const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7 };
+        else if (timeframe === 'week') {
+            const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6 };
             trendData.sort((a, b) => (dayOrder[a.name as keyof typeof dayOrder] || 0) - (dayOrder[b.name as keyof typeof dayOrder] || 0));
         }
 
