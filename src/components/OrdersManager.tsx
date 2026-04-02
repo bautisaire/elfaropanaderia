@@ -162,7 +162,16 @@ export default function OrdersManager() {
         );
 
         const unsub = onSnapshot(q, (snap) => {
-            setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            const data = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+            data.sort((a: any, b: any) => {
+                const dateA = a.date?.seconds || 0;
+                const dateB = b.date?.seconds || 0;
+                if (dateB !== dateA) return dateB - dateA;
+                const numA = a.ticketNumber || 0;
+                const numB = b.ticketNumber || 0;
+                return numB - numA;
+            });
+            setExpenses(data);
             setLoadingExpenses(false);
         }, () => setLoadingExpenses(false));
         return () => unsub();

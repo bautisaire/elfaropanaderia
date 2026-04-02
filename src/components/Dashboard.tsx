@@ -623,7 +623,7 @@ export default function Dashboard() {
             { name: 'Delivery', value: delivery }
         ].filter(d => d.value > 0));
 
-    }, [rawOrders, timeframe, productData, customRange]);
+    }, [rawOrders, rawExpenses, timeframe, productData, customRange]);
 
     const handleCustomDateChange = (dates: [Date | null, Date | null]) => {
         const [start, end] = dates;

@@ -21,6 +21,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
         return now.toISOString().split('T')[0];
     });
     const [ticketType, setTicketType] = useState<string>("materia_prima");
+    const [viewMode, setViewMode] = useState<"completo" | "simple">("completo");
     const [priceConflicts, setPriceConflicts] = useState<any[]>([]);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     
@@ -167,7 +168,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
             batch.set(ticketRef, {
                 date: Timestamp.fromDate(orderDate),
                 type: ticketType,
-                description: ticketName.trim() ? `Carga de Tickets - ${ticketName.trim()}` : "Carga de Tickets",
+                description: ticketName.trim() ? ticketName.trim() : "Sin titulo",
                 totalAmount: totalAmount,
                 items: itemsToSave,
                 createdByEmail: user?.email || "admin",
@@ -358,15 +359,41 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                 <div style={{ fontSize: '1rem', color: '#16a34a', marginTop: '10px' }}>
                                     <em>Atajos:</em> <b>Tab / Flechas Der-Izq</b> para moverte entre campos, <b>Enter</b> crea otra fila hacia abajo.
                                 </div>
+                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', gap: '10px' }}>
+                                    <button 
+                                        onClick={() => setViewMode('completo')}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #cbd5e1',
+                                            background: viewMode === 'completo' ? '#3b82f6' : '#f8fafc',
+                                            color: viewMode === 'completo' ? 'white' : '#475569', cursor: 'pointer'
+                                        }}
+                                    >
+                                        Modo Completo
+                                    </button>
+                                    <button 
+                                        onClick={() => setViewMode('simple')}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #cbd5e1',
+                                            background: viewMode === 'simple' ? '#10b981' : '#f8fafc',
+                                            color: viewMode === 'simple' ? 'white' : '#475569', cursor: 'pointer'
+                                        }}
+                                    >
+                                        Modo Simple
+                                    </button>
+                                </div>
                             </div>
 
                             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', fontSize: '1.2rem' }}>
                                         <th style={{ padding: '12px' }}>{ticketType === 'materia_prima' ? 'Materia Prima' : 'Concepto / Ítem'}</th>
-                                        <th style={{ padding: '12px', width: '12%' }}>Cantidad</th>
-                                        <th style={{ padding: '12px', width: '12%' }}>Unidad</th>
-                                        <th style={{ padding: '12px', width: '12%' }}>Multipl.</th>
+                                        {viewMode === 'completo' && (
+                                            <>
+                                                <th style={{ padding: '12px', width: '12%' }}>Cantidad</th>
+                                                <th style={{ padding: '12px', width: '12%' }}>Unidad</th>
+                                                <th style={{ padding: '12px', width: '12%' }}>Multipl.</th>
+                                            </>
+                                        )}
                                         <th style={{ padding: '12px', width: '15%' }}>Precio Costo</th>
                                         <th style={{ padding: '12px', width: '15%' }}>Subtotal</th>
                                         <th style={{ padding: '12px', width: '5%' }}></th>
@@ -387,57 +414,61 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                                     title={prod.rawMaterialId ? "Material Existente" : "Nuevo Material (Será creado)"}
                                                 />
                                             </td>
-                                            <td style={{ padding: '12px' }}>
-                                                <input
-                                                    type="number"
-                                                    value={prod.cantidad}
-                                                    onChange={e => {
-                                                        const newItems = [...ticketItems];
-                                                        newItems[idx].cantidad = Number(e.target.value);
-                                                        setTicketItems(newItems);
-                                                    }}
-                                                    onKeyDown={e => handleKeyDown(e, idx, 'qty')}
-                                                    ref={el => { if (el) inputRefs.current[`${idx}_qty`] = el }}
-                                                    style={bigInputStyle}
-                                                />
-                                            </td>
-                                            <td style={{ padding: '12px' }}>
-                                                <select
-                                                    value={prod.unidad}
-                                                    onChange={e => {
-                                                        const newItems = [...ticketItems];
-                                                        newItems[idx].unidad = e.target.value;
-                                                        setTicketItems(newItems);
-                                                    }}
-                                                    onKeyDown={e => handleKeyDown(e, idx, 'unit')}
-                                                    ref={el => { if (el) inputRefs.current[`${idx}_unit`] = el }}
-                                                    style={bigInputStyle}
-                                                >
-                                                    <option value="g">g</option>
-                                                    <option value="kg">kg</option>
-                                                    <option value="ml">ml</option>
-                                                    <option value="l">l</option>
-                                                    <option value="unidad">un</option>
-                                                </select>
-                                            </td>
-                                            <td style={{ padding: '12px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                    <span style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: 'bold' }}>x</span>
-                                                    <input
-                                                        type="number"
-                                                        value={prod.multiplicador || 1}
-                                                        onChange={e => {
-                                                            const newItems = [...ticketItems];
-                                                            newItems[idx].multiplicador = Number(e.target.value);
-                                                            setTicketItems(newItems);
-                                                        }}
-                                                        onKeyDown={e => handleKeyDown(e, idx, 'multiplier')}
-                                                        ref={el => { if (el) inputRefs.current[`${idx}_multiplier`] = el }}
-                                                        style={bigInputStyle}
-                                                        min="1"
-                                                    />
-                                                </div>
-                                            </td>
+                                            {viewMode === 'completo' && (
+                                                <>
+                                                    <td style={{ padding: '12px' }}>
+                                                        <input
+                                                            type="number"
+                                                            value={prod.cantidad}
+                                                            onChange={e => {
+                                                                const newItems = [...ticketItems];
+                                                                newItems[idx].cantidad = Number(e.target.value);
+                                                                setTicketItems(newItems);
+                                                            }}
+                                                            onKeyDown={e => handleKeyDown(e, idx, 'qty')}
+                                                            ref={el => { if (el) inputRefs.current[`${idx}_qty`] = el }}
+                                                            style={bigInputStyle}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '12px' }}>
+                                                        <select
+                                                            value={prod.unidad}
+                                                            onChange={e => {
+                                                                const newItems = [...ticketItems];
+                                                                newItems[idx].unidad = e.target.value;
+                                                                setTicketItems(newItems);
+                                                            }}
+                                                            onKeyDown={e => handleKeyDown(e, idx, 'unit')}
+                                                            ref={el => { if (el) inputRefs.current[`${idx}_unit`] = el }}
+                                                            style={bigInputStyle}
+                                                        >
+                                                            <option value="g">g</option>
+                                                            <option value="kg">kg</option>
+                                                            <option value="ml">ml</option>
+                                                            <option value="l">l</option>
+                                                            <option value="unidad">un</option>
+                                                        </select>
+                                                    </td>
+                                                    <td style={{ padding: '12px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                            <span style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: 'bold' }}>x</span>
+                                                            <input
+                                                                type="number"
+                                                                value={prod.multiplicador || 1}
+                                                                onChange={e => {
+                                                                    const newItems = [...ticketItems];
+                                                                    newItems[idx].multiplicador = Number(e.target.value);
+                                                                    setTicketItems(newItems);
+                                                                }}
+                                                                onKeyDown={e => handleKeyDown(e, idx, 'multiplier')}
+                                                                ref={el => { if (el) inputRefs.current[`${idx}_multiplier`] = el }}
+                                                                style={bigInputStyle}
+                                                                min="1"
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </>
+                                            )}
                                             <td style={{ padding: '12px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     <span style={{ marginRight: '8px', fontSize: '1.2rem', fontWeight: 'bold' }}>$</span>
