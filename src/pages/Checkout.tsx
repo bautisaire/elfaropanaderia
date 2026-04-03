@@ -101,6 +101,9 @@ export default function Checkout() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        if (parsed.direccion === 'Retiro en local' || parsed.direccion === 'Retiro en el local') {
+          parsed.direccion = '';
+        }
         setFormData(prev => ({ ...prev, ...parsed }));
       } catch (e) {
         console.error("Error loading customer info", e);
@@ -313,7 +316,11 @@ export default function Checkout() {
           window.dispatchEvent(new Event("storage"));
           window.dispatchEvent(new Event('mis_pedidos_updated'));
         }
-        localStorage.setItem('customer_info', JSON.stringify(orderFormData));
+        const infoToSave = { ...formData };
+        if (infoToSave.direccion === 'Retiro en local' || infoToSave.direccion === 'Retiro en el local') {
+          infoToSave.direccion = '';
+        }
+        localStorage.setItem('customer_info', JSON.stringify(infoToSave));
       } catch (e) { console.error("Storage error", e); }
 
       // Telegram local (Se podría mover al backend)
