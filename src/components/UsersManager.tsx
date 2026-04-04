@@ -11,7 +11,12 @@ export default function UsersManager() {
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, 'users'), (snap) => {
             const usersData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUsersList(usersData);
+            const sortedUsers = usersData.sort((a: any, b: any) => {
+                const timeA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                const timeB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                return timeB - timeA;
+            });
+            setUsersList(sortedUsers);
         });
         return () => unsubscribe();
     }, []);
@@ -69,6 +74,11 @@ const UserCard = ({ user }: { user: any }) => {
                         <h4 style={{ margin: '0', color: '#333', fontSize: '1.05rem' }}>{user.email || 'Email no disponible'}</h4>
                         <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#666' }}>
                             Cel: {user.phone ? `+54 ${user.phone}` : 'No ingresado'}
+                            {user.createdAt && (
+                                <span style={{ marginLeft: '10px', fontSize: '0.85rem', color: '#888' }}>
+                                    • Creado: {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString('es-AR') : new Date(user.createdAt).toLocaleDateString('es-AR')}
+                                </span>
+                            )}
                         </p>
                     </div>
                 </div>

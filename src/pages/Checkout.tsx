@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db, functions } from "../firebase/firebaseConfig";
-import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
+import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
@@ -38,6 +38,65 @@ export default function Checkout() {
   const [storeAddressConfig, setStoreAddressConfig] = useState<string>("");
   const [storeMapUrlConfig, setStoreMapUrlConfig] = useState<string>("");
 
+  const [isManualAddress, setIsManualAddress] = useState(false);
+  const [showSaveAddressModal, setShowSaveAddressModal] = useState(false);
+  const [aliasInput, setAliasInput] = useState("");
+  const [newAddressToSave, setNewAddressToSave] = useState("");
+  const [pendingTicketData, setPendingTicketData] = useState<any>(null);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  const proceedToSuccess = (ticket: any) => {
+    setShowSaveAddressModal(false);
+    if (ticket.paymentMethod === 'mercadopago' && ticket.init_point) {
+        window.location.href = ticket.init_point;
+        return;
+    }
+    setFormData(prev => ({ ...prev, nombre: "", direccion: "", telefono: "", indicaciones: "", metodoPago: "efectivo" }));
+    setShowConfirmation(true);
+    setTimeout(() => {
+      setShowConfirmation(false);
+      setConfirmedOrder(ticket);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 3000);
+  };
+
+  const handleSaveNewAddress = async () => {
+    if (!aliasInput.trim() || !newAddressToSave.trim() || !user?.uid) {
+         proceedToSuccess(pendingTicketData);
+         return;
+    }
+    setIsSavingAddress(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      let currentAddresses: any[] = [];
+      if (userSnap.exists() && userSnap.data().addresses) {
+        currentAddresses = userSnap.data().addresses;
+      }
+      const newAddrObj = {
+        id: Date.now().toString(),
+        isMain: currentAddresses.length === 0,
+        alias: aliasInput.trim(),
+        calle: newAddressToSave.trim(),
+        numero: '',
+        piso: '',
+        depto: '',
+        ciudad: 'Senillosa'
+      };
+      
+      const updatedAddresses = [...currentAddresses, newAddrObj];
+      if (!userSnap.exists()) {
+        await setDoc(userRef, { addresses: updatedAddresses });
+      } else {
+        await updateDoc(userRef, { addresses: updatedAddresses });
+      }
+    } catch (e) {
+      console.error("Error saving new address", e);
+    } finally {
+      setIsSavingAddress(false);
+      proceedToSuccess(pendingTicketData);
+    }
+  };
 
   // Scroll to form when showCheckout becomes true
   useEffect(() => {
@@ -69,7 +128,7 @@ export default function Checkout() {
                 const main = addrs.find((a: any) => a.isMain) || addrs[0];
                 // Only overwrite if it's empty right now
                 setFormData(prev => {
-                  if (!prev.direccion && main) {
+                  if (!prev.direccion && main && !isManualAddress) {
                     return { ...prev, direccion: `${main.calle} ${main.numero}${main.piso ? ` Piso: ${main.piso}` : ''}${main.depto ? ` Depto: ${main.depto}` : ''}, ${main.ciudad}` };
                   }
                   return prev;
@@ -338,34 +397,32 @@ export default function Checkout() {
         total: finalTotal,
         paymentMethod: orderFormData.metodoPago,
         cliente: orderFormData,
-        deliveryMethod: deliveryMethod
+        deliveryMethod: deliveryMethod,
+        init_point: init_point
       };
 
-      // Si es MercadoPago, redirect
-      if (formData.metodoPago === 'mercadopago') {
-        if (init_point) {
-          clearCart();
-          window.location.href = init_point;
-          return;
-        } else {
-          alert("El pedido se creó, pero hubo un error al generar de link de Mercado Pago. Contáctenos.");
-          // Aún así mostrar éxito
-        }
-      }
+      const submittedAddress = formData.direccion;
+      const addressAlreadySaved = userAddresses.some(a => 
+        `${a.calle} ${a.numero}${a.piso ? ` Piso: ${a.piso}` : ''}${a.depto ? ` Depto: ${a.depto}` : ''}, ${a.ciudad}` === submittedAddress
+      );
 
-      // Limpiar UI for Cash/Transfer
       clearCart();
-      setShowCheckout(false);
-      setFormData({ nombre: "", direccion: "", telefono: "", indicaciones: "", metodoPago: "efectivo" });
       setIsSubmitting(false);
 
-      // SHOW MODAL THEN TICKET
-      setShowConfirmation(true);
-      setTimeout(() => {
-        setShowConfirmation(false);
-        setConfirmedOrder(ticketData);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 3000);
+      if (user && isManualAddress && deliveryMethod === 'delivery' && !addressAlreadySaved && submittedAddress.trim()) {
+        setShowCheckout(false);
+        setAliasInput(""); 
+        setNewAddressToSave(submittedAddress);
+        setPendingTicketData(ticketData);
+        setShowSaveAddressModal(true);
+      } else {
+        setShowCheckout(false);
+        if (orderFormData.metodoPago === 'mercadopago' && init_point) {
+            window.location.href = init_point;
+        } else {
+            proceedToSuccess(ticketData);
+        }
+      }
 
     } catch (error: any) {
       console.error("Error al enviar el pedido:", error);
@@ -382,6 +439,51 @@ export default function Checkout() {
 
   return (
     <div className="carrito-container">
+      {showSaveAddressModal && (
+        <div className="stock-modal-overlay">
+          <div className="stock-modal" style={{ maxWidth: '400px' }}>
+            <div className="stock-modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <h3>Guardar Nueva Dirección</h3>
+            </div>
+            <div className="stock-modal-content">
+              <p style={{ marginBottom: '15px', color: '#555' }}>¿Quieres guardar esta dirección para futuras compras?</p>
+              <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', marginBottom: '15px', wordBreak: 'break-word', border: '1px solid #eee' }}>
+                <FaMapMarkerAlt style={{ color: 'var(--primary-color)', marginRight: '8px' }} />
+                <strong>{newAddressToSave}</strong>
+              </div>
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label>Alias <span className="required">*</span></label>
+                <input 
+                  type="text" 
+                  value={aliasInput} 
+                  onChange={(e) => setAliasInput(e.target.value)} 
+                  placeholder="ej. Trabajo, Casa Nueva" 
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
+                />
+              </div>
+            </div>
+            <div className="stock-modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: 'none', paddingTop: 0 }}>
+              <button 
+                className="btn-clear" 
+                onClick={() => proceedToSuccess(pendingTicketData)}
+                disabled={isSavingAddress}
+                style={{ flex: 1, backgroundColor: '#f1f5f9', color: '#475569', border: 'none' }}
+              >
+                No guardar
+              </button>
+              <button 
+                className="btn-checkout" 
+                onClick={handleSaveNewAddress}
+                disabled={!aliasInput.trim() || isSavingAddress}
+                style={{ flex: 1 }}
+              >
+                {isSavingAddress ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <h2>
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', verticalAlign: 'middle' }}>
           <circle cx="9" cy="21" r="1"></circle>
@@ -621,16 +723,17 @@ export default function Checkout() {
                               <div
                                 key={addr.id || strAddr}
                                 onClick={() => {
+                                  setIsManualAddress(false);
                                   setFormData(prev => ({ ...prev, direccion: strAddr }));
                                 }}
                                 className="address-radio-card"
-                                style={{ padding: '15px', border: `2px solid ${isSelected ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isSelected ? '#fffcf8' : '#fff' }}
+                                style={{ padding: '15px', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isSelected && !isManualAddress ? '#fffcf8' : '#fff' }}
                               >
                                 <div style={{
-                                  width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isSelected ? 'var(--primary-color)' : '#ccc'}`,
+                                  width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ccc'}`,
                                   display: 'flex', alignItems: 'center', justifyContent: 'center'
                                 }}>
-                                  {isSelected && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
+                                  {isSelected && !isManualAddress && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
                                 </div>
                                 <div>
                                   <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>{addr.alias || 'Dirección'} {addr.isMain && <span style={{ fontSize: '0.7rem', color: '#fff', background: 'var(--primary-color)', padding: '2px 6px', borderRadius: '10px' }}>Principal</span>}</strong>
@@ -639,9 +742,47 @@ export default function Checkout() {
                               </div>
                             );
                           })}
+                          
+                          <div
+                            onClick={() => {
+                                setIsManualAddress(true);
+                                setFormData(prev => ({ ...prev, direccion: '' }));
+                            }}
+                            className="address-radio-card"
+                            style={{ padding: '15px', border: `2px solid ${isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isManualAddress ? '#fffcf8' : '#fff' }}
+                          >
+                            <div style={{
+                                width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isManualAddress ? 'var(--primary-color)' : '#ccc'}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                {isManualAddress && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
+                            </div>
+                            <div>
+                                <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>+ Ingresar nueva dirección</strong>
+                                <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#555' }}>Introducir dirección manualmente</p>
+                            </div>
+                          </div>
                         </div>
+
+                        {isManualAddress && (
+                           <div style={{ marginTop: '15px' }}>
+                             <label htmlFor="direccion" style={{ display: 'block', marginBottom: '5px' }}>
+                               Dirección <span className="required">*</span>
+                             </label>
+                             <input
+                               type="text"
+                               id="direccion"
+                               name="direccion"
+                               value={formData.direccion}
+                               onChange={handleInputChange}
+                               placeholder="Calle, número, departamento"
+                               className={errors.direccion ? "input-error" : ""}
+                             />
+                             {errors.direccion && <span className="error-message">{errors.direccion}</span>}
+                           </div>
+                        )}
                         <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Link to="/mi-cuenta" target="_blank" style={{ color: 'var(--primary-color)', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' }}>Configurar mis direcciones...</Link>
+                          <Link to="/mi-cuenta/direcciones" target="_blank" style={{ color: 'var(--primary-color)', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' }}>Configurar mis direcciones...</Link>
                         </div>
                       </div>
                     ) : (

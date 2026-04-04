@@ -259,7 +259,43 @@ export default function Dashboard() {
         }
 
         const validOrders = rawOrders.filter((o: any) => o.status !== 'cancelado');
-        const filteredOrders = validOrders.filter(o => isInTimeframe(o.dateTyped, timeframe));
+        const filteredOrders = validOrders.filter(o => isInTimeframe(o.dateTyped, timeframe)).map((order: any) => {
+            let amountToExclude = 0;
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                    let baseId = String(item.id);
+                    let variantName = item.variant;
+                    if (!variantName) {
+                        const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
+                        if (match) variantName = match[1];
+                    }
+                    if (item.productId) {
+                        baseId = String(item.productId);
+                    } else if (variantName) {
+                        const suffix = `-${variantName}`;
+                        if (String(item.id).endsWith(suffix)) {
+                            baseId = String(item.id).substring(0, String(item.id).length - suffix.length);
+                        } else {
+                            const parts = String(item.id).split('-');
+                            if (parts.length > 1 && parts[parts.length - 1] === variantName) {
+                                baseId = parts.slice(0, -1).join('-');
+                            }
+                        }
+                    }
+
+                    const productInfo = productData.get(baseId);
+                    const isShippingItem = baseId === 'shipping-cost' || String(item.name).toLowerCase().includes('envío') || String(item.name).toLowerCase().includes('envio');
+
+                    if (isShippingItem || productInfo?.excludeFromStats) {
+                        amountToExclude += (Number(item.quantity) || 0) * (Number(item.price) || 0);
+                    }
+                });
+            }
+            return {
+                ...order,
+                statsTotal: Math.max(0, (Number(order.total) || 0) - amountToExclude)
+            };
+        });
         const filteredExpenses = rawExpenses.filter(e => isInTimeframe(e.dateTyped, timeframe));
 
         let totalEgresos = 0;
@@ -319,7 +355,7 @@ export default function Dashboard() {
         });
 
         filteredOrders.forEach(order => {
-            const amount = Number(order.total) || 0;
+            const amount = order.statsTotal;
             plata += amount;
 
             // Payment method breakdown
@@ -393,6 +429,8 @@ export default function Dashboard() {
                         finalName = 'Envío';
                         finalVariant = undefined;
                     }
+
+                    if (isShipping || productInfo?.excludeFromStats) return;
 
                     // 2. Check Dependency (Roll-up)
                     if (productInfo && productInfo.stockDependency && productInfo.stockDependency.productId) {
@@ -566,7 +604,7 @@ export default function Dashboard() {
         }
 
         filteredOrders.forEach(order => {
-            const amount = Number(order.total) || 0;
+            const amount = order.statsTotal;
             const d = order.dateTyped as Date;
             const dArg = getArgentinaDate(d);
 

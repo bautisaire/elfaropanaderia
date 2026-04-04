@@ -39,6 +39,7 @@ export interface FirestoreProduct {
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
     unitsPerProduct?: number; // Equivalencia de unidades
     trackInDashboard?: boolean;
+    excludeFromStats?: boolean;
     stockDependency?: {
         productId: string;
         unitsToDeduct: number;
@@ -68,6 +69,7 @@ const INITIAL_STATE: FirestoreProduct = {
     unitType: 'unit',
     unitsPerProduct: 1,
     trackInDashboard: false,
+    excludeFromStats: false,
     requiresRecipe: true,
     stockReadyTime: "",
     customBadgeText: "",
@@ -697,6 +699,18 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                                                 onChange={handleInputChange}
                                             />
                                             <strong style={{ color: '#8b5cf6' }}>Seguimiento en Dashboard</strong>
+                                        </label>
+                                    </div>
+
+                                    <div className="form-group quarter checkbox-group-styled">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="excludeFromStats"
+                                                checked={!!formData.excludeFromStats}
+                                                onChange={handleInputChange}
+                                            />
+                                            <strong style={{ color: '#ef4444' }}>Excluir de Estadísticas</strong>
                                         </label>
                                     </div>
 

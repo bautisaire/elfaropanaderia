@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { auth, googleProvider, db } from '../firebase/firebaseConfig';
 import {
@@ -51,7 +51,12 @@ export default function MyAccount() {
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState('');
 
-    const [activeTab, setActiveTab] = useState<'personal' | 'direcciones' | 'compras' | 'favoritos'>('personal');
+    const location = useLocation();
+    let currentPath = location.pathname.split('/')[2];
+    let activeTab = currentPath || 'personal';
+    if (!['personal', 'direcciones', 'compras', 'favoritos'].includes(activeTab)) {
+        activeTab = 'personal';
+    }
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -206,25 +211,25 @@ export default function MyAccount() {
 
             <div className="dashboard-content">
                 <div className="dashboard-sidebar">
-                    <button className={`dashboard-item ${activeTab === 'personal' ? 'active' : ''}`} onClick={() => setActiveTab('personal')}>
+                    <button className={`dashboard-item ${activeTab === 'personal' ? 'active' : ''}`} onClick={() => navigate('/mi-cuenta/personal')}>
                         <span className="item-inner-wrapper">
                             <FaUser className="item-icon" />
                             <span>Datos Personales</span>
                         </span>
                     </button>
-                    <button className={`dashboard-item ${activeTab === 'direcciones' ? 'active' : ''}`} onClick={() => setActiveTab('direcciones')}>
+                    <button className={`dashboard-item ${activeTab === 'direcciones' ? 'active' : ''}`} onClick={() => navigate('/mi-cuenta/direcciones')}>
                         <span className="item-inner-wrapper">
                             <FaMapMarkerAlt className="item-icon" />
                             <span>Direcciones</span>
                         </span>
                     </button>
-                    <button className={`dashboard-item ${activeTab === 'compras' ? 'active' : ''}`} onClick={() => setActiveTab('compras')}>
+                    <button className={`dashboard-item ${activeTab === 'compras' ? 'active' : ''}`} onClick={() => navigate('/mi-cuenta/compras')}>
                         <span className="item-inner-wrapper">
                             <FaShoppingBag className="item-icon" />
                             <span>Compras</span>
                         </span>
                     </button>
-                    <button className={`dashboard-item ${activeTab === 'favoritos' ? 'active' : ''}`} onClick={() => setActiveTab('favoritos')}>
+                    <button className={`dashboard-item ${activeTab === 'favoritos' ? 'active' : ''}`} onClick={() => navigate('/mi-cuenta/favoritos')}>
                         <span className="item-inner-wrapper">
                             <FaHeart className="item-icon" />
                             <span>Favoritos</span>

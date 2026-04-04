@@ -53,7 +53,7 @@ function Layout() {
           <Route path="/" element={<Home />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/editor/*" element={<Editor />} />
-          <Route path="/mi-cuenta" element={<MyAccount />} />
+          <Route path="/mi-cuenta/*" element={<MyAccount />} />
           <Route path="/mis-pedidos" element={<MisPedidos />} />
           <Route path="/Proximamente" element={<Proximamente />} />
         </Routes>
