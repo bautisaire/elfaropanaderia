@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { FaUserPlus, FaEdit, FaTrash, FaClock, FaCheckCircle, FaMoneyBillWave, FaTimes } from 'react-icons/fa';
+import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { FaUserPlus, FaEdit, FaTrash, FaClock, FaCheckCircle, FaMoneyBillWave } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import './EmployeesManager.css';
 
@@ -427,7 +427,7 @@ export default function EmployeesManager() {
                         <div>
                             <h3 style={{ margin: '0 0 5px 0', color: '#1e3a8a' }}>Fondo CIF Operativo (Alquiler, Servicios, etc.)</h3>
                             <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Dinero que mes a mes debes acumular y apartar para gastos fijos (Excluye sueldos).</p>
-                            <div className="debt-amount" style={{ color: '#2563eb' }}>${Math.round(netCifMonthly).toLocaleString('es-AR')} <span style={{fontSize: '0.9rem', color: '#64748b'}}>/ mes</span></div>
+                            <div className="debt-amount" style={{ color: '#2563eb' }}>${Math.round(netCifMonthly).toLocaleString('es-AR')} <span style={{ fontSize: '0.9rem', color: '#64748b' }}>/ mes</span></div>
                             <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '0.8rem' }}>Meta diaria de reserva: <strong>${Math.round(netCifMonthly / 30).toLocaleString('es-AR')}</strong></p>
                         </div>
                     </div>
