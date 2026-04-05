@@ -356,7 +356,8 @@ export default function Checkout() {
       };
 
       const { data } = await processOrderFn(requestData) as any;
-      const { success, orderId, init_point } = data;
+      const { success, init_point } = data;
+      const orderId = data.orderId || data.id;
 
       if (!success) {
         throw new Error("Respuesta inválida del servidor");

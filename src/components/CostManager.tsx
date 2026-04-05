@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
-import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot, FaBuilding } from 'react-icons/fa';
 import './CostManager.css';
 import ProductManager from './ProductManager';
 import VoiceAIPurchases from './VoiceAIPurchases';
+import CifManager from './CifManager';
 
 export interface RawMaterial {
     id: string;
@@ -29,6 +30,7 @@ export interface ProductRecipe {
     ingredients: RecipeIngredient[];
     yield: number; // Rendimiento
     yieldType?: 'units' | 'kg'; // Tipo de rendimiento
+    weightPerUnitGrams?: number; 
     costPerUnit?: number;
     merma?: number; // Porcentaje de desperdicio/pérdida
 }
@@ -54,7 +56,7 @@ export default function CostManager() {
     
     // Parseo de la ruta actual
     const cleanTab = tab ? tab.replace(/^\//, '') : 'products';
-    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'tickets'];
+    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'tickets', 'cif'];
     const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'products';
 
     // --- SYSTEM CONFIG (MARGINS) ---
@@ -87,10 +89,12 @@ export default function CostManager() {
     const ingredientInputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Global Replace State
     const [replaceFromId, setReplaceFromId] = useState<string>('');
     const [replaceToId, setReplaceToId] = useState<string>('');
     const [isReplacing, setIsReplacing] = useState(false);
+
+    // Global CIF State
+    const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
 
     // Click outside handler for dropdown
     useEffect(() => {
@@ -120,9 +124,17 @@ export default function CostManager() {
             setProducts(data);
         });
 
+        // Fetch CIF Unit Cost
+        const unsubCif = onSnapshot(doc(db, "config", "cif_settings"), (docSnap) => {
+            if (docSnap.exists()) {
+                setGlobalCifUnitCost(docSnap.data().cifUnitCost || 0);
+            }
+        });
+
         return () => {
             unsubMat();
             unsubProd();
+            unsubCif();
         };
     }, []);
 
@@ -285,7 +297,21 @@ export default function CostManager() {
 
     const calculateRecipeTotalCost = (recipe: ProductRecipe | null): number => {
         if (!recipe) return 0;
-        return recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
+        let baseCost = recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
+        
+        // Add CIF Cost
+        if (recipe.weightPerUnitGrams && recipe.yield > 0) {
+            let totalGrams = 0;
+            if (recipe.yieldType === 'kg') {
+                totalGrams = recipe.yield * 1000;
+            } else {
+                totalGrams = recipe.yield * recipe.weightPerUnitGrams;
+            }
+            const cifUnits = totalGrams / 100;
+            baseCost += cifUnits * globalCifUnitCost;
+        }
+
+        return baseCost;
     };
 
     const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
@@ -451,11 +477,15 @@ export default function CostManager() {
     const marginsArray = validProductsForSim.map(p => {
         const cost = calculateRealProductCost(p);
         const currentRetail = Number(p.precio) || 0;
-        return cost > 0 ? ((currentRetail / cost) - 1) * 100 : 0;
-    }).filter(m => m > 0);
+        if (cost === 0 || currentRetail === 0) return null;
+        return ((currentRetail / cost) - 1) * 100;
+    }).filter(m => m !== null) as number[];
     const avgMargin = marginsArray.length > 0 ? marginsArray.reduce((acc, val) => acc + val, 0) / marginsArray.length : 0;
-    const minMargin = marginsArray.length > 0 ? Math.min(...marginsArray) : 0;
+    
+    const positiveMargins = marginsArray.filter(m => m >= 0);
+    const minPositiveMargin = positiveMargins.length > 0 ? Math.min(...positiveMargins) : 0;
     const maxMargin = marginsArray.length > 0 ? Math.max(...marginsArray) : 0;
+    const greatestLoss = marginsArray.length > 0 && Math.min(...marginsArray) < 0 ? Math.min(...marginsArray) : 0;
 
     return (
         <div className="cost-manager-container">
@@ -491,6 +521,12 @@ export default function CostManager() {
                         onClick={() => navigate('/editor/costs/tickets')}
                     >
                         5. Tickets
+                    </button>
+                    <button
+                        className={`cm-tab ${activeTab === 'cif' ? 'active' : ''}`}
+                        onClick={() => navigate('/editor/costs/cif')}
+                    >
+                        <FaBuilding /> 6. Gtos. Fijos (CIF)
                     </button>
                 </div>
             </header>
@@ -1103,6 +1139,34 @@ export default function CostManager() {
                                                                     </span>
                                                                 </div>
                                                             </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Peso x {recipeYieldType === 'kg' ? 'kg' : 'unidad'}</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={editingRecipe.weightPerUnitGrams || ''}
+                                                                        placeholder="Opcional"
+                                                                        onChange={e => setEditingRecipe({ ...editingRecipe, weightPerUnitGrams: Number(e.target.value) })}
+                                                                        style={{ fontSize: '1.1rem', textAlign: 'center', width: '90px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
+                                                                    />
+                                                                    <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
+                                                                        g
+                                                                    </span>
+                                                                </div>
+                                                                {recipeYieldType === 'kg' ? (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                        + CIF: ${(10 * globalCifUnitCost).toFixed(2)} / kg
+                                                                    </div>
+                                                                ) : editingRecipe.weightPerUnitGrams ? (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                        + CIF: ${(((editingRecipe.weightPerUnitGrams || 0) / 100) * globalCifUnitCost).toFixed(2)} / un
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                                                                        Ingresa peso para sumar CIF
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1120,11 +1184,17 @@ export default function CostManager() {
                                                     </td>
                                                     <td colSpan={2} style={{ color: recipeYieldType === 'kg' ? '#0369a1' : '#b91c1c', fontWeight: 'bold', fontSize: '1.5rem' }}>
                                                         ${calculateRecipeUnitCost(editingRecipe, recipeYieldType).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        {recipeYieldType === 'kg' && editingRecipe.yield > 0 && (
-                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal', marginTop: '2px' }}>
-                                                                Regla de 3: ${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} kg
-                                                            </div>
-                                                        )}
+                                                        
+                                                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal', marginTop: '4px', lineHeight: '1.4' }}>
+                                                            {editingRecipe.yield > 0 && (
+                                                                <div>Regla de 3: ${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} {recipeYieldType === 'kg' ? 'kg' : 'un'}</div>
+                                                            )}
+                                                            {(calculateRecipeTotalCost(editingRecipe) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) > 0 && (
+                                                                <div style={{ color: '#b91c1c', fontWeight: 'bold' }}>
+                                                                    (Incluye ${((calculateRecipeTotalCost(editingRecipe) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) / editingRecipe.yield).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de Gastos Fijos CIF)
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             </tfoot>
@@ -1171,17 +1241,26 @@ export default function CostManager() {
                             {marginsArray.length > 0 && (
                             <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '15px', fontSize: '0.85rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ color: '#64748b' }}>Ganancia Promedio Actual</span>
-                                    <strong style={{ color: '#0ea5e9', fontSize: '1.05rem' }}>+{avgMargin.toFixed(0)}%</strong>
+                                    <span style={{ color: '#64748b' }}>Promedio Actual</span>
+                                    <strong style={{ color: avgMargin >= 0 ? '#0ea5e9' : '#ef4444', fontSize: '1.05rem' }}>{avgMargin > 0 ? '+' : ''}{avgMargin.toFixed(0)}%</strong>
                                 </div>
                                 <div style={{ borderLeft: '2px dashed #cbd5e1' }}></div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <span style={{ color: '#64748b' }}>Menor Ganancia Detectada</span>
-                                    <strong style={{ color: '#ef4444', fontSize: '1.05rem' }}>+{minMargin.toFixed(0)}%</strong>
+                                    <strong style={{ color: '#f59e0b', fontSize: '1.05rem' }}>+{minPositiveMargin.toFixed(0)}%</strong>
                                 </div>
+                                {greatestLoss < 0 && (
+                                    <>
+                                        <div style={{ borderLeft: '2px dashed #cbd5e1' }}></div>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ color: '#64748b' }}>Mayor Pérdida</span>
+                                            <strong style={{ color: '#ef4444', fontSize: '1.05rem' }}>{greatestLoss.toFixed(0)}%</strong>
+                                        </div>
+                                    </>
+                                )}
                                 <div style={{ borderLeft: '2px dashed #cbd5e1' }}></div>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ color: '#64748b' }}>Mayor Ganancia Detectada</span>
+                                    <span style={{ color: '#64748b' }}>Mayor Ganancia</span>
                                     <strong style={{ color: '#10b981', fontSize: '1.05rem' }}>+{maxMargin.toFixed(0)}%</strong>
                                 </div>
                             </div>
@@ -1227,23 +1306,23 @@ export default function CostManager() {
                                                 <td className={currentRetail < sugRetail ? 'price-warning' : 'price-ok'}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span>${currentRetail.toFixed(2)}</span>
-                                                        {realRetailMargin > 0 && (
+                                                        {cost > 0 && currentRetail > 0 && (
                                                             <span style={{ 
                                                                 fontSize: '0.75rem', 
-                                                                background: '#d1fae5', 
-                                                                color: '#047857', 
+                                                                background: realRetailMargin < 0 ? '#fee2e2' : '#d1fae5', 
+                                                                color: realRetailMargin < 0 ? '#b91c1c' : '#047857', 
                                                                 padding: '2px 6px', 
                                                                 borderRadius: '12px',
                                                                 fontWeight: 'bold',
-                                                                border: '1px solid #34d399'
+                                                                border: `1px solid ${realRetailMargin < 0 ? '#f87171' : '#34d399'}`
                                                             }}>
-                                                                +{realRetailMargin.toFixed(0)}%
+                                                                {realRetailMargin > 0 ? '+' : ''}{realRetailMargin.toFixed(0)}%
                                                             </span>
                                                         )}
                                                     </div>
                                                 </td>
 
-                                                <td style={{ color: '#059669', fontWeight: 'bold' }}>${profit.toFixed(2)}</td>
+                                                <td style={{ color: profit < 0 ? '#b91c1c' : '#059669', fontWeight: 'bold' }}>${profit.toFixed(2)}</td>
 
                                                 <td>
                                                     <button
@@ -1264,6 +1343,9 @@ export default function CostManager() {
                 )}
                 {activeTab === 'tickets' && (
                     <VoiceAIPurchases rawMaterials={rawMaterials} />
+                )}
+                {activeTab === 'cif' && (
+                    <CifManager />
                 )}
             </main>
         </div>

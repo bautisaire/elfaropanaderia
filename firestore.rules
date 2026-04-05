@@ -85,13 +85,27 @@ service cloud.firestore {
     match /users/{userId} {
       // Un usuario solo puede leer y guardar (direcciones/info) en su propio documento
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Admins pueden leer toda la colección libremente (para la pestaña "UsersManager")
-      allow read: if isAdmin();
+      // Admins pueden leer y escribir toda la colección libremente
+      allow read, write: if isAdmin();
+    }
+    
+    // --- MÓDULO DE EMPLEADOS Y RRHH ---
+    match /employees/{employeeId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /time_entries/{entryId} {
+      allow read, write: if isAdmin();
     }
     
     // --- MÓDULO DE COSTOS Y RECETAS ---
     match /raw_materials/{materialId} {
       // Solo administradores pueden ver, crear, editar o eliminar materias primas
+      allow read, write: if isAdmin();
+    }
+    
+    // Gatos fijos (CIF)
+    match /cif_items/{itemId} {
       allow read, write: if isAdmin();
     }
     

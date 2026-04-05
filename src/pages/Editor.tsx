@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -13,6 +13,7 @@ import POSManager from "../components/POSManager";
 import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
+import EmployeesManager from "../components/EmployeesManager";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -231,6 +232,15 @@ export default function Editor() {
                 <span className="nav-text">Configuración</span>
               </button>
 
+              <button
+                className={currentPath === "employees" ? "active" : ""}
+                onClick={() => handleNavClick("/editor/employees")}
+                title="Personal"
+              >
+                <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaUserFriends /></div>
+                <span className="nav-text">Personal</span>
+              </button>
+
               <div className="sidebar-footer">
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
                   <div className="nav-icon" style={{ color: '#84cc16' }}><FaHome /></div>
@@ -254,6 +264,7 @@ export default function Editor() {
               <Route path="/settings" element={<AdminSettings />} />
               <Route path="/costs/*" element={<CostManager />} />
               <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />
+              <Route path="/employees" element={<EmployeesManager />} />
               <Route path="*" element={<Navigate to="/editor/" replace />} />
             </Routes>
           </main>

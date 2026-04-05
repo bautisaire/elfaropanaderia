@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
 import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import ClosedModal from "../components/ClosedModal";
 export interface Product {
   id: string | number;
@@ -100,20 +100,18 @@ export const CartProvider = ({ children }: Props) => {
 
   // Fetch Store Status
   useEffect(() => {
-    const fetchStoreStatus = async () => {
-      try {
-        const docRef = doc(db, "config", "store_settings");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);
-          setClosedMessage(data.closeMessage || "Tienda Cerrada");
-        }
-      } catch (error) {
-        console.error("Error fetching store status:", error);
+    const docRef = doc(db, "config", "store_settings");
+    const unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);
+        setClosedMessage(data.closeMessage || "Tienda Cerrada");
       }
-    };
-    fetchStoreStatus();
+    }, (error) => {
+      console.error("Error fetching store status:", error);
+    });
+
+    return () => unsub();
   }, []);
 
   // Check Admin Status and User

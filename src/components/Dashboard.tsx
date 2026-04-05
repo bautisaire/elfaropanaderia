@@ -30,6 +30,7 @@ export default function Dashboard() {
     const [rawOrders, setRawOrders] = useState<any[]>([]);
     const [rawUsers, setRawUsers] = useState<any[]>([]);
     const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+    const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [stats, setStats] = useState({
@@ -47,6 +48,7 @@ export default function Dashboard() {
         newVisitsToday: 0,
         totalEgresos: 0,
         egresosCount: 0,
+        totalSueldosPendientes: 0,
         // Breakdown
         totalEfectivo: 0,
         totalTransferencia: 0,
@@ -143,6 +145,7 @@ export default function Dashboard() {
         let unsubStats: () => void;
         let unsubUsers: () => void;
         let unsubExpenses: () => void;
+        let unsubTimeEntries: () => void;
         let unsubProducts: () => void; // New listener for products
         let unsubRawMaterials: () => void;
 
@@ -228,6 +231,11 @@ export default function Dashboard() {
                     setRawUsers(users);
                 });
 
+                unsubTimeEntries = onSnapshot(collection(db, "time_entries"), (snapshot) => {
+                    const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRawTimeEntries(entries);
+                });
+
                 setLoading(false);
 
             } catch (error) {
@@ -245,12 +253,20 @@ export default function Dashboard() {
             if (unsubStats) unsubStats();
             if (unsubUsers) unsubUsers();
             if (unsubExpenses) unsubExpenses();
+            if (unsubTimeEntries) unsubTimeEntries();
         };
     }, []);
 
     // Recalculate stats when rawOrders, timeframe, OR productData changes
     useEffect(() => {
         if (!rawOrders) return;
+
+        let pendientes = 0;
+        rawTimeEntries.forEach((entry: any) => {
+            if (entry.status === 'open' && entry.clockOut !== null) {
+                pendientes += Number(entry.amountDue) || 0;
+            }
+        });
 
         // If custom timeframe but no range selected (shouldn't happen if UI is correct), skip or show 0
         if (timeframe === 'custom' && (!customRange.start || !customRange.end)) {
@@ -574,7 +590,8 @@ export default function Dashboard() {
             publicoDebito,
             deliveryEfectivo,
             deliveryTransferencia,
-            deliveryDebito
+            deliveryDebito,
+            totalSueldosPendientes: pendientes
         }));
 
         setTopProducts(Array.from(productMap.values()).sort((a, b) => b.quantity - a.quantity));
@@ -823,6 +840,19 @@ export default function Dashboard() {
                         <h3>Egresos ({getTimeframeLabel()})</h3>
                         <p style={{ color: '#f59e0b' }}>${Math.floor(stats.totalEgresos).toLocaleString('es-AR')}</p>
                         <span className="stat-sub">{stats.egresosCount} tickets</span>
+                    </div>
+                </div>
+
+                {/* Provisión Sueldos (Pendientes) */}
+                <div
+                    className="stat-card orders"
+                    style={{ position: 'relative' }}
+                >
+                    <div className="stat-icon" style={{ color: '#ea580c', backgroundColor: '#ffedd5' }}><FaMoneyBillWave /></div>
+                    <div className="stat-info">
+                        <h3>Provisión Sueldos</h3>
+                        <p style={{ color: '#ea580c' }}>${Math.floor(stats.totalSueldosPendientes || 0).toLocaleString('es-AR')}</p>
+                        <span className="stat-sub">Pendientes de pago</span>
                     </div>
                 </div>
 
