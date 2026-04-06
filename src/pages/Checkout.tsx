@@ -48,8 +48,8 @@ export default function Checkout() {
   const proceedToSuccess = (ticket: any) => {
     setShowSaveAddressModal(false);
     if (ticket.paymentMethod === 'mercadopago' && ticket.init_point) {
-        window.location.href = ticket.init_point;
-        return;
+      window.location.href = ticket.init_point;
+      return;
     }
     setFormData(prev => ({ ...prev, nombre: "", direccion: "", telefono: "", indicaciones: "", metodoPago: "efectivo" }));
     setShowConfirmation(true);
@@ -62,8 +62,8 @@ export default function Checkout() {
 
   const handleSaveNewAddress = async () => {
     if (!aliasInput.trim() || !newAddressToSave.trim() || !user?.uid) {
-         proceedToSuccess(pendingTicketData);
-         return;
+      proceedToSuccess(pendingTicketData);
+      return;
     }
     setIsSavingAddress(true);
     try {
@@ -83,7 +83,7 @@ export default function Checkout() {
         depto: '',
         ciudad: 'Senillosa'
       };
-      
+
       const updatedAddresses = [...currentAddresses, newAddrObj];
       if (!userSnap.exists()) {
         await setDoc(userRef, { addresses: updatedAddresses });
@@ -339,7 +339,7 @@ export default function Checkout() {
     try {
       // LLAMADA AL BACKEND
       const processOrderFn = httpsCallable(functions, 'processOrder');
-      
+
       const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
       const orderFormData = {
         ...formData,
@@ -369,7 +369,7 @@ export default function Checkout() {
       try {
         const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
         const cleanOrders = existingOrders.map((o: any) => String(typeof o === 'object' ? (o.id || o.orderId) : o));
-        
+
         if (!cleanOrders.includes(String(orderId))) {
           cleanOrders.push(String(orderId));
           localStorage.setItem('mis_pedidos', JSON.stringify(cleanOrders));
@@ -403,7 +403,7 @@ export default function Checkout() {
       };
 
       const submittedAddress = formData.direccion;
-      const addressAlreadySaved = userAddresses.some(a => 
+      const addressAlreadySaved = userAddresses.some(a =>
         `${a.calle} ${a.numero}${a.piso ? ` Piso: ${a.piso}` : ''}${a.depto ? ` Depto: ${a.depto}` : ''}, ${a.ciudad}` === submittedAddress
       );
 
@@ -412,23 +412,23 @@ export default function Checkout() {
 
       if (user && isManualAddress && deliveryMethod === 'delivery' && !addressAlreadySaved && submittedAddress.trim()) {
         setShowCheckout(false);
-        setAliasInput(""); 
+        setAliasInput("");
         setNewAddressToSave(submittedAddress);
         setPendingTicketData(ticketData);
         setShowSaveAddressModal(true);
       } else {
         setShowCheckout(false);
         if (orderFormData.metodoPago === 'mercadopago' && init_point) {
-            window.location.href = init_point;
+          window.location.href = init_point;
         } else {
-            proceedToSuccess(ticketData);
+          proceedToSuccess(ticketData);
         }
       }
 
     } catch (error: any) {
       console.error("Error al enviar el pedido:", error);
       setIsSubmitting(false);
-      
+
       const msg = error.message || "";
       if (msg.includes("Stock insuficiente")) {
         alert(`⚠️ ${msg}\n\nPor favor revisa tu carrito.`);
@@ -454,26 +454,26 @@ export default function Checkout() {
               </div>
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label>Alias <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={aliasInput} 
-                  onChange={(e) => setAliasInput(e.target.value)} 
-                  placeholder="ej. Trabajo, Casa Nueva" 
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }} 
+                <input
+                  type="text"
+                  value={aliasInput}
+                  onChange={(e) => setAliasInput(e.target.value)}
+                  placeholder="ej. Trabajo, Casa Nueva"
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}
                 />
               </div>
             </div>
             <div className="stock-modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: 'none', paddingTop: 0 }}>
-              <button 
-                className="btn-clear" 
+              <button
+                className="btn-clear"
                 onClick={() => proceedToSuccess(pendingTicketData)}
                 disabled={isSavingAddress}
                 style={{ flex: 1, backgroundColor: '#f1f5f9', color: '#475569', border: 'none' }}
               >
                 No guardar
               </button>
-              <button 
-                className="btn-checkout" 
+              <button
+                className="btn-checkout"
                 onClick={handleSaveNewAddress}
                 disabled={!aliasInput.trim() || isSavingAddress}
                 style={{ flex: 1 }}
@@ -484,7 +484,7 @@ export default function Checkout() {
           </div>
         </div>
       )}
-      
+
       <h2>
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', verticalAlign: 'middle' }}>
           <circle cx="9" cy="21" r="1"></circle>
@@ -661,7 +661,25 @@ export default function Checkout() {
                     />
                     {errors.nombre && <span className="error-message">{errors.nombre}</span>}
                   </div>
-
+                  <div className="form-group">
+                    <label htmlFor="telefono">
+                      Teléfono <span className="required">*</span>
+                    </label>
+                    <div className="phone-input-group">
+                      <span className="phone-prefix">+54</span>
+                      <input
+                        type="tel"
+                        id="telefono"
+                        name="telefono"
+                        value={formData.telefono}
+                        onChange={handleInputChange}
+                        placeholder="Cod. Área + Número"
+                        className={`phone-input-field ${errors.telefono ? "input-error" : ""}`}
+                        maxLength={11}
+                      />
+                    </div>
+                    {errors.telefono && <span className="error-message">{errors.telefono}</span>}
+                  </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label>Método de entrega <span className="required">*</span></label>
                     <div className="radio-group" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
@@ -714,124 +732,106 @@ export default function Checkout() {
                   ) : (
                     <div className="form-group" style={{ marginBottom: '20px' }}>
                       {userAddresses.length > 0 ? (
-                      <div className="saved-addresses-selection">
-                        <label style={{ display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>Dirección de Entrega <span className="required">*</span></label>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {userAddresses.map(addr => {
-                            const strAddr = `${addr.calle} ${addr.numero}${addr.piso ? ` Piso: ${addr.piso}` : ''}${addr.depto ? ` Depto: ${addr.depto}` : ''}, ${addr.ciudad}`;
-                            const isSelected = formData.direccion === strAddr;
-                            return (
-                              <div
-                                key={addr.id || strAddr}
-                                onClick={() => {
-                                  setIsManualAddress(false);
-                                  setFormData(prev => ({ ...prev, direccion: strAddr }));
-                                }}
-                                className="address-radio-card"
-                                style={{ padding: '15px', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isSelected && !isManualAddress ? '#fffcf8' : '#fff' }}
-                              >
-                                <div style={{
-                                  width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ccc'}`,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                }}>
-                                  {isSelected && !isManualAddress && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
+                        <div className="saved-addresses-selection">
+                          <label style={{ display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>Dirección  <span className="required">*</span></label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {userAddresses.map(addr => {
+                              const strAddr = `${addr.calle} ${addr.numero}${addr.piso ? ` Piso: ${addr.piso}` : ''}${addr.depto ? ` Depto: ${addr.depto}` : ''}, ${addr.ciudad}`;
+                              const isSelected = formData.direccion === strAddr;
+                              return (
+                                <div
+                                  key={addr.id || strAddr}
+                                  onClick={() => {
+                                    setIsManualAddress(false);
+                                    setFormData(prev => ({ ...prev, direccion: strAddr }));
+                                  }}
+                                  className="address-radio-card"
+                                  style={{ padding: '15px', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isSelected && !isManualAddress ? '#fffcf8' : '#fff' }}
+                                >
+                                  <div style={{
+                                    width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isSelected && !isManualAddress ? 'var(--primary-color)' : '#ccc'}`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}>
+                                    {isSelected && !isManualAddress && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
+                                  </div>
+                                  <div>
+                                    <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>{addr.alias || 'Dirección'} {addr.isMain && <span style={{ fontSize: '0.7rem', color: '#fff', background: 'var(--primary-color)', padding: '2px 6px', borderRadius: '10px' }}>Principal</span>}</strong>
+                                    <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#555' }}>{strAddr}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>{addr.alias || 'Dirección'} {addr.isMain && <span style={{ fontSize: '0.7rem', color: '#fff', background: 'var(--primary-color)', padding: '2px 6px', borderRadius: '10px' }}>Principal</span>}</strong>
-                                  <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#555' }}>{strAddr}</p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          
-                          <div
-                            onClick={() => {
+                              );
+                            })}
+
+                            <div
+                              onClick={() => {
                                 setIsManualAddress(true);
                                 setFormData(prev => ({ ...prev, direccion: '' }));
-                            }}
-                            className="address-radio-card"
-                            style={{ padding: '15px', border: `2px solid ${isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isManualAddress ? '#fffcf8' : '#fff' }}
-                          >
-                            <div style={{
+                              }}
+                              className="address-radio-card"
+                              style={{ padding: '15px', border: `2px solid ${isManualAddress ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: isManualAddress ? '#fffcf8' : '#fff' }}
+                            >
+                              <div style={{
                                 width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${isManualAddress ? 'var(--primary-color)' : '#ccc'}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
+                              }}>
                                 {isManualAddress && <div style={{ width: '10px', height: '10px', backgroundColor: 'var(--primary-color)', borderRadius: '50%' }} />}
-                            </div>
-                            <div>
+                              </div>
+                              <div>
                                 <strong style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#333' }}>+ Ingresar nueva dirección</strong>
                                 <p style={{ margin: '5px 0 0 0', fontSize: '0.9rem', color: '#555' }}>Introducir dirección manualmente</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {isManualAddress && (
-                           <div style={{ marginTop: '15px' }}>
-                             <label htmlFor="direccion" style={{ display: 'block', marginBottom: '5px' }}>
-                               Dirección <span className="required">*</span>
-                             </label>
-                             <input
-                               type="text"
-                               id="direccion"
-                               name="direccion"
-                               value={formData.direccion}
-                               onChange={handleInputChange}
-                               placeholder="Calle, número, departamento"
-                               className={errors.direccion ? "input-error" : ""}
-                             />
-                             {errors.direccion && <span className="error-message">{errors.direccion}</span>}
-                           </div>
-                        )}
-                        <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Link to="/mi-cuenta/direcciones" target="_blank" style={{ color: 'var(--primary-color)', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' }}>Configurar mis direcciones...</Link>
+                          {isManualAddress && (
+                            <div style={{ marginTop: '15px' }}>
+                              <label htmlFor="direccion" style={{ display: 'block', marginBottom: '5px' }}>
+                                Dirección <span className="required">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                id="direccion"
+                                name="direccion"
+                                value={formData.direccion}
+                                onChange={handleInputChange}
+                                placeholder="Calle, número, departamento"
+                                className={errors.direccion ? "input-error" : ""}
+                              />
+                              {errors.direccion && <span className="error-message">{errors.direccion}</span>}
+                            </div>
+                          )}
+                          <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Link to="/mi-cuenta/direcciones" style={{ color: 'var(--primary-color)', fontSize: '0.9rem', textDecoration: 'none', fontWeight: 'bold' }}>Configurar mis direcciones...</Link>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <>
-                        <label htmlFor="direccion">
-                          Dirección <span className="required">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="direccion"
-                          name="direccion"
-                          value={formData.direccion}
-                          onChange={handleInputChange}
-                          placeholder="Calle, número, departamento"
-                          className={errors.direccion ? "input-error" : ""}
-                        />
-                        {errors.direccion && <span className="error-message">{errors.direccion}</span>}
-                        {!user && (
-                          <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>Iniciá sesión para guardar tus direcciones y realizar pedidos más rápido.</p>
-                        )}
-                      </>
-                    )}
-                  </div>
+                      ) : (
+                        <>
+                          <label htmlFor="direccion">
+                            Dirección <span className="required">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="direccion"
+                            name="direccion"
+                            value={formData.direccion}
+                            onChange={handleInputChange}
+                            placeholder="Calle, número, departamento"
+                            className={errors.direccion ? "input-error" : ""}
+                          />
+                          {errors.direccion && <span className="error-message">{errors.direccion}</span>}
+                          {!user && (
+                            <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '10px' }}>Iniciá sesión para guardar tus direcciones y realizar pedidos más rápido.</p>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
 
-                  <div className="form-group">
-                    <label htmlFor="telefono">
-                      Teléfono <span className="required">*</span>
-                    </label>
-                    <div className="phone-input-group">
-                      <span className="phone-prefix">+54</span>
-                      <input
-                        type="tel"
-                        id="telefono"
-                        name="telefono"
-                        value={formData.telefono}
-                        onChange={handleInputChange}
-                        placeholder="Cod. Área + Número"
-                        className={`phone-input-field ${errors.telefono ? "input-error" : ""}`}
-                        maxLength={11}
-                      />
-                    </div>
-                    {errors.telefono && <span className="error-message">{errors.telefono}</span>}
-                  </div>
+
 
                   <div className="form-group">
                     <label htmlFor="indicaciones">
-                      Indicaciones para la entrega <span className="optional">(Opcional)</span>
+                      Indicaciones  <span className="optional">(Opcional)</span>
                     </label>
                     <textarea
                       id="indicaciones"
@@ -842,12 +842,11 @@ export default function Checkout() {
                       rows={3}
                       maxLength={200}
                     />
-                    <span className="form-hint">Ej: dejar pedido en portería</span>
                   </div>
 
                   <div className="form-group">
                     <label>
-                      Método de pago cuando llegue el pedido <span className="required">*</span>
+                      Método de pago  <span className="required">*</span>
                     </label>
                     <div className="radio-group">
                       <label className={`radio-card ${formData.metodoPago === 'efectivo' ? 'selected' : ''}`}>
