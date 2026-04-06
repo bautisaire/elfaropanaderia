@@ -785,13 +785,21 @@ export default function POSManager() {
                 // 4. Create Order
                 const orderRef = doc(collection(db, "orders"));
                 const orderData = {
-                    items: cart.map(item => ({
-                        id: item.id,
-                        name: item.nombre,
-                        price: item.precio,
-                        quantity: item.quantity,
-                        variant: item.selectedVariant || null
-                    })),
+                    items: cart.map(item => {
+                        const originalDoc = productDataMap[item.id] || {};
+                        return {
+                            id: item.id,
+                            name: item.nombre,
+                            price: item.precio,
+                            quantity: item.quantity,
+                            variant: item.selectedVariant || null,
+                            historicCost: originalDoc.recipe?.costPerUnit || 0,
+                            historicIngredients: originalDoc.recipe?.ingredients ? {
+                                ingredients: originalDoc.recipe.ingredients,
+                                yield: originalDoc.recipe.yield || 1
+                            } : null
+                        };
+                    }),
                     total: total,
                     cliente: {
                         nombre: "Cliente Local",

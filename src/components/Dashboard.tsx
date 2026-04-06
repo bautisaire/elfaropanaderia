@@ -490,9 +490,10 @@ export default function Dashboard() {
                     }
 
                     // Calculate used tracked materials for this sale
-                    if (currentInfo?.recipe?.ingredients && newTrackedMaterialsMap.size > 0 && !isShipping) {
-                        const yieldRatio = currentInfo.recipe.yield || 1;
-                        currentInfo.recipe.ingredients.forEach((ing: any) => {
+                    const ingredientsToUse = item.historicIngredients?.ingredients || currentInfo?.recipe?.ingredients;
+                    const yieldRatio = item.historicIngredients?.yield || currentInfo?.recipe?.yield || 1;
+                    if (ingredientsToUse && newTrackedMaterialsMap.size > 0 && !isShipping) {
+                        ingredientsToUse.forEach((ing: any) => {
                             const tm = newTrackedMaterialsMap.get(ing.rawMaterialId);
                             if (tm) {
                                 const matData = rawMaterialsData.get(ing.rawMaterialId);
@@ -543,7 +544,7 @@ export default function Dashboard() {
                         }
                     }
 
-                    const costPerUnit = (isShipping || isTrackedProduct) ? price : (currentInfo?.recipe?.costPerUnit || 0);
+                    const costPerUnit = item.historicCost !== undefined ? item.historicCost : ((isShipping || isTrackedProduct) ? price : (currentInfo?.recipe?.costPerUnit || 0));
 
                     if (current) {
                         current.quantity += finalQty;

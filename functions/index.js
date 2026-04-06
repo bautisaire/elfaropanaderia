@@ -251,7 +251,19 @@ exports.processOrder = onCall(async (request) => {
             const orderIdString = currentOrderId.toString();
             const orderRef = db.collection("orders").doc(orderIdString);
 
-            const finalItems = [...cart];
+            const finalItems = cart.map(item => {
+                const baseId = getBaseId(item);
+                const originalDoc = productDocsMap[baseId] || {};
+                return {
+                    ...item,
+                    historicCost: originalDoc.recipe?.costPerUnit || 0,
+                    historicIngredients: originalDoc.recipe?.ingredients ? {
+                        ingredients: originalDoc.recipe.ingredients,
+                        yield: originalDoc.recipe.yield || 1
+                    } : null
+                };
+            });
+            
             if (shippingCost > 0) {
                 finalItems.push({
                     id: 'shipping-cost',
@@ -262,6 +274,7 @@ exports.processOrder = onCall(async (request) => {
                     stock: true
                 });
             }
+
 
             const newOrderData = {
                 id: orderIdString,
