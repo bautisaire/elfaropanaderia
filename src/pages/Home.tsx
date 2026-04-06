@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
@@ -22,6 +23,7 @@ export default function Home() {
 
   // Use Context for store status
   const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
+  const location = useLocation();
 
   // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
@@ -38,26 +40,33 @@ export default function Home() {
         return;
       }
 
+      const queryParams = new URLSearchParams(location.search);
+      let source = (queryParams.get('ref') || 'Directo').trim();
+      // Capitalize first letter for better display (e.g. facebook -> Facebook)
+      source = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
+
       try {
         const statsRef = doc(db, "stats", "general");
         const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
         await updateDoc(statsRef, {
           visits: increment(1),
-          [`dailyVisits.${todayDate}`]: increment(1)
+          [`dailyVisits.${todayDate}`]: increment(1),
+          [`visitsBySource.${source}`]: increment(1)
         });
       } catch (error: any) {
         if (error.code === 'not-found') {
           const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
           await setDoc(doc(db, "stats", "general"), {
             visits: 1,
-            dailyVisits: { [todayDate]: 1 }
+            dailyVisits: { [todayDate]: 1 },
+            visitsBySource: { [source]: 1 }
           });
         }
       }
       sessionStorage.setItem('hasVisited', 'true');
     });
-  }, []);
+  }, [location.search]);
 
   // Removed redundant fetchStoreStatus useEffect since Context handles it
 

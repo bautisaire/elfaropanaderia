@@ -63,6 +63,7 @@ export default function Dashboard() {
         deliveryEfectivo: 0,
         deliveryTransferencia: 0,
         deliveryDebito: 0,
+        visitsBySource: {} as Record<string, number>,
     });
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
@@ -221,7 +222,12 @@ export default function Dashboard() {
                             newVisitsToday = data.dailyVisits[todayDateString] || 0;
                         }
 
-                        setStats(prev => ({ ...prev, visits: data.visits || 0, newVisitsToday }));
+                        setStats(prev => ({ 
+                            ...prev, 
+                            visits: data.visits || 0, 
+                            newVisitsToday,
+                            visitsBySource: data.visitsBySource || {} 
+                        }));
                     }
                 });
 
@@ -1027,10 +1033,44 @@ export default function Dashboard() {
                 </div>
 
                 {/* Visitas (Always Global or maybe tied to timeframe in future, keeping global for now) */}
-                <div className="stat-card visits">
+                <div className="stat-card visits" style={{ position: 'relative' }}>
                     <div className="stat-icon"><FaEye /></div>
                     <div className="stat-info">
-                        <h3>Visitas Web Totales</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Visitas Web
+                            <div
+                                className="bubble-trigger-container"
+                                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
+                                onMouseEnter={() => setActiveHover('visits')}
+                                onMouseLeave={() => setActiveHover(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (activeClick === 'visits') setActiveClick(null);
+                                    else setActiveClick('visits');
+                                }}
+                            >
+                                <FaInfoCircle color="#10b981" size={18} title="Ver orígenes de las visitas" />
+                                {(activeHover === 'visits' || activeClick === 'visits') && (
+                                    <div className="income-breakdown-bubble" onClick={(e) => e.stopPropagation()}>
+                                        <div className="bubble-pointer" />
+                                        <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Orígenes</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {Object.entries(stats.visitsBySource)
+                                                .sort(([,a], [,b]) => b - a)
+                                                .map(([source, count], idx) => (
+                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
+                                                    <span style={{ color: '#047857', fontWeight: 500 }}>{source}:</span>
+                                                    <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{count}</strong>
+                                                </div>
+                                            ))}
+                                            {Object.keys(stats.visitsBySource).length === 0 && (
+                                                <span style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center' }}>No hay datos</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </h3>
                         <p>{stats.visits.toLocaleString('es-AR')}</p>
                         <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{stats.newVisitsToday} hoy</span>
                     </div>

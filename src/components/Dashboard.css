@@ -32,9 +32,7 @@
     border: 1px solid #f0f0f0;
 }
 
-.stat-card:hover {
-    transform: translateY(-2px);
-}
+
 
 .stat-icon {
     width: 50px;
