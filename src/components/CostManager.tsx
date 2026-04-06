@@ -96,6 +96,10 @@ export default function CostManager() {
     // Global CIF State
     const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
 
+    // Sync Costs State
+    const [isSyncingCosts, setIsSyncingCosts] = useState(false);
+    const [lastCostSync, setLastCostSync] = useState<any>(null);
+
     // Click outside handler for dropdown
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -128,6 +132,7 @@ export default function CostManager() {
         const unsubCif = onSnapshot(doc(db, "config", "cif_settings"), (docSnap) => {
             if (docSnap.exists()) {
                 setGlobalCifUnitCost(docSnap.data().cifUnitCost || 0);
+                setLastCostSync(docSnap.data().lastFullCostSync || null);
             }
         });
 
@@ -297,7 +302,7 @@ export default function CostManager() {
 
     const calculateRecipeTotalCost = (recipe: ProductRecipe | null): number => {
         if (!recipe) return 0;
-        let baseCost = recipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
+        let baseCost = (recipe.ingredients || []).reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
         
         // Add CIF Cost
         if (recipe.weightPerUnitGrams && recipe.yield > 0) {
@@ -315,13 +320,16 @@ export default function CostManager() {
     };
 
     const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe || recipe.yield <= 0) return 0;
+        if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
         const type = yieldType || recipe.yieldType || 'units';
+        let cost = 0;
         if (type === 'kg') {
             // Costo por KG: costo total / kg que rinde
-            return calculateRecipeTotalCost(recipe) / recipe.yield;
+            cost = calculateRecipeTotalCost(recipe) / recipe.yield;
+        } else {
+            cost = calculateRecipeTotalCost(recipe) / recipe.yield;
         }
-        return calculateRecipeTotalCost(recipe) / recipe.yield;
+        return isNaN(cost) ? 0 : cost;
     };
 
     const calculateRealProductCost = (product: Product, visitedIds: Set<string> = new Set()): number => {
@@ -336,7 +344,7 @@ export default function CostManager() {
             const parent = products.find(p => p.id === product.stockDependency?.productId);
             if (parent) {
                 const parentUnitCost = calculateRealProductCost(parent, visitedIds);
-                totalCost += parentUnitCost * product.stockDependency.unitsToDeduct;
+                totalCost += parentUnitCost * (Number(product.stockDependency.unitsToDeduct) || 0);
             }
         }
 
@@ -345,10 +353,36 @@ export default function CostManager() {
             totalCost += calculateRecipeUnitCost(product.recipe);
         }
 
-        return totalCost;
+        return isNaN(totalCost) ? 0 : totalCost;
     };
 
     // --- SIMULATOR HELPERS ---
+    const handleSyncAllCosts = async () => {
+        if (!window.confirm("¿Seguro que querés actualizar todos los costos en la base de datos? Esto sincronizará el costo calculado con el Punto de Venta.")) return;
+        setIsSyncingCosts(true);
+        try {
+            let updatedCount = 0;
+            for (const p of products) {
+                if (p.recipe || p.stockDependency) {
+                    const realCost = calculateRealProductCost(p);
+                    await updateDoc(doc(db, "products", p.id), {
+                        "recipe.costPerUnit": realCost
+                    });
+                    updatedCount++;
+                }
+            }
+            await updateDoc(doc(db, "config", "cif_settings"), {
+                lastFullCostSync: Timestamp.now()
+            });
+            alert(`Sincronización completa. Se actualizaron ${updatedCount} productos en el POS.`);
+        } catch (error) {
+            console.error(error);
+            alert("Error al sincronizar costos.");
+        } finally {
+            setIsSyncingCosts(false);
+        }
+    };
+
     const calculateSuggestedPrice = (cost: number, marginPercent: number) => {
         // Asumiendo sistema de Mark-Up: Costo + (Costo * % / 100)
         return cost * (1 + (marginPercent / 100));
@@ -392,7 +426,7 @@ export default function CostManager() {
 
         // Buscar productos que tengan el ingrediente 'replaceFromId'
         const productsToUpdate = products.filter(p => 
-            p.recipe && 
+            p.recipe && p.recipe.ingredients &&
             p.recipe.ingredients.some(ing => ing.rawMaterialId === replaceFromId)
         );
 
@@ -473,7 +507,7 @@ export default function CostManager() {
     });
 
     // --- RENDER ---
-    const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
+    const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
     const marginsArray = validProductsForSim.map(p => {
         const cost = calculateRealProductCost(p);
         const currentRetail = Number(p.precio) || 0;
@@ -871,7 +905,7 @@ export default function CostManager() {
                                 {products
                                     .filter(p => p.requiresRecipe !== false)
                                     .map(p => {
-                                        const hasOwnRecipe = p.recipe && p.recipe.ingredients.length > 0;
+                                        const hasOwnRecipe = p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0;
                                         const isDerived = !!p.stockDependency?.productId;
                                         const status = [];
                                         if (hasOwnRecipe) status.push('✔️ Receta');
@@ -913,7 +947,7 @@ export default function CostManager() {
                                         >
                                             <option value="">-- Seleccionar producto base --</option>
                                             {products
-                                                .filter(p => p.id !== selectedProductId && p.recipe && p.recipe.ingredients.length > 0)
+                                                .filter(p => p.id !== selectedProductId && p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0)
                                                 .sort((a, b) => a.nombre.localeCompare(b.nombre))
                                                 .map(p => (
                                                     <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -1214,8 +1248,26 @@ export default function CostManager() {
                 )}
                 {activeTab === 'simulator' && (
                     <div className="cm-tab-content">
-                        <h3>Simulador de Ganancias y Precios Sugeridos</h3>
-                        <p style={{ color: '#64748b', marginBottom: '20px' }}>Analiza la rentabilidad de tus productos según su costo de fabricación y actualiza los precios de la tienda con un solo clic.</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
+                            <div style={{ flex: '1 1 300px' }}>
+                                <h3>Simulador de Ganancias y Precios Sugeridos</h3>
+                                <p style={{ color: '#64748b', marginBottom: '20px' }}>Analiza la rentabilidad de tus productos según su costo de fabricación y actualiza los precios de la tienda con un solo clic.</p>
+                            </div>
+                            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0', minWidth: '280px' }}>
+                                <strong style={{ color: '#334155', display: 'block', marginBottom: '10px' }}>Sincronización de Costos POS</strong>
+                                <button 
+                                    className="cm-btn-primary" 
+                                    onClick={handleSyncAllCosts}
+                                    disabled={isSyncingCosts}
+                                    style={{ width: '100%', marginBottom: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                >
+                                    {isSyncingCosts ? 'Sincronizando...' : <><FaSave /> Actualizar Todo el POS</>}
+                                </button>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b', textAlign: 'center' }}>
+                                    Última act.: {lastCostSync?.seconds ? new Date(lastCostSync.seconds * 1000).toLocaleString('es-AR') : 'Nunca'}
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="cm-margins-config" style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: '15px' }}>

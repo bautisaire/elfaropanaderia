@@ -78,6 +78,8 @@ const INITIAL_STATE: FirestoreProduct = {
 
 export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: string) => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
+    const [rawMaterials, setRawMaterials] = useState<any[]>([]);
+    const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
     const [categories, setCategories] = useState<string[]>([]);
     const [formData, setFormData] = useState<FirestoreProduct>(INITIAL_STATE);
     const [loading, setLoading] = useState(false);
@@ -90,6 +92,43 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
     const [isFormVisible, setIsFormVisible] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
 
+    const calculateIngredientCost = (ing: any, recipeMerma: number = 0): number => {
+        const mat = rawMaterials.find((m: any) => m.id === ing.rawMaterialId);
+        if (!mat || !ing.quantity || !mat.baseQuantity || !mat.price) return 0;
+
+        let matPriceToUse = mat.price;
+        if (recipeMerma > 0 && mat.category && ["Prima", "Prima Mermable"].includes(mat.category)) {
+            matPriceToUse = mat.price * (1 + (recipeMerma / 100));
+        }
+
+        return (ing.quantity / mat.baseQuantity) * matPriceToUse;
+    };
+
+    const calculateRecipeTotalCost = (recipe: any): number => {
+        if (!recipe) return 0;
+        let baseCost = (recipe.ingredients || []).reduce((total: number, ing: any) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
+
+        // Add CIF Cost
+        if (recipe.weightPerUnitGrams && recipe.yield > 0) {
+            let totalGrams = 0;
+            if (recipe.yieldType === 'kg') {
+                totalGrams = recipe.yield * 1000;
+            } else {
+                totalGrams = recipe.yield * recipe.weightPerUnitGrams;
+            }
+            const cifUnits = totalGrams / 100;
+            baseCost += cifUnits * globalCifUnitCost;
+        }
+
+        return baseCost;
+    };
+
+    const calculateRecipeUnitCost = (recipe: any): number => {
+        if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
+        const cost = calculateRecipeTotalCost(recipe) / recipe.yield;
+        return isNaN(cost) ? 0 : cost;
+    };
+
     const calculateRealProductCost = (product: FirestoreProduct, visitedIds: Set<string> = new Set()): number => {
         if (!product) return 0;
         if (visitedIds.has(product.id!)) return 0;
@@ -101,15 +140,15 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
             const parent = products.find(p => p.id === product.stockDependency?.productId);
             if (parent) {
                 const parentUnitCost = calculateRealProductCost(parent, visitedIds);
-                totalCost += parentUnitCost * product.stockDependency.unitsToDeduct;
+                totalCost += parentUnitCost * (Number(product.stockDependency.unitsToDeduct) || 0);
             }
         }
 
-        if (product.recipe && product.recipe.costPerUnit) {
-            totalCost += product.recipe.costPerUnit;
+        if (product.recipe) {
+            totalCost += calculateRecipeUnitCost(product.recipe);
         }
 
-        return totalCost;
+        return isNaN(totalCost) ? 0 : totalCost;
     };
 
     useEffect(() => {
@@ -129,6 +168,24 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
             console.error("Error loading categories:", error);
         }
     };
+
+    useEffect(() => {
+        // Fetch raw materials and config
+        const unsubRM = onSnapshot(collection(db, "raw_materials"), (snap) => {
+            setRawMaterials(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+
+        const unsubConfig = onSnapshot(doc(db, "config", "cif_settings"), (docSnap) => {
+            if (docSnap.exists() && docSnap.data().cifUnitCost !== undefined) {
+                setGlobalCifUnitCost(docSnap.data().cifUnitCost);
+            }
+        });
+
+        return () => {
+            unsubRM();
+            unsubConfig();
+        };
+    }, []);
 
     useEffect(() => {
         let unsubscribe: () => void;
