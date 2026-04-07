@@ -550,14 +550,22 @@ export default function Dashboard() {
                         }
                     }
 
-                    const costPerUnit = item.historicCost !== undefined ? item.historicCost : ((isShipping || isTrackedProduct) ? price : (currentInfo?.recipe?.costPerUnit || 0));
+                    let lineTotalCost = 0;
+                    if (item.historicCost !== undefined) {
+                        // historicCost is stored per original item unit (e.g. per pack of 6)
+                        lineTotalCost = item.historicCost * (Number(item.quantity) || 0);
+                    } else if (isShipping || isTrackedProduct) {
+                        lineTotalCost = price * (Number(item.quantity) || 0);
+                    } else {
+                        // currentInfo is the rolled-up parent (if applicable), so we multiply its unit cost by finalQty (which is already multiplied by unitsToDeduct)
+                        lineTotalCost = (currentInfo?.recipe?.costPerUnit || 0) * finalQty;
+                    }
 
                     if (current) {
                         current.quantity += finalQty;
                         current.units += finalUnits;
                         current.total += lineTotal;
-                        // Add cost: costPerUnit * quantity sold
-                        current.totalCost += costPerUnit * finalQty;
+                        current.totalCost += lineTotalCost;
                     } else {
                         productMap.set(key, {
                             id: finalId,
@@ -566,7 +574,7 @@ export default function Dashboard() {
                             quantity: finalQty,
                             units: finalUnits,
                             total: lineTotal,
-                            totalCost: costPerUnit * finalQty
+                            totalCost: lineTotalCost
                         });
                     }
                 });

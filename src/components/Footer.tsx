@@ -35,7 +35,7 @@ const Footer: React.FC = () => {
                 <div className="footer-text">
                     <p>
                         ¿Tienes un negocio y quieres una página web?{' '}
-                        <a href="sairebautista@gmail.com" className="contact-link">Contáctame</a>
+                        <a href="https://wa.me/5492995206821" className="contact-link">Contáctame</a>
                     </p>
                 </div>
             </div>
