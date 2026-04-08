@@ -217,16 +217,21 @@ export default function Dashboard() {
                         const data = docSnap.data();
 
                         let newVisitsToday = 0;
+                        let todayVisitsSource = {};
                         if (data.dailyVisits) {
                             const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
                             newVisitsToday = data.dailyVisits[todayDateString] || 0;
+                            
+                            if (data.dailyVisitsBySource && data.dailyVisitsBySource[todayDateString]) {
+                                todayVisitsSource = data.dailyVisitsBySource[todayDateString];
+                            }
                         }
 
                         setStats(prev => ({ 
                             ...prev, 
                             visits: data.visits || 0, 
                             newVisitsToday,
-                            visitsBySource: data.visitsBySource || {} 
+                            visitsBySource: todayVisitsSource 
                         }));
                     }
                 });

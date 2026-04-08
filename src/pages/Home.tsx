@@ -8,7 +8,7 @@ import ProductModal from "../components/ProductModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
-import { collection, getDocs, doc, updateDoc, increment, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, increment, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
@@ -49,20 +49,14 @@ export default function Home() {
         const statsRef = doc(db, "stats", "general");
         const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-        await updateDoc(statsRef, {
+        await setDoc(statsRef, {
           visits: increment(1),
-          [`dailyVisits.${todayDate}`]: increment(1),
-          [`visitsBySource.${source}`]: increment(1)
-        });
+          dailyVisits: { [todayDate]: increment(1) },
+          visitsBySource: { [source]: increment(1) },
+          dailyVisitsBySource: { [todayDate]: { [source]: increment(1) } }
+        }, { merge: true });
       } catch (error: any) {
-        if (error.code === 'not-found') {
-          const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-          await setDoc(doc(db, "stats", "general"), {
-            visits: 1,
-            dailyVisits: { [todayDate]: 1 },
-            visitsBySource: { [source]: 1 }
-          });
-        }
+        console.error("Error logging visit:", error);
       }
       sessionStorage.setItem('hasVisited', 'true');
     });
