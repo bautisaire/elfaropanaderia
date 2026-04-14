@@ -76,7 +76,7 @@ const INITIAL_STATE: FirestoreProduct = {
     badgeExpiresAt: ""
 };
 
-export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: string) => void }) {
+export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
     const [rawMaterials, setRawMaterials] = useState<any[]>([]);
     const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
@@ -462,6 +462,7 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
         setIsEditing(false);
         setMessage(null);
         setIsFormVisible(false);
+        if (onCloseEditMode) onCloseEditMode();
     };
 
     const handleEditClick = (product: FirestoreProduct) => {
@@ -482,6 +483,15 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
         setIsFormVisible(true);
         // formRef.current?.scrollIntoView({ behavior: 'smooth' }); // Not needed for modal
     };
+
+    useEffect(() => {
+        if (editModeProductId && products.length > 0 && !isEditing && !isFormVisible) {
+            const prodToEdit = products.find(p => p.id === editModeProductId);
+            if (prodToEdit) {
+                handleEditClick(prodToEdit);
+            }
+        }
+    }, [editModeProductId, products]);
 
     const handleDelete = async (id: string) => {
         if (!confirm("¿Seguro que deseas eliminar este producto? Esta acción no se puede deshacer.")) return;
@@ -532,27 +542,29 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
     });
 
     return (
-        <div className="product-manager-container">
+        <div className={`product-manager-container ${editModeProductId ? 'modal-mode-only' : ''}`}>
             {/* Header del Admin */}
-            <div className="pm-header">
-                <div>
-                    <h2>Administrador de Productos</h2>
-                    <p>Gestiona el inventario, precios y detalles de tus productos.</p>
+            {!editModeProductId && (
+                <div className="pm-header">
+                    <div>
+                        <h2>Administrador de Productos</h2>
+                        <p>Gestiona el inventario, precios y detalles de tus productos.</p>
+                    </div>
+                    <button
+                        className="btn-primary"
+                        onClick={() => {
+                            handleReset(); // Ensure clean state
+                            setIsFormVisible(true);
+                        }}
+                    >
+                        <FaPlus /> Nuevo Producto
+                    </button>
                 </div>
-                <button
-                    className="btn-primary"
-                    onClick={() => {
-                        handleReset(); // Ensure clean state
-                        setIsFormVisible(true);
-                    }}
-                >
-                    <FaPlus /> Nuevo Producto
-                </button>
-            </div>
+            )}
 
             {/* Modal Formulario */}
             {isFormVisible && (
-                <div className="pm-modal-overlay">
+                <div className="pm-modal-overlay" style={editModeProductId ? { zIndex: 9999 } : {}}>
                     <div className="pm-modal-content" ref={formRef}>
                         <div className="pm-card-header">
                             <h3>{isEditing ? `Editar: ${formData.nombre}` : "Agregar Nuevo Producto"}</h3>
@@ -915,6 +927,8 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
             )
             }
 
+            {!editModeProductId && (
+                <>
             <div className="inventory-toolbar">
                 <div className="search-bar" style={{ display: 'flex', gap: '15px', alignItems: 'center', maxWidth: '600px', flexWrap: 'wrap' }}>
                     <ProductSearch
@@ -1060,6 +1074,8 @@ export default function ProductManager({ onGoToRecipe }: { onGoToRecipe?: (id: s
                     </div>
                 )
             }
+                </>
+            )}
         </div >
     );
 }

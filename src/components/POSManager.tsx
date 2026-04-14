@@ -7,6 +7,7 @@ import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
 import StockAdjustmentModal from './StockAdjustmentModal';
+import ProductManager from './ProductManager';
 
 interface Product {
     id: string;
@@ -90,6 +91,10 @@ export default function POSManager() {
     const [stockModalVariant, setStockModalVariant] = useState<string | undefined>(undefined);
     const [stockModalInitialValue, setStockModalInitialValue] = useState<number | undefined>(undefined);
     const [pendingRetry, setPendingRetry] = useState<{ type: 'unit' | 'weight' | 'unit_exact', productId: string, variant?: string, quantity?: number, priceToUse?: number } | null>(null);
+
+    // Edit Options Modal
+    const [editOptionsModalProduct, setEditOptionsModalProduct] = useState<{ product: Product, variant?: string } | null>(null);
+    const [editModeProductId, setEditModeProductId] = useState<string | null>(null);
 
     // Short ID Input Buffer
     // Short ID Input Buffer
@@ -1023,6 +1028,7 @@ export default function POSManager() {
                                         </span>
                                     )}
                                     <div className="pos-product-info">
+                                        <div className="pos-product-category" style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{product.categoria}</div>
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">
                                             ${Math.round(product.precio * 100) / 100}
@@ -1034,9 +1040,7 @@ export default function POSManager() {
                                                 className="btn-quick-stock-edit"
                                                 onClick={(e) => {
                                                     e.stopPropagation(); // Evitar agregar al carrito
-                                                    setStockModalProduct(product);
-                                                    setStockModalVariant(v.name);
-                                                    setIsStockModalOpen(true);
+                                                    setEditOptionsModalProduct({ product, variant: v.name });
                                                 }}
                                             >
                                                 <FaEdit />
@@ -1068,6 +1072,7 @@ export default function POSManager() {
                                         </span>
                                     )}
                                     <div className="pos-product-info">
+                                        <div className="pos-product-category" style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{product.categoria}</div>
                                         <div className="pos-product-name">{product.nombre}</div>
                                         <div className="pos-product-price">
                                             ${Math.round(product.precio * 100) / 100}
@@ -1079,8 +1084,7 @@ export default function POSManager() {
                                                 className="btn-quick-stock-edit"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setStockModalProduct(product);
-                                                    setIsStockModalOpen(true);
+                                                    setEditOptionsModalProduct({ product });
                                                 }}
                                             >
                                                 <FaEdit />
@@ -1496,6 +1500,70 @@ export default function POSManager() {
                     </div>
                 )
             }
+
+            {/* Edit Options Modal */}
+            {editOptionsModalProduct && (
+                <div className="stock-modal-overlay" onClick={() => setEditOptionsModalProduct(null)}>
+                    <div className="stock-modal" onClick={e => e.stopPropagation()} style={{ minHeight: 'auto', padding: '25px', textAlign: 'center', maxWidth: '350px' }}>
+                        <div style={{ color: '#3b82f6', marginBottom: '15px' }}>
+                            <FaEdit size={40} />
+                        </div>
+                        <h3 style={{ border: 'none', margin: '0 0 10px 0', fontSize: '1.4rem' }}>Editar Elemento</h3>
+                        <p style={{ color: '#6b7280', marginBottom: '25px', fontWeight: '500' }}>
+                            {editOptionsModalProduct.product.nombre}
+                            {editOptionsModalProduct.variant ? ` (${editOptionsModalProduct.variant})` : ''}
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <button
+                                className="action-btn add"
+                                style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe', padding: '14px', justifyContent: 'center', fontSize: '1.05rem' }}
+                                onClick={() => {
+                                    setStockModalProduct(editOptionsModalProduct.product);
+                                    setStockModalVariant(editOptionsModalProduct.variant);
+                                    setIsStockModalOpen(true);
+                                    setEditOptionsModalProduct(null);
+                                }}
+                            >
+                                <FaBoxOpen style={{ marginRight: '8px' }} /> Editar Stock
+                            </button>
+                            <button
+                                className="action-btn add"
+                                style={{ background: '#f5f3ff', color: '#6d28d9', borderColor: '#ddd6fe', padding: '14px', justifyContent: 'center', fontSize: '1.05rem' }}
+                                onClick={() => {
+                                    setEditModeProductId(editOptionsModalProduct.product.id);
+                                    setEditOptionsModalProduct(null);
+                                }}
+                            >
+                                <FaEdit style={{ marginRight: '8px' }} /> Editar Producto
+                            </button>
+                            <button
+                                className="btn-cancel"
+                                style={{ padding: '12px', marginTop: '10px', fontSize: '1rem' }}
+                                onClick={() => setEditOptionsModalProduct(null)}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Inline Product Manager Edit Mode */}
+            {editModeProductId && (
+                <ProductManager
+                    editModeProductId={editModeProductId}
+                    onCloseEditMode={() => {
+                        setEditModeProductId(null);
+                        // Cuando se cierra el modal de producto, el POSManager ya debería
+                        // estar recibiendo las actualizaciones via Firebase (onSnapshot o fetchProducts)
+                        // Si dependemos de fetchProducts, podríamos desencadenar uno aquí.
+                        // Para evitar un prop drilling excesivo, dejaremos que onSnapshot haga su trabajo
+                        // o confiaremos en un refetch futuro si fuera necesario.
+                    }}
+                />
+            )}
+
             {/* Stock Adjustment Modal */}
             {isStockModalOpen && (
                 <StockAdjustmentModal
