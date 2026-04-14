@@ -138,15 +138,23 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                     <div className="edit-section">
                         <h4>Detalle de Productos</h4>
                         <ul className="order-items-list">
-                            {order.items.map((item: any, index: number) => (
-                                <li key={index} className="order-item">
-                                    <div className="order-item-detail">
-                                        <span className="item-qty">{Number(item.quantity).toFixed(3).replace(/\.?0+$/, "")}x</span>
-                                        <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
-                                    </div>
-                                    <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
-                                </li>
-                            ))}
+                            {order.items.map((item: any, index: number) => {
+                                const qty = Number(item.quantity);
+                                let qtyColor = '#3b82f6';
+                                if (qty >= 4) qtyColor = '#ef4444';
+                                else if (qty >= 3) qtyColor = '#ec4899';
+                                else if (qty >= 2) qtyColor = '#eab308';
+
+                                return (
+                                    <li key={index} className="order-item">
+                                        <div className="order-item-detail">
+                                            <span className="item-qty" style={{ color: qtyColor, fontWeight: 'bold' }}>{qty.toFixed(3).replace(/\.?0+$/, "")}x</span>
+                                            <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                        </div>
+                                        <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
+                                    </li>
+                                );
+                            })}
                         </ul>
                         <div className="order-total-row">
                             <span>Total a cobrar:</span>

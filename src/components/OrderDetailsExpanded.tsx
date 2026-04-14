@@ -256,15 +256,23 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                         < div className="expanded-section items-section-expanded" >
                             <h5>Detalle de Productos</h5>
                             <ul className="order-items-list-expanded">
-                                {order.items.map((item: any, index: number) => (
-                                    <li key={index} className="order-item-expanded">
-                                        <div className="order-item-detail">
-                                            <span className="item-qty">{Number(item.quantity).toFixed(2).replace(/\.?0+$/, "")}x</span>
-                                            <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
-                                        </div>
-                                        <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
-                                    </li>
-                                ))}
+                                {order.items.map((item: any, index: number) => {
+                                    const qty = Number(item.quantity);
+                                    let qtyColor = '#3b82f6'; // default blue
+                                    if (qty >= 4) qtyColor = '#ef4444'; // red
+                                    else if (qty >= 3) qtyColor = '#ec4899'; // pink
+                                    else if (qty >= 2) qtyColor = '#eab308'; // yellow
+
+                                    return (
+                                        <li key={index} className="order-item-expanded">
+                                            <div className="order-item-detail">
+                                                <span className="item-qty" style={{ color: qtyColor, fontWeight: 'bold' }}>{qty.toFixed(2).replace(/\.?0+$/, "")}x</span>
+                                                <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                            </div>
+                                            <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
+                                        </li>
+                                    );
+                                })}
                             </ul>
                             <div className="order-total-row-expanded">
                                 <span>Total</span>
