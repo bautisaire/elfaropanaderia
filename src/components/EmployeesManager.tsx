@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { FaUserPlus, FaEdit, FaTrash, FaClock, FaCheckCircle, FaMoneyBillWave } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaTrash, FaClock, FaCheckCircle, FaMoneyBillWave, FaHistory } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import './EmployeesManager.css';
 
@@ -21,6 +21,8 @@ export interface TimeEntry {
     durationHours: number;
     amountDue: number;
     status: 'open' | 'closed'; // closed = paid
+    note?: string;
+    hourlyRateAtTime?: number;
 }
 
 export default function EmployeesManager() {
@@ -30,7 +32,7 @@ export default function EmployeesManager() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [cifItems, setCifItems] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'fichaje' | 'empleados' | 'pagos'>('fichaje');
+    const [activeTab, setActiveTab] = useState<'fichaje' | 'empleados' | 'pagos' | 'historial'>('fichaje');
 
     // UI state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,6 +46,7 @@ export default function EmployeesManager() {
     const [isAdjustDebtModalOpen, setIsAdjustDebtModalOpen] = useState(false);
     const [isManualShiftModalOpen, setIsManualShiftModalOpen] = useState(false);
     const [isCustomClockOutModalOpen, setIsCustomClockOutModalOpen] = useState(false);
+    const [selectedEmployeeForHistory, setSelectedEmployeeForHistory] = useState<string>('all');
 
     const [selectedEmployeeBase, setSelectedEmployeeBase] = useState<Employee | null>(null);
     const [selectedActiveEntry, setSelectedActiveEntry] = useState<TimeEntry | null>(null);
@@ -203,6 +206,18 @@ export default function EmployeesManager() {
                 }
             }
 
+            // Create a payment record in time_entries for the history
+            await addDoc(collection(db, 'time_entries'), {
+                employeeId: selectedEmployeeForPayment.id,
+                employeeName: selectedEmployeeForPayment.name,
+                clockIn: serverTimestamp(),
+                clockOut: serverTimestamp(),
+                durationHours: 0,
+                amountDue: -paymentAmount,
+                status: 'closed',
+                note: 'Pago de sueldo'
+            });
+
             // If payment isn't exactly the totalDebt (partial payment), we create a remaining debt entry
             if (paymentAmount < selectedEmployeeForPayment.totalDebt) {
                 const diff = selectedEmployeeForPayment.totalDebt - paymentAmount;
@@ -319,9 +334,14 @@ export default function EmployeesManager() {
                     <FaMoneyBillWave /> Pagos y Deudas
                 </button>
                 {isSuperAdmin && (
-                    <button className={`em-tab-btn ${activeTab === 'empleados' ? 'active' : ''}`} onClick={() => setActiveTab('empleados')}>
-                        <FaUserPlus /> Gestión de Equipo
-                    </button>
+                    <>
+                        <button className={`em-tab-btn ${activeTab === 'empleados' ? 'active' : ''}`} onClick={() => setActiveTab('empleados')}>
+                            <FaUserPlus /> Gestión de Equipo
+                        </button>
+                        <button className={`em-tab-btn ${activeTab === 'historial' ? 'active' : ''}`} onClick={() => setActiveTab('historial')}>
+                            <FaHistory /> Historial
+                        </button>
+                    </>
                 )}
             </div>
 
@@ -467,6 +487,60 @@ export default function EmployeesManager() {
                             </div>
                         ))
                     )}
+                </div>
+            )}
+
+            {/* TAB HISTORIAL */}
+            {isSuperAdmin && activeTab === 'historial' && (
+                <div>
+                    <div className="em-form-group" style={{ marginBottom: '20px', maxWidth: '300px' }}>
+                        <label>Seleccionar Empleado</label>
+                        <select 
+                            value={selectedEmployeeForHistory} 
+                            onChange={e => setSelectedEmployeeForHistory(e.target.value)}
+                        >
+                            <option value="all">Todos los empleados</option>
+                            {employees.map(emp => (
+                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="history-list">
+                        {timeEntries
+                            .filter(entry => selectedEmployeeForHistory === 'all' || entry.employeeId === selectedEmployeeForHistory)
+                            .filter(entry => entry.clockOut !== null) // only show completed entries
+                            .sort((a, b) => {
+                                const dateA = a.clockOut?.toDate ? a.clockOut.toDate() : new Date(a.clockOut);
+                                const dateB = b.clockOut?.toDate ? b.clockOut.toDate() : new Date(b.clockOut);
+                                return dateB.getTime() - dateA.getTime();
+                            })
+                            .map(entry => {
+                                const isPositive = entry.amountDue >= 0;
+                                return (
+                                    <div key={entry.id} className="history-item">
+                                        <div className="history-info">
+                                            <strong>{entry.employeeName}</strong>
+                                            <span>
+                                                {new Date(entry.clockOut?.toDate ? entry.clockOut.toDate() : entry.clockOut).toLocaleString('es-AR')}
+                                            </span>
+                                            <span>
+                                                {entry.note ? entry.note : (entry.durationHours > 0 ? `Turno de ${entry.durationHours}hs` : 'Movimiento')}
+                                            </span>
+                                        </div>
+                                        <div className={`history-amount ${isPositive ? 'positive' : 'negative'}`}>
+                                            {isPositive ? '+' : '-'}${Math.abs(entry.amountDue).toLocaleString()}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        }
+                        {timeEntries.filter(entry => entry.clockOut !== null && (selectedEmployeeForHistory === 'all' || entry.employeeId === selectedEmployeeForHistory)).length === 0 && (
+                            <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                                No hay movimientos registrados.
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
