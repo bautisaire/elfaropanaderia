@@ -37,6 +37,9 @@ export default function Checkout() {
   const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [storeAddressConfig, setStoreAddressConfig] = useState<string>("");
   const [storeMapUrlConfig, setStoreMapUrlConfig] = useState<string>("");
+  const [allowDelivery, setAllowDelivery] = useState<boolean>(true);
+  const [allowPickup, setAllowPickup] = useState<boolean>(true);
+  const [disabledMethodModal, setDisabledMethodModal] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ""});
 
   const [isManualAddress, setIsManualAddress] = useState(false);
   const [showSaveAddressModal, setShowSaveAddressModal] = useState(false);
@@ -282,6 +285,18 @@ export default function Checkout() {
         setShippingCost(Number(data.shippingCost) || 0);
         setStoreAddressConfig(data.storeAddress || "");
         setStoreMapUrlConfig(data.storeMapUrl || "");
+        
+        const isDeliveryAllowed = data.allowDelivery !== undefined ? data.allowDelivery : true;
+        const isPickupAllowed = data.allowPickup !== undefined ? data.allowPickup : true;
+        
+        setAllowDelivery(isDeliveryAllowed);
+        setAllowPickup(isPickupAllowed);
+        
+        setDeliveryMethod(prev => {
+            if (!isDeliveryAllowed && prev === 'delivery' && isPickupAllowed) return 'pickup';
+            if (!isPickupAllowed && prev === 'pickup' && isDeliveryAllowed) return 'delivery';
+            return prev;
+        });
       }
     });
     return () => unsub();
@@ -683,29 +698,43 @@ export default function Checkout() {
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label>Método de entrega <span className="required">*</span></label>
                     <div className="radio-group" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                      <label className={`radio-card ${deliveryMethod === 'delivery' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: deliveryMethod === 'delivery' ? '#fffcf8' : '#fff' }}>
+                      <label className={`radio-card ${deliveryMethod === 'delivery' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: allowDelivery ? 'pointer' : 'not-allowed', textAlign: 'center', backgroundColor: deliveryMethod === 'delivery' ? '#fffcf8' : (allowDelivery ? '#fff' : '#f8f9fa'), opacity: allowDelivery ? 1 : 0.6 }} onClick={(e) => {
+                        if (!allowDelivery) {
+                          e.preventDefault();
+                          setDisabledMethodModal({isOpen: true, message: "El envío a domicilio no está disponible en este momento."});
+                        }
+                      }}>
                         <input
                           type="radio"
                           name="deliveryMethod"
                           value="delivery"
                           checked={deliveryMethod === 'delivery'}
-                          onChange={() => setDeliveryMethod('delivery')}
+                          onChange={() => { if (allowDelivery) setDeliveryMethod('delivery') }}
                           style={{ display: 'none' }}
+                          disabled={!allowDelivery}
                         />
                         <FaMotorcycle style={{ fontSize: '24px', color: deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
                         <div style={{ fontWeight: 'bold', color: '#333' }}>Envío a domicilio</div>
                       </label>
-                      <label className={`radio-card ${deliveryMethod === 'pickup' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: deliveryMethod === 'pickup' ? '#fffcf8' : '#fff' }}>
+                      <label className={`radio-card ${deliveryMethod === 'pickup' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: allowPickup ? 'pointer' : 'not-allowed', textAlign: 'center', backgroundColor: deliveryMethod === 'pickup' ? '#fffcf8' : (allowPickup ? '#fff' : '#f8f9fa'), opacity: allowPickup ? 1 : 0.6 }} onClick={(e) => {
+                        if (!allowPickup) {
+                          e.preventDefault();
+                          setDisabledMethodModal({isOpen: true, message: "El retiro en el local no está disponible en este momento."});
+                        }
+                      }}>
                         <input
                           type="radio"
                           name="deliveryMethod"
                           value="pickup"
                           checked={deliveryMethod === 'pickup'}
                           onChange={() => {
-                            setDeliveryMethod('pickup');
-                            if (errors.direccion) setErrors(prev => ({ ...prev, direccion: '' }));
+                            if (allowPickup) {
+                              setDeliveryMethod('pickup');
+                              if (errors.direccion) setErrors(prev => ({ ...prev, direccion: '' }));
+                            }
                           }}
                           style={{ display: 'none' }}
+                          disabled={!allowPickup}
                         />
                         <FaStore style={{ fontSize: '24px', color: deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
                         <div style={{ fontWeight: 'bold', color: '#333' }}>Retirar en local</div>
@@ -1027,6 +1056,32 @@ export default function Checkout() {
                 onClick={() => setMinPurchaseError({ ...minPurchaseError, isOpen: false })}
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Disabled Method Modal */}
+      {
+        disabledMethodModal.isOpen && (
+          <div className="order-modal error" role="dialog" aria-modal="true" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="order-modal-content">
+              <div style={{ color: '#ef4444', marginBottom: '15px' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h3>Opción no disponible</h3>
+              <p style={{ margin: '15px 0' }}>{disabledMethodModal.message}</p>
+              <button
+                className="btn-confirm"
+                style={{ marginTop: '20px' }}
+                onClick={() => setDisabledMethodModal({ isOpen: false, message: "" })}
+              >
+                Entendido
               </button>
             </div>
           </div>

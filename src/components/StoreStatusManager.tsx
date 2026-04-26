@@ -11,6 +11,8 @@ export default function StoreStatusManager() {
     const [closeMessage, setCloseMessage] = useState<string>("Estamos cerrados. Abrimos de Lunes a Sábado de 8 a 22hs.");
     const [storeAddress, setStoreAddress] = useState<string>("");
     const [storeMapUrl, setStoreMapUrl] = useState<string>("");
+    const [allowDelivery, setAllowDelivery] = useState<boolean>(true);
+    const [allowPickup, setAllowPickup] = useState<boolean>(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
@@ -26,6 +28,8 @@ export default function StoreStatusManager() {
                     setCloseMessage(data.closeMessage || "");
                     setStoreAddress(data.storeAddress || "");
                     setStoreMapUrl(data.storeMapUrl || "");
+                    setAllowDelivery(data.allowDelivery !== undefined ? data.allowDelivery : true);
+                    setAllowPickup(data.allowPickup !== undefined ? data.allowPickup : true);
                 }
             } catch (error) {
                 console.error("Error loading settings:", error);
@@ -43,7 +47,9 @@ export default function StoreStatusManager() {
                 isOpen: isOpen,
                 closeMessage: closeMessage,
                 storeAddress: storeAddress,
-                storeMapUrl: storeMapUrl
+                storeMapUrl: storeMapUrl,
+                allowDelivery: allowDelivery,
+                allowPickup: allowPickup
             }, { merge: true });
             setMessage("🎉 Configuración guardada correctamente");
             setTimeout(() => setMessage(""), 3000);
@@ -148,6 +154,39 @@ export default function StoreStatusManager() {
                         placeholder="Ej: https://maps.app.goo.gl/..."
                     />
                     <small>Enlace que se abrirá al hacer clic en el botón de ubicación en el checkout.</small>
+                </div>
+            </div>
+
+            <div className="status-card config-card">
+                <h3>Métodos de Entrega Disponibles</h3>
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #eee' }}>
+                    <div>
+                        <strong style={{ display: 'block', color: '#1e293b' }}>Envío a Domicilio</strong>
+                        <small style={{ color: '#64748b' }}>Permite a los clientes seleccionar entrega a domicilio.</small>
+                    </div>
+                    <label className="toggle-switch" style={{ margin: 0 }}>
+                        <input
+                            type="checkbox"
+                            checked={allowDelivery}
+                            onChange={(e) => setAllowDelivery(e.target.checked)}
+                        />
+                        <span className="slider round"></span>
+                    </label>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+                    <div>
+                        <strong style={{ display: 'block', color: '#1e293b' }}>Retiro en Local</strong>
+                        <small style={{ color: '#64748b' }}>Permite a los clientes pasar a retirar su pedido.</small>
+                    </div>
+                    <label className="toggle-switch" style={{ margin: 0 }}>
+                        <input
+                            type="checkbox"
+                            checked={allowPickup}
+                            onChange={(e) => setAllowPickup(e.target.checked)}
+                        />
+                        <span className="slider round"></span>
+                    </label>
                 </div>
             </div>
 
