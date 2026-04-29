@@ -29,6 +29,7 @@ interface Product {
     wholesalePrice?: number;
     stockDependency?: any;
     isHiddenInPOS?: boolean;
+    discount?: number;
 }
 
 interface CartItem extends Product {
@@ -465,9 +466,10 @@ export default function POSManager() {
                 return prev;
             }
 
-            const priceToUse = priceMode === 'wholesale'
+            const basePrice = priceMode === 'wholesale'
                 ? (product.wholesalePrice || product.precio)
                 : product.precio;
+            const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
             if (existing) {
                 return prev.map(item =>
@@ -502,9 +504,10 @@ export default function POSManager() {
 
     const addWeightToCart = (product: Product, variant: string | undefined, qty: number, checkStock = true) => {
         // Determine Price to use (if not passed, calculate it)
-        const priceToUse = priceMode === 'wholesale'
+        const basePrice = priceMode === 'wholesale'
             ? (product.wholesalePrice || product.precio)
             : product.precio;
+        const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
         if (checkStock) {
             let maxStock = 0;
@@ -561,9 +564,10 @@ export default function POSManager() {
 
     const addToCart = (product: Product, variantName?: string, checkStock = true) => {
         // Determine Price to use
-        const priceToUse = priceMode === 'wholesale'
+        const basePrice = priceMode === 'wholesale'
             ? (product.wholesalePrice || product.precio)
             : product.precio;
+        const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
         // Weight Logic
         if (product.unitType === 'weight') {
@@ -650,9 +654,10 @@ export default function POSManager() {
             const original = products.find(p => p.id === item.id);
             if (!original) return item;
 
-            const newPrice = priceMode === 'wholesale'
+            const basePrice = priceMode === 'wholesale'
                 ? (original.wholesalePrice || original.precio)
                 : original.precio;
+            const newPrice = (original.discount || 0) > 0 ? basePrice * (1 - (original.discount! / 100)) : basePrice;
 
             return {
                 ...item,
@@ -1031,7 +1036,24 @@ export default function POSManager() {
                                         <div className="pos-product-category" style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{product.categoria}</div>
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">
-                                            ${Math.round(product.precio * 100) / 100}
+                                            {(() => {
+                                                const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                                                const hasDiscount = (product.discount || 0) > 0;
+                                                if (hasDiscount) {
+                                                    const finalPrice = basePrice * (1 - product.discount! / 100);
+                                                    return (
+                                                        <>
+                                                            <span style={{textDecoration: 'line-through', fontSize: '0.85em', color: '#9ca3af', marginRight: '6px'}}>
+                                                                ${Math.round(basePrice * 100) / 100}
+                                                            </span>
+                                                            <span style={{color: '#eab308', fontWeight: 'bold'}}>
+                                                                ${Math.round(finalPrice * 100) / 100}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                }
+                                                return `$${Math.round(basePrice * 100) / 100}`;
+                                            })()}
                                         </div>
                                         <div className={`pos-product-stock ${(v.stockQuantity || 0) < 5 ? "low" : ""}`}>
                                             Stock: {Number((v.stockQuantity || 0).toFixed(3))}
@@ -1075,7 +1097,24 @@ export default function POSManager() {
                                         <div className="pos-product-category" style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>{product.categoria}</div>
                                         <div className="pos-product-name">{product.nombre}</div>
                                         <div className="pos-product-price">
-                                            ${Math.round(product.precio * 100) / 100}
+                                            {(() => {
+                                                const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                                                const hasDiscount = (product.discount || 0) > 0;
+                                                if (hasDiscount) {
+                                                    const finalPrice = basePrice * (1 - product.discount! / 100);
+                                                    return (
+                                                        <>
+                                                            <span style={{textDecoration: 'line-through', fontSize: '0.85em', color: '#9ca3af', marginRight: '6px'}}>
+                                                                ${Math.round(basePrice * 100) / 100}
+                                                            </span>
+                                                            <span style={{color: '#eab308', fontWeight: 'bold'}}>
+                                                                ${Math.round(finalPrice * 100) / 100}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                }
+                                                return `$${Math.round(basePrice * 100) / 100}`;
+                                            })()}
                                         </div>
                                         <div className={`pos-product-stock ${(product.stockQuantity || 0) < 5 ? "low" : ""}`}>
                                             Stock: {Number((product.stockQuantity || 0).toFixed(3))}
@@ -1384,7 +1423,9 @@ export default function POSManager() {
                                             if (inputMode === 'price') return;
                                             setInputMode('price');
                                             if (weightInput && !isNaN(parseFloat(weightInput))) {
-                                                const currentPrice = parseFloat(weightInput) * (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio);
+                                                const basePrice = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
+                                                const finalPrice = (pendingProduct.product.discount || 0) > 0 ? basePrice * (1 - (pendingProduct.product.discount! / 100)) : basePrice;
+                                                const currentPrice = parseFloat(weightInput) * finalPrice;
                                                 setPriceInput(Math.round(currentPrice).toString());
                                             } else {
                                                 setPriceInput("");
@@ -1395,7 +1436,7 @@ export default function POSManager() {
                                         {inputMode === 'weight' ? (
                                             <span>
                                                 {(weightInput && !isNaN(parseFloat(weightInput)))
-                                                    ? Math.round(parseFloat(weightInput) * (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio)).toString()
+                                                    ? Math.round(parseFloat(weightInput) * ((pendingProduct.product.discount || 0) > 0 ? (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio) * (1 - pendingProduct.product.discount! / 100) : (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio))).toString()
                                                     : "0"}
                                             </span>
                                         ) : (
@@ -1412,7 +1453,8 @@ export default function POSManager() {
                                                         return;
                                                     }
 
-                                                    const priceToUse = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
+                                                    const basePrice = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
+                                                    const priceToUse = (pendingProduct.product.discount || 0) > 0 ? basePrice * (1 - pendingProduct.product.discount! / 100) : basePrice;
                                                     const priceVal = parseFloat(val);
 
                                                     if (!isNaN(priceVal) && priceToUse > 0) {
@@ -1584,7 +1626,8 @@ export default function POSManager() {
                                 if (pendingRetry.type === 'unit') {
                                     addToCart(freshProduct, pendingRetry.variant, false);
                                 } else if (pendingRetry.type === 'unit_exact' && pendingRetry.quantity) {
-                                    const pToUse = priceMode === 'wholesale' ? (freshProduct.wholesalePrice || freshProduct.precio) : freshProduct.precio;
+                                    const basePrice = priceMode === 'wholesale' ? (freshProduct.wholesalePrice || freshProduct.precio) : freshProduct.precio;
+                                    const pToUse = (freshProduct.discount || 0) > 0 ? basePrice * (1 - (freshProduct.discount! / 100)) : basePrice;
                                     setCart(prev => {
                                         const ex = prev.find(item => item.id === freshProduct.id && item.selectedVariant === pendingRetry.variant);
                                         if (ex) {
