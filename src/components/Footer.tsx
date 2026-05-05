@@ -18,6 +18,12 @@ const Footer: React.FC = () => {
                         <FaWhatsapp size={24} />
                     </a>
                 </div>
+                <div className="footer-section">
+                    <h3 className="footer-title">Horarios:</h3>
+                    <p>Lunes a Viernes: 08:00 - 13:00 y 17:00 - 20:00</p>
+                    <p>Sábados: 08:00 - 13:00</p>
+                    <p>Domingos: Cerrado</p>
+                </div>
                 <div className="footer-section map-section">
                     <h3 className="footer-title">Nuestra ubicación:</h3>
                     <div className="map-container">
