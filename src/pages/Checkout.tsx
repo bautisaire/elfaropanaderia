@@ -444,7 +444,13 @@ export default function Checkout() {
       console.error("Error al enviar el pedido:", error);
       setIsSubmitting(false);
 
-      const msg = error.message || "";
+      const msg = error.message || error.name || "";
+      if (msg === 'AbortError' || msg.includes('aborted') || error.name === 'AbortError') {
+        // Ignorar el error si el request fue abortado por navegación
+        console.warn("Petición abortada por el usuario o navegador.");
+        return;
+      }
+
       if (msg.includes("Stock insuficiente")) {
         alert(`⚠️ ${msg}\n\nPor favor revisa tu carrito.`);
       } else {
@@ -928,7 +934,7 @@ export default function Checkout() {
                             className="radio-input"
                           />
                           <div className="radio-icon" style={{ color: '#009ee3', display: 'flex', alignItems: 'center' }}>
-                            <img src="https://logotipoz.com/wp-content/uploads/2021/10/versiones-del-logo-de-mercado-pago-1.png" alt="MP" style={{ width: '28px', height: 'auto' }} />
+                            <img src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.5/mercadopago/logo__small@2x.png" alt="MP" style={{ width: '40px', height: 'auto' }} />
                           </div>
                           <div>
                             <div className="radio-label" style={{ color: formData.metodoPago === 'mercadopago' ? '#009ee3' : 'inherit' }}>Mercado Pago</div>

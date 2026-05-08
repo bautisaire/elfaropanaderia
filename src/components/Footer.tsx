@@ -6,24 +6,6 @@ const Footer: React.FC = () => {
     return (
         <footer className="footer">
             <div className="footer-content">
-                <div className="social-links">
-                    {/* Replace '#' with actual profile URLs */}
-                    <a href="https://www.facebook.com/faro.panificacion" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                        <FaFacebook size={24} />
-                    </a>
-                    <a href="https://www.instagram.com/faro.panificacion" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                        <FaInstagram size={24} />
-                    </a>
-                    <a href="https://wa.me/5492995206821" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                        <FaWhatsapp size={24} />
-                    </a>
-                </div>
-                <div className="footer-section">
-                    <h3 className="footer-title">Horarios:</h3>
-                    <p>Lunes a Viernes: 08:00 - 13:00 y 17:00 - 20:00</p>
-                    <p>Sábados: 08:00 - 13:00</p>
-                    <p>Domingos: Cerrado</p>
-                </div>
                 <div className="footer-section map-section">
                     <h3 className="footer-title">Nuestra ubicación:</h3>
                     <div className="map-container">
@@ -37,6 +19,26 @@ const Footer: React.FC = () => {
                             title="Google Maps"
                         ></iframe>
                     </div>
+
+                </div>
+                <div className="footer-section">
+                    <h3 className="footer-title">Horarios:</h3>
+                    <p>Lunes a Viernes: 08:00 - 13:00 y 17:00 - 20:00</p>
+                    <p>Sábados: 08:00 - 13:00</p>
+                    <p>Domingos: Cerrado</p>
+
+                </div>
+
+                <div className="social-links">
+                    <a href="https://www.facebook.com/faro.panificacion" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                        <FaFacebook size={40} />
+                    </a>
+                    <a href="https://www.instagram.com/faro.panificacion" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <FaInstagram size={40} />
+                    </a>
+                    <a href="https://wa.me/5492995206821" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <FaWhatsapp size={40} />
+                    </a>
                 </div>
                 <div className="footer-text">
                     <p>

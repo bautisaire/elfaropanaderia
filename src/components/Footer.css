@@ -28,6 +28,12 @@
     gap: 25px;
 }
 
+.social-links i {
+    width: 60px;
+    height: 60px;
+
+}
+
 .social-links a {
     color: var(--footer-text);
     transition: color 0.3s ease, transform 0.3s ease;
