@@ -178,15 +178,15 @@ exports.processOrder = onCall(async (request) => {
                     productsToUpdate.add(parentId);
 
                     stockMovementsToLog.push({
-                        productId: parentId, productName: parentData.nombre, quantity: totalDeduct,
-                        observation: `Venta Derivado: ${item.name}`
+                        productId: parentId, productName: parentData.nombre || 'Desconocido', quantity: totalDeduct,
+                        observation: `Venta Derivado: ${item.name || 'Desconocido'}`
                     });
                     
                     if(parentData.stockQuantity <= (parentData.minStock || 0)) {
                         stockAlertsToLog.push({
                             productId: parentId,
-                            productName: parentData.nombre,
-                            message: `Stock bajo para ${parentData.nombre}. Nivel actual: ${parentData.stockQuantity}`,
+                            productName: parentData.nombre || 'Desconocido',
+                            message: `Stock bajo para ${parentData.nombre || 'Desconocido'}. Nivel actual: ${parentData.stockQuantity}`,
                             createdAt: new Date(),
                             status: 'unread'
                         });
@@ -220,15 +220,15 @@ exports.processOrder = onCall(async (request) => {
                     }
 
                     stockMovementsToLog.push({
-                        productId: baseId, productName: item.name, quantity: qty,
+                        productId: baseId, productName: item.name || 'Desconocido', quantity: qty,
                         observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`
                     });
                     
                     if(productData.stockQuantity <= (productData.minStock || 0)) {
                          stockAlertsToLog.push({
                             productId: baseId,
-                            productName: productData.nombre,
-                            message: `Stock bajo para ${productData.nombre}. Nivel actual: ${productData.stockQuantity}`,
+                            productName: productData.nombre || 'Desconocido',
+                            message: `Stock bajo para ${productData.nombre || 'Desconocido'}. Nivel actual: ${productData.stockQuantity}`,
                             createdAt: new Date(),
                             status: 'unread'
                         });
@@ -353,6 +353,9 @@ exports.processOrder = onCall(async (request) => {
 
     } catch (error) {
         console.error("Error processOrder:", error);
+        if (error instanceof HttpsError) {
+            throw error;
+        }
         throw new HttpsError("internal", error.message || "Error interno al procesar el pedido.");
     }
 });

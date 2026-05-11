@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 import { db } from "../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { printTicket } from "../utils/printTicket";
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
@@ -106,6 +107,9 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 </button>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
+                                <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); printTicket(order); }}>
+                                    <FaPrint /> Imprimir Ticket
+                                </button>
                                 <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
                                     <FaEdit /> Editar Pedido
                                 </button>

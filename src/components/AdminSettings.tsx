@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { FaBell, FaCheck, FaTimes } from "react-icons/fa";
+import { FaBell, FaCheck, FaTimes, FaPrint } from "react-icons/fa";
 
 export default function AdminSettings() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
@@ -10,6 +11,9 @@ export default function AdminSettings() {
     useEffect(() => {
         const stored = localStorage.getItem('admin_order_alerts_enabled');
         setNotificationsEnabled(stored === 'true');
+        
+        const storedAutoPrint = localStorage.getItem('admin_auto_print_enabled');
+        setAutoPrintEnabled(storedAutoPrint === 'true');
     }, []);
 
     const toggleNotifications = async () => {
@@ -41,6 +45,12 @@ export default function AdminSettings() {
         }
     };
 
+    const toggleAutoPrint = () => {
+        const newValue = !autoPrintEnabled;
+        setAutoPrintEnabled(newValue);
+        localStorage.setItem('admin_auto_print_enabled', newValue.toString());
+    };
+
     return (
         <div className="admin-settings-container" style={{ padding: '20px', maxWidth: '800px' }}>
             <h2 style={{ marginBottom: '30px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Configuración</h2>
@@ -52,7 +62,8 @@ export default function AdminSettings() {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                marginBottom: '20px'
             }}>
                 <div className="setting-info">
                     <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -84,6 +95,53 @@ export default function AdminSettings() {
                     }}
                 >
                     {notificationsEnabled ? (
+                        <>
+                            <FaTimes /> Desactivar
+                        </>
+                    ) : (
+                        <>
+                            <FaCheck /> Activar
+                        </>
+                    )}
+                </button>
+            </div>
+
+            <div className="setting-card" style={{
+                background: 'white',
+                padding: '24px',
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <div className="setting-info">
+                    <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <FaPrint style={{ color: '#3b82f6' }} />
+                        Impresión Automática (Ticketera)
+                    </h3>
+                    <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                        Abre automáticamente el diálogo de impresión con un ticket formateado (58mm/80mm) cada vez que llega un pedido nuevo.
+                    </p>
+                </div>
+
+                <button
+                    onClick={toggleAutoPrint}
+                    style={{
+                        padding: '12px 24px',
+                        borderRadius: '30px',
+                        border: 'none',
+                        background: autoPrintEnabled ? '#fee2e2' : '#dcfce7',
+                        color: autoPrintEnabled ? '#ef4444' : '#16a34a',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    {autoPrintEnabled ? (
                         <>
                             <FaTimes /> Desactivar
                         </>

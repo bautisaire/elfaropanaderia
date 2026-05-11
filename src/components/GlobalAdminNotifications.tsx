@@ -3,6 +3,7 @@ import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaTimes } from "react-icons/fa";
+import { printTicket } from "../utils/printTicket";
 
 export default function GlobalAdminNotifications() {
     const navigate = useNavigate();
@@ -55,6 +56,11 @@ export default function GlobalAdminNotifications() {
                     notifiedOrdersRef.current.add(change.doc.id);
 
                     const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
+                    const autoPrintEnabled = localStorage.getItem('admin_auto_print_enabled') === 'true';
+
+                    if (autoPrintEnabled) {
+                        printTicket({ ...newOrder, id: change.doc.id });
+                    }
 
                     // DESKTOP NOTIFICATION
                     if (alertsEnabled && typeof Notification !== 'undefined' && Notification.permission === "granted") {
