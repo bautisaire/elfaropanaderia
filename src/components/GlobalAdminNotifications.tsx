@@ -58,7 +58,9 @@ export default function GlobalAdminNotifications() {
                     const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
                     const autoPrintEnabled = localStorage.getItem('admin_auto_print_enabled') === 'true';
 
-                    if (autoPrintEnabled) {
+                    // Los pedidos POS con envío ya imprimen el ticket localmente desde POSManager
+                    // al confirmar la venta. Evitamos el doble print aquí.
+                    if (autoPrintEnabled && newOrder.source !== 'pos_delivery') {
                         printTicket({ ...newOrder, id: change.doc.id });
                     }
 
