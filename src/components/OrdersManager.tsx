@@ -553,12 +553,29 @@ export default function OrdersManager() {
         setEditSearchTerm("");
     };
 
+    // Heurística para detectar productos vendidos por peso (kg).
+    // Confiamos primero en el flag explícito, y si no está usamos la cantidad
+    // fraccionaria como pista (los pedidos viejos no guardaban unitType).
+    const isWeightItem = (item: any) => {
+        if (item?.unitType === 'weight') return true;
+        const q = Number(item?.quantity);
+        return !isNaN(q) && q > 0 && q !== Math.floor(q);
+    };
+
     // Edit Modal Actions
     const updateItemQuantity = (index: number, delta: number) => {
         if (!editingOrder) return;
         const newItems = [...editingOrder.items];
         const item = newItems[index];
-        const newQty = (Number(item.quantity) || 0) + delta;
+
+        // Si es por peso, los +/- mueven 0.1 kg (100 g) en lugar de 1 kg.
+        // Si no, mantienen el paso de 1 unidad.
+        // (El delta = -9999 que envía el botón de borrar igual deja la cantidad
+        //  en negativo y se filtra abajo, así que sigue funcionando.)
+        const step = isWeightItem(item) ? 0.1 : 1;
+        let newQty = (Number(item.quantity) || 0) + delta * step;
+        // Evitar artefactos de punto flotante
+        newQty = Math.round(newQty * 1000) / 1000;
 
         if (newQty <= 0) {
             newItems.splice(index, 1);
@@ -571,6 +588,17 @@ export default function OrdersManager() {
         setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
     };
 
+    // Setea una cantidad exacta (usado por los inputs editables del modal).
+    const setItemQuantityExact = (index: number, newQty: number) => {
+        if (!editingOrder) return;
+        if (isNaN(newQty) || newQty <= 0) return; // Para borrar, usar el ícono de basura
+        const newItems = [...editingOrder.items];
+        newItems[index] = { ...newItems[index], quantity: Math.round(newQty * 1000) / 1000 };
+
+        const newTotal = Math.round(newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0) * 100) / 100;
+        setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
+    };
+
     const handleAddItem = (product: any, variant: any = null) => {
         if (!editingOrder) return;
         const newItems = [...editingOrder.items];
@@ -579,6 +607,8 @@ export default function OrdersManager() {
         const name = product.nombre;
         const variantName = variant ? variant.name : null;
         const id = variant ? `${product.id}-${variant.name}` : product.id;
+        const isWeight = product.unitType === 'weight';
+        const stepQty = isWeight ? 0.1 : 1; // 100 g para peso, 1 unidad para unitarios
 
         // Check if exists
         const existingIdx = newItems.findIndex(i => {
@@ -586,14 +616,20 @@ export default function OrdersManager() {
         });
 
         if (existingIdx >= 0) {
-            newItems[existingIdx].quantity += 1;
+            const itemRef = newItems[existingIdx];
+            const itemIsWeight = isWeightItem(itemRef) || isWeight;
+            const incr = itemIsWeight ? 0.1 : 1;
+            itemRef.quantity = Math.round(((Number(itemRef.quantity) || 0) + incr) * 1000) / 1000;
+            // Preservar/asegurar el flag para que el modal lo siga tratando como peso
+            if (itemIsWeight && !itemRef.unitType) itemRef.unitType = 'weight';
         } else {
             newItems.push({
                 id,
                 name,
                 variant: variantName,
-                quantity: 1,
-                price
+                quantity: stepQty,
+                price,
+                unitType: isWeight ? 'weight' : 'unit'
             });
         }
 
@@ -750,6 +786,49 @@ export default function OrdersManager() {
                     <div className="orders-summary-bar">
                         <span className="summary-pill">Cargados: <strong>{orders.length}</strong></span>
                         <span className="summary-pill pending">Pendientes: <strong>{orders.filter(o => o.status === 'pendiente').length}</strong></span>
+                        {activeTab === 'deliveries' && (() => {
+                            // Contador de deliveries pagadas por transferencia.
+                            // Excluye pedidos POS locales y retiros por sucursal.
+                            const isTransfer = (m: any) => {
+                                if (!m) return false;
+                                return String(m)
+                                    .trim()
+                                    .toLowerCase()
+                                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                                    .includes('transfer');
+                            };
+                            const isPickup = (dir: any) => {
+                                if (!dir) return false;
+                                const n = String(dir)
+                                    .trim()
+                                    .toLowerCase()
+                                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                                return n.includes('retiro');
+                            };
+
+                            const deliveriesVisibles = orders.filter(o => {
+                                const isPos = o.source === 'pos' || o.source === 'pos_public' || o.source === 'pos_wholesale';
+                                return !isPos;
+                            });
+
+                            const transferenciaCount = deliveriesVisibles.filter(o =>
+                                !isPickup(o.cliente?.direccion) && isTransfer(o.cliente?.metodoPago)
+                            ).length;
+
+                            return (
+                                <span
+                                    className="summary-pill"
+                                    style={{
+                                        background: '#ede9fe',
+                                        color: '#5b21b6',
+                                        border: '1px solid #c4b5fd'
+                                    }}
+                                    title="Deliveries pagadas por transferencia (excluye retiros y efectivo)"
+                                >
+                                    Delivery transferencia: <strong>{transferenciaCount}</strong>
+                                </span>
+                            );
+                        })()}
                     </div>
 
                     <div className="orders-content">
@@ -1129,20 +1208,72 @@ export default function OrdersManager() {
                                     <div className="edit-section">
                                         <h4>Ítems del Pedido</h4>
                                         <ul className="edit-items-list">
-                                            {editingOrder.items.map((item, idx) => (
-                                                <li key={idx} className="edit-item-row">
-                                                    <div className="item-info">
-                                                        <span>{item.name} {item.variant ? `(${item.variant})` : ''}</span>
-                                                        <small>${item.price}</small>
-                                                    </div>
-                                                    <div className="item-controls">
-                                                        <button onClick={() => updateItemQuantity(idx, -1)}><FaMinus /></button>
-                                                        <span>{item.quantity}</span>
-                                                        <button onClick={() => updateItemQuantity(idx, 1)}><FaPlus /></button>
-                                                        <button className="remove-btn" onClick={() => updateItemQuantity(idx, -9999)}><FaTrash /></button>
-                                                    </div>
-                                                </li>
-                                            ))}
+                                            {editingOrder.items.map((item, idx) => {
+                                                const byWeight = isWeightItem(item);
+                                                // Para productos por peso mostramos gramos (más cómodo);
+                                                // para unitarios, el número tal cual.
+                                                const displayValue = byWeight
+                                                    ? Math.round((Number(item.quantity) || 0) * 1000) // gramos
+                                                    : (Number(item.quantity) || 0);
+
+                                                return (
+                                                    <li key={idx} className="edit-item-row">
+                                                        <div className="item-info">
+                                                            <span>{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                                            <small>${item.price}{byWeight ? '/kg' : ''}</small>
+                                                        </div>
+                                                        <div className="item-controls">
+                                                            <button
+                                                                onClick={() => updateItemQuantity(idx, -1)}
+                                                                title={byWeight ? 'Restar 100 g' : 'Restar 1'}
+                                                            >
+                                                                <FaMinus />
+                                                            </button>
+
+                                                            <input
+                                                                type="number"
+                                                                value={displayValue}
+                                                                min={0}
+                                                                step={byWeight ? 50 : 1}
+                                                                onChange={(e) => {
+                                                                    const raw = parseFloat(e.target.value);
+                                                                    if (isNaN(raw)) return;
+                                                                    // Si es por peso, el input está en gramos -> convertir a kg
+                                                                    const qtyInBase = byWeight ? raw / 1000 : raw;
+                                                                    setItemQuantityExact(idx, qtyInBase);
+                                                                }}
+                                                                onClick={(e) => (e.target as HTMLInputElement).select()}
+                                                                style={{
+                                                                    width: byWeight ? '70px' : '55px',
+                                                                    textAlign: 'center',
+                                                                    padding: '4px 6px',
+                                                                    border: '1px solid #d1d5db',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.95rem',
+                                                                    fontWeight: 600
+                                                                }}
+                                                            />
+                                                            {byWeight && (
+                                                                <span style={{ fontSize: '0.8rem', color: '#6b7280', marginLeft: '-4px' }}>g</span>
+                                                            )}
+
+                                                            <button
+                                                                onClick={() => updateItemQuantity(idx, 1)}
+                                                                title={byWeight ? 'Sumar 100 g' : 'Sumar 1'}
+                                                            >
+                                                                <FaPlus />
+                                                            </button>
+                                                            <button
+                                                                className="remove-btn"
+                                                                onClick={() => updateItemQuantity(idx, -9999)}
+                                                                title="Eliminar"
+                                                            >
+                                                                <FaTrash />
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
                                         </ul>
                                         <div className="edit-total">
                                             <strong>Total: ${editingOrder.total}</strong>
