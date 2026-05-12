@@ -81,6 +81,26 @@ export default function App() {
     };
   }, []);
 
+  // Silenciar AbortError "Uncaught (in promise)" que dispara el SDK de Firestore
+  // cuando desuscribe listeners internos (long-polling / fetch streams).
+  // No afecta la funcionalidad: es ruido en consola únicamente.
+  useEffect(() => {
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason: any = event.reason;
+      const isAbort =
+        reason &&
+        (reason.name === 'AbortError' ||
+          reason.code === 20 ||
+          (typeof reason.message === 'string' && reason.message.includes('aborted')));
+      if (isAbort) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => window.removeEventListener('unhandledrejection', handleRejection);
+  }, []);
+
   return (
     <Router>
       <Layout />

@@ -60,7 +60,7 @@ https://www.elfaropanificacion.com
 };
 
 export const sendTelegramNotification = async (orderData: any) => {
-    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || orderData.orderId || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/orders/web`;
+    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || orderData.orderId || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/orders/deliveries`;
 
 
 

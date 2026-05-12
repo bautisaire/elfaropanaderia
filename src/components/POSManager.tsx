@@ -63,6 +63,10 @@ export default function POSManager() {
         localStorage.setItem('posViewMode', viewMode);
     }, [viewMode]);
 
+    // Envío Modal State
+    const [envioModalOpen, setEnvioModalOpen] = useState(false);
+    const [envioClientName, setEnvioClientName] = useState("");
+
     // Weight Logic State
     const [weightModalOpen, setWeightModalOpen] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<{ product: Product, variant?: string } | null>(null);
@@ -144,6 +148,12 @@ export default function POSManager() {
                     return;
                 }
 
+                // Close Envío Modal
+                if (envioModalOpen) {
+                    setEnvioModalOpen(false);
+                    return;
+                }
+
                 // 4. Close Cart
                 if (isCartOpen) {
                     setIsCartOpen(false);
@@ -182,8 +192,8 @@ export default function POSManager() {
                 }
             }
 
-            // Handle Cart Navigation (If Cart is Open)
-            if (isCartOpen) {
+            // Handle Cart Navigation (If Cart is Open and no blocking modal is up)
+            if (isCartOpen && !envioModalOpen) {
                 if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
                     e.preventDefault();
                     setPaymentMethod((prev) => {
@@ -291,7 +301,7 @@ export default function POSManager() {
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing, paymentMethod]);
+    }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing, paymentMethod, envioModalOpen]);
 
     // Force focus on weight input when switching back to weight mode
     useEffect(() => {
@@ -670,10 +680,25 @@ export default function POSManager() {
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
+
+        const hasEnvio = cart.some(item => item.nombre.toLowerCase().includes('envío') || item.nombre.toLowerCase().includes('envio'));
+
+        if (hasEnvio && !envioClientName && !envioModalOpen) {
+            setEnvioModalOpen(true);
+            return;
+        }
+
         setProcessing(true);
 
         try {
+            const isDeliveryOrder = hasEnvio;
+
             const updates = await runTransaction(db, async (transaction) => {
+                // ============================================================
+                // FASE DE LECTURAS (debe ir ANTES que cualquier escritura
+                // dentro de la transacción, lo exige Firestore)
+                // ============================================================
+
                 // 1. Identify all products to read (Items + Parents for dependencies)
                 const productIdsToRead = new Set<string>();
                 cart.forEach(item => {
@@ -685,12 +710,38 @@ export default function POSManager() {
 
                 const uniqueIds = Array.from(productIdsToRead);
                 const refs = uniqueIds.map(id => doc(db, "products", id));
-                const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
+
+                // 1.b Lectura adicional del contador SOLO si es delivery
+                const counterRef = doc(db, "config", "order_counter");
+
+                const reads: Promise<any>[] = refs.map(ref => transaction.get(ref));
+                if (isDeliveryOrder) reads.push(transaction.get(counterRef));
+
+                const allSnaps = await Promise.all(reads);
+                const docsSnap = allSnaps.slice(0, refs.length);
+                const counterSnap = isDeliveryOrder ? allSnaps[refs.length] : null;
 
                 const productDataMap: Record<string, any> = {};
                 docsSnap.forEach((d, i) => {
                     if (d.exists()) productDataMap[uniqueIds[i]] = d.data();
                 });
+
+                // Calcular el ID secuencial ya (todavía no escribimos nada)
+                let orderIdString = "";
+                let orderRef;
+                let nextOrderCounter = 0;
+
+                if (isDeliveryOrder) {
+                    nextOrderCounter = 1000;
+                    if (counterSnap && counterSnap.exists()) {
+                        nextOrderCounter = (counterSnap.data().current || 999) + 1;
+                    }
+                    orderIdString = nextOrderCounter.toString();
+                    orderRef = doc(db, "orders", orderIdString);
+                } else {
+                    orderRef = doc(collection(db, "orders"));
+                    orderIdString = orderRef.id;
+                }
 
                 const productsToUpdate = new Set<string>();
                 const stockAlertsToLog: any[] = [];
@@ -782,6 +833,10 @@ export default function POSManager() {
                     }
                 }
 
+                // ============================================================
+                // FASE DE ESCRITURAS (todas van DESPUÉS de las lecturas)
+                // ============================================================
+
                 // 3. Write Updates to Firestore
                 productsToUpdate.forEach(pid => {
                     const newData = productDataMap[pid];
@@ -792,8 +847,11 @@ export default function POSManager() {
                     });
                 });
 
-                // 4. Create Order
-                const orderRef = doc(collection(db, "orders"));
+                // 4. Persistir el contador (solo si es delivery)
+                if (isDeliveryOrder) {
+                    transaction.set(counterRef, { current: nextOrderCounter }, { merge: true });
+                }
+
                 const orderData = {
                     items: cart.map(item => {
                         const originalDoc = productDataMap[item.id] || {};
@@ -803,6 +861,7 @@ export default function POSManager() {
                             price: item.precio,
                             quantity: item.quantity,
                             variant: item.selectedVariant || null,
+                            unitType: item.unitType,
                             historicCost: originalDoc.recipe?.costPerUnit || 0,
                             historicIngredients: originalDoc.recipe?.ingredients ? {
                                 ingredients: originalDoc.recipe.ingredients,
@@ -812,14 +871,15 @@ export default function POSManager() {
                     }),
                     total: total,
                     cliente: {
-                        nombre: "Cliente Local",
-                        direccion: "Local Físico",
+                        nombre: isDeliveryOrder ? (envioClientName.trim() || "Cliente") : "Cliente Local",
+                        direccion: isDeliveryOrder ? "Envío" : "Local Físico",
                         telefono: "",
                         metodoPago: paymentMethod
                     },
                     date: new Date(),
-                    status: "entregado", // POS orders are completed immediately
-                    source: priceMode === 'public' ? 'pos_public' : 'pos_wholesale'
+                    status: isDeliveryOrder ? "pendiente" : "entregado", // POS orders are completed immediately unless they have Envío
+                    source: isDeliveryOrder ? 'pos_delivery' : (priceMode === 'public' ? 'pos_public' : 'pos_wholesale'),
+                    id: orderIdString
                 };
                 transaction.set(orderRef, orderData);
 
@@ -844,25 +904,58 @@ export default function POSManager() {
                     transaction.set(aRef, alert);
                 });
 
-                return Array.from(productsToUpdate).map(id => ({ id, newStock: productDataMap[id].stockQuantity }));
+                return { updates: Array.from(productsToUpdate).map(id => ({ id, newStock: productDataMap[id].stockQuantity })), orderId: orderIdString };
             });
 
             // Sync Child Products (Derived Stock)
-            if (updates && updates.length > 0) {
-                await Promise.all(updates.map(u => syncChildProducts(u.id, u.newStock)));
+            if (updates.updates && updates.updates.length > 0) {
+                await Promise.all(updates.updates.map(u => syncChildProducts(u.id, u.newStock)));
             }
 
             // Show Success Modal
-            showModal(
-                'success',
-                '¡Venta Registrada!',
-                undefined,
-                undefined,
-                <p className="pos-modal-total">Total: ${total}</p>
-            );
+            if (hasEnvio) {
+                // El sonido global de "nuevo pedido pendiente" lo dispara GlobalAdminNotifications
+                // al detectar la nueva orden con status === "pendiente".
+
+                showModal(
+                    'success',
+                    `¡Pedido #${updates.orderId} Registrado!`,
+                    'El pedido fue enviado a Deliveries.',
+                    undefined,
+                    <p className="pos-modal-total">Total: ${total}</p>
+                );
+
+                const ticketItems = cart.map(item => ({
+                    name: `${item.nombre}`,
+                    price: item.precio,
+                    quantity: item.quantity,
+                    variant: item.selectedVariant || null,
+                    unitType: item.unitType
+                }));
+
+                import('../utils/printTicket').then(({ printTicket }) => {
+                    printTicket({
+                        id: updates.orderId,
+                        items: ticketItems,
+                        total: total,
+                        cliente: { nombre: envioClientName.trim(), direccion: "Envío" },
+                        date: new Date()
+                    });
+                });
+            } else {
+                showModal(
+                    'success',
+                    '¡Venta Registrada!',
+                    undefined,
+                    undefined,
+                    <p className="pos-modal-total">Total: ${total}</p>
+                );
+            }
 
             setCart([]);
             setIsCartOpen(false);
+            setEnvioModalOpen(false);
+            setEnvioClientName("");
             fetchProducts();
         } catch (error) {
             console.error("Checkout error:", error);
@@ -1179,7 +1272,7 @@ export default function POSManager() {
                         <div key={`${item.id}-${item.selectedVariant || 'base'}`} className="pos-cart-item">
                             <div className="pos-item-details">
                                 <span className="pos-item-name">{item.nombre} {item.selectedVariant ? `(${item.selectedVariant})` : ''}</span>
-                                <span className="pos-item-price">${Math.round(item.precio * 100) / 100} x {item.unitType === 'weight' ? (Math.round(item.quantity * 1000) / 1000) : item.quantity} = ${Math.round(item.precio * item.quantity * 100) / 100}</span>
+                                <span className="pos-item-price">${Math.round(item.precio * 100) / 100} x {item.unitType === 'weight' ? `${Math.round(item.quantity * 1000)}g` : item.quantity} = ${Math.round(item.precio * item.quantity * 100) / 100}</span>
                             </div>
                             <div className="pos-item-controls">
                                 <button className="btn-qty" onClick={() => updateQuantity(item.id, item.selectedVariant, -1)}><FaMinus size={10} /></button>
@@ -1648,6 +1741,57 @@ export default function POSManager() {
                     }}
                     initialValue={stockModalInitialValue}
                 />
+            )}
+
+            {/* Envío Modal */}
+            {envioModalOpen && (
+                <div className="pos-modal-overlay">
+                    <div className="pos-modal">
+                        <h3 style={{ color: '#4b5563', margin: '0 0 15px 0' }}>Pedido con Envío</h3>
+                        <p style={{ marginBottom: '15px' }}>Ingrese el nombre del cliente para registrar el pedido:</p>
+                        <input
+                            type="text"
+                            autoFocus
+                            value={envioClientName}
+                            onChange={(e) => setEnvioClientName(e.target.value)}
+                            placeholder="Nombre del cliente"
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                fontSize: '1.2rem',
+                                borderRadius: '8px',
+                                border: '1px solid #ccc',
+                                marginBottom: '20px'
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && envioClientName.trim() !== '') {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleCheckout();
+                                }
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                className="btn-cancel"
+                                onClick={() => {
+                                    setEnvioModalOpen(false);
+                                    setEnvioClientName("");
+                                    setProcessing(false);
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn-confirm"
+                                onClick={handleCheckout}
+                                disabled={envioClientName.trim() === ''}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
     );

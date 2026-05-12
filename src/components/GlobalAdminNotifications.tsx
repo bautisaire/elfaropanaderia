@@ -65,7 +65,8 @@ export default function GlobalAdminNotifications() {
                     // DESKTOP NOTIFICATION
                     if (alertsEnabled && typeof Notification !== 'undefined' && Notification.permission === "granted") {
                         const orderId = change.doc.id.slice(-6).toUpperCase();
-                        const notification = new Notification(`¡Nuevo Pedido Web! #${orderId}`, {
+                        const titleLabel = newOrder.source === 'pos_delivery' ? 'Delivery POS' : 'Pedido Web';
+                        const notification = new Notification(`¡Nuevo ${titleLabel}! #${orderId}`, {
                             body: `Total: $${newOrder.total} - ${newOrder.cliente?.nombre || 'Cliente'}`,
                             tag: change.doc.id,
                             icon: '/logo192.png'
@@ -73,14 +74,17 @@ export default function GlobalAdminNotifications() {
 
                         notification.onclick = () => {
                             window.focus();
-                            navigate('/editor/orders/web');
+                            navigate('/editor/orders/deliveries');
                             notification.close();
                         };
                     }
 
                     // IN-APP NOTIFICATION & SOUND (Always triggered unless disabled? No, these we always trigger to notify if window is active)
                     const orderIdStr = change.doc.id.slice(-6).toUpperCase();
-                    setNotificationMessage(`¡Nuevo Pedido Web de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`);
+                    const isPosDelivery = newOrder.source === 'pos_delivery';
+                    setNotificationMessage(isPosDelivery
+                        ? `¡Nueva Delivery POS de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`
+                        : `¡Nuevo Pedido Web de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`);
                     setNotificationOrderRef(orderIdStr);
                     setShowNotification(true);
 
@@ -226,7 +230,7 @@ export default function GlobalAdminNotifications() {
         <div
             className="admin-inapp-notification"
             onClick={() => {
-                navigate(isStockAlert ? '/editor/inventory' : '/editor/orders/web');
+                navigate(isStockAlert ? '/editor/inventory' : '/editor/orders/deliveries');
                 setShowNotification(false);
             }}
             style={isStockAlert ? { borderLeftColor: '#ef4444' } : {}}

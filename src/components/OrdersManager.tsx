@@ -39,7 +39,9 @@ export default function OrdersManager() {
 
     // Derived state from URL, defaulting to 'pos'
     const cleanTab = tab ? tab.replace(/^\//, '') : 'pos';
-    const activeTab = (cleanTab === 'web' || cleanTab === 'pos' || cleanTab === 'expenses') ? cleanTab : 'pos';
+    // 'web' es legado y se normaliza a 'deliveries' (la pestaña fue renombrada)
+    const normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
+    const activeTab = (normalizedTab === 'deliveries' || normalizedTab === 'pos' || normalizedTab === 'expenses') ? normalizedTab : 'pos';
 
     const isSuperAdmin = auth.currentUser?.email === 'sairebautista@gmail.com';
 
@@ -769,19 +771,19 @@ export default function OrdersManager() {
                                 Ventas POS
                             </button>
                             <button
-                                className={`tab-btn ${activeTab === 'web' ? 'active' : ''}`}
-                                onClick={() => navigate('/editor/orders/web')}
+                                className={`tab-btn ${activeTab === 'deliveries' ? 'active' : ''}`}
+                                onClick={() => navigate('/editor/orders/deliveries')}
                                 style={{
                                     padding: '10px 20px',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    background: activeTab === 'web' ? '#3b82f6' : '#f3f4f6',
-                                    color: activeTab === 'web' ? 'white' : '#4b5563',
+                                    background: activeTab === 'deliveries' ? '#3b82f6' : '#f3f4f6',
+                                    color: activeTab === 'deliveries' ? 'white' : '#4b5563',
                                     fontWeight: 'bold',
                                     cursor: 'pointer'
                                 }}
                             >
-                                Pedidos Web
+                                Deliveries
                             </button>
                             <button
                                 className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
@@ -1029,11 +1031,11 @@ export default function OrdersManager() {
                                                     <td className="col-cliente">
                                                         <div className="order-cell-client">
                                                             <strong>{order.cliente.nombre}</strong>
-                                                            {activeTab === 'web' && (
-                                                                <div className="client-contact-icons">
-                                                                    {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
-                                                                </div>
-                                                            )}
+                                            {activeTab === 'deliveries' && (
+                                                <div className="client-contact-icons">
+                                                    {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
+                                                </div>
+                                            )}
                                                         </div>
                                                     </td>
                                                     <td>

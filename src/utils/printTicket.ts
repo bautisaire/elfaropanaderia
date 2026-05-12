@@ -18,11 +18,12 @@ export const printTicket = (order: any) => {
 
     const itemsHtml = order.items.map((item: any) => {
         const qty = Number(item.quantity).toFixed(2).replace(/\.?0+$/, "");
+        const qtyDisplay = item.unitType === 'weight' ? `${Math.round(item.quantity * 1000)}g` : `${qty}x`;
         const subtotal = Math.ceil(item.price * (item.quantity || 1));
         const name = `${item.name} ${item.variant ? `(${item.variant})` : ''}`;
         return `
         <tr>
-            <td class="text-left" style="vertical-align: top;">${qty}x</td>
+            <td class="text-left" style="vertical-align: top;">${qtyDisplay}</td>
             <td class="text-left">${name}</td>
             <td class="text-right" style="vertical-align: top;">$${subtotal}</td>
         </tr>
