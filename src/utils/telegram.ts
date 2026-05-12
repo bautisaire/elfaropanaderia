@@ -1,6 +1,25 @@
 const BOT_TOKEN = import.meta.env.VITE_BOT_TOKEN;
 const CHAT_ID = import.meta.env.VITE_CHAT_ID;
 
+// Comparación case/acento-insensitive para detectar pagos por transferencia.
+// Acepta: "transferencia", "Transferencia", "TRANSFERENCIA", "transfer",
+// también con tildes raras, espacios, etc.
+const isTransferPayment = (metodoPago: any): boolean => {
+    if (!metodoPago) return false;
+    const normalized = String(metodoPago)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // saca acentos
+    return normalized.includes('transfer');
+};
+
+const TRANSFER_DATA_BLOCK = `
+ *Datos de Transferencia:*
+ALIAS: \`elfaro80.mp\`
+CVU: \`0000003100006832823516\`
+A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
+_Puedes abonar ahora o esperar al repartidor._`;
+
 export const generateOrderMessage = (orderData: any) => {
     const { cliente, items, total } = orderData;
 
@@ -8,8 +27,7 @@ export const generateOrderMessage = (orderData: any) => {
         .map((item: any) => `- ${item.quantity}x ${item.name} ($${Math.floor(item.price)})`)
         .join("\n");
 
-    // Limpiar número para el link (quitar espacios, guiones, etc)
-    // const cleanPhone = cliente.telefono.replace(/\D/g, "");
+    const transferBlock = isTransferPayment(cliente?.metodoPago) ? TRANSFER_DATA_BLOCK : '';
 
     return `
 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
@@ -23,24 +41,16 @@ ${orderData.shippingCost > 0 ? `\n *Envío:* $${Math.floor(orderData.shippingCos
 💵 *Total:* $${Math.floor(total)}
 
  ¡Ya lo estamos preparando! 
-
-${(cliente.metodoPago === 'transferencia' || cliente.metodoPago === 'transfer') ? `
- *Datos de Transferencia:*
-ALIAS: \`elfaro80.mp\`
-CVU: \`0000003100006832823516\`
-A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
-_Puedes abonar ahora o esperar al repartidor._` : ''}
+${transferBlock}
 
 https://www.elfaropanificacion.com
   `.trim();
 };
+
 export const generateOrderMessageShort = (orderData: any) => {
     const { cliente, total } = orderData;
 
-
-
-    // Limpiar número para el link (quitar espacios, guiones, etc)
-    // const cleanPhone = cliente.telefono.replace(/\D/g, "");
+    const transferBlock = isTransferPayment(cliente?.metodoPago) ? TRANSFER_DATA_BLOCK : '';
 
     return `
 ¡Hola ${cliente.nombre}, pedido recibido!
@@ -48,12 +58,7 @@ export const generateOrderMessageShort = (orderData: any) => {
 
  Ya lo estamos preparando 
 *Total:* $${Math.floor(total)}
-${(cliente.metodoPago === 'transferencia' || cliente.metodoPago === 'transfer') ? `
- *Datos de Transferencia:*
-ALIAS: \`elfaro80.mp\`
-CVU: \`0000003100006832823516\`
-A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
-_Puedes abonar ahora o esperar al repartidor._` : ''}
+${transferBlock}
 
 https://www.elfaropanificacion.com
   `.trim();
