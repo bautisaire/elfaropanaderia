@@ -32,6 +32,9 @@ export const printTicket = (order: any) => {
 
     const total = Math.ceil(order.total);
 
+    // URL del QR (apunta a la tienda online). Se imprime al pie del ticket.
+    const qrUrl = 'https://storage3.me-qr.com/qr/348313935.png?v=1778586349';
+
     const html = `
     <!DOCTYPE html>
     <html>
@@ -75,6 +78,19 @@ export const printTicket = (order: any) => {
             th:nth-child(3), td:nth-child(3) { width: 25%; text-align: right; } /* Subtotal */
             th { border-bottom: 1px dashed #000; }
             .divider { border-top: 1px dashed #000; margin: 5px 0; }
+            .qr-block { text-align: center; margin: 4px 0 8px 0; }
+            .qr-block img {
+                width: 32mm;
+                height: 32mm;
+                display: block;
+                margin: 0 auto;
+                image-rendering: pixelated; /* QR nítido en impresión */
+            }
+            .qr-caption {
+                font-size: 10px;
+                line-height: 1.15;
+                margin: 2px 0;
+            }
         </style>
     </head>
     <body>
@@ -82,12 +98,12 @@ export const printTicket = (order: any) => {
         <div class="divider"></div>
         <div>Fecha: ${dateStr}</div>
         <div>Cliente: ${clientName}</div>
-        <div>Pedido #: ${orderId}</div>
+        <div>Pedido: #${orderId}</div>
         <div class="divider"></div>
         <table>
             <tr>
-                <th class="text-left">Cant</th>
-                <th class="text-center">Desc</th>
+                <th class="text-left">Cant.</th>
+                <th class="text-center">Desc.</th>
                 <th class="text-right">SubT</th>
             </tr>
             ${itemsHtml}
@@ -96,6 +112,12 @@ export const printTicket = (order: any) => {
         <div class="text-right bold" style="font-size: 14px;">TOTAL: $${total}</div>
         <div class="divider"></div>
         <div class="text-center bold" style="font-size: 14px;">¡GRACIAS POR SU COMPRA!</div>
+        <div class="divider"></div>
+        <div class="qr-block">
+            <div class="bold qr-caption">Escaneá para hacer tu pedido</div>
+            <img id="ticketQr" src="${qrUrl}" alt="QR Pedidos" />
+            <div class="qr-caption">elfaropanificacion.com</div>
+        </div>
     </body>
     </html>
     `;
@@ -115,7 +137,7 @@ export const printTicket = (order: any) => {
         doc.write(html);
         doc.close();
 
-        iframe.onload = () => {
+        const triggerPrint = () => {
             iframe.contentWindow?.focus();
             iframe.contentWindow?.print();
             // Aumentamos el timeout a 10 segundos para dar tiempo a la cola de impresión
@@ -124,6 +146,28 @@ export const printTicket = (order: any) => {
                     document.body.removeChild(iframe);
                 }
             }, 10000);
+        };
+
+        iframe.onload = () => {
+            // Esperamos a que el QR termine de cargar para que salga en la impresión.
+            // Si falla o la red está lenta, imprimimos igual a los 2.5s para no bloquear.
+            const qrImg = iframe.contentDocument?.getElementById('ticketQr') as HTMLImageElement | null;
+
+            if (!qrImg || qrImg.complete) {
+                triggerPrint();
+                return;
+            }
+
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                triggerPrint();
+            };
+
+            qrImg.addEventListener('load', finish);
+            qrImg.addEventListener('error', finish);
+            setTimeout(finish, 2500);
         };
     }
 };
