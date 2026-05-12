@@ -16,6 +16,13 @@ export const printTicket = (order: any) => {
     const orderId = order.id ? (typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id) : 'N/A';
     const clientName = order.cliente?.nombre || 'Consumidor Final';
 
+    // Dirección y método de pago (campos opcionales; algunos pedidos POS locales no tienen)
+    const direccion = (order.cliente?.direccion || '').trim();
+    // Para ventas locales en mostrador la dirección es "Local Físico" — no aporta nada al ticket
+    const showDireccion = direccion.length > 0 && direccion.toLowerCase() !== 'local físico' && direccion.toLowerCase() !== 'local fisico';
+    const metodoPago = (order.cliente?.metodoPago || '').toString().trim();
+    const showMetodoPago = metodoPago.length > 0;
+
     const itemsHtml = order.items.map((item: any) => {
         const qty = Number(item.quantity).toFixed(2).replace(/\.?0+$/, "");
         const qtyDisplay = item.unitType === 'weight' ? `${Math.round(item.quantity * 1000)}g` : `${qty}x`;
@@ -98,6 +105,8 @@ export const printTicket = (order: any) => {
         <div class="divider"></div>
         <div>Fecha: ${dateStr}</div>
         <div>Cliente: ${clientName}</div>
+        ${showDireccion ? `<div>Dirección: ${direccion}</div>` : ''}
+        ${showMetodoPago ? `<div>Pago: ${metodoPago}</div>` : ''}
         <div>Pedido: #${orderId}</div>
         <div class="divider"></div>
         <table>

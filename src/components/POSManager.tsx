@@ -938,7 +938,11 @@ export default function POSManager() {
                         id: updates.orderId,
                         items: ticketItems,
                         total: total,
-                        cliente: { nombre: envioClientName.trim(), direccion: "Envío" },
+                        cliente: {
+                            nombre: envioClientName.trim(),
+                            direccion: "Envío",
+                            metodoPago: paymentMethod
+                        },
                         date: new Date()
                     });
                 });
