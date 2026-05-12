@@ -43,7 +43,7 @@ ${orderData.shippingCost > 0 ? `\n *Envío:* $${Math.floor(orderData.shippingCos
  ¡Ya lo estamos preparando! 
 ${transferBlock}
 
-https://www.elfaropanificacion.com
+    elfaropanificacion.com
   `.trim();
 };
 
@@ -60,7 +60,7 @@ export const generateOrderMessageShort = (orderData: any) => {
 *Total:* $${Math.floor(total)}
 ${transferBlock}
 
-https://www.elfaropanificacion.com
+ elfaropanificacion.com
   `.trim();
 };
 
