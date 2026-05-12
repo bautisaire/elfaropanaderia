@@ -111,8 +111,8 @@ export const printTicket = (order: any) => {
         <div class="divider"></div>
         <table>
             <tr>
-                <th class="text-left">Cant.</th>
-                <th class="text-center">Desc.</th>
+                <th class="text-left">Cant</th>
+                <th class="text-center">Desc</th>
                 <th class="text-right">SubT</th>
             </tr>
             ${itemsHtml}
