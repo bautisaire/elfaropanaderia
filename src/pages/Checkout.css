@@ -496,6 +496,12 @@
   position: relative;
 }
 
+/* Override .form-group label { text-transform: uppercase } for selectable cards */
+.form-group .radio-card {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .radio-card:hover {
   border-color: #e0e0e0;
   background: white;
@@ -529,7 +535,7 @@
 }
 
 .radio-desc {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #888;
   margin-top: 2px;
 }
@@ -967,4 +973,198 @@
 
 .total-amount-display {
   color: var(--primary-color);
+}
+
+/* Resumen método de entrega (tras elegir en modal) */
+.delivery-method-summary-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 2px solid #f0f0f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.delivery-method-summary-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.delivery-method-summary-icon {
+  flex-shrink: 0;
+  font-size: 1.75rem;
+  color: var(--primary-color);
+  margin-top: 2px;
+}
+
+.delivery-method-summary-text strong {
+  display: block;
+  font-size: 1rem;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.delivery-method-summary-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.btn-change-delivery {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 2px solid var(--primary-color);
+  background: #fff;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-change-delivery:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+/* Modal elegir método de entrega */
+.order-modal.delivery-method-modal {
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1100;
+}
+
+.delivery-method-modal-panel {
+  max-width: 520px;
+  width: 92%;
+  padding: 28px 24px 22px;
+  text-align: center;
+}
+
+.delivery-method-modal-title {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
+}
+
+.delivery-method-modal-subtitle {
+  margin: 0 0 22px;
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.45;
+}
+
+.delivery-method-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 520px) {
+  .delivery-method-modal-options {
+    flex-direction: row;
+    gap: 14px;
+  }
+}
+
+.delivery-method-modal-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 16px;
+  background: #fcfcfc;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  text-align: center;
+}
+
+.delivery-method-modal-card:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.delivery-method-modal-card.is-selected {
+  border-color: var(--primary-color);
+  background: #fff5f8;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.delivery-method-modal-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delivery-method-modal-card-icon {
+  font-size: 2rem;
+  color: var(--primary-color);
+}
+
+.delivery-method-modal-card-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #222;
+}
+
+.delivery-method-modal-card-desc {
+  font-size: 0.82rem;
+  color: #777;
+  line-height: 1.35;
+}
+
+.delivery-method-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #eee;
+}
+
+.delivery-method-modal-cancel,
+.delivery-method-modal-back-home {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.delivery-method-modal-cancel {
+  color: #666;
+}
+
+.delivery-method-modal-cancel:hover {
+  background: #f3f4f6;
+}
+
+.delivery-method-modal-back-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.delivery-method-modal-back-home:hover {
+  background: #f8f8f8;
 }

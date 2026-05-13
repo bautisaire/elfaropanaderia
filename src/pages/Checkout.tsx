@@ -40,6 +40,9 @@ export default function Checkout() {
   const [allowDelivery, setAllowDelivery] = useState<boolean>(true);
   const [allowPickup, setAllowPickup] = useState<boolean>(true);
   const [disabledMethodModal, setDisabledMethodModal] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ""});
+  const [deliveryMethodModalOpen, setDeliveryMethodModalOpen] = useState(false);
+  const [deliveryModalReopen, setDeliveryModalReopen] = useState(false);
+  const deliveryModalDismissedRef = useRef(false);
 
   const [isManualAddress, setIsManualAddress] = useState(false);
   const [showSaveAddressModal, setShowSaveAddressModal] = useState(false);
@@ -303,6 +306,43 @@ export default function Checkout() {
   }, []);
 
   useEffect(() => {
+    if (!showCheckout) {
+      deliveryModalDismissedRef.current = false;
+      setDeliveryMethodModalOpen(false);
+      setDeliveryModalReopen(false);
+      return;
+    }
+    if (confirmedOrder || cart.length === 0) {
+      setDeliveryMethodModalOpen(false);
+      return;
+    }
+    if (allowDelivery && allowPickup && !deliveryModalDismissedRef.current) {
+      setDeliveryMethodModalOpen(true);
+      setDeliveryModalReopen(false);
+    } else if (!allowDelivery || !allowPickup) {
+      setDeliveryMethodModalOpen(false);
+    }
+  }, [showCheckout, cart.length, confirmedOrder, allowDelivery, allowPickup]);
+
+  const handlePickDeliveryMethod = (method: "delivery" | "pickup") => {
+    if (method === "delivery" && !allowDelivery) {
+      setDisabledMethodModal({ isOpen: true, message: "El envío a domicilio no está disponible en este momento." });
+      return;
+    }
+    if (method === "pickup" && !allowPickup) {
+      setDisabledMethodModal({ isOpen: true, message: "El retiro en el local no está disponible en este momento." });
+      return;
+    }
+    setDeliveryMethod(method);
+    if (method === "pickup" && errors.direccion) {
+      setErrors((prev) => ({ ...prev, direccion: "" }));
+    }
+    deliveryModalDismissedRef.current = true;
+    setDeliveryMethodModalOpen(false);
+    setDeliveryModalReopen(false);
+  };
+
+  useEffect(() => {
     const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
     setFinalTotal(cartTotal + effectiveShipping);
   }, [cartTotal, shippingCost, deliveryMethod]);
@@ -543,7 +583,7 @@ export default function Checkout() {
               ))}
             </div>
             <div className="ticket-total">
-              <span>Total Pagado</span>
+              <span>Total:</span>
               <span>${Math.floor(confirmedOrder.total)}</span>
             </div>
             <div className="payment-info">
@@ -552,9 +592,14 @@ export default function Checkout() {
 
             {confirmedOrder.paymentMethod === 'transferencia' && (
               <div className="transfer-details-card" style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#495057' }}>
-                  Puedes abonar ahora o esperar al repartidor.
-                </p>
+                <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', fontWeight: 700, color: '#212529' }}>
+                  Datos de transferencia
+                </h4>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block', marginBottom: '4px' }}>Titular</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 600, color: '#212529' }}>MARIA ELIZABETH CORONEL</span>
+                </div>
 
                 <div style={{ marginBottom: '10px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>ALIAS</span>
@@ -570,7 +615,7 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <div>
+                <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>CVU</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>0000003100006832823516</code>
@@ -583,6 +628,10 @@ export default function Checkout() {
                     </button>
                   </div>
                 </div>
+
+                <p style={{ margin: '12px 0 0 0', paddingTop: '12px', borderTop: '1px solid #dee2e6', fontSize: '0.9rem', color: '#495057' }}>
+                  Enviar comprobante por WhatsApp.
+                </p>
               </div>
             )}
           </div>
@@ -665,6 +714,39 @@ export default function Checkout() {
               {/* Left Column: Form */}
               <div className="checkout-left">
                 <form ref={formRef} className="checkout-form" onSubmit={handleSubmit}>
+                  <div className="form-group delivery-method-summary-wrap" style={{ marginBottom: "20px" }}>
+                    <label>Método de entrega <span className="required">*</span></label>
+                    <div className="delivery-method-summary-card">
+                      <div className="delivery-method-summary-main">
+                        {deliveryMethod === "delivery" ? (
+                          <FaMotorcycle className="delivery-method-summary-icon" aria-hidden />
+                        ) : (
+                          <FaStore className="delivery-method-summary-icon" aria-hidden />
+                        )}
+                        <div className="delivery-method-summary-text">
+                          <strong>{deliveryMethod === "delivery" ? "Envío a domicilio" : "Retiro en local"}</strong>
+                          <p>
+                            {deliveryMethod === "delivery"
+                              ? "Te llevamos el pedido a tu dirección."
+                              : "Pasás a retirar el pedido por el local."}
+                          </p>
+                        </div>
+                      </div>
+                      {allowDelivery && allowPickup && (
+                        <button
+                          type="button"
+                          className="btn-change-delivery"
+                          onClick={() => {
+                            setDeliveryModalReopen(true);
+                            setDeliveryMethodModalOpen(true);
+                          }}
+                        >
+                          Cambiar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <h3>Detalles del pedido</h3>
 
                   <div className="form-group">
@@ -694,58 +776,12 @@ export default function Checkout() {
                         name="telefono"
                         value={formData.telefono}
                         onChange={handleInputChange}
-                        placeholder="Cod. Área + Número"
+                        placeholder="Ej: 2995206821"
                         className={`phone-input-field ${errors.telefono ? "input-error" : ""}`}
                         maxLength={11}
                       />
                     </div>
                     {errors.telefono && <span className="error-message">{errors.telefono}</span>}
-                  </div>
-                  <div className="form-group" style={{ marginBottom: '20px' }}>
-                    <label>Método de entrega <span className="required">*</span></label>
-                    <div className="radio-group" style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                      <label className={`radio-card ${deliveryMethod === 'delivery' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: allowDelivery ? 'pointer' : 'not-allowed', textAlign: 'center', backgroundColor: deliveryMethod === 'delivery' ? '#fffcf8' : (allowDelivery ? '#fff' : '#f8f9fa'), opacity: allowDelivery ? 1 : 0.6 }} onClick={(e) => {
-                        if (!allowDelivery) {
-                          e.preventDefault();
-                          setDisabledMethodModal({isOpen: true, message: "El envío a domicilio no está disponible en este momento."});
-                        }
-                      }}>
-                        <input
-                          type="radio"
-                          name="deliveryMethod"
-                          value="delivery"
-                          checked={deliveryMethod === 'delivery'}
-                          onChange={() => { if (allowDelivery) setDeliveryMethod('delivery') }}
-                          style={{ display: 'none' }}
-                          disabled={!allowDelivery}
-                        />
-                        <FaMotorcycle style={{ fontSize: '24px', color: deliveryMethod === 'delivery' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
-                        <div style={{ fontWeight: 'bold', color: '#333' }}>Envío a domicilio</div>
-                      </label>
-                      <label className={`radio-card ${deliveryMethod === 'pickup' ? 'selected' : ''}`} style={{ flex: 1, padding: '15px', border: `2px solid ${deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#ddd'}`, borderRadius: '8px', cursor: allowPickup ? 'pointer' : 'not-allowed', textAlign: 'center', backgroundColor: deliveryMethod === 'pickup' ? '#fffcf8' : (allowPickup ? '#fff' : '#f8f9fa'), opacity: allowPickup ? 1 : 0.6 }} onClick={(e) => {
-                        if (!allowPickup) {
-                          e.preventDefault();
-                          setDisabledMethodModal({isOpen: true, message: "El retiro en el local no está disponible en este momento."});
-                        }
-                      }}>
-                        <input
-                          type="radio"
-                          name="deliveryMethod"
-                          value="pickup"
-                          checked={deliveryMethod === 'pickup'}
-                          onChange={() => {
-                            if (allowPickup) {
-                              setDeliveryMethod('pickup');
-                              if (errors.direccion) setErrors(prev => ({ ...prev, direccion: '' }));
-                            }
-                          }}
-                          style={{ display: 'none' }}
-                          disabled={!allowPickup}
-                        />
-                        <FaStore style={{ fontSize: '24px', color: deliveryMethod === 'pickup' ? 'var(--primary-color)' : '#666', marginBottom: '8px' }} />
-                        <div style={{ fontWeight: 'bold', color: '#333' }}>Retirar en local</div>
-                      </label>
-                    </div>
                   </div>
 
                   {deliveryMethod === 'pickup' ? (
@@ -829,7 +865,7 @@ export default function Checkout() {
                                 name="direccion"
                                 value={formData.direccion}
                                 onChange={handleInputChange}
-                                placeholder="Calle, número, departamento"
+                                placeholder="Ej: Av. San Martín 123"
                                 className={errors.direccion ? "input-error" : ""}
                               />
                               {errors.direccion && <span className="error-message">{errors.direccion}</span>}
@@ -850,7 +886,7 @@ export default function Checkout() {
                             name="direccion"
                             value={formData.direccion}
                             onChange={handleInputChange}
-                            placeholder="Calle, número, departamento"
+                            placeholder="Ej: Av. San Martín 123"
                             className={errors.direccion ? "input-error" : ""}
                           />
                           {errors.direccion && <span className="error-message">{errors.direccion}</span>}
@@ -899,7 +935,6 @@ export default function Checkout() {
                         </svg>
                         <div>
                           <div className="radio-label">Efectivo</div>
-                          <div className="radio-desc">Pagas al repartidor</div>
                         </div>
                       </label>
 
@@ -918,7 +953,7 @@ export default function Checkout() {
                         </svg>
                         <div>
                           <div className="radio-label">Transferencia</div>
-                          <div className="radio-desc">Al alias del repartidor</div>
+                          <div className="radio-desc">Se mostrarán los datos al confirmar pedido</div>
                         </div>
                       </label>
 
@@ -1067,6 +1102,71 @@ export default function Checkout() {
           </div>
         )
       }
+
+      {/* Modal: método de entrega */}
+      {deliveryMethodModalOpen && showCheckout && cart.length > 0 && !confirmedOrder && allowDelivery && allowPickup && (
+        <div
+          className="order-modal delivery-method-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delivery-method-modal-title"
+        >
+          <div className="order-modal-content delivery-method-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <h3 id="delivery-method-modal-title" className="delivery-method-modal-title">
+              ¿Cómo querés recibir tu pedido?
+            </h3>
+            <p className="delivery-method-modal-subtitle">Elegí una opción para continuar con los datos del pedido.</p>
+            <div className="delivery-method-modal-options">
+              <button
+                type="button"
+                className={`delivery-method-modal-card ${deliveryMethod === "delivery" ? "is-selected" : ""}`}
+                onClick={() => handlePickDeliveryMethod("delivery")}
+                disabled={!allowDelivery}
+              >
+                <FaMotorcycle className="delivery-method-modal-card-icon" aria-hidden />
+                <span className="delivery-method-modal-card-title">Envío a domicilio</span>
+                <span className="delivery-method-modal-card-desc">Te lo llevamos a tu dirección</span>
+              </button>
+              <button
+                type="button"
+                className={`delivery-method-modal-card ${deliveryMethod === "pickup" ? "is-selected" : ""}`}
+                onClick={() => handlePickDeliveryMethod("pickup")}
+                disabled={!allowPickup}
+              >
+                <FaStore className="delivery-method-modal-card-icon" aria-hidden />
+                <span className="delivery-method-modal-card-title">Retiro en local</span>
+                <span className="delivery-method-modal-card-desc">Pasás a buscarlo por el local</span>
+              </button>
+            </div>
+            <div className="delivery-method-modal-footer">
+              {deliveryModalReopen && (
+                <button
+                  type="button"
+                  className="delivery-method-modal-cancel"
+                  onClick={() => {
+                    setDeliveryMethodModalOpen(false);
+                    setDeliveryModalReopen(false);
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="button"
+                className="delivery-method-modal-back-home"
+                onClick={() => {
+                  setDeliveryMethodModalOpen(false);
+                  setDeliveryModalReopen(false);
+                  setShowCheckout(false);
+                  navigate("/");
+                }}
+              >
+                <FaArrowLeft aria-hidden /> Volver al inicio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Disabled Method Modal */}
       {
