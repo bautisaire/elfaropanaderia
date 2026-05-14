@@ -23,7 +23,24 @@ interface Order {
     date: any;
     status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado" | "pending_payment";
     source?: string;
+    /** Solo retiros en local: si el cliente ya abonó antes de retirar */
+    retiroPagoEstado?: "pendiente" | "pagado";
 }
+
+const normalizeOrderText = (v: unknown) =>
+    String(v ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+const textIndicatesRetiroLocal = (v: unknown) => {
+    const n = normalizeOrderText(v);
+    return n.length > 0 && n.includes("retiro");
+};
+
+const orderIsRetiroLocal = (o: Order) =>
+    textIndicatesRetiroLocal(o.cliente?.direccion) || textIndicatesRetiroLocal(o.cliente?.indicaciones);
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b", icon: <FaClock /> },
@@ -278,6 +295,16 @@ export default function OrdersManager() {
         } catch (err) {
             console.error("Error updating payment method:", err);
             alert("Error al actualizar el método de pago");
+        }
+    };
+
+    const updateRetiroPagoEstado = async (id: string, estado: "pendiente" | "pagado") => {
+        try {
+            await updateDoc(doc(db, "orders", id), { retiroPagoEstado: estado });
+            setOrders(prev => prev.map(o => (o.id === id ? { ...o, retiroPagoEstado: estado } : o)));
+        } catch (err) {
+            console.error("Error al actualizar cobro retiro:", err);
+            alert("Error al actualizar el estado de cobro (retiro)");
         }
     };
 
@@ -797,14 +824,6 @@ export default function OrdersManager() {
                                     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                                     .includes('transfer');
                             };
-                            const isPickup = (dir: any) => {
-                                if (!dir) return false;
-                                const n = String(dir)
-                                    .trim()
-                                    .toLowerCase()
-                                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                                return n.includes('retiro');
-                            };
 
                             const deliveriesVisibles = orders.filter(o => {
                                 const isPos = o.source === 'pos' || o.source === 'pos_public' || o.source === 'pos_wholesale';
@@ -812,7 +831,7 @@ export default function OrdersManager() {
                             });
 
                             const transferenciaCount = deliveriesVisibles.filter(o =>
-                                !isPickup(o.cliente?.direccion) && isTransfer(o.cliente?.metodoPago)
+                                !orderIsRetiroLocal(o) && isTransfer(o.cliente?.metodoPago)
                             ).length;
 
                             return (
@@ -823,7 +842,7 @@ export default function OrdersManager() {
                                         color: '#5b21b6',
                                         border: '1px solid #c4b5fd'
                                     }}
-                                    title="Deliveries pagadas por transferencia (excluye retiros y efectivo)"
+                                    title="Deliveries pagadas por transferencia (excluye retiro en local y efectivo)"
                                 >
                                     Delivery transferencia: <strong>{transferenciaCount}</strong>
                                 </span>
@@ -1079,6 +1098,11 @@ export default function OrdersManager() {
                                         <th className="col-pago">Pago</th>
                                         <th className="col-estado">Estado</th>
                                         <th className="col-notas">Notas</th>
+                                        {activeTab === 'deliveries' && (
+                                            <th className="col-retiro-cobro" title="Cobro retiro en el local">
+                                                Cobro retiro en el local
+                                            </th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1110,11 +1134,11 @@ export default function OrdersManager() {
                                                     <td className="col-cliente">
                                                         <div className="order-cell-client">
                                                             <strong>{order.cliente.nombre}</strong>
-                                            {activeTab === 'deliveries' && (
-                                                <div className="client-contact-icons">
-                                                    {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
-                                                </div>
-                                            )}
+                                                            {activeTab === 'deliveries' && (
+                                                                <div className="client-contact-icons">
+                                                                    {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td>
@@ -1152,10 +1176,30 @@ export default function OrdersManager() {
                                                             <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin notas</span>
                                                         )}
                                                     </td>
+                                                    {activeTab === 'deliveries' && (
+                                                        <td className="col-retiro-cobro">
+                                                            {orderIsRetiroLocal(order) ? (
+                                                                <select
+                                                                    className={`retiro-pago-select retiro-pago-select-inline${order.retiroPagoEstado === 'pagado' ? ' retiro-pago-pagado' : ' retiro-pago-pendiente'}`}
+                                                                    value={order.retiroPagoEstado === 'pagado' ? 'pagado' : 'pendiente'}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        updateRetiroPagoEstado(order.id, e.target.value as 'pagado' | 'pendiente');
+                                                                    }}
+                                                                >
+                                                                    <option value="pendiente">Pendiente</option>
+                                                                    <option value="pagado">Pagado</option>
+                                                                </select>
+                                                            ) : (
+                                                                <span className="retiro-cobro-na">—</span>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                 </tr>
                                                 {expandedOrderId === order.id && (
                                                     <tr className="order-details-row">
-                                                        <td colSpan={6}>
+                                                        <td colSpan={activeTab === 'deliveries' ? 7 : 6}>
                                                             <OrderDetailsExpanded
                                                                 order={order}
                                                                 onEdit={(order) => {

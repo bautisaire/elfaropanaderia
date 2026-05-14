@@ -394,6 +394,16 @@
         border-bottom: 1px solid #f3f4f6;
     }
 
+    .orders-table thead th.col-retiro-cobro,
+    .orders-table tbody td.col-retiro-cobro {
+        flex: 2;
+        min-width: 0;
+        padding: 8px 4px;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
     /* Hide unwanted columns */
     .col-fecha,
     .col-pago,
@@ -915,7 +925,7 @@
 .orders-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 800px;
+    min-width: 920px;
     /* Ensure it doesn't squish too much */
 }
 
@@ -1087,6 +1097,57 @@
     gap: 8px;
     margin-top: 4px;
     color: #6b7280;
+}
+
+.orders-table th.col-retiro-cobro {
+    font-size: 0.68rem;
+    line-height: 1.25;
+    max-width: 7rem;
+    white-space: normal;
+    font-weight: 700;
+    color: #57534e;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
+
+.col-retiro-cobro {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.retiro-pago-select-inline {
+    width: 100%;
+    max-width: 9.5rem;
+    margin: 0 auto;
+    display: block;
+}
+
+.retiro-cobro-na {
+    color: #d1d5db;
+    font-size: 1.1rem;
+    font-weight: 400;
+}
+
+.retiro-pago-select {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    max-width: 100%;
+}
+
+.retiro-pago-pendiente {
+    border: 2px solid #f59e0b;
+    color: #b45309;
+    background: #fffbeb;
+}
+
+.retiro-pago-pagado {
+    border: 2px solid #10b981;
+    color: #047857;
+    background: #ecfdf5;
 }
 
 .order-cell-total {
