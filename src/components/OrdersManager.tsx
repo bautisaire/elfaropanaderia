@@ -1093,8 +1093,8 @@ export default function OrdersManager() {
                                 <thead>
                                     <tr>
                                         <th className="col-fecha">Fecha</th>
-                                        <th>Cliente</th>
-                                        <th>Total</th>
+                                        <th className="col-cliente">Cliente</th>
+                                        <th className="col-total">Total</th>
                                         <th className="col-pago">Pago</th>
                                         <th className="col-estado">Estado</th>
                                         <th className="col-notas">Notas</th>
@@ -1141,7 +1141,7 @@ export default function OrdersManager() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td>
+                                                    <td className="col-total">
                                                         <div className="order-cell-total" style={{ color: '#10b981' }}>${Math.ceil(order.total)}</div>
                                                         <div className="order-cell-items-count" style={{ fontSize: '0.95rem' }}>
                                                             {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.

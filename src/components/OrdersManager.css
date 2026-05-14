@@ -396,6 +396,7 @@
 
     .orders-table thead th.col-retiro-cobro,
     .orders-table tbody td.col-retiro-cobro {
+        order: 4;
         flex: 2;
         min-width: 0;
         padding: 8px 4px;
@@ -404,12 +405,63 @@
         justify-content: center;
     }
 
-    /* Hide unwanted columns */
-    .col-fecha,
-    .col-pago,
-    .col-estado,
-    .col-notas {
+    /* Ocultar solo columnas que no entran en móvil; Pago visible entre Cliente y Total */
+    .orders-table thead th.col-fecha,
+    .orders-table tbody td.col-fecha,
+    .orders-table thead th.col-estado,
+    .orders-table tbody td.col-estado,
+    .orders-table thead th.col-notas,
+    .orders-table tbody td.col-notas {
         display: none !important;
+    }
+
+    .orders-table thead th.col-cliente,
+    .orders-table tbody td.col-cliente {
+        order: 1;
+        flex: 5;
+        min-width: 0;
+        padding: 10px 6px 10px 8px;
+        overflow: hidden;
+    }
+
+    .orders-table thead th.col-pago,
+    .orders-table tbody td.col-pago {
+        display: flex !important;
+        order: 2;
+        flex: 2.25;
+        min-width: 0;
+        padding: 6px 4px !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .orders-table thead th.col-total,
+    .orders-table tbody td.col-total {
+        order: 3;
+        flex: 3.25;
+        min-width: 0;
+        padding: 10px 6px;
+        text-align: right;
+    }
+
+    .orders-table tbody td.col-pago .payment-badge {
+        font-size: 0.65rem;
+        padding: 2px 5px;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .orders-table thead th.col-pago {
+        font-size: 0.58rem;
+        line-height: 1.15;
+        white-space: normal;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        align-items: center;
+        justify-content: center;
     }
 
     /* Keep details row spanning full width */
@@ -422,21 +474,6 @@
         display: block !important;
         width: 100% !important;
         padding: 0 !important;
-    }
-
-    /* Cliente cell: 60% */
-    .col-cliente {
-        flex: 6;
-        padding: 10px 8px;
-        overflow: hidden;
-    }
-
-    /* Total cell (3rd th/td) */
-    .orders-table th:nth-child(3),
-    .orders-table td:nth-child(3) {
-        flex: 4;
-        padding: 10px 8px;
-        text-align: right;
     }
 
     /* Clip long client names */
