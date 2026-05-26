@@ -1,5 +1,6 @@
 import { db } from "../firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
+import { getDerivedStockFromParent } from "./cartStock";
 
 export interface StockValidationResult {
     isValid: boolean;
@@ -49,7 +50,18 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                 const data = itemSnap.data();
                 let available = 0;
 
-                if (isVariant && data.variants) {
+                if (data.stockDependency?.productId) {
+                    const parentSnap = await getDoc(
+                        doc(db, "products", data.stockDependency.productId)
+                    );
+                    const parentStock = parentSnap.exists()
+                        ? Number(parentSnap.data().stockQuantity || 0)
+                        : 0;
+                    available = getDerivedStockFromParent(
+                        parentStock,
+                        Number(data.stockDependency.unitsToDeduct) || 1
+                    );
+                } else if (isVariant && data.variants) {
                     let variantName = item.variant || "";
                     if (!variantName) {
                         const match = item.name.match(/\(([^)]+)\)$/);

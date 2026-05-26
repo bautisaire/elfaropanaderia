@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore"
 import ClosedModal from "../components/ClosedModal";
 import {
   mapFirestoreProduct,
+  applyDerivedStockToCatalog,
   getCartItemMaxQuantity,
   getAvailableStock,
   resolveCartItemBaseAndVariant,
@@ -33,6 +34,10 @@ export interface Product {
   badgeExpiresAt?: string;
   selectedVariant?: string;
   baseProductId?: string | number;
+  stockDependency?: {
+    productId: string;
+    unitsToDeduct: number;
+  };
 }
 
 interface CartContextType {
@@ -120,12 +125,15 @@ export const CartProvider = ({ children }: Props) => {
         const visible: Product[] = [];
 
         snapshot.docs.forEach((d) => {
-          const p = mapFirestoreProduct(d.id, d.data() as Record<string, unknown>);
-          catalog[d.id] = p;
-          if (p.isVisible !== false) visible.push(p);
+          catalog[d.id] = mapFirestoreProduct(d.id, d.data() as Record<string, unknown>);
         });
 
+        applyDerivedStockToCatalog(catalog);
         productsCatalogRef.current = catalog;
+
+        Object.values(catalog).forEach((p) => {
+          if (p.isVisible !== false) visible.push(p);
+        });
 
         visible.sort((a, b) => {
           const aOut =
@@ -186,7 +194,11 @@ export const CartProvider = ({ children }: Props) => {
 
   const getStockForProduct = useCallback(
     (baseId: string | number, variantName?: string | null) =>
-      getAvailableStock(getCatalogProduct(baseId), variantName),
+      getAvailableStock(
+        getCatalogProduct(baseId),
+        variantName,
+        productsCatalogRef.current
+      ),
     [getCatalogProduct]
   );
 
@@ -277,7 +289,7 @@ export const CartProvider = ({ children }: Props) => {
     const { baseId, variant } = product.baseProductId != null
       ? { baseId: String(product.baseProductId), variant: product.selectedVariant ?? null }
       : resolveCartItemBaseAndVariant(product, catalogIds);
-    const maxStock = getAvailableStock(catalog[baseId], variant);
+    const maxStock = getAvailableStock(catalog[baseId], variant, catalog);
 
     if (maxStock <= 0) return;
 

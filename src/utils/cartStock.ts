@@ -1,6 +1,42 @@
 import type { Product } from "../context/CartContext";
 
+/** Recalcula stockQuantity/stock de productos hijo según el padre en el catálogo. */
+export function applyDerivedStockToCatalog(catalog: Record<string, Product>): void {
+    Object.keys(catalog).forEach((childId) => {
+        const child = catalog[childId];
+        const dep = child.stockDependency;
+        if (!dep?.productId || !(Number(dep.unitsToDeduct) > 0)) return;
+
+        const parent = catalog[dep.productId];
+        if (!parent) return;
+
+        const parentStock =
+            parent.stockQuantity !== undefined
+                ? parent.stockQuantity
+                : parent.stock
+                  ? 999
+                  : 0;
+        const derivedStock = Math.floor(parentStock / Number(dep.unitsToDeduct));
+
+        catalog[childId] = {
+            ...child,
+            stockQuantity: derivedStock,
+            stock: derivedStock > 0,
+        };
+    });
+}
+
+export function getDerivedStockFromParent(
+    parentStock: number,
+    unitsToDeduct: number
+): number {
+    if (!(unitsToDeduct > 0)) return 0;
+    return Math.max(0, Math.floor(parentStock / unitsToDeduct));
+}
+
 export function mapFirestoreProduct(docId: string, data: Record<string, unknown>): Product {
+    const stockDependency = data.stockDependency as Product["stockDependency"];
+
     return {
         id: docId,
         name: (data.nombre as string) || "",
@@ -11,6 +47,7 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         quantity: 0,
         stock: data.stock as boolean | undefined,
         stockQuantity: data.stockQuantity as number | undefined,
+        stockDependency,
         isVisible: data.isVisible !== false,
         discount: (data.discount as number) || 0,
         categoria: ((data.categoria as string) || "Otros").trim(),
@@ -59,9 +96,21 @@ export function resolveCartItemBaseAndVariant(
 /** Stock disponible para agregar al carrito (entero, mínimo 0). */
 export function getAvailableStock(
     product: Product | undefined,
-    variantName?: string | null
+    variantName?: string | null,
+    catalog?: Record<string, Product>
 ): number {
     if (!product) return 0;
+
+    if (product.stockDependency?.productId && catalog) {
+        const parent = catalog[String(product.stockDependency.productId)];
+        if (parent) {
+            const parentStock = getAvailableStock(parent, null, catalog);
+            return getDerivedStockFromParent(
+                parentStock,
+                Number(product.stockDependency.unitsToDeduct) || 1
+            );
+        }
+    }
 
     if (product.variants && product.variants.length > 0) {
         const vName =
@@ -90,5 +139,5 @@ export function getCartItemMaxQuantity(
 ): number {
     const catalogIds = Object.keys(catalog);
     const { baseId, variant } = resolveCartItemBaseAndVariant(item, catalogIds);
-    return getAvailableStock(catalog[baseId], variant);
+    return getAvailableStock(catalog[baseId], variant, catalog);
 }

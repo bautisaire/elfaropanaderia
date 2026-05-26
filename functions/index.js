@@ -12,6 +12,37 @@ const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 
 const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
+/** Sincroniza stock de productos derivados cuando cambia el padre (misma lógica que el frontend). */
+async function syncChildProductsServer(parentId, newParentStock) {
+    const childrenSnap = await db.collection("products")
+        .where("stockDependency.productId", "==", parentId)
+        .get();
+
+    if (childrenSnap.empty) return;
+
+    const batch = db.batch();
+    let updatesCount = 0;
+
+    childrenSnap.forEach((childDoc) => {
+        const childData = childDoc.data();
+        const dependency = childData.stockDependency;
+        if (dependency && dependency.unitsToDeduct > 0) {
+            const newChildStock = Math.floor(newParentStock / dependency.unitsToDeduct);
+            if (childData.stockQuantity !== newChildStock) {
+                batch.update(childDoc.ref, {
+                    stockQuantity: newChildStock,
+                    stock: newChildStock > 0,
+                });
+                updatesCount++;
+            }
+        }
+    });
+
+    if (updatesCount > 0) {
+        await batch.commit();
+    }
+}
+
 exports.createPreference = onRequest((req, res) => {
     cors(req, res, async () => {
         if (req.method !== 'POST') {
@@ -320,6 +351,15 @@ exports.processOrder = onCall(async (request) => {
 
             return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
         });
+
+        // Sincronizar productos derivados (ej. Pan 500g cuando baja el kg del padre)
+        if (result.productsToUpdate?.length) {
+            await Promise.all(
+                result.productsToUpdate.map((u) =>
+                    syncChildProductsServer(u.id, u.newStock)
+                )
+            );
+        }
 
         // 4. Handle MP Preference creation (outside transaction)
         let init_point = null;
