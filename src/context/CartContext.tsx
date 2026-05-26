@@ -1,8 +1,15 @@
-import React, { createContext, useState, useContext, useMemo, useEffect } from "react";
+import React, { createContext, useState, useContext, useMemo, useEffect, useCallback, useRef } from "react";
 import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
 import ClosedModal from "../components/ClosedModal";
+import {
+  mapFirestoreProduct,
+  getCartItemMaxQuantity,
+  getAvailableStock,
+  resolveCartItemBaseAndVariant,
+} from "../utils/cartStock";
+
 export interface Product {
   id: string | number;
   name: string;
@@ -21,10 +28,11 @@ export interface Product {
   discount?: number;
   categoria?: string;
   isVisible?: boolean;
-  stockReadyTime?: string; // ISO string for when stock will be ready (e.g. baking finished)
-  customBadgeText?: string; // "En el horno", "Preparando", etc.
-  badgeExpiresAt?: string; // ISO string for when the badge should disappear
+  stockReadyTime?: string;
+  customBadgeText?: string;
+  badgeExpiresAt?: string;
   selectedVariant?: string;
+  baseProductId?: string | number;
 }
 
 interface CartContextType {
@@ -46,6 +54,12 @@ interface CartContextType {
   isAdmin: boolean;
   removeCompletelyFromCart: (id: string | number) => void;
   user: any;
+  catalogProducts: Product[];
+  catalogLoading: boolean;
+  getCatalogProduct: (baseId: string | number) => Product | undefined;
+  getStockForProduct: (baseId: string | number, variantName?: string | null) => number;
+  getMaxQuantityForCartItem: (item: Product) => number;
+  canAddMore: (item: Product) => boolean;
 }
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -69,6 +83,12 @@ export const CartContext = createContext<CartContextType>({
   isAdmin: false,
   removeCompletelyFromCart: () => { },
   user: null,
+  catalogProducts: [],
+  catalogLoading: true,
+  getCatalogProduct: () => undefined,
+  getStockForProduct: () => 0,
+  getMaxQuantityForCartItem: () => 0,
+  canAddMore: () => false,
 });
 
 interface Props {
@@ -85,8 +105,103 @@ export const CartProvider = ({ children }: Props) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const productsCatalogRef = useRef<Record<string, Product>>({});
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
+
+  // Catálogo en tiempo real (stock y visibilidad)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "products"),
+      (snapshot) => {
+        const catalog: Record<string, Product> = {};
+        const visible: Product[] = [];
+
+        snapshot.docs.forEach((d) => {
+          const p = mapFirestoreProduct(d.id, d.data() as Record<string, unknown>);
+          catalog[d.id] = p;
+          if (p.isVisible !== false) visible.push(p);
+        });
+
+        productsCatalogRef.current = catalog;
+
+        visible.sort((a, b) => {
+          const aOut =
+            a.variants && a.variants.length > 0
+              ? a.variants.every((v) =>
+                  v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
+                )
+              : a.stockQuantity !== undefined
+                ? a.stockQuantity <= 0
+                : a.stock === false;
+          const bOut =
+            b.variants && b.variants.length > 0
+              ? b.variants.every((v) =>
+                  v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
+                )
+              : b.stockQuantity !== undefined
+                ? b.stockQuantity <= 0
+                : b.stock === false;
+          if (aOut === bOut) return 0;
+          return aOut ? 1 : -1;
+        });
+
+        setCatalogProducts(visible);
+        setCatalogLoading(false);
+
+        setCartItems((prev) => {
+          let changed = false;
+          const next = prev
+            .map((item) => {
+              const max = getCartItemMaxQuantity(item, catalog);
+              const qty = item.quantity || 1;
+              if (max <= 0) {
+                changed = true;
+                return null;
+              }
+              if (qty > max) {
+                changed = true;
+                return { ...item, quantity: max };
+              }
+              return item;
+            })
+            .filter(Boolean) as Product[];
+          return changed ? next : prev;
+        });
+      },
+      (error) => {
+        console.error("Error en catálogo en vivo:", error);
+        setCatalogLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  const getCatalogProduct = useCallback(
+    (baseId: string | number) => productsCatalogRef.current[String(baseId)],
+    []
+  );
+
+  const getStockForProduct = useCallback(
+    (baseId: string | number, variantName?: string | null) =>
+      getAvailableStock(getCatalogProduct(baseId), variantName),
+    [getCatalogProduct]
+  );
+
+  const getMaxQuantityForCartItem = useCallback(
+    (item: Product) => getCartItemMaxQuantity(item, productsCatalogRef.current),
+    []
+  );
+
+  const canAddMore = useCallback(
+    (item: Product) => {
+      const max = getMaxQuantityForCartItem(item);
+      return max > 0 && (item.quantity || 1) < max;
+    },
+    [getMaxQuantityForCartItem]
+  );
 
   // helpers para cantidad y total
   const cartQuantity = useMemo(
@@ -152,23 +267,43 @@ export const CartProvider = ({ children }: Props) => {
   }, []);
 
   const addToCart = (product: any) => {
-    if (!isStoreOpen && !isAdmin) { // Admin bypass
-      setShowClosedModal(true); // Show custom modal instead of alert
+    if (!isStoreOpen && !isAdmin) {
+      setShowClosedModal(true);
       return;
     }
+
+    const catalog = productsCatalogRef.current;
+    const catalogIds = Object.keys(catalog);
+    const { baseId, variant } = product.baseProductId != null
+      ? { baseId: String(product.baseProductId), variant: product.selectedVariant ?? null }
+      : resolveCartItemBaseAndVariant(product, catalogIds);
+    const maxStock = getAvailableStock(catalog[baseId], variant);
+
+    if (maxStock <= 0) return;
 
     const exists = cartItems.find((item) => item.id === product.id);
 
     if (exists) {
+      const currentQty = exists.quantity || 1;
+      if (currentQty >= maxStock) return;
+
       setCartItems(
         cartItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            ? { ...item, quantity: Math.min(currentQty + 1, maxStock) }
             : item
         )
       );
     } else {
-      setCartItems([...cartItems, { ...product, quantity: 1 }]);
+      setCartItems([
+        ...cartItems,
+        {
+          ...product,
+          baseProductId: baseId,
+          selectedVariant: variant || product.selectedVariant,
+          quantity: 1,
+        },
+      ]);
     }
     setShowBottomModal(true);
   };
@@ -216,7 +351,13 @@ export const CartProvider = ({ children }: Props) => {
         setIsSidebarOpen,
         isAdmin,
         removeCompletelyFromCart,
-        user
+        user,
+        catalogProducts,
+        catalogLoading,
+        getCatalogProduct,
+        getStockForProduct,
+        getMaxQuantityForCartItem,
+        canAddMore,
       }}
     >
       {children}

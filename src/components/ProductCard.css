@@ -276,6 +276,18 @@
   transform: scale(0.95);
 }
 
+.btn-qty:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-qty:disabled:hover {
+  transform: none;
+  background: white;
+}
+
 .quantity-display {
   font-weight: 600;
   font-size: 1rem;

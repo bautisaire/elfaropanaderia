@@ -13,7 +13,9 @@ export default function CategorySlider({ category, products }: CategorySliderPro
     // Función auxiliar para determinar si un producto no tiene stock
     const isOutOfStock = (p: Product) => {
         if (p.variants && p.variants.length > 0) {
-            return p.variants.every(v => !v.stock);
+            return p.variants.every((v) =>
+                v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
+            );
         }
         return p.stockQuantity !== undefined ? p.stockQuantity <= 0 : p.stock === false;
     };

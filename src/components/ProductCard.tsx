@@ -7,18 +7,37 @@ interface Props {
 }
 
 export default function ProductCard({ product }: Props) {
-  const { addToCart, removeFromCart, cart } = useContext(CartContext);
+  const {
+    addToCart,
+    removeFromCart,
+    cart,
+    getCatalogProduct,
+    getStockForProduct,
+  } = useContext(CartContext);
+
+  const liveProduct = getCatalogProduct(String(product.id)) ?? product;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [overrideImage, setOverrideImage] = useState<string | null>(null);
 
-  // Initialize selectedVariant with the first in-stock variant
+  const variantHasStock = (v: { stock?: boolean; stockQuantity?: number }) =>
+    v.stockQuantity !== undefined ? v.stockQuantity > 0 : !!v.stock;
+
   const [selectedVariant, setSelectedVariant] = useState<string | null>(() => {
-    if (product.variants && product.variants.length > 0) {
-      const firstInStock = product.variants.find(v => v.stock);
-      return firstInStock ? firstInStock.name : product.variants[0].name;
+    if (liveProduct.variants && liveProduct.variants.length > 0) {
+      const firstInStock = liveProduct.variants.find(variantHasStock);
+      return firstInStock ? firstInStock.name : liveProduct.variants[0].name;
     }
     return null;
   });
+
+  // Si el stock en vivo cambia, pasar a una variante con stock si la actual se agotó
+  useEffect(() => {
+    if (!liveProduct.variants?.length || !selectedVariant) return;
+    const current = liveProduct.variants.find((v) => v.name === selectedVariant);
+    if (current && variantHasStock(current)) return;
+    const fallback = liveProduct.variants.find(variantHasStock);
+    if (fallback) setSelectedVariant(fallback.name);
+  }, [liveProduct.variants, selectedVariant]);
 
   // Determine the effective ID for the cart (base ID or variant ID)
   const cartItemId = selectedVariant
@@ -31,8 +50,8 @@ export default function ProductCard({ product }: Props) {
 
   // Effect to handle variant image override
   useEffect(() => {
-    if (selectedVariant && product.variants) {
-      const v = product.variants.find(v => v.name === selectedVariant);
+    if (selectedVariant && liveProduct.variants) {
+      const v = liveProduct.variants.find(v => v.name === selectedVariant);
       if (v && v.image) {
         setOverrideImage(v.image);
       } else {
@@ -41,10 +60,10 @@ export default function ProductCard({ product }: Props) {
     } else {
       setOverrideImage(null);
     }
-  }, [selectedVariant, product.variants]);
+  }, [selectedVariant, liveProduct.variants]);
 
   // Image handling
-  const images = product.images && product.images.length > 0 ? product.images : [product.image];
+  const images = liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images : [liveProduct.image];
   const currentImage = overrideImage || images[currentImageIndex];
 
   // Preload images for smoother navigation
@@ -56,15 +75,15 @@ export default function ProductCard({ product }: Props) {
     });
 
     // Variant images
-    if (product.variants) {
-      product.variants.forEach(v => {
+    if (liveProduct.variants) {
+      liveProduct.variants.forEach(v => {
         if (v.image) {
           const img = new Image();
           img.src = v.image;
         }
       });
     }
-  }, [images, product.variants]);
+  }, [images, liveProduct.variants]);
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,23 +96,29 @@ export default function ProductCard({ product }: Props) {
   };
 
   // Calculate Discount
-  const hasDiscount = (product.discount || 0) > 0;
+  const hasDiscount = (liveProduct.discount || 0) > 0;
   const finalPrice = hasDiscount
-    ? product.price * (1 - (product.discount! / 100))
-    : product.price;
+    ? liveProduct.price * (1 - (liveProduct.discount! / 100))
+    : liveProduct.price;
+
+  const maxStock = getStockForProduct(liveProduct.id, selectedVariant);
+  const atMaxQuantity = quantity > 0 && quantity >= maxStock;
 
   const handleAddToCart = () => {
-    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+    if (liveProduct.variants && liveProduct.variants.length > 0 && !selectedVariant) {
       alert("Por favor selecciona una opción");
       return;
     }
+    if (maxStock <= 0) return;
+    if (quantity >= maxStock) return;
 
-    // Create a product object for the cart with the FINAL PRICE
     const productToAdd = {
-      ...product,
+      ...liveProduct,
       id: cartItemId,
-      price: finalPrice, // Use discounted price
-      name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name
+      baseProductId: liveProduct.id,
+      selectedVariant: selectedVariant || undefined,
+      price: finalPrice,
+      name: selectedVariant ? `${liveProduct.name} (${selectedVariant})` : liveProduct.name,
     };
 
     addToCart(productToAdd);
@@ -104,14 +129,12 @@ export default function ProductCard({ product }: Props) {
   };
 
   // Determine if the product is out of stock
-  const isOutOfStock = product.variants && product.variants.length > 0
-    ? product.variants.every(v => (v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock))
-    : (product.stockQuantity !== undefined ? product.stockQuantity <= 0 : !product.stock);
+  const isOutOfStock =
+    liveProduct.variants && liveProduct.variants.length > 0
+      ? liveProduct.variants.every((v) => !variantHasStock(v))
+      : maxStock <= 0;
 
-  // Calculate stock to display
-  const displayStock = (product.variants && product.variants.length > 0 && selectedVariant)
-    ? product.variants.find(v => v.name === selectedVariant)?.stockQuantity
-    : product.stockQuantity;
+  const displayStock = maxStock;
 
   return (
     <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
@@ -119,7 +142,7 @@ export default function ProductCard({ product }: Props) {
         <img
           src={currentImage}
           alt={product.name}
-          className={`product-image ${isOutOfStock && !(product.customBadgeText && (!product.badgeExpiresAt || new Date(product.badgeExpiresAt) > new Date())) ? "grayscale" : ""}`}
+          className={`product-image ${isOutOfStock && !(liveProduct.customBadgeText && (!liveProduct.badgeExpiresAt || new Date(liveProduct.badgeExpiresAt) > new Date())) ? "grayscale" : ""}`}
           loading="lazy"
           decoding="async"
         />
@@ -128,13 +151,13 @@ export default function ProductCard({ product }: Props) {
         {/* Custom Badge Logic */}
         {(() => {
           // Check for valid custom badge
-          const hasCustomBadge = product.customBadgeText &&
-            (!product.badgeExpiresAt || new Date(product.badgeExpiresAt) > new Date());
+          const hasCustomBadge = liveProduct.customBadgeText &&
+            (!liveProduct.badgeExpiresAt || new Date(liveProduct.badgeExpiresAt) > new Date());
 
           if (hasCustomBadge) {
             return (
               <div className="discount-badge" style={{ backgroundColor: '#eab308', color: '#fff', fontSize: '0.75rem', padding: '4px 8px', zIndex: 10 }}>
-                {product.customBadgeText}
+                {liveProduct.customBadgeText}
               </div>
             );
           }
@@ -173,20 +196,19 @@ export default function ProductCard({ product }: Props) {
       </div>
 
       <div className="card-body">
-        <h3 className="product-title">{product.name}</h3>
+        <h3 className="product-title">{liveProduct.name}</h3>
 
-        {product.variants && product.variants.length > 0 && (
+        {liveProduct.variants && liveProduct.variants.length > 0 && (
           <div className="variants-section">
             <div className="variants-bubbles">
-              {product.variants.map((variant, idx) => (
+              {liveProduct.variants.map((variant, idx) => (
                 <button
                   key={idx}
                   className={`variant-bubble ${selectedVariant === variant.name ? "selected" : ""}`}
                   onClick={() => {
-                    const hasStock = variant.stockQuantity !== undefined ? variant.stockQuantity > 0 : variant.stock;
-                    if (hasStock) setSelectedVariant(variant.name);
+                    if (variantHasStock(variant)) setSelectedVariant(variant.name);
                   }}
-                  disabled={variant.stockQuantity !== undefined ? variant.stockQuantity <= 0 : !variant.stock}
+                  disabled={!variantHasStock(variant)}
                 >
                   {variant.name}
                 </button>
@@ -198,14 +220,12 @@ export default function ProductCard({ product }: Props) {
         <div className="card-footer">
           <div className="price-container">
             {hasDiscount && (
-              <span className="original-price">${Math.floor(product.price)}</span>
+              <span className="original-price">${Math.floor(liveProduct.price)}</span>
             )}
             <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
               ${Math.floor(finalPrice)}
             </span>
-            {displayStock !== undefined && (
-              <span className="stock-display">Stock: {displayStock}</span>
-            )}
+            <span className="stock-display">Stock: {displayStock}</span>
           </div>
 
           {quantity === 0 ? (
@@ -224,7 +244,14 @@ export default function ProductCard({ product }: Props) {
             <div className="quantity-controls">
               <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
               <span className="quantity-display">{quantity}</span>
-              <button className="btn-qty plus" onClick={handleAddToCart}>+</button>
+              <button
+                className="btn-qty plus"
+                onClick={handleAddToCart}
+                disabled={atMaxQuantity}
+                aria-label={atMaxQuantity ? "Stock máximo alcanzado" : "Agregar uno más"}
+              >
+                +
+              </button>
             </div>
           )}
         </div>

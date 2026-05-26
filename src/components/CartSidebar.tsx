@@ -5,7 +5,16 @@ import { CartContext } from "../context/CartContext";
 import "./CartSidebar.css";
 
 export default function CartSidebar() {
-    const { cart, addToCart, removeFromCart, removeCompletelyFromCart, cartTotal, isSidebarOpen, setIsSidebarOpen } = useContext(CartContext);
+    const {
+        cart,
+        addToCart,
+        removeFromCart,
+        removeCompletelyFromCart,
+        cartTotal,
+        isSidebarOpen,
+        setIsSidebarOpen,
+        canAddMore,
+    } = useContext(CartContext);
     const navigate = useNavigate();
 
     const handleClose = () => {
@@ -83,6 +92,8 @@ export default function CartSidebar() {
                                             <button
                                                 className="sidebar-btn-qty"
                                                 onClick={() => addToCart(item)}
+                                                disabled={!canAddMore(item)}
+                                                aria-label={canAddMore(item) ? "Agregar uno más" : "Stock máximo"}
                                             >
                                                 <FaPlus size={10} />
                                             </button>

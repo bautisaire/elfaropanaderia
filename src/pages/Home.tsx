@@ -8,21 +8,26 @@ import ProductModal from "../components/ProductModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
-import { collection, getDocs, doc, increment, setDoc } from "firebase/firestore";
+import { collection, doc, increment, setDoc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 import { FaStoreSlash, FaWhatsapp } from "react-icons/fa";
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [categoryVisibility, setCategoryVisibility] = useState<Record<string, boolean>>({});
 
-  // Use Context for store status
-  const { isStoreOpen, closedMessage, isStoreClosedDismissed, dismissStoreClosed } = useCart();
+  const {
+    isStoreOpen,
+    closedMessage,
+    isStoreClosedDismissed,
+    dismissStoreClosed,
+    catalogProducts: products,
+    catalogLoading: loading,
+    getCatalogProduct,
+  } = useCart();
   const location = useLocation();
 
   // Registro de visitas (no cuenta si es admin)
@@ -64,73 +69,32 @@ export default function Home() {
 
   // Removed redundant fetchStoreStatus useEffect since Context handles it
 
-  // Cargar productos y categorías desde Firebase
+  // Categorías (productos vienen en vivo desde CartContext)
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [productsSnapshot, categoriesSnapshot] = await Promise.all([
-          getDocs(collection(db, "products")),
-          getDocs(collection(db, "categories"))
-        ]);
-
-        // Procesar Categorías para obtener orden y visibilidad
+    const unsub = onSnapshot(
+      collection(db, "categories"),
+      (categoriesSnapshot) => {
         const orders: Record<string, number> = {};
         const visibility: Record<string, boolean> = {};
-        categoriesSnapshot.docs.forEach(doc => {
-          const data = doc.data();
+        categoriesSnapshot.docs.forEach((d) => {
+          const data = d.data();
           orders[data.name] = data.order ?? 9999;
-          visibility[data.name] = data.isVisible !== false; // Default to true if undefined
+          visibility[data.name] = data.isVisible !== false;
         });
         setCategoryOrder(orders);
         setCategoryVisibility(visibility);
-
-        // Procesar Productos
-        const prods: Product[] = productsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.nombre,
-            price: data.precio,
-            image: data.img || "",
-            images: data.images || (data.img ? [data.img] : []),
-            variants: data.variants || [],
-            quantity: 0,
-            stock: data.stock,
-            stockQuantity: data.stockQuantity,
-            isVisible: data.isVisible !== false,
-            discount: data.discount || 0,
-            categoria: (data.categoria || "Otros").trim(),
-            stockReadyTime: data.stockReadyTime,
-            customBadgeText: data.customBadgeText,
-            badgeExpiresAt: data.badgeExpiresAt
-          } as Product;
-        });
-
-        // Ordenar productos: Primero con stock, al final sin stock
-        prods.sort((a, b) => {
-          const aOutOfStock = a.variants && a.variants.length > 0
-            ? a.variants.every(v => !v.stock)
-            : (a.stockQuantity !== undefined ? a.stockQuantity <= 0 : a.stock === false);
-
-          const bOutOfStock = b.variants && b.variants.length > 0
-            ? b.variants.every(v => !v.stock)
-            : (b.stockQuantity !== undefined ? b.stockQuantity <= 0 : b.stock === false);
-
-          if (aOutOfStock === bOutOfStock) return 0;
-          return aOutOfStock ? 1 : -1;
-        });
-
-        setProducts(prods.filter(p => p.isVisible !== false));
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+      },
+      (error) => console.error("Error loading categories:", error)
+    );
+    return () => unsub();
   }, []);
+
+  // Modal de detalle: mantener producto sincronizado con el catálogo en vivo
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const live = getCatalogProduct(String(selectedProduct.id));
+    if (live) setSelectedProduct(live);
+  }, [products, selectedProduct?.id, getCatalogProduct]);
 
   return (
     <div className="home-container">
