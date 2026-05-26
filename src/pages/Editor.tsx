@@ -74,7 +74,7 @@ export default function Editor() {
       const count = snapshot.docs.filter(doc => {
         const data = doc.data();
         const status = data.status || "pendiente";
-        return status !== "cancelado" && status !== "entregado";
+        return status !== "cancelado" && status !== "entregado" && data.isTestOrder !== true;
       }).length;
       setPendingOrdersCount(count);
     });

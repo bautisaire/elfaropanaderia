@@ -6,6 +6,7 @@ import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt,
 import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
+import { shouldMarkOrderAsTest } from '../utils/testMode';
 import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
 
@@ -853,6 +854,7 @@ export default function POSManager() {
                 }
 
                 const orderData = {
+                    ...(shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
                     items: cart.map(item => {
                         const originalDoc = productDataMap[item.id] || {};
                         return {
@@ -933,19 +935,21 @@ export default function POSManager() {
                     unitType: item.unitType
                 }));
 
-                import('../utils/printTicket').then(({ printTicket }) => {
-                    printTicket({
-                        id: updates.orderId,
-                        items: ticketItems,
-                        total: total,
-                        cliente: {
-                            nombre: envioClientName.trim(),
-                            direccion: "Envío",
-                            metodoPago: paymentMethod
-                        },
-                        date: new Date()
+                if (!shouldMarkOrderAsTest()) {
+                    import('../utils/printTicket').then(({ printTicket }) => {
+                        printTicket({
+                            id: updates.orderId,
+                            items: ticketItems,
+                            total: total,
+                            cliente: {
+                                nombre: envioClientName.trim(),
+                                direccion: "Envío",
+                                metodoPago: paymentMethod
+                            },
+                            date: new Date()
+                        });
                     });
-                });
+                }
             } else {
                 showModal(
                     'success',

@@ -92,7 +92,16 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
 
 exports.processOrder = onCall(async (request) => {
     try {
-        const { cart, formData, shippingCost, finalTotal, userId } = request.data;
+        const { cart, formData, shippingCost, finalTotal, userId, isTestOrder: clientWantsTestOrder } = request.data;
+
+        const ADMIN_EMAILS = (process.env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean);
+        const callerEmail = request.auth?.token?.email;
+        const isTestOrder = clientWantsTestOrder === true
+            && callerEmail
+            && ADMIN_EMAILS.includes(callerEmail);
 
         if (!cart || !Array.isArray(cart) || cart.length === 0) {
             throw new HttpsError("invalid-argument", "El carrito está vacío o es inválido.");
@@ -287,7 +296,8 @@ exports.processOrder = onCall(async (request) => {
                 date: new Date(),
                 status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
                 paymentMethod: formData.metodoPago,
-                userId: userId || null
+                userId: userId || null,
+                ...(isTestOrder ? { isTestOrder: true } : {})
             };
             transaction.set(orderRef, newOrderData);
 

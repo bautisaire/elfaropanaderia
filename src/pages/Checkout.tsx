@@ -7,6 +7,7 @@ import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc
 import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
+import { shouldMarkOrderAsTest } from "../utils/testMode";
 import StockErrorModal from "../components/StockErrorModal";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
@@ -407,7 +408,8 @@ export default function Checkout() {
         formData: orderFormData,
         shippingCost: effectiveShipping,
         finalTotal,
-        userId: user?.uid || null
+        userId: user?.uid || null,
+        ...(isAdmin && shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
       };
 
       const { data } = await processOrderFn(requestData) as any;

@@ -34,6 +34,10 @@ export default function GlobalAdminNotifications() {
             snapshot.docChanges().forEach((change) => {
                 if (change.type === "added") {
                     const newOrder = change.doc.data();
+
+                    // Pedidos de prueba (modo prueba admin): sin alertas ni impresión para nadie
+                    if (newOrder.isTestOrder === true) return;
+
                     const isPos = newOrder.source === 'pos' || newOrder.source === 'pos_public' || newOrder.source === 'pos_wholesale';
                     if (isPos) return;
 
