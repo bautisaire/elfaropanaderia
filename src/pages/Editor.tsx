@@ -254,7 +254,7 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''}`}>
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''} ${currentPath === 'orders' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/pos" element={<POSManager />} />

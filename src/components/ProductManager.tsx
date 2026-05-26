@@ -649,10 +649,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 ))}
                                             </select>
                                         </div>
-                                        <div className="form-group quarter">
-                                            <label>Precio ($)</label>
-                                            <input type="number" name="precio" value={formData.precio} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" />
-                                        </div>
+                                        
 
                                     </div>
 
@@ -1033,34 +1030,35 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             </div>
                                         </div>
 
-                                        <div className="list-item-stock">
-                                            <span className={`stock-status ${totalStock > 0 ? 'active' : 'inactive'}`}>
-                                                {Math.round(totalStock * 100) / 100} unid.
-                                            </span>
-                                        </div>
+                                        <div className="list-item-footer">
+                                            <div className="list-item-stock">
+                                                <span className={`stock-status ${totalStock > 0 ? 'active' : 'inactive'}`}>
+                                                    {Math.round(totalStock * 100) / 100} unid.
+                                                </span>
+                                            </div>
 
-                                        <div className="list-item-actions">
-                                            {product.requiresRecipe !== false && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginRight: '10px' }}>
-                                                    {product.recipe && product.recipe.ingredients?.length > 0 ? (
-                                                        <FaCheckCircle title="Receta Configurada" style={{ color: '#10b981', fontSize: '1.2rem' }} />
-                                                    ) : null}
-                                                    <button
-                                                        className="btn-action"
-                                                        style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px' }}
-                                                        onClick={() => onGoToRecipe && product.id ? onGoToRecipe(product.id) : null}
-                                                        title="Ir a la Receta"
-                                                    >
-                                                        <FaFileSignature /> Receta
-                                                    </button>
-                                                </div>
-                                            )}
-                                            <button className="btn-action edit" onClick={() => handleEditClick(product)} title="Editar">
-                                                <FaEdit />
-                                            </button>
-                                            <button className="btn-action delete" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
-                                                <FaTrash />
-                                            </button>
+                                            <div className="list-item-actions">
+                                                {product.requiresRecipe !== false && (
+                                                    <div className="list-item-recipe-group">
+                                                        {product.recipe && product.recipe.ingredients?.length > 0 ? (
+                                                            <FaCheckCircle title="Receta Configurada" className="recipe-check-icon" />
+                                                        ) : null}
+                                                        <button
+                                                            className="btn-action btn-recipe"
+                                                            onClick={() => onGoToRecipe && product.id ? onGoToRecipe(product.id) : null}
+                                                            title="Ir a la Receta"
+                                                        >
+                                                            <FaFileSignature /> Receta
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <button className="btn-action edit" onClick={() => handleEditClick(product)} title="Editar">
+                                                    <FaEdit />
+                                                </button>
+                                                <button className="btn-action delete" onClick={() => product.id && handleDelete(product.id)} title="Eliminar">
+                                                    <FaTrash />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -567,3 +567,29 @@
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
+
+@media (max-width: 850px) {
+    .cost-manager-container {
+        padding: 0;
+        background: #fff;
+    }
+
+    .cm-header {
+        padding: 12px;
+        border-radius: 0;
+        margin-bottom: 0;
+        box-shadow: none;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .cm-content {
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .cost-manager-container .product-manager-container {
+        padding: 0;
+        background: #fff;
+    }
+}

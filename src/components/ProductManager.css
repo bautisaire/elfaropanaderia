@@ -571,6 +571,33 @@ button {
     /* Verde para mayorista para diferenciar */
 }
 
+.list-item-footer {
+    display: contents;
+}
+
+.list-item-recipe-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 10px;
+}
+
+.recipe-check-icon {
+    color: #10b981;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.btn-recipe {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
 .list-item-stock {
     flex: 1;
     min-width: 80px;
@@ -641,9 +668,72 @@ button {
 }
 
 /* Mobile Responsive */
-@media (max-width: 600px) {
+@media (max-width: 850px) {
     .product-manager-container {
-        padding: 10px;
+        padding: 0;
+        background: #fff;
+    }
+
+    /* Modal edición / nuevo producto: pantalla completa */
+    .pm-modal-overlay {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+    }
+
+    .pm-modal-content {
+        max-width: none;
+        width: 100%;
+        max-height: none;
+        height: 100%;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .pm-modal-content .pm-card-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        flex-shrink: 0;
+        background: #fff;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .pm-modal-content .pm-alert {
+        flex-shrink: 0;
+        margin: 12px 16px 0;
+    }
+
+    .pm-modal-content .pm-form {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px;
+        padding-bottom: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pm-modal-content .pm-card-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        flex-shrink: 0;
+        margin-top: auto;
+        margin-bottom: 0;
+        padding: 12px 16px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+        background: #fff;
+        border-top: 1px solid #e5e7eb;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .pm-header {
+        padding: 12px;
+        margin-bottom: 16px;
     }
 
     .pm-card-header {
@@ -665,33 +755,101 @@ button {
         width: 100%;
     }
 
+    .inventory-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0 12px 12px;
+        margin-bottom: 16px;
+    }
+
+    .search-bar {
+        max-width: 100%;
+    }
+
+    .pm-inventory-list {
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+    }
+
+    .inventory-list-item {
+        align-items: flex-start;
+        overflow: hidden;
+    }
+
     .list-item-content {
-        flex-wrap: wrap;
+        flex-direction: column;
+        align-items: stretch;
+        flex-wrap: nowrap;
         gap: 8px;
-        padding: 8px;
+        padding: 8px 10px 10px 8px;
+        min-width: 0;
     }
 
     .list-item-main-info {
         width: 100%;
         flex: none;
+        min-width: 0;
+    }
+
+    .list-item-main-info h4 {
+        white-space: normal;
     }
 
     .list-item-prices {
         width: 100%;
         flex: none;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .price-block {
+        min-width: 0;
+    }
+
+    .price-block small {
+        font-size: 0.6rem;
+    }
+
+    .price,
+    .price-cost,
+    .price-profit,
+    .price-wholesale {
+        font-size: 0.82rem !important;
+    }
+
+    .list-item-footer {
+        display: flex;
+        align-items: center;
         justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        margin-top: 4px;
+        padding-top: 8px;
+        border-top: 1px solid #f3f4f6;
+        flex-shrink: 0;
     }
 
     .list-item-stock {
+        flex: 0 1 auto;
+        min-width: 0;
         justify-content: flex-start;
     }
 
-    .inventory-toolbar {
-        flex-direction: column;
-        align-items: stretch;
+    .list-item-actions {
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        gap: 4px;
     }
 
-    .search-bar {
-        max-width: 100%;
+    .list-item-recipe-group {
+        margin-right: 0;
+    }
+
+    .btn-recipe {
+        padding: 6px 8px;
     }
 }

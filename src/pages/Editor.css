@@ -372,6 +372,19 @@
         margin-left: 0 !important;
         /* Force mobile width */
     }
+
+    /* Pedidos: lista a borde de pantalla (sin marco del contenedor principal) */
+    .editor-content.editor-orders-fullbleed {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /* Costos: productos e inventario a ancho completo */
+    .editor-content.editor-costs-fullbleed {
+        padding-left: 0;
+        padding-right: 0;
+        padding-top: 0;
+    }
 }
 
 .sidebar-badge {

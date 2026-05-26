@@ -358,6 +358,32 @@
         grid-template-columns: 1fr;
     }
 
+    /* Lista a ancho de pantalla: sin “tarjeta” ni padding lateral del contenedor */
+    .product-manager-container.orders-manager-page {
+        padding: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        background-color: #fff;
+    }
+
+    .orders-manager-page .orders-list-container {
+        padding: 0;
+        max-width: 100%;
+    }
+
+    .orders-manager-page .orders-summary-bar,
+    .orders-manager-page .orders-tabs {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .orders-manager-page .orders-table-container {
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: #fff;
+    }
+
     /* ── MOBILE TABLE: full-width flex rows ── */
     .orders-list-container,
     .orders-content,

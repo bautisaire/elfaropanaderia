@@ -798,7 +798,7 @@ export default function OrdersManager() {
     };
 
     return (
-        <div className="product-manager-container">
+        <div className="product-manager-container orders-manager-page">
 
 
             {error && <div className="pm-alert error">{error}</div>}
