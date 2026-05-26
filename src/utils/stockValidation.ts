@@ -1,6 +1,6 @@
 import { db } from "../firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
-import { getDerivedStockFromParent } from "./cartStock";
+import { getDerivedStockFromParent, getRawStockQuantity } from "./cartStock";
 
 export interface StockValidationResult {
     isValid: boolean;
@@ -54,12 +54,27 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                     const parentSnap = await getDoc(
                         doc(db, "products", data.stockDependency.productId)
                     );
-                    const parentStock = parentSnap.exists()
-                        ? Number(parentSnap.data().stockQuantity || 0)
+                    const parentData = parentSnap.exists() ? parentSnap.data() : null;
+                    const parentStock = parentData
+                        ? getRawStockQuantity({
+                              id: data.stockDependency.productId,
+                              name: '',
+                              price: 0,
+                              image: '',
+                              stockQuantity: parentData.stockQuantity,
+                              stock: parentData.stock,
+                              unitType: parentData.unitType || 'unit',
+                          })
                         : 0;
+                    const parentProduct = parentData
+                        ? { unitType: parentData.unitType || 'unit' as const }
+                        : undefined;
+                    const childProduct = { unitType: data.unitType || 'unit' as const };
                     available = getDerivedStockFromParent(
                         parentStock,
-                        Number(data.stockDependency.unitsToDeduct) || 1
+                        Number(data.stockDependency.unitsToDeduct) || 1,
+                        parentProduct as any,
+                        childProduct as any
                     );
                 } else if (isVariant && data.variants) {
                     let variantName = item.variant || "";

@@ -12,6 +12,24 @@ const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 
 const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
+/** Consumo por venta en kg cuando el padre/hijo es por peso y el valor parece gramos (500 → 0.5). */
+function normalizeUnitsToDeduct(unitsToDeduct, parentUnitType, childUnitType) {
+    const u = Number(unitsToDeduct) || 0;
+    if (u <= 0) return 0;
+    const parentIsWeight = parentUnitType === "weight";
+    const childIsWeight = childUnitType === "weight";
+    if ((parentIsWeight || childIsWeight) && u >= 1) {
+        return u / 1000;
+    }
+    return u;
+}
+
+function getDerivedChildStock(parentStock, unitsToDeduct, parentUnitType, childUnitType) {
+    const deduct = normalizeUnitsToDeduct(unitsToDeduct, parentUnitType, childUnitType);
+    if (!(deduct > 0)) return 0;
+    return Math.max(0, Math.floor(parentStock / deduct + 1e-9));
+}
+
 /** Sincroniza stock de productos derivados cuando cambia el padre (misma lógica que el frontend). */
 async function syncChildProductsServer(parentId, newParentStock) {
     const childrenSnap = await db.collection("products")
@@ -20,6 +38,9 @@ async function syncChildProductsServer(parentId, newParentStock) {
 
     if (childrenSnap.empty) return;
 
+    const parentSnap = await db.collection("products").doc(parentId).get();
+    const parentUnitType = parentSnap.exists ? (parentSnap.data().unitType || "unit") : "unit";
+
     const batch = db.batch();
     let updatesCount = 0;
 
@@ -27,7 +48,13 @@ async function syncChildProductsServer(parentId, newParentStock) {
         const childData = childDoc.data();
         const dependency = childData.stockDependency;
         if (dependency && dependency.unitsToDeduct > 0) {
-            const newChildStock = Math.floor(newParentStock / dependency.unitsToDeduct);
+            const childUnitType = childData.unitType || "unit";
+            const newChildStock = getDerivedChildStock(
+                newParentStock,
+                dependency.unitsToDeduct,
+                parentUnitType,
+                childUnitType
+            );
             if (childData.stockQuantity !== newChildStock) {
                 batch.update(childDoc.ref, {
                     stockQuantity: newChildStock,

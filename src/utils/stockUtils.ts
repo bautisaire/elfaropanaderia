@@ -1,5 +1,7 @@
 import { db } from '../firebase/firebaseConfig';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, writeBatch, doc, getDoc } from 'firebase/firestore';
+import { getDerivedStockFromParent } from './cartStock';
+import type { Product } from '../context/CartContext';
 
 /**
  * Sincroniza el stock de todos los productos "Hijos" (Derivados)
@@ -20,6 +22,20 @@ export const syncChildProducts = async (parentId: string, newParentStock: number
 
         if (querySnapshot.empty) return;
 
+        const parentSnap = await getDoc(doc(db, "products", parentId));
+        const parentUnitType = parentSnap.exists()
+            ? (parentSnap.data().unitType as Product['unitType']) || 'unit'
+            : 'unit';
+
+        const parentProduct: Product = {
+            id: parentId,
+            name: '',
+            price: 0,
+            image: '',
+            stockQuantity: newParentStock,
+            unitType: parentUnitType,
+        };
+
         const batch = writeBatch(db);
         let updatesCount = 0;
 
@@ -28,9 +44,20 @@ export const syncChildProducts = async (parentId: string, newParentStock: number
             const dependency = childData.stockDependency;
 
             if (dependency && dependency.unitsToDeduct > 0) {
-                // Calcular stock hijo: Floor(StockPadre / ConsumoHijo)
-                // Ej: Padre 10kg / Hijo 0.5kg = 20 unidades
-                const newChildStock = Math.floor(newParentStock / dependency.unitsToDeduct);
+                const childProduct: Product = {
+                    id: childDoc.id,
+                    name: childData.nombre || '',
+                    price: 0,
+                    image: '',
+                    unitType: childData.unitType || 'unit',
+                    stockDependency: dependency,
+                };
+                const newChildStock = getDerivedStockFromParent(
+                    newParentStock,
+                    dependency.unitsToDeduct,
+                    parentProduct,
+                    childProduct
+                );
 
                 // Solo actualizar si cambió
                 if (childData.stockQuantity !== newChildStock) {

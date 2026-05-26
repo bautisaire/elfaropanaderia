@@ -38,6 +38,7 @@ export interface Product {
     productId: string;
     unitsToDeduct: number;
   };
+  unitType?: 'unit' | 'weight';
 }
 
 interface CartContextType {

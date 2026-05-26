@@ -1,5 +1,48 @@
 import type { Product } from "../context/CartContext";
 
+/** Stock bruto del producto (kg con decimales o unidades enteras). */
+export function getRawStockQuantity(product: Product | undefined): number {
+    if (!product) return 0;
+    if (product.stockQuantity !== undefined) {
+        return Math.max(0, Number(product.stockQuantity) || 0);
+    }
+    return product.stock !== false ? 999 : 0;
+}
+
+/**
+ * Consumo por venta del hijo, en las mismas unidades que el stock del padre (kg).
+ * Si el padre es por peso y el valor es >= 1, se interpreta como gramos (500 → 0,5 kg).
+ */
+export function normalizeUnitsToDeduct(
+    unitsToDeduct: number,
+    parent?: Product,
+    child?: Product
+): number {
+    const u = Number(unitsToDeduct) || 0;
+    if (u <= 0) return 0;
+
+    const parentIsWeight = parent?.unitType === 'weight';
+    const childIsWeight = child?.unitType === 'weight';
+
+    if ((parentIsWeight || childIsWeight) && u >= 1) {
+        return u / 1000;
+    }
+    return u;
+}
+
+/** Unidades vendibles del hijo: cuántas porciones entran en el stock del padre. */
+export function getDerivedStockFromParent(
+    parentStock: number,
+    unitsToDeduct: number,
+    parent?: Product,
+    child?: Product
+): number {
+    const deduct = normalizeUnitsToDeduct(unitsToDeduct, parent, child);
+    if (!(deduct > 0)) return 0;
+    const ratio = parentStock / deduct;
+    return Math.max(0, Math.floor(ratio + 1e-9));
+}
+
 /** Recalcula stockQuantity/stock de productos hijo según el padre en el catálogo. */
 export function applyDerivedStockToCatalog(catalog: Record<string, Product>): void {
     Object.keys(catalog).forEach((childId) => {
@@ -10,13 +53,13 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
         const parent = catalog[dep.productId];
         if (!parent) return;
 
-        const parentStock =
-            parent.stockQuantity !== undefined
-                ? parent.stockQuantity
-                : parent.stock
-                  ? 999
-                  : 0;
-        const derivedStock = Math.floor(parentStock / Number(dep.unitsToDeduct));
+        const parentStock = getRawStockQuantity(parent);
+        const derivedStock = getDerivedStockFromParent(
+            parentStock,
+            dep.unitsToDeduct,
+            parent,
+            child
+        );
 
         catalog[childId] = {
             ...child,
@@ -24,14 +67,6 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
             stock: derivedStock > 0,
         };
     });
-}
-
-export function getDerivedStockFromParent(
-    parentStock: number,
-    unitsToDeduct: number
-): number {
-    if (!(unitsToDeduct > 0)) return 0;
-    return Math.max(0, Math.floor(parentStock / unitsToDeduct));
 }
 
 export function mapFirestoreProduct(docId: string, data: Record<string, unknown>): Product {
@@ -48,6 +83,7 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         stock: data.stock as boolean | undefined,
         stockQuantity: data.stockQuantity as number | undefined,
         stockDependency,
+        unitType: (data.unitType as Product['unitType']) || 'unit',
         isVisible: data.isVisible !== false,
         discount: (data.discount as number) || 0,
         categoria: ((data.categoria as string) || "Otros").trim(),
@@ -104,10 +140,12 @@ export function getAvailableStock(
     if (product.stockDependency?.productId && catalog) {
         const parent = catalog[String(product.stockDependency.productId)];
         if (parent) {
-            const parentStock = getAvailableStock(parent, null, catalog);
+            const parentStock = getRawStockQuantity(parent);
             return getDerivedStockFromParent(
                 parentStock,
-                Number(product.stockDependency.unitsToDeduct) || 1
+                Number(product.stockDependency.unitsToDeduct) || 1,
+                parent,
+                product
             );
         }
     }
@@ -128,7 +166,11 @@ export function getAvailableStock(
     }
 
     if (product.stockQuantity !== undefined) {
-        return Math.max(0, Math.floor(product.stockQuantity));
+        const raw = getRawStockQuantity(product);
+        if (product.unitType === 'weight') {
+            return raw > 0 ? 1 : 0;
+        }
+        return Math.max(0, Math.floor(raw));
     }
     return product.stock !== false ? 999 : 0;
 }
