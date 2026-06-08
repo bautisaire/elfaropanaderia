@@ -16,7 +16,12 @@ interface HeroSlide {
     isRaffleButton?: boolean;
 }
 
-export default function Hero() {
+interface HeroProps {
+    onRaffleClick?: () => void;
+    activeRaffle?: any;
+}
+
+export default function Hero({ onRaffleClick, activeRaffle }: HeroProps) {
     const [slides, setSlides] = useState<HeroSlide[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
