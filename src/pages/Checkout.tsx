@@ -479,31 +479,7 @@ export default function Checkout() {
         }).catch(console.error);
       }
 
-      // Registrar participante en el sorteo si está activo
-      if (activeRaffle) {
-        try {
-          const identifier = user?.email || orderFormData.telefono;
-          const qCheck = query(
-            collection(db, `raffles/${activeRaffle.id}/participants`), 
-            where("phoneOrEmail", "==", identifier), 
-            limit(1)
-          );
-          const checkSnap = await getDocs(qCheck);
-          
-          if (checkSnap.empty) {
-            await addDoc(collection(db, `raffles/${activeRaffle.id}/participants`), {
-              name: orderFormData.nombre,
-              phoneOrEmail: identifier,
-              date: Timestamp.now()
-            });
-            console.log("Participante agregado al sorteo.");
-          } else {
-            console.log("El participante ya estaba registrado previamente.");
-          }
-        } catch (err) {
-          console.error("Error al registrar participante en el sorteo:", err);
-        }
-      }
+
 
       // Preparar Ticket
       const itemsWithModifiers = [...cart];

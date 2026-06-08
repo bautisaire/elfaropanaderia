@@ -370,6 +370,28 @@ exports.processOrder = onCall(async (request) => {
             };
             transaction.set(orderRef, newOrderData);
 
+            // Registrar en sorteo activo
+            const rafflesSnap = await transaction.get(db.collection("raffles").where("isActive", "==", true).limit(1));
+            if (!rafflesSnap.empty) {
+                const activeRaffleId = rafflesSnap.docs[0].id;
+                const identifier = formData.telefono || (request.auth?.token?.email) || 'Desconocido';
+                
+                const partsSnap = await transaction.get(
+                    db.collection(`raffles/${activeRaffleId}/participants`)
+                      .where("phoneOrEmail", "==", identifier)
+                      .limit(1)
+                );
+                
+                if (partsSnap.empty) {
+                    const newPartRef = db.collection(`raffles/${activeRaffleId}/participants`).doc();
+                    transaction.set(newPartRef, {
+                        name: formData.nombre || 'Cliente Web',
+                        phoneOrEmail: identifier,
+                        date: new Date()
+                    });
+                }
+            }
+
             // Log Movements
             stockMovementsToLog.forEach(mov => {
                 const mRef = db.collection("stock_movements").doc();
