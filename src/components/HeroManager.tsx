@@ -290,20 +290,26 @@ export default function HeroManager() {
                                 </div>
                             </div>
 
-                            {formData.showButton && !formData.isRaffleButton && (
+                            {formData.showButton && (
                                 <div className="form-group" style={{ background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}><FaLink /> Configuración del Botón</label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                        <FaLink /> Configuración del Botón {formData.isRaffleButton && '(Sorteo)'}
+                                    </label>
                                     <div className="form-row">
-                                        <div className="form-group half" style={{ marginBottom: 0 }}>
-                                            <input name="buttonText" value={formData.buttonText} onChange={handleInputChange} placeholder="Texto (ej. Ver Menú)" />
+                                        <div className={`form-group ${formData.isRaffleButton ? 'full' : 'half'}`} style={{ marginBottom: 0 }}>
+                                            <input name="buttonText" value={formData.buttonText} onChange={handleInputChange} placeholder={formData.isRaffleButton ? "Texto (ej. Ver Sorteo)" : "Texto (ej. Ver Menú)"} />
                                         </div>
-                                        <div className="form-group half" style={{ marginBottom: 0 }}>
-                                            <input name="buttonLink" value={formData.buttonLink} onChange={handleInputChange} placeholder="Enlace (ej. #Productos)" />
-                                        </div>
+                                        {!formData.isRaffleButton && (
+                                            <div className="form-group half" style={{ marginBottom: 0 }}>
+                                                <input name="buttonLink" value={formData.buttonLink} onChange={handleInputChange} placeholder="Enlace (ej. #Productos)" />
+                                            </div>
+                                        )}
                                     </div>
-                                    <small style={{ color: '#6b7280', marginTop: '8px', display: 'block' }}>
-                                        Usa <b>#Categoria</b> para secciones internas o URLs completas.
-                                    </small>
+                                    {!formData.isRaffleButton && (
+                                        <small style={{ color: '#6b7280', marginTop: '8px', display: 'block' }}>
+                                            Usa <b>#Categoria</b> para secciones internas o URLs completas.
+                                        </small>
+                                    )}
                                 </div>
                             )}
                         </div>
