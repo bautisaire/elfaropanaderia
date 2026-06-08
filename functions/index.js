@@ -150,7 +150,7 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
 
 exports.processOrder = onCall(async (request) => {
     try {
-        const { cart, formData, shippingCost, finalTotal, userId, isTestOrder: clientWantsTestOrder } = request.data;
+        const { cart, formData, shippingCost, discountAmount, discountText, finalTotal, userId, isTestOrder: clientWantsTestOrder } = request.data;
 
         const ADMIN_EMAILS = (process.env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
             .split(",")
@@ -336,6 +336,17 @@ exports.processOrder = onCall(async (request) => {
                     id: 'shipping-cost',
                     name: 'Envío',
                     price: shippingCost,
+                    quantity: 1,
+                    image: '',
+                    stock: true
+                });
+            }
+
+            if (discountAmount > 0) {
+                finalItems.push({
+                    id: 'pickup-discount',
+                    name: discountText || 'Descuento Retiro Local',
+                    price: -discountAmount,
                     quantity: 1,
                     image: '',
                     stock: true

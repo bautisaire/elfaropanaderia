@@ -406,6 +406,8 @@ export default function Checkout() {
       const processOrderFn = httpsCallable(functions, 'processOrder');
 
       const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
+      const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
+
       const orderFormData = {
         ...formData,
         metodoEntrega: deliveryMethod,
@@ -416,6 +418,8 @@ export default function Checkout() {
         cart,
         formData: orderFormData,
         shippingCost: effectiveShipping,
+        discountAmount: discountAmount,
+        discountText: pickupDiscountText,
         finalTotal,
         userId: user?.uid || null,
         ...(isAdmin && shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
@@ -457,7 +461,6 @@ export default function Checkout() {
       }
 
       // Preparar Ticket
-      const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
       const itemsWithModifiers = [...cart];
       if (effectiveShipping > 0) {
         itemsWithModifiers.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 });
