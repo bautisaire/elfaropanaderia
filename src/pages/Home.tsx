@@ -29,7 +29,7 @@ export default function Home() {
       if (!snap.empty) {
         const raffleData = { id: snap.docs[0].id, ...snap.docs[0].data() };
         setActiveRaffle(raffleData);
-        
+
         const qParts = query(collection(db, `raffles/${raffleData.id}/participants`), orderBy("date", "desc"));
         onSnapshot(qParts, (snapParts) => {
           const parts: any[] = [];
@@ -128,7 +128,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <Hero onRaffleClick={() => setShowRaffleModal(true)} activeRaffle={activeRaffle} />
+      <Hero />
       <div className="home">
         {loading ? (
           // Mostrar 6 esqueletos mientras carga
@@ -195,7 +195,7 @@ export default function Home() {
       )}
 
       <FloatingCartButton />
-      
+
       {activeRaffle && (
         <button
           className="floating-raffle-btn"
@@ -218,7 +218,7 @@ export default function Home() {
                 📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString()}
               </p>
             )}
-            
+
             <div className="raffle-participants-list" style={{ textAlign: 'left', background: '#f8fafc', padding: '15px', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto' }}>
               <h3 style={{ fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', color: '#334155' }}>
                 Participantes ({raffleParticipants.length})
@@ -239,7 +239,7 @@ export default function Home() {
           </div>
         </div>
       )}
-      
+
       <a
         href="https://wa.me/5492995206821"
         target="_blank"

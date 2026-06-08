@@ -17,6 +17,7 @@ interface HeroSlide {
     animation: "zoom-in" | "zoom-out";
     active?: boolean;
     order?: number;
+    isRaffleButton?: boolean;
 }
 
 const INITIAL_STATE = {
@@ -28,7 +29,8 @@ const INITIAL_STATE = {
     buttonLink: "",
     animation: "zoom-in" as "zoom-in" | "zoom-out",
     active: true,
-    order: 0
+    order: 0,
+    isRaffleButton: false
 };
 
 export default function HeroManager() {
@@ -210,7 +212,8 @@ export default function HeroManager() {
             buttonLink: slide.buttonLink || "",
             animation: slide.animation,
             active: slide.active !== false,
-            order: slide.order || 0
+            order: slide.order || 0,
+            isRaffleButton: slide.isRaffleButton || false
         });
         setImageFile(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -273,15 +276,21 @@ export default function HeroManager() {
                                         <option value="zoom-out">Zoom Out (Alejar)</option>
                                     </select>
                                 </div>
-                                <div className="form-group half checkbox-group-styled">
+                                <div className="form-group half checkbox-group-styled" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <label>
                                         <input type="checkbox" checked={formData.showButton} onChange={handleCheckboxChange} />
                                         Mostrar Botón de Acción
                                     </label>
+                                    {formData.showButton && (
+                                        <label style={{ color: '#047857' }}>
+                                            <input type="checkbox" checked={formData.isRaffleButton} onChange={(e) => setFormData(prev => ({ ...prev, isRaffleButton: e.target.checked }))} />
+                                            Abrir Sorteo (En vez de link)
+                                        </label>
+                                    )}
                                 </div>
                             </div>
 
-                            {formData.showButton && (
+                            {formData.showButton && !formData.isRaffleButton && (
                                 <div className="form-group" style={{ background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}><FaLink /> Configuración del Botón</label>
                                     <div className="form-row">
@@ -374,7 +383,9 @@ export default function HeroManager() {
                                     <h4>{slide.title}</h4>
                                     <p>{slide.subtitle}</p>
                                     {slide.showButton && (
-                                        <span className="hero-btn-preview">{slide.buttonText} &rarr; {slide.buttonLink}</span>
+                                        <span className="hero-btn-preview">
+                                            {slide.isRaffleButton ? `🎁 ${slide.buttonText || 'Ver Sorteo'} (Abre Sorteo)` : `${slide.buttonText} → ${slide.buttonLink}`}
+                                        </span>
                                     )}
                                 </div>
                                 <div className="hero-card-actions">
