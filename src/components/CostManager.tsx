@@ -858,7 +858,7 @@ export default function CostManager() {
                                                                     <ul>
                                                                         {[...mat.priceHistory].reverse().slice(0, 5).map((h, i) => (
                                                                             <li key={i}>
-                                                                                <span>{new Date(h.date).toLocaleDateString()}</span>
+                                                                                <span>{new Date(h.date).toLocaleDateString('es-AR')}</span>
                                                                                 <strong>${h.price.toLocaleString('es-AR')} {h.baseQuantity && `(${formatQuantity(h.baseQuantity, h.unit || 'u')})`}</strong>
                                                                             </li>
                                                                         ))}
@@ -871,7 +871,7 @@ export default function CostManager() {
                                             </td>
                                             <td>
                                                 <small style={{ color: '#94a3b8' }}>
-                                                    {mat.lastUpdated?.seconds ? new Date(mat.lastUpdated.seconds * 1000).toLocaleDateString() : 'N/A'}
+                                                    {mat.lastUpdated?.seconds ? new Date(mat.lastUpdated.seconds * 1000).toLocaleDateString('es-AR') : 'N/A'}
                                                 </small>
                                             </td>
                                             <td className="cm-actions">

@@ -619,7 +619,7 @@ export default function Checkout() {
           <div className="success-ticket">
             <div className="ticket-header">
               <span>ORDEN #{/^\d+$/.test(confirmedOrder.id) ? confirmedOrder.id : confirmedOrder.id.toString().slice(-6).toUpperCase()}</span>
-              <span>{new Date().toLocaleDateString()}</span>
+              <span>{new Date().toLocaleDateString('es-AR')}</span>
             </div>
             <div className="ticket-items">
               {confirmedOrder.itemsWithShipping ? confirmedOrder.itemsWithShipping.map((item: any) => (

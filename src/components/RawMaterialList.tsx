@@ -195,7 +195,7 @@ export default function RawMaterialList() {
                                     ) : (
                                         priceHistory.map((h: any, idx: number) => (
                                             <tr key={idx}>
-                                                <td>{h.date?.seconds ? new Date(h.date.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
+                                                <td>{h.date?.seconds ? new Date(h.date.seconds * 1000).toLocaleDateString('es-AR') : 'N/A'}</td>
                                                 <td>${h.price}</td>
                                             </tr>
                                         ))

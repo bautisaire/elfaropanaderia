@@ -135,8 +135,10 @@ service cloud.firestore {
       match /participants/{participantId} {
         // Los usuarios pueden agregarse a sí mismos (create) al finalizar pedido
         allow create: if true;
-        // Solo los admins pueden leer la lista, editar o eliminar
-        allow read, update, delete: if isAdmin();
+        // Cualquiera puede ver la lista de participantes
+        allow read: if true;
+        // Solo los admins pueden editar o eliminar
+        allow update, delete: if isAdmin();
       }
     }
 

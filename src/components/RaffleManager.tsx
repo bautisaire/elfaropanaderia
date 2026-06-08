@@ -260,8 +260,8 @@ export default function RaffleManager() {
                 <div className="info-text">
                   <h3><FaTrophy style={{ color: '#eab308' }} /> {activeRaffle.title}</h3>
                   <p style={{ fontWeight: 'bold', marginTop: '5px' }}>Premios: {activeRaffle.prize}</p>
-                  {activeRaffle.drawDate && <p style={{ color: '#0f172a', marginTop: '5px', fontWeight: 'bold' }}>Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString()}</p>}
-                  <p style={{ fontSize: '0.9rem', marginTop: '5px' }}>Iniciado el: {activeRaffle.startDate?.toDate().toLocaleDateString()} a las {activeRaffle.startDate?.toDate().toLocaleTimeString()}</p>
+                  {activeRaffle.drawDate && <p style={{ color: '#0f172a', marginTop: '5px', fontWeight: 'bold' }}>Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}</p>}
+                  <p style={{ fontSize: '0.9rem', marginTop: '5px' }}>Iniciado el: {activeRaffle.startDate?.toDate().toLocaleDateString('es-AR')} a las {activeRaffle.startDate?.toDate().toLocaleTimeString('es-AR')}</p>
                 </div>
                 <button onClick={handleEndRaffle} className="btn-end-raffle">
                   <FaStopCircle /> Finalizar Sorteo
@@ -350,7 +350,7 @@ export default function RaffleManager() {
                         <h4><FaTrophy style={{ color: '#cbd5e1', marginRight: '8px' }} /> {raffle.title || 'Sorteo'}</h4>
                         <div style={{ fontSize: '0.9rem', color: '#475569', margin: '4px 0 2px 28px' }}>Premios: {raffle.prize}</div>
                         <div className="history-dates" style={{ marginLeft: '28px' }}>
-                          <FaCalendarAlt /> {raffle.startDate?.toDate().toLocaleDateString()} - {raffle.endDate?.toDate().toLocaleDateString()}
+                          <FaCalendarAlt /> {raffle.startDate?.toDate().toLocaleDateString('es-AR')} - {raffle.endDate?.toDate().toLocaleDateString('es-AR')}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>

@@ -215,7 +215,7 @@ export default function Home() {
             <p style={{ color: '#047857', fontWeight: 'bold', marginBottom: activeRaffle.drawDate ? '5px' : '20px' }}>Premios: {activeRaffle.prize}</p>
             {activeRaffle.drawDate && (
               <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px' }}>
-                📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString()}
+                📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}
               </p>
             )}
 
