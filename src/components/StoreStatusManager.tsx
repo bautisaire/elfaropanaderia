@@ -15,6 +15,8 @@ export default function StoreStatusManager() {
     const [allowPickup, setAllowPickup] = useState<boolean>(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [pickupDiscountPercentage, setPickupDiscountPercentage] = useState<number>(0);
+    const [pickupDiscountText, setPickupDiscountText] = useState<string>("");
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -30,6 +32,8 @@ export default function StoreStatusManager() {
                     setStoreMapUrl(data.storeMapUrl || "");
                     setAllowDelivery(data.allowDelivery !== undefined ? data.allowDelivery : true);
                     setAllowPickup(data.allowPickup !== undefined ? data.allowPickup : true);
+                    setPickupDiscountPercentage(data.pickupDiscountPercentage || 0);
+                    setPickupDiscountText(data.pickupDiscountText || "");
                 }
             } catch (error) {
                 console.error("Error loading settings:", error);
@@ -49,7 +53,9 @@ export default function StoreStatusManager() {
                 storeAddress: storeAddress,
                 storeMapUrl: storeMapUrl,
                 allowDelivery: allowDelivery,
-                allowPickup: allowPickup
+                allowPickup: allowPickup,
+                pickupDiscountPercentage: Number(pickupDiscountPercentage),
+                pickupDiscountText: pickupDiscountText
             }, { merge: true });
             setMessage("🎉 Configuración guardada correctamente");
             setTimeout(() => setMessage(""), 3000);
@@ -188,6 +194,32 @@ export default function StoreStatusManager() {
                         <span className="slider round"></span>
                     </label>
                 </div>
+                
+                <div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                    <label>Descuento por Retiro en Local (%)</label>
+                    <input
+                        type="number"
+                        value={pickupDiscountPercentage}
+                        onChange={(e) => setPickupDiscountPercentage(Number(e.target.value))}
+                        placeholder="Ej: 10"
+                        min="0"
+                        max="100"
+                    />
+                    <small>Porcentaje de descuento que se aplicará si eligen retirar en el local. Si es 0, no hay descuento.</small>
+                </div>
+
+                {pickupDiscountPercentage > 0 && (
+                    <div className="form-group" style={{ marginTop: '15px' }}>
+                        <label>Texto Promocional del Descuento</label>
+                        <input
+                            type="text"
+                            value={pickupDiscountText}
+                            onChange={(e) => setPickupDiscountText(e.target.value)}
+                            placeholder="Ej: Promoción por apertura"
+                        />
+                        <small>Texto que aparecerá en el resumen de compra junto al descuento.</small>
+                    </div>
+                )}
             </div>
 
             <div className="status-footer">

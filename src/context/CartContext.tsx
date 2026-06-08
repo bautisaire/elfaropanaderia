@@ -140,16 +140,16 @@ export const CartProvider = ({ children }: Props) => {
           const aOut =
             a.variants && a.variants.length > 0
               ? a.variants.every((v) =>
-                  v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
-                )
+                v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
+              )
               : a.stockQuantity !== undefined
                 ? a.stockQuantity <= 0
                 : a.stock === false;
           const bOut =
             b.variants && b.variants.length > 0
               ? b.variants.every((v) =>
-                  v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
-                )
+                v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock
+              )
               : b.stockQuantity !== undefined
                 ? b.stockQuantity <= 0
                 : b.stock === false;

@@ -45,6 +45,9 @@ export default function Checkout() {
   const [deliveryModalReopen, setDeliveryModalReopen] = useState(false);
   const deliveryModalDismissedRef = useRef(false);
 
+  const [pickupDiscountPercentage, setPickupDiscountPercentage] = useState<number>(0);
+  const [pickupDiscountText, setPickupDiscountText] = useState<string>("");
+
   const [isManualAddress, setIsManualAddress] = useState(false);
   const [showSaveAddressModal, setShowSaveAddressModal] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
@@ -289,6 +292,8 @@ export default function Checkout() {
         setShippingCost(Number(data.shippingCost) || 0);
         setStoreAddressConfig(data.storeAddress || "");
         setStoreMapUrlConfig(data.storeMapUrl || "");
+        setPickupDiscountPercentage(Number(data.pickupDiscountPercentage) || 0);
+        setPickupDiscountText(data.pickupDiscountText || "");
         
         const isDeliveryAllowed = data.allowDelivery !== undefined ? data.allowDelivery : true;
         const isPickupAllowed = data.allowPickup !== undefined ? data.allowPickup : true;
@@ -345,8 +350,12 @@ export default function Checkout() {
 
   useEffect(() => {
     const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
-    setFinalTotal(cartTotal + effectiveShipping);
-  }, [cartTotal, shippingCost, deliveryMethod]);
+    let discount = 0;
+    if (deliveryMethod === 'pickup' && pickupDiscountPercentage > 0) {
+      discount = (cartTotal * pickupDiscountPercentage) / 100;
+    }
+    setFinalTotal(cartTotal + effectiveShipping - discount);
+  }, [cartTotal, shippingCost, deliveryMethod, pickupDiscountPercentage]);
 
   const handleProcederAlPago = async () => {
     // 0. Validar Compra Mínima
@@ -448,10 +457,19 @@ export default function Checkout() {
       }
 
       // Preparar Ticket
+      const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
+      const itemsWithModifiers = [...cart];
+      if (effectiveShipping > 0) {
+        itemsWithModifiers.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 });
+      }
+      if (discountAmount > 0) {
+        itemsWithModifiers.push({ id: 'pickup-discount', name: pickupDiscountText || `Descuento Retiro Local (-${pickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 });
+      }
+
       const ticketData = {
         id: orderId,
         items: cart, // Needed for ticket render and whatsapp link
-        itemsWithShipping: [...cart, ...(effectiveShipping > 0 ? [{ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 }] : [])],
+        itemsWithShipping: itemsWithModifiers,
         total: finalTotal,
         paymentMethod: orderFormData.metodoPago,
         cliente: orderFormData,
@@ -726,7 +744,14 @@ export default function Checkout() {
                           <FaStore className="delivery-method-summary-icon" aria-hidden />
                         )}
                         <div className="delivery-method-summary-text">
-                          <strong>{deliveryMethod === "delivery" ? "Envío a domicilio" : "Retiro en local"}</strong>
+                          <strong>
+                            {deliveryMethod === "delivery" ? "Envío a domicilio" : "Retiro en local"}
+                            {deliveryMethod === "pickup" && pickupDiscountPercentage > 0 && (
+                                <span style={{ color: '#16a34a', fontSize: '0.85em', marginLeft: '6px', fontWeight: 'bold' }}>
+                                    (-{pickupDiscountPercentage}%)
+                                </span>
+                            )}
+                          </strong>
                           <p>
                             {deliveryMethod === "delivery"
                               ? "Te llevamos el pedido a tu dirección."
@@ -1027,6 +1052,12 @@ export default function Checkout() {
                       <span>Costo de envío</span>
                       <span>${deliveryMethod === 'pickup' ? 0 : shippingCost}</span>
                     </div>
+                    {deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 && (
+                        <div className="summary-row" style={{ color: '#16a34a', fontWeight: 'bold' }}>
+                            <span>{pickupDiscountText || 'Descuento retiro en local'} (-{pickupDiscountPercentage}%)</span>
+                            <span>-${Math.floor((cartTotal * pickupDiscountPercentage) / 100)}</span>
+                        </div>
+                    )}
                     <div className="summary-row total">
                       <span>Total</span>
                       <span className="total-amount-display">${Math.floor(finalTotal)}</span>
@@ -1136,8 +1167,17 @@ export default function Checkout() {
                 disabled={!allowPickup}
               >
                 <FaStore className="delivery-method-modal-card-icon" aria-hidden />
-                <span className="delivery-method-modal-card-title">Retiro en local</span>
-                <span className="delivery-method-modal-card-desc">Pasás a buscarlo por el local</span>
+                <span className="delivery-method-modal-card-title">
+                    Retiro en local
+                    {pickupDiscountPercentage > 0 && (
+                        <span style={{ color: '#16a34a', fontSize: '0.8em', marginLeft: '6px', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '10px' }}>
+                            -{pickupDiscountPercentage}%
+                        </span>
+                    )}
+                </span>
+                <span className="delivery-method-modal-card-desc">
+                    {pickupDiscountPercentage > 0 && pickupDiscountText ? pickupDiscountText : "Pasás a buscarlo por el local"}
+                </span>
               </button>
             </div>
             <div className="delivery-method-modal-footer">
