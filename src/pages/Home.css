@@ -175,3 +175,47 @@
     height: 55px;
   }
 }
+
+/* Floating Raffle Button */
+.floating-raffle-btn {
+  position: fixed;
+  bottom: 165px;
+  right: 20px;
+  background-color: #111827;
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid #eab308;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.4);
+  z-index: 1000;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s;
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+}
+
+.floating-raffle-btn:hover {
+  transform: scale(1.08);
+  background-color: #1f2937;
+}
+
+.floating-raffle-btn:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .floating-raffle-btn {
+    bottom: 175px;
+    right: 15px;
+    width: 55px;
+    height: 55px;
+  }
+}
+
+.raffle-home-modal {
+  position: relative;
+  background-color: #ffffff;
+}

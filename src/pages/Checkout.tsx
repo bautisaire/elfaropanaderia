@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db, functions } from "../firebase/firebaseConfig";
-import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc } from "firebase/firestore";
+import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, addDoc, collection, query, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
@@ -25,6 +25,19 @@ export default function Checkout() {
 
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeRaffle, setActiveRaffle] = useState<any>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, "raffles"), where("isActive", "==", true), limit(1));
+    const unsub = onSnapshot(q, (snap) => {
+      if (!snap.empty) {
+        setActiveRaffle({ id: snap.docs[0].id, ...snap.docs[0].data() });
+      } else {
+        setActiveRaffle(null);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
   const [showCheckout, setShowCheckout] = useState(true);
@@ -466,6 +479,32 @@ export default function Checkout() {
         }).catch(console.error);
       }
 
+      // Registrar participante en el sorteo si está activo
+      if (activeRaffle) {
+        try {
+          const identifier = user?.email || orderFormData.telefono;
+          const qCheck = query(
+            collection(db, `raffles/${activeRaffle.id}/participants`), 
+            where("phoneOrEmail", "==", identifier), 
+            limit(1)
+          );
+          const checkSnap = await getDocs(qCheck);
+          
+          if (checkSnap.empty) {
+            await addDoc(collection(db, `raffles/${activeRaffle.id}/participants`), {
+              name: orderFormData.nombre,
+              phoneOrEmail: identifier,
+              date: Timestamp.now()
+            });
+            console.log("Participante agregado al sorteo.");
+          } else {
+            console.log("El participante ya estaba registrado previamente.");
+          }
+        } catch (err) {
+          console.error("Error al registrar participante en el sorteo:", err);
+        }
+      }
+
       // Preparar Ticket
       const itemsWithModifiers = [...cart];
       if (effectiveShipping > 0) {
@@ -575,14 +614,14 @@ export default function Checkout() {
         </div>
       )}
 
-      <h2>
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px', verticalAlign: 'middle' }}>
-          <circle cx="9" cy="21" r="1"></circle>
-          <circle cx="20" cy="21" r="1"></circle>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-        </svg>
-        Tu carrito
-      </h2>
+      {activeRaffle && (
+        <div className="raffle-banner" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>🎁 {activeRaffle.title || 'Sorteo Especial'}</div>
+          <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>Premios: {activeRaffle.prize}</div>
+          {activeRaffle.customMessage && <div style={{ fontSize: '0.85rem', marginTop: '6px', opacity: 0.9 }}>{activeRaffle.customMessage}</div>}
+        </div>
+      )}
+
 
       {confirmedOrder ? (
         <div className="checkout-success-container" style={{ maxWidth: '100%', margin: '0' }}>
@@ -592,6 +631,14 @@ export default function Checkout() {
 
           <h2>¡Compra Exitosa!</h2>
           <p className="success-subtitle">Tu pedido ha sido registrado correctamente.</p>
+
+          {activeRaffle && (
+            <div style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', margin: '15px 0', border: '1px solid #6ee7b7', textAlign: 'center' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
+              <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Premios: {activeRaffle.prize}</div>
+              {activeRaffle.customMessage && <div style={{ fontSize: '0.8rem', marginTop: '4px', fontStyle: 'italic', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
+            </div>
+          )}
 
           <div className="success-ticket">
             <div className="ticket-header">
@@ -1028,6 +1075,14 @@ export default function Checkout() {
               {/* Right Column: Order Summary */}
               <div className="checkout-right">
                 <div className="checkout-summary-card">
+                  <h2 style={{ fontSize: '1.5rem', marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', color: '#1a1a1a' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+                      <circle cx="9" cy="21" r="1"></circle>
+                      <circle cx="20" cy="21" r="1"></circle>
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    Tu carrito
+                  </h2>
                   <div className="summary-items">
                     {cart.map((item) => (
                       <div key={item.id} className="summary-item-row">
@@ -1071,6 +1126,11 @@ export default function Checkout() {
                       <span>Total</span>
                       <span className="total-amount-display">${Math.floor(finalTotal)}</span>
                     </div>
+                    {activeRaffle && (
+                      <div style={{ marginTop: '15px', color: '#16a34a', fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold' }}>
+                        Realizando esta compra participas del sorteo automáticamente
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
