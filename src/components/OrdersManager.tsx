@@ -119,6 +119,7 @@ export default function OrdersManager() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editSearchTerm, setEditSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
 
     // Cancel Modal State
     const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -668,6 +669,7 @@ export default function OrdersManager() {
     const handleSaveOrder = async () => {
         if (!editingOrder) return;
 
+        setIsSavingOrder(true);
         try {
             // 1. Revert Stock of OLD Order Items (IN)
             const originalOrder = orders.find(o => o.id === editingOrder.id);
@@ -707,6 +709,8 @@ export default function OrdersManager() {
         } catch (error) {
             console.error("Error updating order:", error);
             alert("Error al guardar el pedido.");
+        } finally {
+            setIsSavingOrder(false);
         }
     };
 
@@ -1359,7 +1363,9 @@ export default function OrdersManager() {
 
                                 <div className="pm-modal-actions">
                                     <button className="cancel-btn" onClick={handleCloseEditModal}>Cancelar</button>
-                                    <button className="save-btn" onClick={handleSaveOrder}><FaSave /> Guardar Cambios</button>
+                                    <button className="save-btn" onClick={handleSaveOrder} disabled={isSavingOrder}>
+                                        {isSavingOrder ? 'Guardando...' : <><FaSave /> Guardar Cambios</>}
+                                    </button>
                                 </div>
                             </div>
                         </div>

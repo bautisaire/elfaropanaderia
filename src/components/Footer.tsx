@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
                     <h3 className="footer-title">Nuestra ubicación:</h3>
                     <div className="map-container">
                         <iframe
-                            src="https://maps.google.com/maps?q=David+Spinetto+271,+Senillosa,+Neuquen&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            src="https://maps.google.com/maps?q=Las+Lengas+797,+Senillosa,+Neuquen&t=&z=15&ie=UTF8&iwloc=&output=embed"
                             width="100%"
                             height="250"
                             style={{ border: 0 }}
