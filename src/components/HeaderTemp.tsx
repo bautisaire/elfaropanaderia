@@ -11,6 +11,20 @@ import SearchBar from "./SearchBar";
 import ProductModal from "./ProductModal";
 import { Product } from "../context/CartContext";
 
+const BanderinSVG = ({ className }: { className?: string }) => (
+  <svg 
+    className={className} 
+    viewBox="0 0 60 30" 
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.15))' }}
+  >
+    <polygon points="0,0 60,0 50,10 0,10" fill="#74ACDF" />
+    <polygon points="0,10 50,10 45,15 50,20 0,20" fill="#FFFFFF" />
+    <polygon points="0,20 50,20 60,30 0,30" fill="#74ACDF" />
+    <circle cx="22" cy="15" r="3.5" fill="#F6B40E" />
+  </svg>
+);
+
 export default function Header() {
   const navigate = useNavigate();
 
@@ -138,8 +152,10 @@ export default function Header() {
           </div>
 
           <div className="logo-section" onClick={handleLogoClick}>
+            <BanderinSVG className="banderin-left" />
             <img src={logo} alt="El Faro Panadería" className="logo-img" />
             <span className="brand-name">EL FARO <span className="brand-suffix">PANADERIA</span></span>
+            <BanderinSVG className="banderin-right" />
           </div>
 
           <div className="header-right">

@@ -105,12 +105,28 @@
   height: 60px;
   /* Increased from 40px */
   width: auto;
-  transition: transform var(--transition-speed) ease;
+  transition: transform var(--transition-speed) ease, height var(--transition-speed) ease;
+}
+
+.banderin-left, .banderin-right {
+  height: 45px;
+  width: auto;
+  transition: transform var(--transition-speed) ease, height var(--transition-speed) ease;
+  object-fit: contain;
+}
+
+.banderin-left {
+  transform: scaleX(-1);
 }
 
 .header-container.scrolled .logo-img {
   height: 45px;
   /* Slightly smaller when scrolled */
+}
+
+.header-container.scrolled .banderin-left, 
+.header-container.scrolled .banderin-right {
+  height: 35px;
 }
 
 .brand-name {
@@ -219,13 +235,30 @@
 }
 
 @media (max-width: 480px) {
+  .logo-section {
+    gap: 0.25rem;
+  }
+
   .brand-suffix {
     display: none;
     /* Hide 'PANADERIA' on small screens */
   }
 
   .logo-img {
-    height: 42px;
+    height: 40px;
     /* Adjustable for mobile */
+  }
+
+  .banderin-left, .banderin-right {
+    height: 35px; /* Optimize for mobile view */
+  }
+
+  .header-container.scrolled .logo-img {
+    height: 35px;
+  }
+
+  .header-container.scrolled .banderin-left,
+  .header-container.scrolled .banderin-right {
+    height: 30px;
   }
 }
