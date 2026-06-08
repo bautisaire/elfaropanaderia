@@ -32,6 +32,11 @@ export default function Home() {
 
   // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
+    document.body.classList.add('svg-background');
+    return () => document.body.classList.remove('svg-background');
+  }, []);
+
+  useEffect(() => {
     const visited = sessionStorage.getItem('hasVisited');
     if (visited) return; // Already counted this session, do nothing
 

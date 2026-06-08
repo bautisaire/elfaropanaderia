@@ -13,6 +13,12 @@ import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, Fa
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user } = useContext(CartContext);
+  
+  useEffect(() => {
+    document.body.classList.add('svg-background');
+    return () => document.body.classList.remove('svg-background');
+  }, []);
+
   const [userAddresses, setUserAddresses] = useState<any[]>([]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
