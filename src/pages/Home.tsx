@@ -219,22 +219,24 @@ export default function Home() {
               </p>
             )}
 
-            <div className="raffle-participants-list" style={{ textAlign: 'left', background: '#f8fafc', padding: '15px', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-              <h3 style={{ fontSize: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', color: '#334155' }}>
+            <div style={{ textAlign: 'left', width: '100%', marginTop: '10px' }}>
+              <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', color: '#334155' }}>
                 Participantes ({raffleParticipants.length})
               </h3>
-              {raffleParticipants.length === 0 ? (
-                <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center' }}>Aún no hay participantes. ¡Haz tu pedido para ser el primero!</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {raffleParticipants.map(p => (
-                    <li key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', fontSize: '0.95rem', color: '#475569' }}>
-                      <FaGift style={{ color: '#34d399', marginRight: '10px' }} />
-                      {p.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="raffle-participants-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
+                {raffleParticipants.length === 0 ? (
+                  <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>Aún no hay participantes. ¡Haz tu pedido para ser el primero!</p>
+                ) : (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {raffleParticipants.map(p => (
+                      <li key={p.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', fontSize: '0.95rem', color: '#475569' }}>
+                        <FaGift style={{ color: '#34d399', marginRight: '10px', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         </div>
