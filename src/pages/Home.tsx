@@ -128,7 +128,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <Hero />
+      <Hero onRaffleClick={() => setShowRaffleModal(true)} activeRaffle={activeRaffle} />
       <div className="home">
         {loading ? (
           // Mostrar 6 esqueletos mientras carga

@@ -15,7 +15,12 @@ interface HeroSlide {
     active?: boolean;
 }
 
-export default function Hero() {
+interface HeroProps {
+    onRaffleClick?: () => void;
+    activeRaffle?: any;
+}
+
+export default function Hero({ onRaffleClick, activeRaffle }: HeroProps) {
     const [slides, setSlides] = useState<HeroSlide[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
@@ -134,24 +139,38 @@ export default function Hero() {
                     <div className="hero-content">
                         <h1 className="hero-title-text">{slide.title}</h1>
                         {slide.subtitle && <p className="hero-subtitle">{slide.subtitle}</p>}
-                        {slide.showButton && (
-                            slide.buttonLink ? (
-                                <a
-                                    href={slide.buttonLink}
-                                    className="hero-button"
-                                    target={slide.buttonLink.startsWith('http') ? "_blank" : "_self"}
-                                    rel={slide.buttonLink.startsWith('http') ? "noopener noreferrer" : ""}
-                                    style={{ textDecoration: 'none', display: 'inline-block' }}
-                                    draggable={false}
+                        
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px', flexWrap: 'wrap' }}>
+                            {slide.showButton && (
+                                slide.buttonLink ? (
+                                    <a
+                                        href={slide.buttonLink}
+                                        className="hero-button"
+                                        target={slide.buttonLink.startsWith('http') ? "_blank" : "_self"}
+                                        rel={slide.buttonLink.startsWith('http') ? "noopener noreferrer" : ""}
+                                        style={{ textDecoration: 'none', display: 'inline-block', margin: 0 }}
+                                        draggable={false}
+                                    >
+                                        {slide.buttonText || "Ver Productos"}
+                                    </a>
+                                ) : (
+                                    <button className="hero-button" style={{ margin: 0 }}>
+                                        {slide.buttonText || "Ver Productos"}
+                                    </button>
+                                )
+                            )}
+
+                            {activeRaffle && onRaffleClick && (
+                                <button 
+                                    onClick={onRaffleClick} 
+                                    className="hero-button" 
+                                    style={{ margin: 0, backgroundColor: '#eab308', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}
                                 >
-                                    {slide.buttonText || "Ver Productos"}
-                                </a>
-                            ) : (
-                                <button className="hero-button">
-                                    {slide.buttonText || "Ver Productos"}
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+                                    Ver Sorteo
                                 </button>
-                            )
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             ))}
