@@ -463,10 +463,10 @@ export default function Checkout() {
       // Preparar Ticket
       const itemsWithModifiers = [...cart];
       if (effectiveShipping > 0) {
-        itemsWithModifiers.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 });
+        itemsWithModifiers.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 } as any);
       }
       if (discountAmount > 0) {
-        itemsWithModifiers.push({ id: 'pickup-discount', name: pickupDiscountText || `Descuento Retiro Local (-${pickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 });
+        itemsWithModifiers.push({ id: 'pickup-discount', name: pickupDiscountText || `Descuento Retiro Local (-${pickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 } as any);
       }
 
       const ticketData = {
