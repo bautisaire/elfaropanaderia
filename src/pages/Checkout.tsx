@@ -3,7 +3,7 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db, functions } from "../firebase/firebaseConfig";
-import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, addDoc, collection, query, where, limit, getDocs } from "firebase/firestore";
+import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, query, collection, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
