@@ -31,7 +31,7 @@ export default function Home() {
         setActiveRaffle(raffleData);
         
         const qParts = query(collection(db, `raffles/${raffleData.id}/participants`), orderBy("date", "desc"));
-        const unsubParts = onSnapshot(qParts, (snapParts) => {
+        onSnapshot(qParts, (snapParts) => {
           const parts: any[] = [];
           snapParts.docs.forEach(d => parts.push({ id: d.id, ...d.data() }));
           setRaffleParticipants(parts);
