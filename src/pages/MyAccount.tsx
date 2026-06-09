@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
-import { auth, googleProvider, db } from '../firebase/firebaseConfig';
+import { auth, db } from '../firebase/firebaseConfig';
 import {
     signOut,
     sendEmailVerification
