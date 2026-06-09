@@ -3,6 +3,7 @@ import { FaTimes } from "react-icons/fa";
 import { Product, useCart } from "../context/CartContext";
 import ReviewsSection from "./ReviewsSection";
 import "./ProductCard.css"; // Reuse some styles for variants/buttons
+import "./ProductDetailsModal.css";
 
 interface ProductDetailsModalProps {
     product: Product;
@@ -169,9 +170,9 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                 }}
             >
 
-                <div style={{ display: "flex", flexWrap: "wrap", padding: "24px" }}>
+                <div className="product-details-main">
                     {/* Left: Image Gallery */}
-                    <div style={{ flex: "1 1 300px", minWidth: "300px", marginRight: "24px", marginBottom: "24px" }}>
+                    <div className="product-details-image-col">
                         <div style={{ width: "100%", aspectRatio: "1", borderRadius: "12px", overflow: "hidden", position: "relative", backgroundColor: "#f9f9f9" }}>
                             <img
                                 src={currentImage}
@@ -213,10 +214,10 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                     </div>
 
                     {/* Right: Product Info */}
-                    <div style={{ flex: "1 1 300px", minWidth: "300px", display: "flex", flexDirection: "column" }}>
+                    <div className={`product-details-info-col${!liveProduct.description ? " product-details-info-col--compact" : ""}`}>
                         <h2 style={{ fontSize: "1.8rem", margin: "0 0 8px 0", color: "#222" }}>{liveProduct.name}</h2>
                         
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "16px" }}>
+                        <div className="product-details-price">
                             <span style={{ fontSize: "1.5rem", fontWeight: "bold", color: hasDiscount ? "#e53e3e" : "#222" }}>
                                 ${Math.floor(finalPrice)}
                             </span>
@@ -235,9 +236,9 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
 
                         {/* Variants */}
                         {liveProduct.variants && liveProduct.variants.length > 0 && (
-                            <div style={{ marginBottom: "24px" }}>
+                            <div className="product-details-variants" style={{ marginBottom: "24px" }}>
                                 <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#333" }}>Opciones:</h4>
-                                <div className="variants-bubbles" style={{ justifyContent: "flex-start" }}>
+                                <div className="variants-bubbles">
                                     {liveProduct.variants.map((variant, idx) => (
                                         <button
                                             key={idx}
@@ -254,7 +255,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                             </div>
                         )}
 
-                        <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "16px" }}>
+                        <div className="product-details-actions">
                             {quantity === 0 ? (
                                 <button
                                     className="btn-add"
@@ -287,8 +288,8 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                                 </>
                             )}
                         </div>
-                        <div style={{ marginTop: "8px", fontSize: "0.9rem", color: "#666", textAlign: "right" }}>
-                            Stock disponible: {maxStock}
+                        <div className="product-details-stock">
+                            Stock: {maxStock}
                         </div>
                     </div>
                 </div>
