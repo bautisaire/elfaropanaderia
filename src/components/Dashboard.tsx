@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebaseConfig";
-import { collection, doc, onSnapshot } from "firebase/firestore";
+import { collection, doc, onSnapshot, collectionGroup } from "firebase/firestore";
 import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 
@@ -29,6 +29,7 @@ export default function Dashboard() {
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
     const [rawUsers, setRawUsers] = useState<any[]>([]);
+    const [rawReviews, setRawReviews] = useState<any[]>([]);
     const [rawExpenses, setRawExpenses] = useState<any[]>([]);
     const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -149,6 +150,7 @@ export default function Dashboard() {
         let unsubTimeEntries: () => void;
         let unsubProducts: () => void; // New listener for products
         let unsubRawMaterials: () => void;
+        let unsubReviews: () => void;
 
         const setupListeners = async () => {
             try {
@@ -247,6 +249,11 @@ export default function Dashboard() {
                     setRawTimeEntries(entries);
                 });
 
+                unsubReviews = onSnapshot(collectionGroup(db, "reviews"), (snapshot) => {
+                    const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setRawReviews(reviews);
+                });
+
                 setLoading(false);
 
             } catch (error) {
@@ -265,6 +272,7 @@ export default function Dashboard() {
             if (unsubUsers) unsubUsers();
             if (unsubExpenses) unsubExpenses();
             if (unsubTimeEntries) unsubTimeEntries();
+            if (unsubReviews) unsubReviews();
         };
     }, []);
 
@@ -1041,6 +1049,31 @@ export default function Dashboard() {
                                 return userDateString === todayDateString;
                             }).length;
                             return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newUsersCount} hoy</span>
+                        })()}
+                    </div>
+                </div>
+
+                {/* Reseñas */}
+                <div className="stat-card users">
+                    <div className="stat-icon" style={{ background: '#3b82f6' }}><FaStar color="#fff" /></div>
+                    <div className="stat-info">
+                        <h3>Reseñas</h3>
+                        <p>{rawReviews.length.toLocaleString('es-AR')}</p>
+                        {(() => {
+                            const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                            const newReviewsCount = rawReviews.filter(r => {
+                                if (!r.createdAt) return false;
+                                let createdDate = r.createdAt;
+                                if (typeof createdDate.toDate === 'function') createdDate = createdDate.toDate();
+                                else createdDate = new Date(createdDate);
+                                const reviewDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(createdDate);
+                                return reviewDateString === todayDateString;
+                            }).length;
+                            
+                            if (newReviewsCount > 0) {
+                                return <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{newReviewsCount} hoy</span>;
+                            }
+                            return <span className="stat-sub" style={{ color: '#9ca3af' }}>0 hoy</span>;
                         })()}
                     </div>
                 </div>
