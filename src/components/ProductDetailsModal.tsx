@@ -265,17 +265,26 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                                     {isOutOfStock ? "Sin Stock" : "Agregar al carrito"}
                                 </button>
                             ) : (
-                                <div className="quantity-controls" style={{ flex: 1, height: "50px" }}>
-                                    <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
-                                    <span className="quantity-display" style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{quantity}</span>
+                                <>
+                                    <div className="quantity-controls" style={{ flex: 1, height: "50px" }}>
+                                        <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
+                                        <span className="quantity-display" style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{quantity}</span>
+                                        <button
+                                            className="btn-qty plus"
+                                            onClick={handleAddToCart}
+                                            disabled={atMaxQuantity}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
                                     <button
-                                        className="btn-qty plus"
-                                        onClick={handleAddToCart}
-                                        disabled={atMaxQuantity}
+                                        className="btn-add"
+                                        onClick={onClose}
+                                        style={{ flex: 1, padding: "14px", fontSize: "1.1rem" }}
                                     >
-                                        +
+                                        Confirmar
                                     </button>
-                                </div>
+                                </>
                             )}
                         </div>
                         <div style={{ marginTop: "8px", fontSize: "0.9rem", color: "#666", textAlign: "right" }}>
