@@ -4,9 +4,10 @@ import "./ProductCard.css";
 
 interface Props {
   product: Product;
+  onOpenDetails?: (product: Product) => void;
 }
 
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ product, onOpenDetails }: Props) {
   const {
     addToCart,
     removeFromCart,
@@ -137,7 +138,11 @@ export default function ProductCard({ product }: Props) {
   const displayStock = maxStock;
 
   return (
-    <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
+    <div 
+      className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}
+      onClick={() => onOpenDetails && onOpenDetails(liveProduct)}
+      style={{ cursor: onOpenDetails ? 'pointer' : 'default' }}
+    >
       <div className="image-wrapper">
         <img
           src={currentImage}
@@ -205,7 +210,8 @@ export default function ProductCard({ product }: Props) {
                 <button
                   key={idx}
                   className={`variant-bubble ${selectedVariant === variant.name ? "selected" : ""}`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (variantHasStock(variant)) setSelectedVariant(variant.name);
                   }}
                   disabled={!variantHasStock(variant)}
@@ -231,7 +237,7 @@ export default function ProductCard({ product }: Props) {
           {quantity === 0 ? (
             <button
               className="btn-add"
-              onClick={handleAddToCart}
+              onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
               disabled={isOutOfStock}
             >
               {isOutOfStock ? "Sin Stock" : (
@@ -242,11 +248,11 @@ export default function ProductCard({ product }: Props) {
             </button>
           ) : (
             <div className="quantity-controls">
-              <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
+              <button className="btn-qty minus" onClick={(e) => { e.stopPropagation(); handleRemoveOne(); }}>−</button>
               <span className="quantity-display">{quantity}</span>
               <button
                 className="btn-qty plus"
-                onClick={handleAddToCart}
+                onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
                 disabled={atMaxQuantity}
                 aria-label={atMaxQuantity ? "Stock máximo alcanzado" : "Agregar uno más"}
               >

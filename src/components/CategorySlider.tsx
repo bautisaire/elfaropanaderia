@@ -7,9 +7,10 @@ import "../pages/Home.css"; // Reuse existing styles
 interface CategorySliderProps {
     category: string;
     products: Product[];
+    onOpenDetails?: (product: Product) => void;
 }
 
-export default function CategorySlider({ category, products }: CategorySliderProps) {
+export default function CategorySlider({ category, products, onOpenDetails }: CategorySliderProps) {
     // Función auxiliar para determinar si un producto no tiene stock
     const isOutOfStock = (p: Product) => {
         if (p.variants && p.variants.length > 0) {
@@ -64,7 +65,7 @@ export default function CategorySlider({ category, products }: CategorySliderPro
                     {inStockProducts.length > 0 && (
                         <div className="products-slider">
                             {inStockProducts.map((p) => (
-                                <ProductCard key={p.id} product={p} />
+                                <ProductCard key={p.id} product={p} onOpenDetails={onOpenDetails} />
                             ))}
                         </div>
                     )}
@@ -95,7 +96,7 @@ export default function CategorySlider({ category, products }: CategorySliderPro
                             {showOutOfStock && (
                                 <div className="products-slider" style={{ opacity: 0.75 }}>
                                     {outOfStockProducts.map((p) => (
-                                        <ProductCard key={p.id} product={p} />
+                                        <ProductCard key={p.id} product={p} onOpenDetails={onOpenDetails} />
                                     ))}
                                 </div>
                             )}
@@ -106,7 +107,7 @@ export default function CategorySlider({ category, products }: CategorySliderPro
                     {allOutOfStock && (
                         <div className="products-slider" style={{ opacity: 0.75 }}>
                             {outOfStockProducts.map((p) => (
-                                <ProductCard key={p.id} product={p} />
+                                <ProductCard key={p.id} product={p} onOpenDetails={onOpenDetails} />
                             ))}
                         </div>
                     )}

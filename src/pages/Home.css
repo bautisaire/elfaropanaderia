@@ -152,7 +152,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
-  z-index: 1000;
+  z-index: 1100;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s;
   animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
@@ -191,7 +191,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 15px rgba(234, 179, 8, 0.4);
-  z-index: 1000;
+  z-index: 1100;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s;
   animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   cursor: pointer;

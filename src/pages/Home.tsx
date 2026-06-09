@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
-import ProductModal from "../components/ProductModal";
+import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
@@ -156,7 +156,7 @@ export default function Home() {
               return a.localeCompare(b);
             })
             .map(([category, categoryProducts]) => (
-              <CategorySlider key={category} category={category} products={categoryProducts} />
+              <CategorySlider key={category} category={category} products={categoryProducts} onOpenDetails={setSelectedProduct} />
             ))
         )}
       </div>
@@ -188,7 +188,7 @@ export default function Home() {
       )}
 
       {selectedProduct && (
-        <ProductModal
+        <ProductDetailsModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
         />

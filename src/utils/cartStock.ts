@@ -83,6 +83,7 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         stock: data.stock as boolean | undefined,
         stockQuantity: data.stockQuantity as number | undefined,
         stockDependency,
+        description: data.description as string | undefined,
         unitType: (data.unitType as Product['unitType']) || 'unit',
         isVisible: data.isVisible !== false,
         discount: (data.discount as number) || 0,
