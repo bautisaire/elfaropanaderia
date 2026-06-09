@@ -3,16 +3,11 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { auth, googleProvider, db } from '../firebase/firebaseConfig';
 import {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    sendPasswordResetEmail,
-    signInWithPopup,
     signOut,
     sendEmailVerification
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
 import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
-import { FcGoogle } from 'react-icons/fc';
 import AuthForm from '../components/AuthForm';
 import './MyAccount.css';
 
@@ -44,78 +39,12 @@ export default function MyAccount() {
     const { user, isAdmin } = useContext(CartContext);
     const navigate = useNavigate();
 
-    const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [msg, setMsg] = useState('');
-
     const location = useLocation();
     let currentPath = location.pathname.split('/')[2];
     let activeTab = currentPath || 'personal';
     if (!['personal', 'direcciones', 'compras', 'favoritos'].includes(activeTab)) {
         activeTab = 'personal';
     }
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true); setError(''); setMsg('');
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (err: any) {
-            setError(err.message || 'Error al iniciar sesión');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true); setError(''); setMsg('');
-
-        if (password !== confirmPassword) {
-            setError('Las contraseñas no coinciden');
-            setLoading(false);
-            return;
-        }
-
-        try {
-            await createUserWithEmailAndPassword(auth, email, password);
-        } catch (err: any) {
-            setError(err.message || 'Error al crear cuenta');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleForgot = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true); setError(''); setMsg('');
-        if (!email) {
-            setError("Ingresá tu email para restablecer la contraseña.");
-            setLoading(false);
-            return;
-        }
-        try {
-            await sendPasswordResetEmail(auth, email);
-            setMsg("Correo de recuperación enviado. Revisa tu bandeja de entrada.");
-            setMode('login');
-        } catch (err: any) {
-            setError(err.message || 'Error al enviar correo');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGoogle = async () => {
-        try {
-            await signInWithPopup(auth, googleProvider);
-        } catch (err: any) {
-            setError('Error al conectar con Google.');
-        }
-    };
 
     const handleLogout = () => {
         signOut(auth);

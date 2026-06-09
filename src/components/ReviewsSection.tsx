@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase/firebaseConfig";
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, doc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { FaStar, FaUserCircle, FaTrash } from "react-icons/fa";
