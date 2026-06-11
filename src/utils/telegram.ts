@@ -24,7 +24,7 @@ export const generateOrderMessage = (orderData: any) => {
     const { cliente, items, total } = orderData;
 
     const itemsList = items
-        .map((item: any) => `- ${item.quantity}x ${item.name} ($${Math.floor(item.price)})`)
+        .map((item: any) => `- ${item.quantity}x ${item.name} ($${Math.floor(item.price * item.quantity)})`)
         .join("\n");
 
     const transferBlock = isTransferPayment(cliente?.metodoPago) ? TRANSFER_DATA_BLOCK : '';
