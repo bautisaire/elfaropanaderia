@@ -2,7 +2,13 @@ import React, { useState, useEffect } from "react";
 import { db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, where, getDocs, limit } from "firebase/firestore";
 import "./RaffleManager.css";
-import { FaGift, FaSearch, FaTrash, FaPlus, FaTrophy, FaCalendarAlt, FaChevronDown, FaChevronUp, FaStopCircle, FaPlayCircle } from "react-icons/fa";
+import { FaGift, FaSearch, FaTrash, FaPlus, FaTrophy, FaCalendarAlt, FaChevronDown, FaChevronUp, FaStopCircle, FaPlayCircle, FaEdit, FaSave, FaTimes, FaCopy } from "react-icons/fa";
+
+interface RaffleWinner {
+  participantId: string;
+  name: string;
+  phoneOrEmail: string;
+}
 
 interface Raffle {
   id: string;
@@ -13,6 +19,7 @@ interface Raffle {
   startDate: any;
   endDate: any;
   isActive: boolean;
+  winner?: RaffleWinner | null;
 }
 
 interface Participant {
@@ -20,6 +27,33 @@ interface Participant {
   name: string;
   phoneOrEmail: string;
   date: any;
+}
+
+function isEmailContact(contact: string): boolean {
+  return contact.includes("@");
+}
+
+function getWhatsAppUrl(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return `https://wa.me/+549${digits}`;
+}
+
+function ParticipantContactLink({ contact }: { contact: string }) {
+  if (isEmailContact(contact)) {
+    return <span>{contact}</span>;
+  }
+
+  return (
+    <a
+      href={getWhatsAppUrl(contact)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="participant-whatsapp-link"
+      title="Abrir WhatsApp"
+    >
+      {contact}
+    </a>
+  );
 }
 
 export default function RaffleManager() {
@@ -39,6 +73,15 @@ export default function RaffleManager() {
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [namesCopied, setNamesCopied] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
+  const [endModalSearch, setEndModalSearch] = useState("");
+  const [isEnding, setIsEnding] = useState(false);
 
   // History expanded items
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
@@ -104,17 +147,50 @@ export default function RaffleManager() {
     }
   };
 
-  const handleEndRaffle = async () => {
+  const handleEndRaffle = () => {
     if (!activeRaffle) return;
-    if (window.confirm("¿Seguro que deseas finalizar el sorteo actual? Los participantes quedarán guardados en el historial.")) {
-      try {
-        await updateDoc(doc(db, "raffles", activeRaffle.id), {
-          isActive: false,
-          endDate: Timestamp.now()
-        });
-      } catch (error) {
-        console.error("Error ending raffle:", error);
-      }
+    setSelectedWinnerId(null);
+    setEndModalSearch("");
+    setShowEndModal(true);
+  };
+
+  const closeEndModal = () => {
+    if (isEnding) return;
+    setShowEndModal(false);
+    setSelectedWinnerId(null);
+    setEndModalSearch("");
+  };
+
+  const confirmEndRaffle = async () => {
+    if (!activeRaffle) return;
+    if (participants.length > 0 && !selectedWinnerId) return;
+
+    setIsEnding(true);
+    try {
+      const winner = selectedWinnerId
+        ? participants.find(p => p.id === selectedWinnerId)
+        : null;
+
+      await updateDoc(doc(db, "raffles", activeRaffle.id), {
+        isActive: false,
+        endDate: Timestamp.now(),
+        winner: winner
+          ? {
+              participantId: winner.id,
+              name: winner.name,
+              phoneOrEmail: winner.phoneOrEmail
+            }
+          : null
+      });
+      setShowEndModal(false);
+      setSelectedWinnerId(null);
+      setEndModalSearch("");
+      setActiveTab("history");
+    } catch (error) {
+      console.error("Error ending raffle:", error);
+      alert("No se pudo finalizar el sorteo.");
+    } finally {
+      setIsEnding(false);
     }
   };
 
@@ -150,9 +226,59 @@ export default function RaffleManager() {
     if (window.confirm("¿Eliminar este participante?")) {
       try {
         await deleteDoc(doc(db, `raffles/${activeRaffle.id}/participants`, participantId));
+        if (editingParticipantId === participantId) {
+          setEditingParticipantId(null);
+        }
       } catch (error) {
         console.error("Error deleting participant:", error);
       }
+    }
+  };
+
+  const startEditParticipant = (participant: Participant) => {
+    setEditingParticipantId(participant.id);
+    setEditName(participant.name);
+    setEditPhone(participant.phoneOrEmail);
+  };
+
+  const cancelEditParticipant = () => {
+    setEditingParticipantId(null);
+    setEditName("");
+    setEditPhone("");
+  };
+
+  const handleSaveParticipant = async (participantId: string) => {
+    if (!activeRaffle || !editName.trim() || !editPhone.trim()) return;
+
+    setIsSavingEdit(true);
+    try {
+      const trimmedPhone = editPhone.trim();
+      const currentParticipant = participants.find(p => p.id === participantId);
+      const phoneChanged = currentParticipant?.phoneOrEmail !== trimmedPhone;
+
+      if (phoneChanged) {
+        const qCheck = query(
+          collection(db, `raffles/${activeRaffle.id}/participants`),
+          where("phoneOrEmail", "==", trimmedPhone),
+          limit(1)
+        );
+        const checkSnap = await getDocs(qCheck);
+        const duplicate = checkSnap.docs.find(d => d.id !== participantId);
+        if (duplicate) {
+          alert("¡Ya existe otro participante con ese teléfono o contacto!");
+          return;
+        }
+      }
+
+      await updateDoc(doc(db, `raffles/${activeRaffle.id}/participants`, participantId), {
+        name: editName.trim(),
+        phoneOrEmail: trimmedPhone
+      });
+      cancelEditParticipant();
+    } catch (error) {
+      console.error("Error updating participant:", error);
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -180,7 +306,25 @@ export default function RaffleManager() {
     p.phoneOrEmail.toLowerCase().includes(search.toLowerCase())
   );
 
+  const copyParticipantNames = async (list: Participant[]) => {
+    if (list.length === 0) return;
+    const text = list.map(p => p.name).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setNamesCopied(true);
+      setTimeout(() => setNamesCopied(false), 2000);
+    } catch (error) {
+      console.error("Error copying names:", error);
+      alert("No se pudieron copiar los nombres.");
+    }
+  };
+
   const pastRaffles = raffles.filter(r => !r.isActive);
+
+  const endModalParticipants = participants.filter(p =>
+    p.name.toLowerCase().includes(endModalSearch.toLowerCase()) ||
+    p.phoneOrEmail.toLowerCase().includes(endModalSearch.toLowerCase())
+  );
 
   return (
     <div className="raffle-manager">
@@ -269,7 +413,19 @@ export default function RaffleManager() {
               </div>
 
               <div className="raffle-card">
-                <h3>Participantes ({participants.length})</h3>
+                <div className="participants-header">
+                  <h3>Participantes ({participants.length})</h3>
+                  {participants.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-copy-names"
+                      onClick={() => copyParticipantNames(participants)}
+                      title="Copiar todos los nombres (uno por línea)"
+                    >
+                      <FaCopy /> {namesCopied ? "¡Copiado!" : "Copiar nombres"}
+                    </button>
+                  )}
+                </div>
                 
                 <form onSubmit={handleAddParticipant} className="add-participant-bar">
                   <input 
@@ -313,18 +469,83 @@ export default function RaffleManager() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredParticipants.map(p => (
-                          <tr key={p.id}>
-                            <td>{p.name}</td>
-                            <td>{p.phoneOrEmail}</td>
-                            <td>{p.date?.toDate().toLocaleString() || '---'}</td>
-                            <td>
-                              <button onClick={() => handleDeleteParticipant(p.id)} className="btn-delete-participant" title="Eliminar participante">
-                                <FaTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {filteredParticipants.map(p => {
+                          const isEditing = editingParticipantId === p.id;
+                          return (
+                            <tr key={p.id} className={isEditing ? "participant-row-editing" : ""}>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    className="participant-edit-input"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    disabled={isSavingEdit}
+                                  />
+                                ) : (
+                                  p.name
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    className="participant-edit-input"
+                                    value={editPhone}
+                                    onChange={(e) => setEditPhone(e.target.value)}
+                                    disabled={isSavingEdit}
+                                  />
+                                ) : (
+                                  <ParticipantContactLink contact={p.phoneOrEmail} />
+                                )}
+                              </td>
+                              <td>{p.date?.toDate().toLocaleString() || '---'}</td>
+                              <td>
+                                <div className="participant-actions">
+                                  {isEditing ? (
+                                    <>
+                                      <button
+                                        onClick={() => handleSaveParticipant(p.id)}
+                                        className="btn-save-participant"
+                                        title="Guardar cambios"
+                                        disabled={isSavingEdit || !editName.trim() || !editPhone.trim()}
+                                      >
+                                        <FaSave />
+                                      </button>
+                                      <button
+                                        onClick={cancelEditParticipant}
+                                        className="btn-cancel-participant"
+                                        title="Cancelar"
+                                        disabled={isSavingEdit}
+                                      >
+                                        <FaTimes />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => startEditParticipant(p)}
+                                        className="btn-edit-participant"
+                                        title="Editar participante"
+                                        disabled={editingParticipantId !== null}
+                                      >
+                                        <FaEdit />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteParticipant(p.id)}
+                                        className="btn-delete-participant"
+                                        title="Eliminar participante"
+                                        disabled={editingParticipantId !== null}
+                                      >
+                                        <FaTrash />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -352,6 +573,13 @@ export default function RaffleManager() {
                         <div className="history-dates" style={{ marginLeft: '28px' }}>
                           <FaCalendarAlt /> {raffle.startDate?.toDate().toLocaleDateString('es-AR')} - {raffle.endDate?.toDate().toLocaleDateString('es-AR')}
                         </div>
+                        {raffle.winner && (
+                          <div className="history-winner">
+                            <FaTrophy /> Ganador: <strong>{raffle.winner.name}</strong>
+                            {" · "}
+                            <ParticipantContactLink contact={raffle.winner.phoneOrEmail} />
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <span className="participant-count">
@@ -367,6 +595,17 @@ export default function RaffleManager() {
                         ) : historyParticipants[raffle.id].length === 0 ? (
                           <p>No hubo participantes.</p>
                         ) : (
+                          <>
+                          <div style={{ marginBottom: '12px' }}>
+                            <button
+                              type="button"
+                              className="btn-copy-names"
+                              onClick={() => copyParticipantNames(historyParticipants[raffle.id])}
+                              title="Copiar todos los nombres (uno por línea)"
+                            >
+                              <FaCopy /> Copiar nombres
+                            </button>
+                          </div>
                           <table className="participants-table" style={{ fontSize: '0.9rem' }}>
                             <thead>
                               <tr>
@@ -376,15 +615,22 @@ export default function RaffleManager() {
                               </tr>
                             </thead>
                             <tbody>
-                              {historyParticipants[raffle.id].map(p => (
-                                <tr key={p.id}>
-                                  <td>{p.name}</td>
-                                  <td>{p.phoneOrEmail}</td>
+                              {historyParticipants[raffle.id].map(p => {
+                                const isWinner = raffle.winner?.participantId === p.id;
+                                return (
+                                <tr key={p.id} className={isWinner ? "participant-row-winner" : ""}>
+                                  <td>
+                                    {p.name}
+                                    {isWinner && <span className="winner-badge">Ganador</span>}
+                                  </td>
+                                  <td><ParticipantContactLink contact={p.phoneOrEmail} /></td>
                                   <td>{p.date?.toDate().toLocaleString()}</td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </tbody>
                           </table>
+                          </>
                         )}
                       </div>
                     )}
@@ -392,6 +638,75 @@ export default function RaffleManager() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showEndModal && activeRaffle && (
+        <div className="raffle-modal-overlay" onClick={closeEndModal}>
+          <div className="raffle-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="raffle-modal-header">
+              <h3><FaTrophy style={{ color: '#eab308' }} /> Finalizar sorteo</h3>
+              <button type="button" className="raffle-modal-close" onClick={closeEndModal} disabled={isEnding}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <p className="raffle-modal-subtitle">
+              Seleccioná al ganador de <strong>{activeRaffle.title}</strong> antes de guardarlo en el historial.
+            </p>
+
+            {participants.length === 0 ? (
+              <p className="raffle-modal-empty">No hay participantes en este sorteo. Podés finalizarlo sin ganador.</p>
+            ) : (
+              <>
+                <div className="search-bar" style={{ marginBottom: '12px' }}>
+                  <FaSearch className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Buscar participante..."
+                    value={endModalSearch}
+                    onChange={(e) => setEndModalSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="winner-select-list">
+                  {endModalParticipants.length === 0 ? (
+                    <p className="raffle-modal-empty">No hay participantes que coincidan con la búsqueda.</p>
+                  ) : (
+                    endModalParticipants.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`winner-select-item ${selectedWinnerId === p.id ? "selected" : ""}`}
+                        onClick={() => setSelectedWinnerId(p.id)}
+                        disabled={isEnding}
+                      >
+                        <span className="winner-select-radio" aria-hidden="true" />
+                        <span className="winner-select-info">
+                          <strong>{p.name}</strong>
+                          <span><ParticipantContactLink contact={p.phoneOrEmail} /></span>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="raffle-modal-actions">
+              <button type="button" className="btn-cancel-end" onClick={closeEndModal} disabled={isEnding}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-confirm-end"
+                onClick={confirmEndRaffle}
+                disabled={isEnding || (participants.length > 0 && !selectedWinnerId)}
+              >
+                <FaStopCircle /> {isEnding ? "Finalizando..." : "Finalizar sorteo"}
+              </button>
+            </div>
           </div>
         </div>
       )}
