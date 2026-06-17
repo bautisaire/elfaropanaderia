@@ -301,6 +301,13 @@ button {
     color: #0b74ff;
 }
 
+.image-upload-hint {
+    display: block;
+    margin-bottom: 12px;
+    color: #6b7280;
+    font-size: 0.82rem;
+}
+
 .image-previews {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));

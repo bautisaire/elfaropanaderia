@@ -3,8 +3,8 @@ import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { compressImage } from "../utils/imageUtils";
 import { syncChildProducts } from "../utils/stockUtils";
+import ProductImageEditor from "./ProductImageEditor";
 import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash, FaCheckCircle, FaFileSignature } from 'react-icons/fa';
 import "./ProductManager.css";
 
@@ -76,6 +76,10 @@ const INITIAL_STATE: FirestoreProduct = {
     badgeExpiresAt: ""
 };
 
+type ImageEditorTarget =
+    | { type: "product" }
+    | { type: "variant"; idx: number };
+
 export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
     const [rawMaterials, setRawMaterials] = useState<any[]>([]);
@@ -91,6 +95,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
+    const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
+    const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
+    const [imageEditorTarget, setImageEditorTarget] = useState<ImageEditorTarget | null>(null);
 
     const calculateIngredientCost = (ing: any, recipeMerma: number = 0): number => {
         const mat = rawMaterials.find((m: any) => m.id === ing.rawMaterialId);
@@ -104,28 +111,40 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         return (ing.quantity / mat.baseQuantity) * matPriceToUse;
     };
 
-    const calculateRecipeTotalCost = (recipe: any): number => {
+    const getRecipeYieldType = (recipe: any, yieldType?: 'units' | 'kg'): 'units' | 'kg' =>
+        yieldType || recipe?.yieldType || 'units';
+
+    const getRecipeTotalGrams = (recipe: any, yieldType?: 'units' | 'kg'): number => {
+        if (!recipe || !recipe.yield || recipe.yield <= 0) return 0;
+
+        const type = getRecipeYieldType(recipe, yieldType);
+        if (type === 'kg') {
+            return recipe.yield * 1000;
+        }
+
+        if (!recipe.weightPerUnitGrams) return 0;
+        return recipe.yield * recipe.weightPerUnitGrams;
+    };
+
+    const getRecipeCifUnits = (recipe: any, yieldType?: 'units' | 'kg'): number =>
+        getRecipeTotalGrams(recipe, yieldType) / 100;
+
+    const calculateRecipeTotalCost = (recipe: any, yieldType?: 'units' | 'kg'): number => {
         if (!recipe) return 0;
         let baseCost = (recipe.ingredients || []).reduce((total: number, ing: any) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
 
-        // Add CIF Cost
-        if (recipe.weightPerUnitGrams && recipe.yield > 0) {
-            let totalGrams = 0;
-            if (recipe.yieldType === 'kg') {
-                totalGrams = recipe.yield * 1000;
-            } else {
-                totalGrams = recipe.yield * recipe.weightPerUnitGrams;
-            }
-            const cifUnits = totalGrams / 100;
+        const cifUnits = getRecipeCifUnits(recipe, yieldType);
+        if (cifUnits > 0) {
             baseCost += cifUnits * globalCifUnitCost;
         }
 
         return baseCost;
     };
 
-    const calculateRecipeUnitCost = (recipe: any): number => {
+    const calculateRecipeUnitCost = (recipe: any, yieldType?: 'units' | 'kg'): number => {
         if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
-        const cost = calculateRecipeTotalCost(recipe) / recipe.yield;
+        const type = getRecipeYieldType(recipe, yieldType);
+        const cost = calculateRecipeTotalCost(recipe, type) / recipe.yield;
         return isNaN(cost) ? 0 : cost;
     };
 
@@ -145,7 +164,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         }
 
         if (product.recipe) {
-            totalCost += calculateRecipeUnitCost(product.recipe);
+            totalCost += calculateRecipeUnitCost(product.recipe, product.recipe.yieldType || 'units');
         }
 
         return isNaN(totalCost) ? 0 : totalCost;
@@ -313,33 +332,71 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         }
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const openImageEditor = (files: FileList | File[], target: ImageEditorTarget) => {
+        const fileArray = Array.from(files);
+        if (!fileArray.length) return;
+        setImageEditorTarget(target);
+        setImageEditorFile(fileArray[0]);
+        setPendingImageFiles(target.type === "product" ? fileArray.slice(1) : []);
+    };
+
+    const closeImageEditor = () => {
+        setImageEditorFile(null);
+        setPendingImageFiles([]);
+        setImageEditorTarget(null);
+    };
+
+    const uploadProductImageBlob = async (blob: Blob, fileName: string) => {
+        const prodId = formData.id || "temp_" + Date.now();
+        const storageRef = ref(storage, `products/${prodId}/${Date.now()}_${fileName}.webp`);
+        await uploadBytes(storageRef, blob);
+        return getDownloadURL(storageRef);
+    };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
+        openImageEditor(files, { type: "product" });
+        e.target.value = "";
+    };
+
+    const handleImageEditorConfirm = async (blob: Blob) => {
+        if (!imageEditorTarget || !imageEditorFile) return;
 
         setUploading(true);
         try {
-            const newImageUrls: string[] = [];
-            const prodId = formData.id || "temp_" + Date.now();
+            const baseName = imageEditorFile.name.split(".")[0] || "image";
+            const downloadURL = await uploadProductImageBlob(blob, baseName);
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const compressedBlob = await compressImage(file);
-                const storageRef = ref(storage, `products/${prodId}/${Date.now()}_${file.name.split('.')[0]}.webp`);
-                await uploadBytes(storageRef, compressedBlob);
-                const downloadURL = await getDownloadURL(storageRef);
-                newImageUrls.push(downloadURL);
+            if (imageEditorTarget.type === "product") {
+                setFormData(prev => {
+                    const updatedImages = [...(prev.images || []), downloadURL];
+                    return {
+                        ...prev,
+                        images: updatedImages,
+                        img: updatedImages[0] || prev.img
+                    };
+                });
+                setMessage("Imagen subida correctamente");
+            } else {
+                const variantIdx = imageEditorTarget.idx;
+                setFormData(prev => {
+                    const newVariants = [...(prev.variants || [])];
+                    newVariants[variantIdx] = {
+                        ...newVariants[variantIdx],
+                        image: downloadURL
+                    };
+                    return { ...prev, variants: newVariants };
+                });
+                setMessage("Imagen de variante subida");
             }
 
-            setFormData(prev => {
-                const updatedImages = [...(prev.images || []), ...newImageUrls];
-                return {
-                    ...prev,
-                    images: updatedImages,
-                    img: updatedImages[0] || prev.img
-                };
-            });
-            setMessage("Imágenes subidas correctamente");
+            if (pendingImageFiles.length > 0 && imageEditorTarget.type === "product") {
+                setImageEditorFile(pendingImageFiles[0]);
+                setPendingImageFiles(prev => prev.slice(1));
+            } else {
+                closeImageEditor();
+            }
         } catch (error) {
             console.error("Error uploading image:", error);
             setMessage("Error al subir imagen");
@@ -349,34 +406,11 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     };
 
     // Variant Image Upload
-    const handleVariantImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const handleVariantImageUpload = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
-
-        setUploading(true);
-        try {
-            const file = files[0]; // Specific for variant, single image usually
-            const prodId = formData.id || "temp_" + Date.now();
-            const compressedBlob = await compressImage(file);
-            const storageRef = ref(storage, `products/${prodId}/variants/${Date.now()}_${file.name.split('.')[0]}.webp`);
-
-            await uploadBytes(storageRef, compressedBlob);
-            const downloadURL = await getDownloadURL(storageRef);
-
-            setFormData(prev => {
-                const newVariants = [...(prev.variants || [])];
-                const updatedVariant = { ...newVariants[idx], image: downloadURL };
-                newVariants[idx] = updatedVariant;
-                return { ...prev, variants: newVariants };
-            });
-
-            setMessage("Imagen de variante subida");
-        } catch (error) {
-            console.error("Error uploading variant image:", error);
-            setMessage("Error al subir imagen de variante");
-        } finally {
-            setUploading(false);
-        }
+        openImageEditor(files, { type: "variant", idx });
+        e.target.value = "";
     };
 
     const removeVariantImage = (idx: number) => {
@@ -836,8 +870,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             <label className="btn-upload">
                                                 {uploading ? <FaSync className="spin" /> : <FaCamera />}
                                                 <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
-                                                <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} />
+                                                <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading || !!imageEditorFile} />
                                             </label>
+                                            <small className="image-upload-hint">Se abrirá el editor para recortar en formato 4:3.</small>
 
                                             <div className="image-previews">
                                                 {formData.images?.map((img, idx) => (
@@ -1073,6 +1108,24 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 )
             }
                 </>
+            )}
+
+            {imageEditorFile && imageEditorTarget && (
+                <ProductImageEditor
+                    imageFile={imageEditorFile}
+                    productName={formData.nombre}
+                    productPrice={formData.precio}
+                    productDiscount={formData.discount}
+                    stockQuantity={formData.stockQuantity}
+                    onConfirm={handleImageEditorConfirm}
+                    onCancel={closeImageEditor}
+                    isSaving={uploading}
+                    queueLabel={
+                        pendingImageFiles.length > 0
+                            ? `Quedan ${pendingImageFiles.length} imágenes por editar`
+                            : undefined
+                    }
+                />
             )}
         </div >
     );

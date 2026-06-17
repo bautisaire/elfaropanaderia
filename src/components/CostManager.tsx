@@ -267,7 +267,6 @@ export default function CostManager() {
     const handleSaveRecipe = async () => {
         if (!selectedProductId || !editingRecipe) return;
 
-        // Guardar costo unitario también (para el cache en el simulador)
         const unitCost = calculateRecipeUnitCost(editingRecipe, recipeYieldType);
 
         try {
@@ -285,7 +284,43 @@ export default function CostManager() {
         }
     };
 
+    const handleYieldTypeChange = (type: 'units' | 'kg') => {
+        setRecipeYieldType(type);
+        if (!editingRecipe) return;
+
+        if (type === 'kg') {
+            setEditingRecipe({
+                ...editingRecipe,
+                yieldType: 'kg',
+                weightPerUnitGrams: 1000
+            });
+        } else {
+            setEditingRecipe({
+                ...editingRecipe,
+                yieldType: 'units'
+            });
+        }
+    };
+
     // --- MATH HELPERS ---
+    const getRecipeYieldType = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): 'units' | 'kg' =>
+        yieldType || recipe?.yieldType || 'units';
+
+    const getRecipeTotalGrams = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
+        if (!recipe || !recipe.yield || recipe.yield <= 0) return 0;
+
+        const type = getRecipeYieldType(recipe, yieldType);
+        if (type === 'kg') {
+            return recipe.yield * 1000;
+        }
+
+        if (!recipe.weightPerUnitGrams) return 0;
+        return recipe.yield * recipe.weightPerUnitGrams;
+    };
+
+    const getRecipeCifUnits = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number =>
+        getRecipeTotalGrams(recipe, yieldType) / 100;
+
     const calculateIngredientCost = (ing: RecipeIngredient, recipeMermaPercentage: number = 0): number => {
         const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
         if (!mat || mat.baseQuantity === 0) return 0;
@@ -300,19 +335,12 @@ export default function CostManager() {
         return baseCost;
     };
 
-    const calculateRecipeTotalCost = (recipe: ProductRecipe | null): number => {
+    const calculateRecipeTotalCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
         if (!recipe) return 0;
         let baseCost = (recipe.ingredients || []).reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
-        
-        // Add CIF Cost
-        if (recipe.weightPerUnitGrams && recipe.yield > 0) {
-            let totalGrams = 0;
-            if (recipe.yieldType === 'kg') {
-                totalGrams = recipe.yield * 1000;
-            } else {
-                totalGrams = recipe.yield * recipe.weightPerUnitGrams;
-            }
-            const cifUnits = totalGrams / 100;
+
+        const cifUnits = getRecipeCifUnits(recipe, yieldType);
+        if (cifUnits > 0) {
             baseCost += cifUnits * globalCifUnitCost;
         }
 
@@ -321,14 +349,8 @@ export default function CostManager() {
 
     const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
         if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
-        const type = yieldType || recipe.yieldType || 'units';
-        let cost = 0;
-        if (type === 'kg') {
-            // Costo por KG: costo total / kg que rinde
-            cost = calculateRecipeTotalCost(recipe) / recipe.yield;
-        } else {
-            cost = calculateRecipeTotalCost(recipe) / recipe.yield;
-        }
+        const type = getRecipeYieldType(recipe, yieldType);
+        const cost = calculateRecipeTotalCost(recipe, type) / recipe.yield;
         return isNaN(cost) ? 0 : cost;
     };
 
@@ -350,7 +372,7 @@ export default function CostManager() {
 
         // 2. Costo propio de la receta (ej. empaques o insumos extras)
         if (product.recipe) {
-            totalCost += calculateRecipeUnitCost(product.recipe);
+            totalCost += calculateRecipeUnitCost(product.recipe, product.recipe.yieldType || 'units');
         }
 
         return isNaN(totalCost) ? 0 : totalCost;
@@ -1106,7 +1128,7 @@ export default function CostManager() {
                                             <tfoot>
                                                 <tr className="recipe-footer-row totals">
                                                     <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#ef4444' }}>COSTO DE PRODUCCIÓN:</td>
-                                                    <td colSpan={2} style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.2rem' }}>${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td colSpan={2} style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.2rem' }}>${calculateRecipeTotalCost(editingRecipe, recipeYieldType).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                                 <tr className="recipe-footer-row yield">
                                                     <td colSpan={2} style={{ textAlign: 'right', padding: '15px' }}>
@@ -1114,7 +1136,7 @@ export default function CostManager() {
                                                             <strong>{recipeYieldType === 'kg' ? '¿Cuántos kg rinde?' : '¿En cuántas unidades rinde?'}</strong>
                                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                                 <button
-                                                                    onClick={() => setRecipeYieldType('units')}
+                                                                    onClick={() => handleYieldTypeChange('units')}
                                                                     style={{
                                                                         padding: '4px 12px',
                                                                         borderRadius: '20px',
@@ -1127,7 +1149,7 @@ export default function CostManager() {
                                                                     }}
                                                                 >📦 Unidades</button>
                                                                 <button
-                                                                    onClick={() => setRecipeYieldType('kg')}
+                                                                    onClick={() => handleYieldTypeChange('kg')}
                                                                     style={{
                                                                         padding: '4px 12px',
                                                                         borderRadius: '20px',
@@ -1150,7 +1172,12 @@ export default function CostManager() {
                                                                     <input
                                                                         type="number"
                                                                         value={editingRecipe.yield || 1}
-                                                                        onChange={e => setEditingRecipe({ ...editingRecipe, yield: Number(e.target.value) })}
+                                                                        onChange={e => setEditingRecipe({
+                                                                            ...editingRecipe,
+                                                                            yield: Number(e.target.value),
+                                                                            yieldType: recipeYieldType,
+                                                                            ...(recipeYieldType === 'kg' ? { weightPerUnitGrams: 1000 } : {})
+                                                                        })}
                                                                         style={{ fontSize: '1.1rem', textAlign: 'center', width: '70px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
                                                                     />
                                                                     <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
@@ -1174,31 +1201,48 @@ export default function CostManager() {
                                                                 </div>
                                                             </div>
                                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Peso x {recipeYieldType === 'kg' ? 'kg' : 'unidad'}</span>
-                                                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={editingRecipe.weightPerUnitGrams || ''}
-                                                                        placeholder="Opcional"
-                                                                        onChange={e => setEditingRecipe({ ...editingRecipe, weightPerUnitGrams: Number(e.target.value) })}
-                                                                        style={{ fontSize: '1.1rem', textAlign: 'center', width: '90px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
-                                                                    />
-                                                                    <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
-                                                                        g
-                                                                    </span>
-                                                                </div>
                                                                 {recipeYieldType === 'kg' ? (
-                                                                    <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
-                                                                        + CIF: ${(10 * globalCifUnitCost).toFixed(2)} / kg
-                                                                    </div>
-                                                                ) : editingRecipe.weightPerUnitGrams ? (
-                                                                    <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
-                                                                        + CIF: ${(((editingRecipe.weightPerUnitGrams || 0) / 100) * globalCifUnitCost).toFixed(2)} / un
-                                                                    </div>
+                                                                    <>
+                                                                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>CIF (auto)</span>
+                                                                        <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#0369a1', padding: '8px 12px', background: '#f0f9ff', borderRadius: '6px', textAlign: 'center' }}>
+                                                                            {editingRecipe.yield > 0
+                                                                                ? `${getRecipeCifUnits(editingRecipe, 'kg')} un`
+                                                                                : '—'}
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', textAlign: 'center' }}>
+                                                                            {editingRecipe.yield > 0
+                                                                                ? `${editingRecipe.yield} kg = ${getRecipeTotalGrams(editingRecipe, 'kg')} g`
+                                                                                : 'Ingresá el rendimiento'}
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                            + CIF: ${(getRecipeCifUnits(editingRecipe, 'kg') * globalCifUnitCost).toFixed(2)} total
+                                                                        </div>
+                                                                    </>
                                                                 ) : (
-                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-                                                                        Ingresa peso para sumar CIF
-                                                                    </div>
+                                                                    <>
+                                                                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>Peso x unidad</span>
+                                                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={editingRecipe.weightPerUnitGrams || ''}
+                                                                                placeholder="Opcional"
+                                                                                onChange={e => setEditingRecipe({ ...editingRecipe, weightPerUnitGrams: Number(e.target.value), yieldType: 'units' })}
+                                                                                style={{ fontSize: '1.1rem', textAlign: 'center', width: '90px', padding: '8px', borderRight: 'none', borderRadius: '4px 0 0 4px' }}
+                                                                            />
+                                                                            <span className="currency-symbol" style={{ background: '#f8fafc', borderLeft: '1px solid #cbd5e1', padding: '8px', borderRadius: '0 4px 4px 0', color: '#64748b' }}>
+                                                                                g
+                                                                            </span>
+                                                                        </div>
+                                                                        {editingRecipe.weightPerUnitGrams ? (
+                                                                            <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                                + CIF: ${(((editingRecipe.weightPerUnitGrams || 0) / 100) * globalCifUnitCost).toFixed(2)} / un
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
+                                                                                Ingresa peso para sumar CIF
+                                                                            </div>
+                                                                        )}
+                                                                    </>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -1221,11 +1265,11 @@ export default function CostManager() {
                                                         
                                                         <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal', marginTop: '4px', lineHeight: '1.4' }}>
                                                             {editingRecipe.yield > 0 && (
-                                                                <div>Regla de 3: ${calculateRecipeTotalCost(editingRecipe).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} {recipeYieldType === 'kg' ? 'kg' : 'un'}</div>
+                                                                <div>Regla de 3: ${calculateRecipeTotalCost(editingRecipe, recipeYieldType).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} {recipeYieldType === 'kg' ? 'kg' : 'un'}</div>
                                                             )}
-                                                            {(calculateRecipeTotalCost(editingRecipe) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) > 0 && (
+                                                            {(calculateRecipeTotalCost(editingRecipe, recipeYieldType) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) > 0 && (
                                                                 <div style={{ color: '#b91c1c', fontWeight: 'bold' }}>
-                                                                    (Incluye ${((calculateRecipeTotalCost(editingRecipe) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) / editingRecipe.yield).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de Gastos Fijos CIF)
+                                                                    (Incluye ${((calculateRecipeTotalCost(editingRecipe, recipeYieldType) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) / editingRecipe.yield).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de Gastos Fijos CIF)
                                                                 </div>
                                                             )}
                                                         </div>
