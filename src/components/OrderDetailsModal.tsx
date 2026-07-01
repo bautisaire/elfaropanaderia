@@ -118,7 +118,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                             </button>
                             <button
                                 onClick={() => {
-                                    const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia:\nAlias: elfaro80.mp\nCVU: 0000003100006832823516\nPor favor, envíanos el comprobante por este medio.`;
+                                    const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia (Banco Nación):\nAlias: faro.78\nCVU: 0000003100006832823516\nEnviar comprobante`;
                                     navigator.clipboard.writeText(msg);
                                     showToast("Datos copiados");
                                 }}

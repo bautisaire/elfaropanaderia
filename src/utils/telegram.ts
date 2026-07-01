@@ -15,10 +15,10 @@ const isTransferPayment = (metodoPago: any): boolean => {
 
 const TRANSFER_DATA_BLOCK = `
  *Datos de Transferencia:*
-ALIAS: \`elfaro80.mp\`
-CVU: \`0000003100006832823516\`
+BANCO NACIÓN
+ALIAS: \`faro.78\`
 A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
-_Puedes abonar ahora o esperar al repartidor._`;
+_Enviar comprobante_`;
 
 export const generateOrderMessage = (orderData: any) => {
     const { cliente, items, total } = orderData;

@@ -654,11 +654,11 @@ export default function Checkout() {
                 </div>
 
                 <div style={{ marginBottom: '10px' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>ALIAS</span>
+                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>BANCO NACIÓN - ALIAS</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>elfaro80.mp</code>
+                    <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>faro.78</code>
                     <button
-                      onClick={() => handleCopy("elfaro80.mp", "Alias")}
+                      onClick={() => handleCopy("faro.78", "Alias")}
                       style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
                       title="Copiar Alias"
                     >
@@ -667,22 +667,9 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block' }}>CVU</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <code style={{ fontSize: '1rem', fontWeight: 'bold', color: '#212529', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dee2e6' }}>0000003100006832823516</code>
-                    <button
-                      onClick={() => handleCopy("0000003100006832823516", "CVU")}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b35600' }}
-                      title="Copiar CVU"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
-                  </div>
-                </div>
 
                 <p style={{ margin: '12px 0 0 0', paddingTop: '12px', borderTop: '1px solid #dee2e6', fontSize: '0.9rem', color: '#495057' }}>
-                  Enviar comprobante por WhatsApp.
+                  Enviar comprobante
                 </p>
               </div>
             )}
