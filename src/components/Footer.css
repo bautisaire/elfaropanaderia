@@ -82,6 +82,18 @@
     text-align: center;
 }
 
+.footer-description-section {
+    max-width: 800px;
+    margin: 0 auto 30px auto;
+}
+
+.footer-description-section p {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--footer-text);
+    margin: 0;
+}
+
 .footer-title {
     color: var(--footer-accent);
     margin-bottom: 15px;

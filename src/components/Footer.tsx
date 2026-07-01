@@ -6,6 +6,13 @@ const Footer: React.FC = () => {
     return (
         <footer className="footer">
             <div className="footer-content">
+                <div className="footer-section footer-description-section">
+                    <h2 className="footer-title">Panadería y Confitería en Senillosa</h2>
+                    <p>
+                        Accedé a nuestro catálogo actualizado en tiempo real y descubrí todos los productos disponibles del día. Encontrá facturas, chipá, raspaditas, tortas materas, pan fresco, sándwiches, productos de panadería y mucho más. Realizá tu pedido de forma rápida y recibilo con nuestro servicio de delivery, siempre con la frescura y calidad que nos caracteriza.
+                    </p>
+                </div>
+
                 <div className="footer-section map-section">
                     <h3 className="footer-title">Nuestra ubicación:</h3>
                     <div className="map-container">

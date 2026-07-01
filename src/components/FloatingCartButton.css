@@ -83,4 +83,41 @@
     .floating-cart-icon {
         font-size: 1.3rem;
     }
+
+    .floating-cart-reminder {
+        bottom: 50px;
+        right: 80px;
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+}
+
+.floating-cart-reminder {
+    position: fixed;
+    bottom: 35px;
+    right: 90px;
+    background-color: black;
+    color: white;
+    font-weight: bold;
+    padding: 10px 15px;
+    border-radius: 8px;
+    z-index: 1100;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.floating-cart-reminder::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -8px;
+    transform: translateY(-50%);
+    border-width: 8px 0 8px 8px;
+    border-style: solid;
+    border-color: transparent transparent transparent black;
+}
+
+.animate-pop {
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

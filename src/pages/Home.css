@@ -141,8 +141,8 @@
 /* Floating WhatsApp Button */
 .floating-whatsapp-btn {
   position: fixed;
-  bottom: 95px;
-  right: 20px;
+  bottom: 25px;
+  left: 20px;
   background-color: #25d366;
   color: white;
   width: 60px;
@@ -169,8 +169,8 @@
 
 @media (max-width: 768px) {
   .floating-whatsapp-btn {
-    bottom: 110px;
-    right: 15px;
+    bottom: 40px;
+    left: 15px;
     width: 55px;
     height: 55px;
   }
