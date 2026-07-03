@@ -25,7 +25,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
-  const { adminPermissions, isSuperAdmin } = useCart();
+  const { adminPermissions } = useCart();
 
   const navigate = useNavigate();
   const location = useLocation();
