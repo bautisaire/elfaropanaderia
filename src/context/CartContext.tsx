@@ -59,6 +59,8 @@ interface CartContextType {
   isSidebarOpen: boolean;
   setIsSidebarOpen: (value: boolean) => void;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
+  adminPermissions: Record<string, boolean>;
   removeCompletelyFromCart: (id: string | number) => void;
   user: any;
   catalogProducts: Product[];
@@ -88,6 +90,8 @@ export const CartContext = createContext<CartContextType>({
   isSidebarOpen: false,
   setIsSidebarOpen: () => { },
   isAdmin: false,
+  isSuperAdmin: false,
+  adminPermissions: {},
   removeCompletelyFromCart: () => { },
   user: null,
   catalogProducts: [],
@@ -111,6 +115,8 @@ export const CartProvider = ({ children }: Props) => {
   const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminPermissions, setAdminPermissions] = useState<Record<string, boolean>>({});
   const [user, setUser] = useState<any>(null);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -245,14 +251,57 @@ export const CartProvider = ({ children }: Props) => {
 
   // Check Admin Status and User
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser && authUser.email) {
-        if (ADMIN_EMAILS.includes(authUser.email)) {
+        // SUPERADMIN Check
+        if (authUser.email === 'sairebautista@gmail.com') {
           setIsAdmin(true);
+          setIsSuperAdmin(true);
+          setAdminPermissions({
+            dashboard: true,
+            orders: true,
+            pos_sales: true,
+            store_editor: true,
+            costs: true,
+            stock: true,
+            employees: true,
+            settings: true,
+            raffle: true,
+          });
         } else {
-          setIsAdmin(false);
+          setIsSuperAdmin(false);
+          // Check if it's an admin in admin_roles
+          try {
+            const roleDoc = await getDoc(doc(db, "admin_roles", authUser.email));
+            if (roleDoc.exists()) {
+              setIsAdmin(true);
+              setAdminPermissions(roleDoc.data() as Record<string, boolean>);
+            } else if (ADMIN_EMAILS.includes(authUser.email)) {
+               // Fallback to VITE_ADMIN_EMAIL for legacy if needed, but no specific permissions
+               setIsAdmin(true);
+               setAdminPermissions({
+                  dashboard: true,
+                  orders: true,
+                  pos_sales: true,
+                  store_editor: true,
+                  costs: true,
+                  stock: true,
+                  employees: true,
+                  settings: true,
+                  raffle: true,
+               });
+            } else {
+              setIsAdmin(false);
+              setAdminPermissions({});
+            }
+          } catch (e) {
+            console.error("Error fetching admin roles", e);
+            setIsAdmin(false);
+            setAdminPermissions({});
+          }
         }
+        
         const saveUser = async () => {
           try {
             const userRef = doc(db, 'users', authUser.uid);
@@ -275,6 +324,8 @@ export const CartProvider = ({ children }: Props) => {
         saveUser();
       } else {
         setIsAdmin(false);
+        setIsSuperAdmin(false);
+        setAdminPermissions({});
       }
     });
     return () => unsubscribe();
@@ -364,6 +415,8 @@ export const CartProvider = ({ children }: Props) => {
         isSidebarOpen,
         setIsSidebarOpen,
         isAdmin,
+        isSuperAdmin,
+        adminPermissions,
         removeCompletelyFromCart,
         user,
         catalogProducts,

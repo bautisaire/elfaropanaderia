@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift } from "react-icons/fa";
@@ -15,6 +15,7 @@ import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
 import EmployeesManager from "../components/EmployeesManager";
 import RaffleManager from "../components/RaffleManager";
+import { useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -24,6 +25,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
+  const { adminPermissions, isSuperAdmin } = useCart();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,9 +54,23 @@ export default function Editor() {
   }, [collapsed]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email && ADMIN_EMAILS.includes(user.email)) {
-        setCurrentUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user && user.email) {
+        if (user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user.email)) {
+          setCurrentUser(user);
+        } else {
+          try {
+            const roleDoc = await getDoc(doc(db, "admin_roles", user.email));
+            if (roleDoc.exists()) {
+              setCurrentUser(user);
+            } else {
+              setCurrentUser(null);
+            }
+          } catch (e) {
+            console.error(e);
+            setCurrentUser(null);
+          }
+        }
       } else {
         setCurrentUser(null);
       }
@@ -86,9 +102,19 @@ export default function Editor() {
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      if (!result.user.email || !ADMIN_EMAILS.includes(result.user.email)) {
+      if (result.user.email) {
+         if (result.user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(result.user.email)) {
+             // allow
+         } else {
+             const roleDoc = await getDoc(doc(db, "admin_roles", result.user.email));
+             if (!roleDoc.exists()) {
+                 await signOut(auth);
+                 alert("⛔ Acceso denegado: Este email no tiene permisos de administrador.");
+             }
+         }
+      } else {
         await signOut(auth);
-        alert("⛔ Acceso denegado: Este email no tiene permisos de administrador.");
+        alert("⛔ Acceso denegado: No se pudo obtener el email.");
       }
     } catch (error) {
       console.error("Error login:", error);
@@ -172,84 +198,102 @@ export default function Editor() {
             </div>
 
             <nav>
-              <button
-                className={currentPath === "dashboard" || currentPath === "" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/")}
-                title="Dashboard"
-              >
-                <div className="nav-icon" style={{ color: '#3b82f6' }}><FaChartPie /></div>
-                <span className="nav-text">Dashboard</span>
-              </button>
-              <button
-                className={currentPath === "pos" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/pos")}
-                title="Punto de Venta"
-              >
-                <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
-                <span className="nav-text">Punto de Venta</span>
-              </button>
+              {adminPermissions?.dashboard !== false && (
+                <button
+                  className={currentPath === "dashboard" || currentPath === "" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/")}
+                  title="Dashboard"
+                >
+                  <div className="nav-icon" style={{ color: '#3b82f6' }}><FaChartPie /></div>
+                  <span className="nav-text">Dashboard</span>
+                </button>
+              )}
+              {adminPermissions?.pos_sales !== false && (
+                <button
+                  className={currentPath === "pos" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/pos")}
+                  title="Punto de Venta"
+                >
+                  <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
+                  <span className="nav-text">Punto de Venta</span>
+                </button>
+              )}
 
-              <button
-                className={currentPath === "costs" || currentPath === "products" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/costs")}
-                title="Productos, Costos y Recetas"
-              >
-                <div className="nav-icon" style={{ color: '#f97316' }}><AiOutlineRead /></div>
-                <span className="nav-text">Productos, Costos y Recetas</span>
-              </button>
-              <button
-                className={currentPath === "stock" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/stock")}
-                title="Gestión de Stock"
-              >
-                <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
-                <span className="nav-text">Gestión de Stock</span>
-              </button>
-              <button
-                className={currentPath === "orders" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/orders/pos")}
-                title="Pedidos"
-              >
-                <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
-                <span className="nav-text">Ventas</span>
-                {pendingOrdersCount > 0 && (
-                  <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
-                )}
-              </button>
-              <button
-                className={currentPath === "store_editor" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/store_editor")}
-                title="Editor de Tienda"
-              >
-                <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
-                <span className="nav-text">Editor de Tienda</span>
-              </button>
-              <button
-                className={currentPath === "settings" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/settings")}
-                title="Configuración"
-              >
-                <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
-                <span className="nav-text">Configuración</span>
-              </button>
+              {adminPermissions?.costs !== false && (
+                <button
+                  className={currentPath === "costs" || currentPath === "products" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/costs")}
+                  title="Productos, Costos y Recetas"
+                >
+                  <div className="nav-icon" style={{ color: '#f97316' }}><AiOutlineRead /></div>
+                  <span className="nav-text">Productos, Costos y Recetas</span>
+                </button>
+              )}
+              {adminPermissions?.stock !== false && (
+                <button
+                  className={currentPath === "stock" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/stock")}
+                  title="Gestión de Stock"
+                >
+                  <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
+                  <span className="nav-text">Gestión de Stock</span>
+                </button>
+              )}
+              {adminPermissions?.orders !== false && (
+                <button
+                  className={currentPath === "orders" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/orders/pos")}
+                  title="Pedidos"
+                >
+                  <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
+                  <span className="nav-text">Ventas</span>
+                  {pendingOrdersCount > 0 && (
+                    <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
+                  )}
+                </button>
+              )}
+              {adminPermissions?.store_editor !== false && (
+                <button
+                  className={currentPath === "store_editor" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/store_editor")}
+                  title="Editor de Tienda"
+                >
+                  <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
+                  <span className="nav-text">Editor de Tienda</span>
+                </button>
+              )}
+              {adminPermissions?.settings !== false && (
+                <button
+                  className={currentPath === "settings" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/settings")}
+                  title="Configuración"
+                >
+                  <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
+                  <span className="nav-text">Configuración</span>
+                </button>
+              )}
 
-              <button
-                className={currentPath === "employees" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/employees")}
-                title="Personal"
-              >
-                <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaUserFriends /></div>
-                <span className="nav-text">Personal</span>
-              </button>
+              {adminPermissions?.employees !== false && (
+                <button
+                  className={currentPath === "employees" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/employees")}
+                  title="Personal"
+                >
+                  <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaUserFriends /></div>
+                  <span className="nav-text">Personal</span>
+                </button>
+              )}
 
-              <button
-                className={currentPath === "raffle" ? "active" : ""}
-                onClick={() => handleNavClick("/editor/raffle")}
-                title="Sorteos"
-              >
-                <div className="nav-icon" style={{ color: '#f43f5e' }}><FaGift /></div>
-                <span className="nav-text">Sorteos</span>
-              </button>
+              {adminPermissions?.raffle !== false && (
+                <button
+                  className={currentPath === "raffle" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/raffle")}
+                  title="Sorteos"
+                >
+                  <div className="nav-icon" style={{ color: '#f43f5e' }}><FaGift /></div>
+                  <span className="nav-text">Sorteos</span>
+                </button>
+              )}
 
               <div className="sidebar-footer">
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
@@ -266,17 +310,19 @@ export default function Editor() {
 
           <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''} ${currentPath === 'orders' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/pos" element={<POSManager />} />
-              <Route path="/orders/*" element={<OrdersManager />} />
-              <Route path="/store_editor" element={<StoreEditor />} />
-              <Route path="/stock" element={<StockManager />} />
-              <Route path="/settings" element={<AdminSettings />} />
-              <Route path="/costs/*" element={<CostManager />} />
-              <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />
-              <Route path="/employees" element={<EmployeesManager />} />
-              <Route path="/raffle" element={<RaffleManager />} />
-              <Route path="*" element={<Navigate to="/editor/" replace />} />
+              {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
+              {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
+              {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
+              {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
+              {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
+              {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
+              {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
+              {adminPermissions?.costs !== false && <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />}
+              {adminPermissions?.employees !== false && <Route path="/employees" element={<EmployeesManager />} />}
+              {adminPermissions?.raffle !== false && <Route path="/raffle" element={<RaffleManager />} />}
+              <Route path="*" element={
+                 adminPermissions?.dashboard !== false ? <Navigate to="/editor/" replace /> : <div style={{padding: '50px', textAlign: 'center'}}>No tienes permiso para ver esta sección.</div>
+              } />
             </Routes>
           </main>
         </div>

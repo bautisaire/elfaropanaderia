@@ -7,6 +7,7 @@ import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, F
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
+import { useCart } from "../context/CartContext";
 import "./OrdersManager.css";
 
 interface Order {
@@ -60,7 +61,8 @@ export default function OrdersManager() {
     const normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
     const activeTab = (normalizedTab === 'deliveries' || normalizedTab === 'pos' || normalizedTab === 'expenses') ? normalizedTab : 'pos';
 
-    const isSuperAdmin = auth.currentUser?.email === 'sairebautista@gmail.com';
+    const { adminPermissions, isSuperAdmin: contextIsSuperAdmin } = useCart();
+    const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
 
     // Delete Modal State
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -857,21 +859,23 @@ export default function OrdersManager() {
                     <div className="orders-content">
                         {/* Tab Selector */}
                         <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                            <button
-                                className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
-                                onClick={() => navigate('/editor/orders/pos')}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: activeTab === 'pos' ? '#10b981' : '#f3f4f6',
-                                    color: activeTab === 'pos' ? 'white' : '#4b5563',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Ventas POS
-                            </button>
+                            {adminPermissions?.pos_sales !== false && (
+                                <button
+                                    className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
+                                    onClick={() => navigate('/editor/orders/pos')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: activeTab === 'pos' ? '#10b981' : '#f3f4f6',
+                                        color: activeTab === 'pos' ? 'white' : '#4b5563',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Ventas POS
+                                </button>
+                            )}
                             <button
                                 className={`tab-btn ${activeTab === 'deliveries' ? 'active' : ''}`}
                                 onClick={() => navigate('/editor/orders/deliveries')}

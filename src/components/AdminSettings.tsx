@@ -3,6 +3,7 @@ import { FaBell, FaCheck, FaTimes, FaPrint, FaFlask } from "react-icons/fa";
 import { auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { isSuperAdminEmail, isTestModeEnabled, setTestModeEnabled } from "../utils/testMode";
+import AdminRolesManager from "./AdminRolesManager";
 
 export default function AdminSettings() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -193,6 +194,8 @@ export default function AdminSettings() {
                     )}
                 </button>
             </div>
+
+            <AdminRolesManager />
         </div>
     );
 }
