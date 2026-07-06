@@ -11,6 +11,7 @@ interface AdminRole {
   orders_can_cancel: boolean;
   orders_can_modify: boolean;
   orders_can_change_payment: boolean;
+  orders_can_assign_deliveries: boolean;
   pos_sales: boolean;
   store_editor: boolean;
   costs: boolean;
@@ -27,6 +28,7 @@ const PERMISSIONS_MAP = [
   { key: 'orders_can_cancel', label: '↳ Permitir cancelar pedidos' },
   { key: 'orders_can_modify', label: '↳ Permitir modificar pedidos' },
   { key: 'orders_can_change_payment', label: '↳ Permitir cambiar método de pago' },
+  { key: 'orders_can_assign_deliveries', label: '↳ Permitir asignar deliveries a riders' },
   { key: 'pos_sales', label: 'Ventas POS (Punto de Venta Local)' },
   { key: 'store_editor', label: 'Editor de Tienda (Banners, etc.)' },
   { key: 'costs', label: 'Productos, Costos y Recetas' },
@@ -85,6 +87,7 @@ export default function AdminRolesManager() {
         orders_can_cancel: false,
         orders_can_modify: false,
         orders_can_change_payment: false,
+        orders_can_assign_deliveries: false,
         pos_sales: false,
         store_editor: false,
         costs: false,

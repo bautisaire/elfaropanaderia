@@ -278,6 +278,7 @@ export const CartProvider = ({ children }: Props) => {
           setAdminPermissions({
             dashboard: true,
             orders: true,
+            orders_can_assign_deliveries: true,
             pos_sales: true,
             store_editor: true,
             costs: true,
@@ -300,6 +301,7 @@ export const CartProvider = ({ children }: Props) => {
                setAdminPermissions({
                   dashboard: true,
                   orders: true,
+                  orders_can_assign_deliveries: true,
                   pos_sales: true,
                   store_editor: true,
                   costs: true,
