@@ -35,9 +35,9 @@ export default function RiderDashboard() {
     const [filter, setFilter] = useState<'hoy' | 'semana' | 'mes' | 'custom'>('hoy');
     const [customStart, setCustomStart] = useState<string>('');
     const [customEnd, setCustomEnd] = useState<string>('');
-    
+
     // Quick Replies
-    const [quickReplies, setQuickReplies] = useState<string[]>(() => {
+    const [quickReplies] = useState<string[]>(() => {
         const saved = localStorage.getItem('riderQuickReplies');
         return saved ? JSON.parse(saved) : [];
     });
@@ -156,18 +156,18 @@ export default function RiderDashboard() {
     const deliveredOrders = filteredOrders.filter(o => o.status === 'entregado');
     const earningsFromOrders = deliveredOrders.reduce((acc, o) => {
         let orderShipping = Number(o.shippingCost) || 0;
-        
+
         // Si no hay shippingCost a nivel superior (ej. pedidos de POS), buscar en los items
         if (orderShipping === 0 && o.items) {
-            const envioItem = o.items.find(item => 
-                String(item.nombre || item.name || "").toLowerCase().includes('envío') || 
+            const envioItem = o.items.find(item =>
+                String(item.nombre || item.name || "").toLowerCase().includes('envío') ||
                 String(item.nombre || item.name || "").toLowerCase().includes('envio')
             );
             if (envioItem) {
                 orderShipping = Number(envioItem.precio || envioItem.price || 0) * (Number(envioItem.cantidad || envioItem.quantity || 1));
             }
         }
-        
+
         return acc + orderShipping;
     }, 0);
     const earningsFromExtras = filteredExtras.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
@@ -196,13 +196,13 @@ export default function RiderDashboard() {
     return (
         <div className="rider-dashboard">
             <div className="rider-tabs">
-                <button 
+                <button
                     className={`rider-tab ${activeTab === 'pedidos' ? 'active' : ''}`}
                     onClick={() => setActiveTab('pedidos')}
                 >
                     <FaMotorcycle /> Pedidos ({activeOrders.length})
                 </button>
-                <button 
+                <button
                     className={`rider-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
                     onClick={() => setActiveTab('dashboard')}
                 >
@@ -231,10 +231,10 @@ export default function RiderDashboard() {
                                             <div className="rider-info-row"><FaUser /> <strong>{order.cliente.nombre}</strong></div>
                                             <div className="rider-info-row"><FaMapMarkerAlt /> <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.direccion}</a></div>
                                             <div className="rider-info-row">
-                                                <FaPhone /> 
+                                                <FaPhone />
                                                 <a href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.telefono}</a>
                                             </div>
-                                            
+
                                             {quickReplies.length > 0 && (
                                                 <div className="rider-quick-replies">
                                                     {quickReplies.map((reply, i) => (
