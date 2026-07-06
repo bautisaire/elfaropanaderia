@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingBag, FaEdit } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
@@ -164,7 +164,7 @@ export default function CartSidebar() {
 
             <PriceEditModal
                 isOpen={priceEditModal.isOpen}
-                onClose={() => setPriceEditModal(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => setPriceEditModal((prev: any) => ({ ...prev, isOpen: false }))}
                 itemName={priceEditModal.itemName}
                 currentPrice={priceEditModal.currentPrice}
                 onSave={(newPrice) => {

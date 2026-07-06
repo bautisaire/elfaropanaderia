@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaSave } from 'react-icons/fa';
 import './PriceEditModal.css';
 

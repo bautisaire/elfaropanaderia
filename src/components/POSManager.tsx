@@ -584,8 +584,6 @@ export default function POSManager() {
         setCart(prev => prev.filter(item => !(item.id === id && item.selectedVariant === variantName)));
     };
 
-    const clearCart = () => setCart([]);
-
     const total = useMemo(() => {
         const sum = cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
         return Math.round(sum * 100) / 100;

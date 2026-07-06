@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
 import { useCart } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
+import MapLocationPickerModal from "./MapLocationPickerModal";
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
@@ -36,6 +37,8 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
         item: any;
         currentPrice: number;
     }>({ isOpen: false, item: null, currentPrice: 0 });
+
+    const [mapModalOpen, setMapModalOpen] = useState(false);
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -147,15 +150,40 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                             </h5>
                             <div className="info-row">
                                 <FaMapMarkerAlt className="icon-muted" />
-                                <a
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{ color: 'inherit', textDecoration: 'underline' }}
-                                >
-                                    {order.cliente.direccion}
-                                </a >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{ color: 'inherit', textDecoration: 'underline' }}
+                                    >
+                                        {order.cliente.direccion}
+                                    </a >
+                                    {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setMapModalOpen(true);
+                                            }}
+                                            style={{
+                                                background: order.cliente.location ? '#dcfce7' : '#f1f5f9',
+                                                border: `1px solid ${order.cliente.location ? '#86efac' : '#cbd5e1'}`,
+                                                color: order.cliente.location ? '#166534' : '#475569',
+                                                padding: '4px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.8rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                width: 'fit-content'
+                                            }}
+                                        >
+                                            📍 {order.cliente.location ? 'Ubicación Fijada (Editar)' : 'Fijar Ubicación en Mapa'}
+                                        </button>
+                                    )}
+                                </div>
                             </div >
                             <div className="info-row" style={{ alignItems: 'center' }}>
                                 <FaPhone className="icon-muted" />
@@ -503,6 +531,24 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                             console.error("Error al editar precio", err);
                             showToast("Error al guardar");
                         }
+                    }
+                }}
+            />
+
+            <MapLocationPickerModal
+                isOpen={mapModalOpen}
+                onClose={() => setMapModalOpen(false)}
+                initialLocation={order.cliente.location}
+                onSave={async (location) => {
+                    try {
+                        const orderRef = doc(db, "orders", order.id);
+                        await updateDoc(orderRef, {
+                            "cliente.location": location
+                        });
+                        showToast("Ubicación fijada exitosamente");
+                    } catch (err) {
+                        console.error("Error al fijar ubicación", err);
+                        showToast("Error al guardar la ubicación");
                     }
                 }}
             />

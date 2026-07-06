@@ -231,7 +231,38 @@ export default function RiderDashboard() {
                                         </div>
                                         <div className="rider-card-body">
                                             <div className="rider-info-row"><FaUser /> <strong>{order.cliente.nombre}</strong></div>
-                                            <div className="rider-info-row"><FaMapMarkerAlt /> <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.direccion}</a></div>
+                                            <div className="rider-info-row">
+                                                <FaMapMarkerAlt /> 
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">
+                                                        {order.cliente.direccion}
+                                                    </a>
+                                                    {order.cliente.location && (
+                                                        <a 
+                                                            href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`} 
+                                                            target="_blank" 
+                                                            rel="noreferrer"
+                                                            style={{
+                                                                background: '#dcfce7',
+                                                                border: '1px solid #86efac',
+                                                                color: '#166534',
+                                                                padding: '6px 10px',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.9rem',
+                                                                fontWeight: 'bold',
+                                                                textDecoration: 'none',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                marginTop: '4px',
+                                                                width: 'fit-content'
+                                                            }}
+                                                        >
+                                                            🗺️ Abrir Ubicación Exacta (GPS)
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
                                             <div className="rider-info-row">
                                                 <FaPhone />
                                                 <a href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.telefono}</a>

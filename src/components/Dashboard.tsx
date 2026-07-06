@@ -747,7 +747,6 @@ export default function Dashboard() {
         }
     };
 
-    const maskValue = (value: number) => showSensitiveData ? renderAmount(value) : "******";
 
     return (
         <div className="dashboard-container">
