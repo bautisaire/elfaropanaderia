@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, limit } from 'firebase/firestore';
 import { FaMotorcycle, FaChartLine, FaCheckCircle, FaMoneyBillWave, FaCalendarAlt, FaMapMarkerAlt, FaPhone, FaUser, FaClock, FaCopy, FaChevronDown, FaChevronUp, FaDollarSign } from 'react-icons/fa';
 import './RiderDashboard.css';
 
@@ -57,7 +57,8 @@ export default function RiderDashboard() {
         const q = query(
             collection(db, "orders"),
             where("assignedRider", "==", currentUserEmail),
-            orderBy("date", "desc")
+            orderBy("date", "desc"),
+            limit(150)
         );
 
         const unsub = onSnapshot(q, (snap) => {
