@@ -6,6 +6,7 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
 import { useCart } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
+import TextEditModal from "./TextEditModal";
 import MapLocationPickerModal from "./MapLocationPickerModal";
 
 const statusOptions = [
@@ -39,6 +40,19 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
     }>({ isOpen: false, item: null, currentPrice: 0 });
 
     const [mapModalOpen, setMapModalOpen] = useState(false);
+    const [editAddressModalOpen, setEditAddressModalOpen] = useState(false);
+
+    const handleUpdateAddress = async (newAddress: string) => {
+        try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+                'cliente.direccion': newAddress
+            });
+        } catch (error) {
+            console.error("Error updating address:", error);
+            alert("Error al actualizar la dirección.");
+        }
+    };
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -151,15 +165,29 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                             <div className="info-row">
                                 <FaMapMarkerAlt className="icon-muted" />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                    <a
-                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{ color: 'inherit', textDecoration: 'underline' }}
-                                    >
-                                        {order.cliente.direccion}
-                                    </a >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ color: 'inherit', textDecoration: 'underline' }}
+                                        >
+                                            {order.cliente.direccion}
+                                        </a >
+                                        {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditAddressModalOpen(true);
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
+                                                title="Editar Dirección"
+                                            >
+                                                <FaEdit size={14} />
+                                            </button>
+                                        )}
+                                    </div>
                                     {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
                                         <button 
                                             onClick={(e) => {
@@ -535,23 +563,37 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                 }}
             />
 
-            <MapLocationPickerModal
-                isOpen={mapModalOpen}
-                onClose={() => setMapModalOpen(false)}
-                initialLocation={order.cliente.location}
-                onSave={async (location) => {
-                    try {
-                        const orderRef = doc(db, "orders", order.id);
-                        await updateDoc(orderRef, {
-                            "cliente.location": location
-                        });
-                        showToast("Ubicación fijada exitosamente");
-                    } catch (err) {
-                        console.error("Error al fijar ubicación", err);
-                        showToast("Error al guardar la ubicación");
-                    }
-                }}
-            />
+            {mapModalOpen && (
+                <MapLocationPickerModal
+                    isOpen={mapModalOpen}
+                    onClose={() => setMapModalOpen(false)}
+                    initialLocation={order.cliente.location}
+                    onSave={async (location) => {
+                        try {
+                            const orderRef = doc(db, 'orders', order.id);
+                            await updateDoc(orderRef, {
+                                'cliente.location': location
+                            });
+                            setMapModalOpen(false);
+                            showToast("Ubicación fijada exitosamente");
+                        } catch (error) {
+                            console.error("Error saving location:", error);
+                            alert("Error al guardar la ubicación.");
+                        }
+                    }}
+                />
+            )}
+
+            {editAddressModalOpen && (
+                <TextEditModal
+                    isOpen={editAddressModalOpen}
+                    onClose={() => setEditAddressModalOpen(false)}
+                    onSave={handleUpdateAddress}
+                    title="Editar Dirección"
+                    label="Nueva dirección del cliente:"
+                    currentText={order.cliente.direccion || ''}
+                />
+            )}
         </div >
     );
 }
