@@ -295,8 +295,8 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 )
                             }
                             
-                            {/* Rider Assignment (Only Delivery and Admin with permission) */}
-                            {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders)) && onAssignRider && (order.source === 'delivery' || order.source === 'web' || !order.source) && (
+                            {/* Rider Assignment (Available for all order sources) */}
+                            {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders)) && onAssignRider && (
                                 <div className="source-selector-wrapper-expanded" style={{ marginTop: '10px', background: '#f0fdf4', padding: '10px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
                                     <label style={{ color: '#166534', fontWeight: 'bold' }}><FaMotorcycle /> Asignar Repartidor:</label>
                                     <select
