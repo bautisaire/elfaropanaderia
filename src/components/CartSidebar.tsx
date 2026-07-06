@@ -1,7 +1,8 @@
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingBag } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingBag, FaEdit } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
+import PriceEditModal from "./PriceEditModal";
 import "./CartSidebar.css";
 
 export default function CartSidebar() {
@@ -14,8 +15,18 @@ export default function CartSidebar() {
         isSidebarOpen,
         setIsSidebarOpen,
         canAddMore,
+        isSuperAdmin,
+        adminPermissions,
+        updateCartItemPrice,
     } = useContext(CartContext);
     const navigate = useNavigate();
+
+    const [priceEditModal, setPriceEditModal] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        itemName: string;
+        currentPrice: number;
+    }>({ isOpen: false, itemId: '', itemName: '', currentPrice: 0 });
 
     const handleClose = () => {
         setIsSidebarOpen(false);
@@ -85,7 +96,26 @@ export default function CartSidebar() {
                                             </div>
                                         )}
                                     </h4>
-                                    <div className="sidebar-item-price">${Math.floor(item.price)} C/U</div>
+                                    <div className="sidebar-item-price" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        ${Math.floor(item.price)} C/U
+                                        {(isSuperAdmin || adminPermissions?.orders_can_edit_prices) && (
+                                            <button
+                                                style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPriceEditModal({
+                                                        isOpen: true,
+                                                        itemId: item.id,
+                                                        itemName: item.name,
+                                                        currentPrice: item.price
+                                                    });
+                                                }}
+                                                title="Editar Precio Unitario"
+                                            >
+                                                <FaEdit size={12} />
+                                            </button>
+                                        )}
+                                    </div>
 
                                     <div className="sidebar-item-controls">
                                         <div className="sidebar-qty-controls">
@@ -131,6 +161,18 @@ export default function CartSidebar() {
                     </div>
                 )}
             </div>
+
+            <PriceEditModal
+                isOpen={priceEditModal.isOpen}
+                onClose={() => setPriceEditModal(prev => ({ ...prev, isOpen: false }))}
+                itemName={priceEditModal.itemName}
+                currentPrice={priceEditModal.currentPrice}
+                onSave={(newPrice) => {
+                    if (priceEditModal.itemId) {
+                        updateCartItemPrice(priceEditModal.itemId, newPrice);
+                    }
+                }}
+            />
         </>
     );
 }

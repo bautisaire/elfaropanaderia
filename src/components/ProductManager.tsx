@@ -5,6 +5,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, ser
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { syncChildProducts } from "../utils/stockUtils";
 import ProductImageEditor from "./ProductImageEditor";
+import StockAdjustmentModal from "./StockAdjustmentModal";
 import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash, FaCheckCircle, FaFileSignature } from 'react-icons/fa';
 import "./ProductManager.css";
 
@@ -102,6 +103,11 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
+    
+    // Stock Adjustment Modal
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [stockModalProduct, setStockModalProduct] = useState<FirestoreProduct | null>(null);
+
     const [imageEditorFile, setImageEditorFile] = useState<File | null>(null);
     const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
     const [imageEditorTarget, setImageEditorTarget] = useState<ImageEditorTarget | null>(null);
@@ -1205,6 +1211,27 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 <span className={`stock-status ${totalStock > 0 ? 'active' : 'inactive'}`}>
                                                     {Math.round(totalStock * 100) / 100} unid.
                                                 </span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setStockModalProduct(product);
+                                                        setIsStockModalOpen(true);
+                                                    }}
+                                                    title="Ajuste Rápido de Stock"
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#3b82f6',
+                                                        cursor: 'pointer',
+                                                        padding: '4px',
+                                                        marginLeft: '8px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                >
+                                                    <FaEdit size={14} />
+                                                </button>
                                             </div>
 
                                             <div className="list-item-actions">
@@ -1262,6 +1289,15 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                     }
                 />
             )}
+
+            <StockAdjustmentModal
+                isOpen={isStockModalOpen}
+                onClose={() => {
+                    setIsStockModalOpen(false);
+                    setStockModalProduct(null);
+                }}
+                product={stockModalProduct as any}
+            />
         </div >
     );
 }

@@ -1,0 +1,164 @@
+.price-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease-out forwards;
+    backdrop-filter: blur(2px);
+}
+
+.price-modal {
+    background-color: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.price-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.price-modal-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.price-modal-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.price-modal-close:hover {
+    color: #ef4444;
+    background-color: #fee2e2;
+}
+
+.price-modal-body {
+    padding: 20px;
+}
+
+.price-modal-label {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #475569;
+    font-size: 0.95rem;
+}
+
+.price-modal-input-group {
+    display: flex;
+    align-items: center;
+    background-color: #f1f5f9;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 15px;
+    transition: all 0.2s;
+}
+
+.price-modal-input-group:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background-color: white;
+}
+
+.price-modal-currency {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin-right: 8px;
+}
+
+.price-modal-input-group input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #0f172a;
+    outline: none;
+    width: 100%;
+}
+
+.price-modal-footer {
+    padding: 15px 20px;
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.price-modal-btn-cancel,
+.price-modal-btn-save {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.price-modal-btn-cancel {
+    background-color: white;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+}
+
+.price-modal-btn-cancel:hover {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+.price-modal-btn-save {
+    background-color: #3b82f6;
+    border: 1px solid #3b82f6;
+    color: white;
+}
+
+.price-modal-btn-save:hover {
+    background-color: #2563eb;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

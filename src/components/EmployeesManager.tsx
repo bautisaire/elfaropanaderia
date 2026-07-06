@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, where } from 'firebase/firestore';
 import { FaUserPlus, FaEdit, FaTrash, FaClock, FaCheckCircle, FaMoneyBillWave, FaHistory } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import './EmployeesManager.css';
@@ -32,6 +32,9 @@ export default function EmployeesManager() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
     const [cifItems, setCifItems] = useState<any[]>([]);
+    const [riders, setRiders] = useState<any[]>([]);
+    const [unpaidOrders, setUnpaidOrders] = useState<any[]>([]);
+    const [unpaidExtras, setUnpaidExtras] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'fichaje' | 'empleados' | 'pagos' | 'historial'>('fichaje');
 
     // UI state
@@ -39,7 +42,7 @@ export default function EmployeesManager() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
     const [formData, setFormData] = useState({ name: '', hourlyRate: 0 });
-    const [selectedEmployeeForPayment, setSelectedEmployeeForPayment] = useState<{ id: string, name: string, totalDebt: number } | null>(null);
+    const [selectedEmployeeForPayment, setSelectedEmployeeForPayment] = useState<{ id: string, name: string, totalDebt: number, isRider?: boolean, extrasDebt?: number } | null>(null);
     const [paymentAmount, setPaymentAmount] = useState(0);
 
     // Nuevos estados para ajustes manuales
@@ -71,10 +74,28 @@ export default function EmployeesManager() {
             setCifItems(data);
         });
 
+        const unsubRiders = onSnapshot(query(collection(db, 'admin_roles'), where("is_rider", "==", true)), (snap) => {
+            const data = snap.docs.map(doc => ({ email: doc.id, ...doc.data() }));
+            setRiders(data);
+        });
+
+        const unsubOrders = onSnapshot(query(collection(db, 'orders'), where("status", "==", "entregado"), where("paidToRider", "==", false)), (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setUnpaidOrders(data);
+        });
+
+        const unsubExtras = onSnapshot(query(collection(db, 'rider_extras'), where("paidToRider", "==", false)), (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setUnpaidExtras(data);
+        });
+
         return () => {
             unsubEmployees();
             unsubEntries();
             unsubCif();
+            unsubRiders();
+            unsubOrders();
+            unsubExtras();
         };
     }, []);
 
@@ -166,6 +187,38 @@ export default function EmployeesManager() {
         return { ...emp, totalDebt, unpaidEntries };
     });
 
+    const debtsByRider = riders.map(rider => {
+        const riderOrders = unpaidOrders.filter(o => o.assignedRider === rider.email);
+        const riderExtras = unpaidExtras.filter(e => e.riderEmail === rider.email);
+
+        const ordersDebt = riderOrders.reduce((sum, o) => {
+            let orderShipping = Number(o.shippingCost) || 0;
+            if (orderShipping === 0 && o.items) {
+                const envioItem = o.items.find((item: any) =>
+                    String(item.nombre || item.name || "").toLowerCase().includes('envío') ||
+                    String(item.nombre || item.name || "").toLowerCase().includes('envio')
+                );
+                if (envioItem) {
+                    orderShipping = Number(envioItem.precio || envioItem.price || 0) * (Number(envioItem.cantidad || envioItem.quantity || 1));
+                }
+            }
+            return sum + orderShipping;
+        }, 0);
+
+        const extrasDebt = riderExtras.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        
+        return {
+            email: rider.email,
+            name: rider.email,
+            isRider: true,
+            totalDebt: ordersDebt + extrasDebt,
+            ordersDebt,
+            extrasDebt,
+            riderOrders,
+            riderExtras
+        };
+    });
+
     const netCifMonthly = cifItems.reduce((acc, item) => {
         if (item.isSalary) return acc;
         let monthly = item.price;
@@ -179,6 +232,48 @@ export default function EmployeesManager() {
         if (!selectedEmployeeForPayment) return;
 
         try {
+            if (selectedEmployeeForPayment.isRider) {
+                const extrasToLog = selectedEmployeeForPayment.extrasDebt || 0;
+                
+                if (extrasToLog > 0) {
+                    await addDoc(collection(db, 'expenses'), {
+                        title: `Pago Extras a Repartidor: ${selectedEmployeeForPayment.name}`,
+                        amount: extrasToLog,
+                        totalAmount: extrasToLog,
+                        date: serverTimestamp(),
+                        dateLabel: new Intl.DateTimeFormat('en-CA').format(new Date()),
+                        category: 'Sueldos'
+                    });
+                }
+
+                const rData = debtsByRider.find(r => r.email === selectedEmployeeForPayment.id);
+                if (rData) {
+                    for (let o of rData.riderOrders) {
+                        await updateDoc(doc(db, 'orders', o.id), { paidToRider: true });
+                    }
+                    for (let e of rData.riderExtras) {
+                        await updateDoc(doc(db, 'rider_extras', e.id), { paidToRider: true });
+                    }
+                }
+
+                // Add record in time_entries history for the rider too
+                await addDoc(collection(db, 'time_entries'), {
+                    employeeId: selectedEmployeeForPayment.id,
+                    employeeName: selectedEmployeeForPayment.name,
+                    clockIn: serverTimestamp(),
+                    clockOut: serverTimestamp(),
+                    durationHours: 0,
+                    amountDue: -selectedEmployeeForPayment.totalDebt,
+                    status: 'closed',
+                    note: 'Pago a repartidor'
+                });
+
+                setIsPaymentModalOpen(false);
+                setPaymentAmount(0);
+                alert("Pago al repartidor procesado exitosamente. (Se registraron en egresos solo los extras)");
+                return;
+            }
+
             // We'll mark their open entries as 'closed' until the payment amount is covered.
             // Simplified logic: the user usually pays the exact total pending, or an advance.
             // We just create an Expense ticket. However, to keep it simple, we'll mark ALL their pending entries as closed,
@@ -381,6 +476,28 @@ export default function EmployeesManager() {
                                 </div>
                             </div>
                         ))}
+
+                        {riders.map(rider => (
+                            <div key={rider.email} className="em-card" style={{ borderLeft: '4px solid #10b981' }}>
+                                <div className="em-card-header">
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                        <div className="em-avatar" style={{ background: '#dcfce7', color: '#16a34a' }}>{rider.email.charAt(0).toUpperCase()}</div>
+                                        <div className="em-info" style={{ overflow: 'hidden' }}>
+                                            <h3 style={{ textOverflow: 'ellipsis', overflow: 'hidden' }}>{rider.email}</h3>
+                                            <p>Activo</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="em-rate" style={{ background: '#f8fafc', color: '#64748b', fontSize: '0.9rem' }}>
+                                    Rol: Repartidor (Gana por entrega)
+                                </div>
+                                <div className="em-actions" style={{ justifyContent: 'center' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                        Se edita desde Control de Acceso
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
@@ -487,6 +604,27 @@ export default function EmployeesManager() {
                             </div>
                         ))
                     )}
+
+                    {debtsByRider.length > 0 && debtsByRider.map(rider => (
+                        <div key={rider.email} className="debt-card" style={{ borderLeft: '4px solid #10b981' }}>
+                            <div>
+                                <h3 style={{ margin: '0 0 5px 0', color: '#1e293b' }}>{rider.email} <span style={{fontSize: '0.8rem', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px'}}>Repartidor</span></h3>
+                                <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Deuda por entregas (${rider.ordersDebt.toLocaleString()}) y extras (${rider.extrasDebt.toLocaleString()})</p>
+                                <div className="debt-amount">${rider.totalDebt.toLocaleString()}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                {rider.totalDebt > 0 && (
+                                    <button className="btn-pay" onClick={() => {
+                                        setSelectedEmployeeForPayment({ id: rider.email, name: rider.email, totalDebt: rider.totalDebt, isRider: true, extrasDebt: rider.extrasDebt });
+                                        setPaymentAmount(rider.totalDebt);
+                                        setIsPaymentModalOpen(true);
+                                    }}>
+                                        Cargar Pago
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 

@@ -12,6 +12,7 @@ interface AdminRole {
   orders_can_modify: boolean;
   orders_can_change_payment: boolean;
   orders_can_assign_deliveries: boolean;
+  orders_can_edit_prices: boolean;
   pos_sales: boolean;
   store_editor: boolean;
   costs: boolean;
@@ -29,6 +30,7 @@ const PERMISSIONS_MAP = [
   { key: 'orders_can_modify', label: '↳ Permitir modificar pedidos' },
   { key: 'orders_can_change_payment', label: '↳ Permitir cambiar método de pago' },
   { key: 'orders_can_assign_deliveries', label: '↳ Permitir asignar deliveries a riders' },
+  { key: 'orders_can_edit_prices', label: '↳ Permitir editar precios de productos (POS y Pedidos)' },
   { key: 'pos_sales', label: 'Ventas POS (Punto de Venta Local)' },
   { key: 'store_editor', label: 'Editor de Tienda (Banners, etc.)' },
   { key: 'costs', label: 'Productos, Costos y Recetas' },
@@ -88,6 +90,7 @@ export default function AdminRolesManager() {
         orders_can_modify: false,
         orders_can_change_payment: false,
         orders_can_assign_deliveries: false,
+        orders_can_edit_prices: false,
         pos_sales: false,
         store_editor: false,
         costs: false,
@@ -137,7 +140,8 @@ export default function AdminRolesManager() {
         amount: Number(extraAmount),
         date: extraDate,
         description: extraDescription,
-        createdAt: new Date()
+        createdAt: new Date(),
+        paidToRider: false
       });
       alert('Bono/Extra asignado correctamente.');
       setExtraModalData(null);

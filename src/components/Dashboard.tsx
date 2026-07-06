@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 
@@ -33,6 +33,19 @@ export default function Dashboard() {
     const [rawExpenses, setRawExpenses] = useState<any[]>([]);
     const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Sensitive Data Toggle
+    const [showSensitiveData, setShowSensitiveData] = useState(() => {
+        return localStorage.getItem('showSensitiveData') !== 'false';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('showSensitiveData', showSensitiveData.toString());
+    }, [showSensitiveData]);
+
+    const renderAmount = (amount: number, prefix = '$') => {
+        return showSensitiveData ? `${prefix}${Math.floor(amount).toLocaleString('es-AR')}` : '***';
+    };
 
     const [stats, setStats] = useState({
         visits: 0,
@@ -734,10 +747,32 @@ export default function Dashboard() {
         }
     };
 
+    const maskValue = (value: number) => showSensitiveData ? renderAmount(value) : "******";
+
     return (
         <div className="dashboard-container">
             <div className="dashboard-header">
-                <h2>Panel de Control</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <h2 className="dashboard-title"><FaChartLine /> Resumen Financiero</h2>
+                    <button 
+                        onClick={() => setShowSensitiveData(!showSensitiveData)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#6b7280',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#f3f4f6'
+                        }}
+                        title={showSensitiveData ? "Ocultar montos" : "Mostrar montos"}
+                    >
+                        {showSensitiveData ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    </button>
+                </div>
 
                 <div className="timeframe-selector-row">
                     <div className="timeframe-selector">
@@ -827,21 +862,21 @@ export default function Dashboard() {
                                         <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
-                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.totalEfectivo).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{renderAmount(stats.totalEfectivo)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
-                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.totalTransferencia).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>{renderAmount(stats.totalTransferencia)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
-                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.totalDebito).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.totalDebito)}</strong>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </h3>
-                        <p>${Math.floor(stats.plata).toLocaleString('es-AR')}</p>
+                        <p>{renderAmount(stats.plata)}</p>
                         <span className="stat-sub">{stats.totalOrders} pedidos</span>
                     </div>
                 </div>
@@ -854,7 +889,7 @@ export default function Dashboard() {
                     <div className="stat-icon" style={{ color: '#ef4444', backgroundColor: '#fee2e2' }}><FaShoppingCart /></div>
                     <div className="stat-info">
                         <h3>Costos estimado ({getTimeframeLabel()})</h3>
-                        <p style={{ color: '#ef4444' }}>${Math.floor(topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
+                        <p style={{ color: '#ef4444' }}>{renderAmount(topProducts.reduce((sum, p) => sum + p.totalCost, 0))}</p>
                     </div>
                 </div>
 
@@ -866,7 +901,7 @@ export default function Dashboard() {
                     <div className="stat-icon" style={{ color: '#f59e0b', backgroundColor: '#fef3c7' }}><FaMoneyBillWave /></div>
                     <div className="stat-info">
                         <h3>Egresos ({getTimeframeLabel()})</h3>
-                        <p style={{ color: '#f59e0b' }}>${Math.floor(stats.totalEgresos).toLocaleString('es-AR')}</p>
+                        <p style={{ color: '#f59e0b' }}>{renderAmount(stats.totalEgresos)}</p>
                         <span className="stat-sub">{stats.egresosCount} tickets</span>
                     </div>
                 </div>
@@ -879,7 +914,7 @@ export default function Dashboard() {
                     <div className="stat-icon" style={{ color: '#ea580c', backgroundColor: '#ffedd5' }}><FaMoneyBillWave /></div>
                     <div className="stat-info">
                         <h3>Provisión Sueldos</h3>
-                        <p style={{ color: '#ea580c' }}>${Math.floor(stats.totalSueldosPendientes || 0).toLocaleString('es-AR')}</p>
+                        <p style={{ color: '#ea580c' }}>{renderAmount(stats.totalSueldosPendientes || 0)}</p>
                         <span className="stat-sub">Pendientes de pago</span>
                     </div>
                 </div>
@@ -892,7 +927,7 @@ export default function Dashboard() {
                     <div className="stat-icon" style={{ color: '#10b981', backgroundColor: '#d1fae5' }}><FaMoneyBillWave /></div>
                     <div className="stat-info">
                         <h3>Ganancia estimada ({getTimeframeLabel()})</h3>
-                        <p style={{ color: '#10b981' }}>${Math.floor(stats.plata - topProducts.reduce((sum, p) => sum + p.totalCost, 0)).toLocaleString('es-AR')}</p>
+                        <p style={{ color: '#10b981' }}>{renderAmount(stats.plata - topProducts.reduce((sum, p) => sum + p.totalCost, 0))}</p>
                     </div>
                 </div>
 
@@ -921,21 +956,21 @@ export default function Dashboard() {
                                         <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
-                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.despensaEfectivo).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{renderAmount(stats.despensaEfectivo)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
-                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.despensaTransferencia).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>{renderAmount(stats.despensaTransferencia)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
-                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.despensaDebito).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.despensaDebito)}</strong>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </h3>
-                        <p>${Math.floor(stats.despensa).toLocaleString('es-AR')}</p>
+                        <p>{renderAmount(stats.despensa)}</p>
                         <span className="stat-sub">{stats.despensaCount} tickets</span>
                     </div>
                 </div>
@@ -965,21 +1000,21 @@ export default function Dashboard() {
                                         <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
-                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.publicoEfectivo).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{renderAmount(stats.publicoEfectivo)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
-                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.publicoTransferencia).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>{renderAmount(stats.publicoTransferencia)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
-                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.publicoDebito).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.publicoDebito)}</strong>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </h3>
-                        <p>${Math.floor(stats.publico).toLocaleString('es-AR')}</p>
+                        <p>{renderAmount(stats.publico)}</p>
                         <span className="stat-sub">{stats.publicoCount} tickets</span>
                     </div>
                 </div>
@@ -1009,21 +1044,21 @@ export default function Dashboard() {
                                         <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Medios de Pago</h4>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#047857', fontWeight: 500 }}>Efectivo:</span>
-                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>${Math.floor(stats.deliveryEfectivo).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{renderAmount(stats.deliveryEfectivo)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#eff6ff', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#1d4ed8', fontWeight: 500 }}>Transferencia:</span>
-                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>${Math.floor(stats.deliveryTransferencia).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#1e3a8a', fontSize: '1rem' }}>{renderAmount(stats.deliveryTransferencia)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
-                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>${Math.floor(stats.deliveryDebito).toLocaleString('es-AR')}</strong>
+                                            <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.deliveryDebito)}</strong>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         </h3>
-                        <p>${Math.floor(stats.delivery).toLocaleString('es-AR')}</p>
+                        <p>{renderAmount(stats.delivery)}</p>
                         <span className="stat-sub">{stats.deliveryCount} pedidos</span>
                     </div>
                 </div>

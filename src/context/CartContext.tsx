@@ -66,6 +66,7 @@ interface CartContextType {
   isSuperAdmin: boolean;
   adminPermissions: Record<string, boolean>;
   removeCompletelyFromCart: (id: string | number) => void;
+  updateCartItemPrice: (id: string | number, newPrice: number) => void;
   user: any;
   catalogProducts: Product[];
   catalogLoading: boolean;
@@ -97,6 +98,7 @@ export const CartContext = createContext<CartContextType>({
   isSuperAdmin: false,
   adminPermissions: {},
   removeCompletelyFromCart: () => { },
+  updateCartItemPrice: () => { },
   user: null,
   catalogProducts: [],
   catalogLoading: true,
@@ -423,6 +425,14 @@ export const CartProvider = ({ children }: Props) => {
     setCartItems(cartItems.filter((item) => item.id !== id));
   };
 
+  const updateCartItemPrice = (id: string | number, newPrice: number) => {
+    setCartItems(
+      cartItems.map((item) =>
+        item.id === id ? { ...item, price: newPrice } : item
+      )
+    );
+  };
+
   const clearCart = () => setCartItems([]);
 
   const total = Math.round(cartItems.reduce(
@@ -448,6 +458,7 @@ export const CartProvider = ({ children }: Props) => {
         dismissStoreClosed,
         isSidebarOpen,
         setIsSidebarOpen,
+        updateCartItemPrice,
         isAdmin,
         isSuperAdmin,
         adminPermissions,

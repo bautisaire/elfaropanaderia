@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint, FaMotorcycle } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 import { db } from "../firebase/firebaseConfig";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
 import { useCart } from "../context/CartContext";
+import PriceEditModal from "./PriceEditModal";
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
@@ -30,6 +31,11 @@ interface OrderDetailsExpandedProps {
 export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onStatusChange, onDelete, isSuperAdmin, riders, onAssignRider }: OrderDetailsExpandedProps) {
     const { adminPermissions } = useCart();
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [priceEditModal, setPriceEditModal] = useState<{
+        isOpen: boolean;
+        item: any;
+        currentPrice: number;
+    }>({ isOpen: false, item: null, currentPrice: 0 });
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -262,7 +268,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                             }
                             
                             {/* Rider Assignment (Only Delivery and Admin with permission) */}
-                            {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && onAssignRider && (order.source === 'delivery' || order.source === 'web' || !order.source) && (
+                            {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders)) && onAssignRider && (order.source === 'delivery' || order.source === 'web' || !order.source) && (
                                 <div className="source-selector-wrapper-expanded" style={{ marginTop: '10px', background: '#f0fdf4', padding: '10px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
                                     <label style={{ color: '#166534', fontWeight: 'bold' }}><FaMotorcycle /> Asignar Repartidor:</label>
                                     <select
@@ -307,7 +313,25 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                                     )}
                                                 </span>
                                             </div>
-                                            <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
+                                            <span className="item-price" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                ${Math.ceil(item.price * (item.quantity || 1))}
+                                                {(isSuperAdmin || adminPermissions?.orders_can_edit_prices) && (
+                                                    <button
+                                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setPriceEditModal({
+                                                                isOpen: true,
+                                                                item: item,
+                                                                currentPrice: item.price
+                                                            });
+                                                        }}
+                                                        title="Editar Precio Unitario"
+                                                    >
+                                                        <FaEdit size={12} />
+                                                    </button>
+                                                )}
+                                            </span>
                                         </li>
                                     );
                                 })}
@@ -453,6 +477,35 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     {toastMessage}
                 </div>
             )}
+
+            <PriceEditModal
+                isOpen={priceEditModal.isOpen}
+                onClose={() => setPriceEditModal(prev => ({ ...prev, isOpen: false }))}
+                itemName={priceEditModal.item ? priceEditModal.item.name : ''}
+                currentPrice={priceEditModal.currentPrice}
+                onSave={async (newPrice) => {
+                    if (priceEditModal.item) {
+                        try {
+                            const updatedItems = order.items.map((it: any) => 
+                                (it.id === priceEditModal.item.id && it.variant === priceEditModal.item.variant) 
+                                    ? { ...it, price: newPrice }
+                                    : it
+                            );
+                            const newTotal = updatedItems.reduce((acc: number, it: any) => acc + (it.price * (it.quantity || 1)), 0);
+                            
+                            await updateDoc(doc(db, "orders", order.id), {
+                                items: updatedItems,
+                                total: newTotal
+                            });
+                            
+                            showToast("Precio actualizado");
+                        } catch (err) {
+                            console.error("Error al editar precio", err);
+                            showToast("Error al guardar");
+                        }
+                    }
+                }}
+            />
         </div >
     );
 }

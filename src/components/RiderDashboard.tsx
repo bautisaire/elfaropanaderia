@@ -98,7 +98,8 @@ export default function RiderDashboard() {
         if (!confirmOrder) return;
         try {
             await updateDoc(doc(db, "orders", confirmOrder.id), {
-                status: "entregado"
+                status: "entregado",
+                paidToRider: false
             });
             setConfirmOrder(null);
         } catch (error) {

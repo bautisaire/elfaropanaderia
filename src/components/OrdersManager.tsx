@@ -90,7 +90,8 @@ export default function OrdersManager() {
     const [riders, setRiders] = useState<{email: string}[]>([]);
 
     useEffect(() => {
-        if (!isSuperAdmin && !adminPermissions?.orders_can_assign_deliveries) return;
+        const canAssign = isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders);
+        if (!canAssign) return;
         const q = query(collection(db, "admin_roles"), where("is_rider", "==", true));
         const unsub = onSnapshot(q, (snap) => {
             const data = snap.docs.map(d => ({ email: d.id }));
@@ -99,7 +100,7 @@ export default function OrdersManager() {
             console.warn("Permission denied for admin_roles or other error:", error);
         });
         return () => unsub();
-    }, [isSuperAdmin, adminPermissions?.orders_can_assign_deliveries]);
+    }, [isSuperAdmin, adminPermissions]);
 
     const handleAssignRider = async (orderId: string, riderEmail: string) => {
         try {
