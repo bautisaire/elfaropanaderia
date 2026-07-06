@@ -15,6 +15,10 @@ interface Order {
         telefono: string;
         indicaciones?: string;
         metodoPago: string;
+        location?: {
+            lat: number;
+            lng: number;
+        };
     };
     date: any;
     status: string;

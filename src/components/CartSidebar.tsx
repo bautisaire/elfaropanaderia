@@ -105,7 +105,7 @@ export default function CartSidebar() {
                                                     e.stopPropagation();
                                                     setPriceEditModal({
                                                         isOpen: true,
-                                                        itemId: item.id,
+                                                        itemId: String(item.id),
                                                         itemName: item.name,
                                                         currentPrice: item.price
                                                     });
