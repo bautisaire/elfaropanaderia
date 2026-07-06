@@ -314,7 +314,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                   product={product}
                   isOpen={showComboModal}
                   onClose={() => setShowComboModal(false)}
-                  onAddToCart={(prod, comboItems) => {
+                  onAddToCart={(_, comboItems) => {
                      const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
                      const productToAdd = {
                        ...product,

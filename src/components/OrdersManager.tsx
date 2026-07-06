@@ -891,21 +891,23 @@ export default function OrdersManager() {
                             >
                                 Deliveries
                             </button>
-                            <button
-                                className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
-                                onClick={() => navigate('/editor/orders/expenses')}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: activeTab === 'expenses' ? '#f59e0b' : '#f3f4f6',
-                                    color: activeTab === 'expenses' ? 'white' : '#4b5563',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                💸 Gastos
-                            </button>
+                            {adminPermissions?.costs !== false && (
+                                <button
+                                    className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+                                    onClick={() => navigate('/editor/orders/expenses')}
+                                    style={{
+                                        padding: '10px 20px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: activeTab === 'expenses' ? '#f59e0b' : '#f3f4f6',
+                                        color: activeTab === 'expenses' ? 'white' : '#4b5563',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    💸 Gastos
+                                </button>
+                            )}
 
                             {/* Botón rápido a Tickets (VoiceAIPurchases) */}
                             {activeTab === 'expenses' && (
@@ -931,7 +933,7 @@ export default function OrdersManager() {
                         </div>
 
                         {/* Expenses Table */}
-                        {activeTab === 'expenses' && (
+                        {activeTab === 'expenses' && adminPermissions?.costs !== false && (
                             <div className="orders-table-container">
                                 {loadingExpenses ? (
                                     <div className="loading-state"><FaSync className="spin" size={24} /><p>Cargando gastos...</p></div>

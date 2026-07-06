@@ -225,12 +225,12 @@ export const CartProvider = ({ children }: Props) => {
       if (max <= 0) return false;
       
       const itemBaseId = item.baseProductId || item.id;
-      const itemVariant = item.selectedVariant || item.variant || "";
+      const itemVariant = item.selectedVariant || (item as any).variant || "";
 
       let totalInCart = 0;
       cartItems.forEach(cartItem => {
          const cbId = cartItem.baseProductId || cartItem.id;
-         const cVar = cartItem.selectedVariant || cartItem.variant || "";
+         const cVar = cartItem.selectedVariant || (cartItem as any).variant || "";
          if (cbId === itemBaseId && cVar === itemVariant) {
             totalInCart += (cartItem.quantity || 1);
          }
@@ -366,7 +366,7 @@ export const CartProvider = ({ children }: Props) => {
     let totalInCart = 0;
     cartItems.forEach(cartItem => {
        const cbId = cartItem.baseProductId || cartItem.id;
-       const cVar = cartItem.selectedVariant || cartItem.variant || "";
+       const cVar = cartItem.selectedVariant || (cartItem as any).variant || "";
        if (cbId === baseId && cVar === (variant || "")) {
           totalInCart += (cartItem.quantity || 1);
        }

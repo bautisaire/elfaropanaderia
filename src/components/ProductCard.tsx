@@ -282,7 +282,7 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
           product={liveProduct}
           isOpen={showComboModal}
           onClose={() => setShowComboModal(false)}
-          onAddToCart={(prod, comboItems) => {
+          onAddToCart={(_, comboItems) => {
              // For combos, we generate a unique ID so different selections don't merge, 
              // unless you want them to merge if selections are identical.
              // Using a timestamp + random for simplicity.

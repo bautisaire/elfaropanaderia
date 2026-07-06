@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Product } from '../context/CartContext';
 import { FaTimes, FaMinus, FaPlus } from 'react-icons/fa';

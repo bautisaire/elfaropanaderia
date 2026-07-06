@@ -12,7 +12,7 @@ import StockErrorModal from "../components/StockErrorModal";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
-  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, setIsSidebarOpen } = useContext(CartContext);
+  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart } = useContext(CartContext);
   
   useEffect(() => {
     document.body.classList.add('svg-background');
