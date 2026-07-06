@@ -15,8 +15,8 @@ const isTransferPayment = (metodoPago: any): boolean => {
 
 const TRANSFER_DATA_BLOCK = `
  *Datos de Transferencia:*
-BANCO NACIÓN
-ALIAS: \`faro.78\`
+ALIAS: \`elfaro80.mp\`
+CVU: \`0000003100006832823516\`
 A NOMBRE DE: \`MARIA ELISABETH CORONEL\`
 _Enviar comprobante_`;
 
