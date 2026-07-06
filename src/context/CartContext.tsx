@@ -40,6 +40,10 @@ export interface Product {
   };
   unitType?: 'unit' | 'weight';
   description?: string;
+  isCombo?: boolean;
+  comboItemsCount?: number;
+  comboOptions?: { name: string; image?: string }[];
+  selectedComboItems?: { name: string; quantity: number }[];
 }
 
 interface CartContextType {
@@ -218,9 +222,22 @@ export const CartProvider = ({ children }: Props) => {
   const canAddMore = useCallback(
     (item: Product) => {
       const max = getMaxQuantityForCartItem(item);
-      return max > 0 && (item.quantity || 1) < max;
+      if (max <= 0) return false;
+      
+      const itemBaseId = item.baseProductId || item.id;
+      const itemVariant = item.selectedVariant || item.variant || "";
+
+      let totalInCart = 0;
+      cartItems.forEach(cartItem => {
+         const cbId = cartItem.baseProductId || cartItem.id;
+         const cVar = cartItem.selectedVariant || cartItem.variant || "";
+         if (cbId === itemBaseId && cVar === itemVariant) {
+            totalInCart += (cartItem.quantity || 1);
+         }
+      });
+      return totalInCart < max;
     },
-    [getMaxQuantityForCartItem]
+    [getMaxQuantityForCartItem, cartItems]
   );
 
   // helpers para cantidad y total
@@ -346,9 +363,19 @@ export const CartProvider = ({ children }: Props) => {
 
     if (maxStock <= 0) return;
 
+    let totalInCart = 0;
+    cartItems.forEach(cartItem => {
+       const cbId = cartItem.baseProductId || cartItem.id;
+       const cVar = cartItem.selectedVariant || cartItem.variant || "";
+       if (cbId === baseId && cVar === (variant || "")) {
+          totalInCart += (cartItem.quantity || 1);
+       }
+    });
+
     const exists = cartItems.find((item) => item.id === product.id);
 
     if (exists) {
+      if (totalInCart >= maxStock) return;
       const currentQty = exists.quantity || 1;
       if (currentQty >= maxStock) return;
 
@@ -360,6 +387,11 @@ export const CartProvider = ({ children }: Props) => {
         )
       );
     } else {
+      if (totalInCart >= maxStock) {
+        // Option 1: show a toast, but for now we just return.
+        // Actually, the UI usually hides the button, but if it doesn't, we block it here.
+        return;
+      }
       setCartItems([
         ...cartItems,
         {

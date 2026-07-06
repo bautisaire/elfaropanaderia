@@ -167,6 +167,7 @@ exports.processOrder = onCall(async (request) => {
 
         // Helper function
         const getBaseId = (item) => {
+            if (item.baseProductId) return String(item.baseProductId);
             if (item.productId) return String(item.productId);
             const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
             const variantName = match ? match[1] : null;

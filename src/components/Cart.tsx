@@ -14,6 +14,13 @@ export default function Cart() {
           {cart.map((item) => (
             <div key={item.id}>
               {item.name} x {item.quantity} = ${Math.round(item.price * (item.quantity || 1) * 100) / 100}
+              {item.selectedComboItems && item.selectedComboItems.length > 0 && (
+                <div style={{ fontSize: '0.8em', color: '#666', marginLeft: '10px' }}>
+                  {item.selectedComboItems.map((comboItem, idx) => (
+                    <div key={idx}>- {comboItem.quantity}x {comboItem.name}</div>
+                  ))}
+                </div>
+              )}
               <button onClick={() => removeFromCart(item.id)}>❌</button>
             </div>
           ))}

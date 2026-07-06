@@ -12,7 +12,7 @@ import StockErrorModal from "../components/StockErrorModal";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
-  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user } = useContext(CartContext);
+  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, setIsSidebarOpen } = useContext(CartContext);
   
   useEffect(() => {
     document.body.classList.add('svg-background');
@@ -394,8 +394,11 @@ export default function Checkout() {
   };
 
   const handleStockFix = () => {
-    stockError.items.forEach(item => removeFromCart(item.id));
+    stockError.items.forEach(item => removeCompletelyFromCart(item.id));
     setStockError({ ...stockError, isOpen: false });
+    setShowCheckout(false);
+    navigate("/");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

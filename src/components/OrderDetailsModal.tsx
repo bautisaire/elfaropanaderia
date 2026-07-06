@@ -149,7 +149,16 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                                     <li key={index} className="order-item">
                                         <div className="order-item-detail">
                                             <span className="item-qty" style={{ color: qtyColor, fontWeight: 'bold' }}>{qty.toFixed(3).replace(/\.?0+$/, "")}x</span>
-                                            <span className="item-name">{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                            <span className="item-name">
+                                                {item.name} {item.variant ? `(${item.variant})` : ''}
+                                                {item.selectedComboItems && item.selectedComboItems.length > 0 && (
+                                                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '4px', fontWeight: 'normal' }}>
+                                                        {item.selectedComboItems.map((combo: any, i: number) => (
+                                                            <div key={i}>- {combo.quantity}x {combo.name}</div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </span>
                                         </div>
                                         <span className="item-price">${Math.ceil(item.price * (item.quantity || 1))}</span>
                                     </li>

@@ -13,6 +13,7 @@ export interface StockValidationResult {
 }
 
 const getBaseId = (item: any) => {
+    if (item.baseProductId) return String(item.baseProductId);
     if (item.productId) return String(item.productId);
 
     let variantName = item.variant;
@@ -38,6 +39,19 @@ const getBaseId = (item: any) => {
 
 export const validateCartStock = async (cart: any[]): Promise<StockValidationResult> => {
     const outOfStockItems = [];
+
+    // Aggregate quantities by base product and variant
+    const aggregatedQuantities = new Map<string, number>();
+    for (const item of cart) {
+        const baseId = getBaseId(item);
+        let variantName = item.variant || "";
+        if (!variantName && item.name && item.name.includes('(')) {
+            const match = item.name.match(/\(([^)]+)\)$/);
+            if (match) variantName = match[1];
+        }
+        const key = `${baseId}-${variantName}`;
+        aggregatedQuantities.set(key, (aggregatedQuantities.get(key) || 0) + (item.quantity || 1));
+    }
 
     for (const item of cart) {
         try {
@@ -93,11 +107,19 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                     available = Number(data.stockQuantity || 0);
                 }
 
-                if (item.quantity > available) {
+                let variantName = item.variant || "";
+                if (!variantName && item.name && item.name.includes('(')) {
+                    const match = item.name.match(/\(([^)]+)\)$/);
+                    if (match) variantName = match[1];
+                }
+                const key = `${baseId}-${variantName}`;
+                const totalRequested = aggregatedQuantities.get(key) || item.quantity;
+
+                if (totalRequested > available) {
                     outOfStockItems.push({
                         id: item.id,
                         name: item.name,
-                        requested: item.quantity,
+                        requested: totalRequested,
                         available: available
                     });
                 }

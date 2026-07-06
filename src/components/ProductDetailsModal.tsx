@@ -4,6 +4,7 @@ import { Product, useCart } from "../context/CartContext";
 import ReviewsSection from "./ReviewsSection";
 import "./ProductCard.css"; // Reuse some styles for variants/buttons
 import "./ProductDetailsModal.css";
+import ComboSelectionModal from "./ComboSelectionModal";
 
 interface ProductDetailsModalProps {
     product: Product;
@@ -22,6 +23,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const liveProduct = getCatalogProduct(String(product.id)) ?? product;
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [overrideImage, setOverrideImage] = useState<string | null>(null);
+    const [showComboModal, setShowComboModal] = useState(false);
 
     const variantHasStock = (v: { stock?: boolean; stockQuantity?: number }) =>
         v.stockQuantity !== undefined ? v.stockQuantity > 0 : !!v.stock;
@@ -46,8 +48,15 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
         ? `${product.id}-${selectedVariant}`
         : String(product.id);
 
-    const cartItem = cart.find((item) => item.id === cartItemId);
-    const quantity = cartItem?.quantity ?? 0;
+    let quantity = 0;
+    if (liveProduct.isCombo) {
+        quantity = cart
+            .filter((item) => item.baseProductId === liveProduct.id)
+            .reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+    } else {
+        const cartItem = cart.find((item) => item.id === cartItemId);
+        quantity = cartItem?.quantity ?? 0;
+    }
 
     useEffect(() => {
         if (selectedVariant && liveProduct.variants) {
@@ -85,6 +94,11 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
         }
         if (maxStock <= 0) return;
         if (quantity >= maxStock) return;
+
+        if (product.isCombo) {
+            setShowComboModal(true);
+            return;
+        }
 
         const productToAdd = {
             ...liveProduct,
@@ -127,7 +141,6 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                 overflowY: "auto",
             }}
         >
-            {/* Close button outside the content box to avoid overlapping the image */}
             <button
                 onClick={onClose}
                 style={{
@@ -171,7 +184,6 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
             >
 
                 <div className="product-details-main">
-                    {/* Left: Image Gallery */}
                     <div className="product-details-image-col">
                         <div style={{ width: "100%", aspectRatio: "1", borderRadius: "12px", overflow: "hidden", position: "relative", backgroundColor: "#f9f9f9" }}>
                             <img
@@ -213,7 +225,6 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                         )}
                     </div>
 
-                    {/* Right: Product Info */}
                     <div className={`product-details-info-col${!liveProduct.description ? " product-details-info-col--compact" : ""}`}>
                         <h2 style={{ fontSize: "1.8rem", margin: "0 0 8px 0", color: "#222" }}>{liveProduct.name}</h2>
                         
@@ -256,36 +267,27 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                         )}
 
                         <div className="product-details-actions">
-                            {quantity === 0 ? (
+                            {quantity === 0 || liveProduct.isCombo ? (
                                 <button
                                     className="btn-add"
                                     onClick={handleAddToCart}
-                                    disabled={isOutOfStock}
+                                    disabled={isOutOfStock || quantity >= maxStock}
                                     style={{ flex: 1, padding: "14px", fontSize: "1.1rem" }}
                                 >
-                                    {isOutOfStock ? "Sin Stock" : "Agregar al carrito"}
+                                    {isOutOfStock ? "Sin Stock" : quantity >= maxStock ? "Stock Máximo" : "Agregar al carrito"}
                                 </button>
                             ) : (
-                                <>
-                                    <div className="quantity-controls" style={{ flex: 1, height: "50px" }}>
-                                        <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
-                                        <span className="quantity-display" style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{quantity}</span>
-                                        <button
-                                            className="btn-qty plus"
-                                            onClick={handleAddToCart}
-                                            disabled={atMaxQuantity}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
+                                <div className="quantity-controls" style={{ flex: 1, height: "50px" }}>
+                                    <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
+                                    <span className="quantity-display" style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{quantity}</span>
                                     <button
-                                        className="btn-add"
-                                        onClick={onClose}
-                                        style={{ flex: 1, padding: "14px", fontSize: "1.1rem" }}
+                                        className="btn-qty plus"
+                                        onClick={handleAddToCart}
+                                        disabled={atMaxQuantity}
                                     >
-                                        Confirmar
+                                        +
                                     </button>
-                                </>
+                                </div>
                             )}
                         </div>
                         <div className="product-details-stock">
@@ -306,6 +308,28 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                     to { transform: scale(1); opacity: 1; }
                 }
             `}</style>
+            
+            {showComboModal && (
+                <ComboSelectionModal
+                  product={product}
+                  isOpen={showComboModal}
+                  onClose={() => setShowComboModal(false)}
+                  onAddToCart={(prod, comboItems) => {
+                     const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
+                     const productToAdd = {
+                       ...product,
+                       id: uniqueCartItemId,
+                       baseProductId: product.id,
+                       selectedVariant: selectedVariant || undefined,
+                       price: finalPrice,
+                       name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name,
+                       selectedComboItems: comboItems
+                     };
+                     addToCart(productToAdd);
+                     onClose(); // Optional: close details modal too
+                  }}
+                />
+            )}
         </div>
     );
 }

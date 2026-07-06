@@ -91,6 +91,9 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         stockReadyTime: data.stockReadyTime as string | undefined,
         customBadgeText: data.customBadgeText as string | undefined,
         badgeExpiresAt: data.badgeExpiresAt as string | undefined,
+        isCombo: data.isCombo as boolean | undefined,
+        comboItemsCount: data.comboItemsCount as number | undefined,
+        comboOptions: data.comboOptions as any[] | undefined,
     };
 }
 

@@ -1271,7 +1271,16 @@ export default function OrdersManager() {
                                                 return (
                                                     <li key={idx} className="edit-item-row">
                                                         <div className="item-info">
-                                                            <span>{item.name} {item.variant ? `(${item.variant})` : ''}</span>
+                                                            <span>
+                                                                {item.name} {item.variant ? `(${item.variant})` : ''}
+                                                                {item.selectedComboItems && item.selectedComboItems.length > 0 && (
+                                                                    <div style={{ fontSize: '0.85em', color: '#666', marginTop: '4px', fontWeight: 'normal' }}>
+                                                                        {item.selectedComboItems.map((combo: any, i: number) => (
+                                                                            <div key={i}>- {combo.quantity}x {combo.name}</div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </span>
                                                             <small>${item.price}{byWeight ? '/kg' : ''}</small>
                                                         </div>
                                                         <div className="item-controls">

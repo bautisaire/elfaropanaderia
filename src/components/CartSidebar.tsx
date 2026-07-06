@@ -77,6 +77,13 @@ export default function CartSidebar() {
                                     <h4 className="sidebar-item-title">
                                         {item.name}
                                         {item.selectedVariant && <span style={{ fontSize: '0.85em', color: '#666', display: 'block' }}>{item.selectedVariant}</span>}
+                                        {item.selectedComboItems && item.selectedComboItems.length > 0 && (
+                                            <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px', lineHeight: '1.3', fontWeight: 'normal' }}>
+                                                {item.selectedComboItems.map((comboItem, idx) => (
+                                                    <div key={idx}>- {comboItem.quantity}x {comboItem.name}</div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </h4>
                                     <div className="sidebar-item-price">${Math.floor(item.price)} C/U</div>
 

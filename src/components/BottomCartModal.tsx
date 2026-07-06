@@ -6,14 +6,15 @@ import { validateCartStock } from "../utils/stockValidation";
 import StockErrorModal from "./StockErrorModal";
 
 export default function BottomCartModal() {
-  const { showBottomModal, setShowBottomModal, cartQuantity, cartTotal, cart, removeFromCart } = useCart();
+  const { showBottomModal, setShowBottomModal, cartQuantity, cartTotal, cart, removeCompletelyFromCart } = useCart();
   const navigate = useNavigate();
   const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
   const [validating, setValidating] = useState(false);
 
   const handleStockFix = () => {
-    stockError.items.forEach(item => removeFromCart(item.id));
+    stockError.items.forEach(item => removeCompletelyFromCart(item.id));
     setStockError({ ...stockError, isOpen: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePay = async () => {

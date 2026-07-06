@@ -49,6 +49,9 @@ export interface FirestoreProduct {
     badgeExpiresAt?: string;
     createdAt?: any;
     updatedAt?: any;
+    isCombo?: boolean;
+    comboItemsCount?: number;
+    comboOptions?: { name: string; image?: string }[];
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -73,12 +76,16 @@ const INITIAL_STATE: FirestoreProduct = {
     requiresRecipe: true,
     stockReadyTime: "",
     customBadgeText: "",
-    badgeExpiresAt: ""
+    badgeExpiresAt: "",
+    isCombo: false,
+    comboItemsCount: 6,
+    comboOptions: []
 };
 
 type ImageEditorTarget =
     | { type: "product" }
-    | { type: "variant"; idx: number };
+    | { type: "variant"; idx: number }
+    | { type: "comboOption"; idx: number };
 
 export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
@@ -378,7 +385,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                     };
                 });
                 setMessage("Imagen subida correctamente");
-            } else {
+            } else if (imageEditorTarget.type === "variant") {
                 const variantIdx = imageEditorTarget.idx;
                 setFormData(prev => {
                     const newVariants = [...(prev.variants || [])];
@@ -389,6 +396,17 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                     return { ...prev, variants: newVariants };
                 });
                 setMessage("Imagen de variante subida");
+            } else if (imageEditorTarget.type === "comboOption") {
+                const comboIdx = imageEditorTarget.idx;
+                setFormData(prev => {
+                    const newOptions = [...(prev.comboOptions || [])];
+                    newOptions[comboIdx] = {
+                        ...newOptions[comboIdx],
+                        image: downloadURL
+                    };
+                    return { ...prev, comboOptions: newOptions };
+                });
+                setMessage("Imagen de opción subida");
             }
 
             if (pendingImageFiles.length > 0 && imageEditorTarget.type === "product") {
@@ -442,6 +460,45 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
             // @ts-ignore
             if (field === 'stockQuantity') newVariants[idx].stock = Number(value) > 0;
             return { ...prev, variants: newVariants };
+        });
+    };
+
+    const addComboOption = () => {
+        setFormData(prev => ({
+            ...prev,
+            comboOptions: [...(prev.comboOptions || []), { name: "", image: "" }]
+        }));
+    };
+
+    const removeComboOption = (idx: number) => {
+        setFormData(prev => ({
+            ...prev,
+            comboOptions: prev.comboOptions?.filter((_, i) => i !== idx)
+        }));
+    };
+
+    const handleComboOptionChange = (idx: number, value: string) => {
+        setFormData(prev => {
+            const newOptions = [...(prev.comboOptions || [])];
+            newOptions[idx].name = value;
+            return { ...prev, comboOptions: newOptions };
+        });
+    };
+
+    const handleComboOptionImageUpload = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        openImageEditor(files, { type: "comboOption", idx });
+        e.target.value = "";
+    };
+
+    const removeComboOptionImage = (idx: number) => {
+        setFormData(prev => {
+            const newOptions = [...(prev.comboOptions || [])];
+            const updatedOption = { ...newOptions[idx] };
+            delete updatedOption.image;
+            newOptions[idx] = updatedOption;
+            return { ...prev, comboOptions: newOptions };
         });
     };
 
@@ -812,6 +869,84 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             />
                                             <strong style={{ color: '#ef4444' }}>Excluir de Estadísticas</strong>
                                         </label>
+                                    </div>
+
+                                    {/* Combo Settings */}
+                                    <div className="pm-dependency-section" style={{ background: '#e0f2fe', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #bae6fd' }}>
+                                        <div className="checkbox-group-styled">
+                                            <label>
+                                                <input
+                                                    type="checkbox"
+                                                    name="isCombo"
+                                                    checked={!!formData.isCombo}
+                                                    onChange={handleInputChange}
+                                                />
+                                                <strong style={{ color: '#0369a1' }}>Es Combo / Requiere Selección Múltiple</strong>
+                                            </label>
+                                        </div>
+
+                                        {formData.isCombo && (
+                                            <div style={{ marginTop: '15px' }}>
+                                                <div className="form-group half" style={{ marginBottom: '15px' }}>
+                                                    <label style={{ color: '#0369a1' }}>Cantidad Exacta Requerida (Ej. 6 para media docena)</label>
+                                                    <input
+                                                        type="number"
+                                                        name="comboItemsCount"
+                                                        value={formData.comboItemsCount || 0}
+                                                        onChange={handleInputChange}
+                                                        onBlur={handleInputBlur}
+                                                        onWheel={handleWheel}
+                                                        min="1"
+                                                    />
+                                                </div>
+                                                
+                                                <div className="variants-header" style={{ borderBottom: '1px solid #bae6fd', paddingBottom: '10px', marginBottom: '10px' }}>
+                                                    <label style={{ color: '#0369a1' }}>Opciones del Combo</label>
+                                                    <button type="button" className="btn-secondary btn-sm" onClick={addComboOption}><FaPlus /> Agregar Opción</button>
+                                                </div>
+                                                
+                                                <div className="variants-list">
+                                                    {formData.comboOptions?.map((opt, idx) => (
+                                                        <div key={idx} className="variant-row" style={{ alignItems: 'center', gap: '10px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '5px' }}>
+                                                            <div style={{ flex: 1 }}>
+                                                                <input
+                                                                    placeholder="Ej. Medialuna de Manteca"
+                                                                    value={opt.name}
+                                                                    onChange={(e) => handleComboOptionChange(idx, e.target.value)}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                {opt.image ? (
+                                                                    <div className="variant-img-preview" style={{ position: 'relative', width: '40px', height: '40px' }}>
+                                                                        <img src={opt.image} alt="opt" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeComboOptionImage(idx)}
+                                                                            style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '15px', height: '15px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                        >
+                                                                            ×
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <label className="btn-icon-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px', border: '1px solid #ddd', borderRadius: '4px' }} title="Subir foto opción">
+                                                                        <FaCamera size={14} />
+                                                                        <input type="file" hidden accept="image/*" onChange={(e) => handleComboOptionImageUpload(e, idx)} />
+                                                                    </label>
+                                                                )}
+
+                                                                <button type="button" className="btn-icon-danger" onClick={() => removeComboOption(idx)}>
+                                                                    <FaTrash />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {(!formData.comboOptions || formData.comboOptions.length === 0) && (
+                                                        <p className="text-muted text-sm">No hay opciones configuradas.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Custom Badge / Ready Time Section */}
