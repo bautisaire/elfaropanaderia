@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaMicrophone } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -15,6 +15,8 @@ import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
 import EmployeesManager from "../components/EmployeesManager";
 import RaffleManager from "../components/RaffleManager";
+import RiderDashboard from "../components/RiderDashboard";
+import RiderSettings from "../components/RiderSettings";
 import { useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -295,6 +297,38 @@ export default function Editor() {
                 </button>
               )}
 
+              {adminPermissions?.is_rider === true && (
+                <>
+                  <button
+                    className={currentPath === "rider" && location.pathname === "/editor/rider" ? "active" : ""}
+                    onClick={() => handleNavClick("/editor/rider")}
+                    title="Panel de Repartidor"
+                  >
+                    <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaMotorcycle /></div>
+                    <span className="nav-text">Panel de Repartidor</span>
+                  </button>
+                  <a
+                    href="https://wa.me/5492995206821"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{textDecoration: 'none'}}
+                  >
+                    <button title="Soporte Técnico" style={{width: '100%'}}>
+                        <div className="nav-icon" style={{ color: '#ef4444' }}><FaMicrophone /></div>
+                        <span className="nav-text">Soporte Técnico</span>
+                    </button>
+                  </a>
+                  <button
+                    className={location.pathname === "/editor/rider-settings" ? "active" : ""}
+                    onClick={() => handleNavClick("/editor/rider-settings")}
+                    title="Configurar Respuestas Rápidas"
+                  >
+                    <div className="nav-icon" style={{ color: '#64748b' }}><FaCog /></div>
+                    <span className="nav-text">Respuestas Rápidas</span>
+                  </button>
+                </>
+              )}
+
               <div className="sidebar-footer">
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
                   <div className="nav-icon" style={{ color: '#84cc16' }}><FaHome /></div>
@@ -320,8 +354,22 @@ export default function Editor() {
               {adminPermissions?.costs !== false && <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />}
               {adminPermissions?.employees !== false && <Route path="/employees" element={<EmployeesManager />} />}
               {adminPermissions?.raffle !== false && <Route path="/raffle" element={<RaffleManager />} />}
+              {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
+              {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
               <Route path="*" element={
-                 adminPermissions?.dashboard !== false ? <Navigate to="/editor/" replace /> : <div style={{padding: '50px', textAlign: 'center'}}>No tienes permiso para ver esta sección.</div>
+                 (() => {
+                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
+                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
+                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
+                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
+                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
+                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
+                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
+                   if (adminPermissions?.employees !== false) return <Navigate to="/editor/employees" replace />;
+                   if (adminPermissions?.raffle !== false) return <Navigate to="/editor/raffle" replace />;
+                   if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
+                   return <div style={{padding: '50px', textAlign: 'center'}}>No tienes permiso para ver ninguna sección.</div>;
+                 })()
               } />
             </Routes>
           </main>

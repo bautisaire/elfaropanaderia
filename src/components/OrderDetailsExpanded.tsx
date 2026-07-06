@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint, FaMotorcycle } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 import { db } from "../firebase/firebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
+import { useCart } from "../context/CartContext";
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },
@@ -22,9 +23,12 @@ interface OrderDetailsExpandedProps {
     onClose: () => void;
     onDelete?: (id: string, restoreStock: boolean) => void;
     isSuperAdmin?: boolean;
+    riders?: {email: string}[];
+    onAssignRider?: (id: string, riderEmail: string) => void;
 }
 
-export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onStatusChange, onDelete, isSuperAdmin }: OrderDetailsExpandedProps) {
+export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceChange, onPaymentMethodChange, onStatusChange, onDelete, isSuperAdmin, riders, onAssignRider }: OrderDetailsExpandedProps) {
+    const { adminPermissions } = useCart();
     const [toastMessage, setToastMessage] = useState<string | null>(null);
 
     const showToast = (msg: string) => {
@@ -110,9 +114,11 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); printTicket(order); }}>
                                     <FaPrint /> Imprimir Ticket
                                 </button>
-                                <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
-                                    <FaEdit /> Editar Pedido
-                                </button>
+                                {(adminPermissions?.orders_can_modify !== false || isSuperAdmin) && (
+                                    <button className="btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(order); }}>
+                                        <FaEdit /> Editar Pedido
+                                    </button>
+                                )}
                                 {isSuperAdmin && onDelete && (
                                     <button
                                         className="btn-secondary btn-sm"
@@ -185,7 +191,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
 
                             <div className="info-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                 <FaCreditCard className="icon-muted" />
-                                {onPaymentMethodChange ? (
+                                {(onPaymentMethodChange && (adminPermissions?.orders_can_change_payment !== false || isSuperAdmin)) ? (
                                     <div className="source-selector-wrapper-expanded" style={{ margin: 0 }}>
                                         <select
                                             value={order.cliente.metodoPago ? order.cliente.metodoPago.charAt(0).toUpperCase() + order.cliente.metodoPago.slice(1).toLowerCase() : ""}
@@ -218,7 +224,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                                 onClick={(e) => e.stopPropagation()}
                                                 className="status-dropdown-table"
                                             >
-                                                {statusOptions.map(opt => (
+                                                {statusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
                                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>
@@ -254,6 +260,25 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     </div>
                                 )
                             }
+                            
+                            {/* Rider Assignment (Only Delivery and SuperAdmin) */}
+                            {isSuperAdmin && onAssignRider && (order.source === 'delivery' || order.source === 'web' || !order.source) && (
+                                <div className="source-selector-wrapper-expanded" style={{ marginTop: '10px', background: '#f0fdf4', padding: '10px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                                    <label style={{ color: '#166534', fontWeight: 'bold' }}><FaMotorcycle /> Asignar Repartidor:</label>
+                                    <select
+                                        value={order.assignedRider || ""}
+                                        onChange={(e) => onAssignRider(order.id, e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="source-select-inline"
+                                        style={{ borderColor: '#86efac', background: '#fff' }}
+                                    >
+                                        <option value="">— Sin Asignar —</option>
+                                        {riders?.map(r => (
+                                            <option key={r.email} value={r.email}>{r.email}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div >
 
                         {/* Items */}

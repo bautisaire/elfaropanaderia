@@ -10,153 +10,96 @@ service cloud.firestore {
         request.auth.token.email == "litijunior@hotmail.com.ar" 
       );
     }
-    
+
     match /products/{productId} {
       allow read: if true;
-      allow create, delete: if isAdmin();
-      // Ya no permitimos update desde cliente para stock regular. Admin controla todo.
-      allow update: if isAdmin();
       
-      match /reviews/{reviewId} {
-        allow read: if true;
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-        allow delete: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
-      }
+      // Solo admins pueden crear o borrar productos
+      allow create, delete: if isAdmin();
+      
+      // Admins pueden editar todo. 
+      // Clientes SOLO pueden editar stock (para que funcione el descuento).
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockQuantity', 'variants', 'stock'])
+      );
     }
 
-    match /{path=**}/reviews/{reviewId} {
-      allow read: if isAdmin();
-    }
-    
+    // Categorías
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
-    // Pedidos (Permitir lectura para poder usar LocalStorage y "Mis Compras")
+
+    // Pedidos
     match /orders/{orderId} {
-      // Las compras nuevas se ingresan por la Cloud Function processOrder. (Admin la puede hacer manual si quiere).
-      allow create: if isAdmin(); 
-      // Permitimos read general: dado que los IDs son generados al azar, conocer el ID otorga permiso de lectura.
-      // Esto es vital para "Mis Compras" basado en LocalStorage, incluso sin estar logueado.
-      allow read: if true; 
-      allow update: if isAdmin();
-      allow delete: if request.auth != null && request.auth.token.email == "sairebautista@gmail.com";
+      allow create, read: if true;
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        resource.data.assignedRider == request.auth.token.email
+      );
+      allow delete: if isAdmin();
     }
-    
+
+    // Hero Slides
     match /hero_slides/{slideId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
+
+    // Configuración antigua (Estado de la tienda)
     match /settings/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
+
+    // --- NUEVO: Configuración General (Compra Mínima y Contador) ---
     match /config/store_settings {
         allow read: if true;
         allow write: if isAdmin();
     }
-    
+
+    // Regla crucial para que los clientes puedan generar IDs secuenciales
     match /config/order_counter {
         allow read: if true;
-        // El incremento automático ahora es desde Backend. 
-        allow update, create: if isAdmin(); 
+        // Permitimos update para que funcione el checkout (incremento)
+        allow update: if true; 
+        allow create: if isAdmin();
     }
     
+    // Fallback para otros docs en config
     match /config/{document} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
+
+    // Movimientos de Stock
     match /stock_movements/{movementId} {
-      // Movimientos generados manualmente solo por Admin, los web los genera Backend
-      allow create, read, update, delete: if isAdmin();
-    }
-    
-    match /stats/general {
-      allow read, update, create: if true;
-    }
-    
-    match /stats/{document=**} {
-      allow read, write: if isAdmin();
-    }
-    
-    // --- TICKETS DE IA / VOZ ---
-    match /voice_purchases/{documentId} {
-      // Permitimos crear tickets a cualquier usuario registrado (para no bloquear el dictado)
-      // Pero solo los admins pueden modificar o borrar el registro después.
-      allow create: if request.auth != null;
+      allow create: if true; 
       allow read, update, delete: if isAdmin();
     }
 
-    // --- MÓDULO DE ROLES DE ADMIN ---
+    // Estadísticas
+    match /stats/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Extras/Bonos de Repartidores
+    match /rider_extras/{extraId} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.token.email == resource.data.riderEmail) || true;
+      allow write: if isAdmin();
+    }
+
+    // --- NUEVOS MÓDULOS DE USUARIOS ---
     match /admin_roles/{roleId} {
       allow read: if request.auth != null && (request.auth.token.email == roleId || request.auth.token.email == "sairebautista@gmail.com");
       allow write: if request.auth != null && request.auth.token.email == "sairebautista@gmail.com";
     }
 
-    // --- MÓDULO DE USUARIOS ---
     match /users/{userId} {
-      // Un usuario solo puede leer y guardar (direcciones/info) en su propio documento
+      // Un usuario puede leer y escribir SOLO su propio documento
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Admins pueden leer y escribir toda la colección libremente
-      allow read, write: if isAdmin();
+      // Un admin puede leer toda la lista de usuarios para el panel "UsersManager"
+      allow read: if isAdmin();
     }
-    
-    // --- MÓDULO DE EMPLEADOS Y RRHH ---
-    match /employees/{employeeId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /time_entries/{entryId} {
-      allow read, write: if isAdmin();
-    }
-    
-    // --- MÓDULO DE COSTOS Y RECETAS ---
-    match /raw_materials/{materialId} {
-      // Solo administradores pueden ver, crear, editar o eliminar materias primas
-      allow read, write: if isAdmin();
-    }
-    
-    // Gatos fijos (CIF)
-    match /cif_items/{itemId} {
-      allow read, write: if isAdmin();
-    }
-    
-    // --- ALERTAS DE STOCK ---
-    match /stock_alerts/{alertId} {
-      // Generadas solo por Admin en web, cloud function se encarga de automáticas.
-      allow create, read, update, delete: if isAdmin();
-    }
-
-    match /expenses/{expenseId} {
-      allow read, write: if isAdmin();
-    }
-
-    // --- NUEVO: Observaciones de Clientes (Tickets) ---
-    match /customer_notes/{noteId} {
-      // Solo el administrador puede leer, agregar o editar las notas de los clientes
-      allow read, write: if isAdmin();
-    }
-
-    // --- MÓDULO DE SORTEOS ---
-    match /raffles/{raffleId} {
-      // Todos pueden leer para saber si hay sorteo activo
-      allow read: if true;
-      // Solo admins pueden crear/editar/borrar sorteos
-      allow write: if isAdmin();
-      
-      match /participants/{participantId} {
-        // Los usuarios pueden agregarse a sí mismos (create) al finalizar pedido
-        allow create: if true;
-        // Cualquiera puede ver la lista de participantes
-        allow read: if true;
-        // Solo los admins pueden editar o eliminar
-        allow update, delete: if isAdmin();
-      }
-    }
-
   } 
 }

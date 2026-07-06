@@ -26,6 +26,7 @@ interface Order {
     source?: string;
     /** Solo retiros en local: si el cliente ya abonó antes de retirar */
     retiroPagoEstado?: "pendiente" | "pagado";
+    assignedRider?: string;
 }
 
 const normalizeOrderText = (v: unknown) =>
@@ -55,19 +56,59 @@ export default function OrdersManager() {
     const { "*": tab } = useParams(); // Capture the wildcard part
     const navigate = useNavigate();
 
-    // Derived state from URL, defaulting to 'pos'
-    const cleanTab = tab ? tab.replace(/^\//, '') : 'pos';
-    // 'web' es legado y se normaliza a 'deliveries' (la pestaña fue renombrada)
-    const normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
-    const activeTab = (normalizedTab === 'deliveries' || normalizedTab === 'pos' || normalizedTab === 'expenses') ? normalizedTab : 'pos';
-
     const { adminPermissions, isSuperAdmin: contextIsSuperAdmin } = useCart();
+    
+    // Derived state from URL
+    const cleanTab = tab ? tab.replace(/^\//, '') : '';
+    let normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
+
+    if (!normalizedTab || !['deliveries', 'pos', 'expenses'].includes(normalizedTab)) {
+        if (adminPermissions?.pos_sales !== false) normalizedTab = 'pos';
+        else if (adminPermissions?.orders !== false) normalizedTab = 'deliveries';
+        else if (adminPermissions?.costs !== false) normalizedTab = 'expenses';
+        else normalizedTab = 'pos'; 
+    }
+
+    if (normalizedTab === 'pos' && adminPermissions?.pos_sales === false) {
+        normalizedTab = adminPermissions?.orders !== false ? 'deliveries' : 'expenses';
+    }
+    if (normalizedTab === 'deliveries' && adminPermissions?.orders === false) {
+        normalizedTab = adminPermissions?.pos_sales !== false ? 'pos' : 'expenses';
+    }
+    if (normalizedTab === 'expenses' && adminPermissions?.costs === false) {
+        normalizedTab = adminPermissions?.pos_sales !== false ? 'pos' : 'deliveries';
+    }
+
+    const activeTab = normalizedTab;
     const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
 
-    // Delete Modal State
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [orderToDeleteParams, setOrderToDeleteParams] = useState<{ id: string, restoreStock: boolean } | null>(null);
     const [deleteSuccessModalOpen, setDeleteSuccessModalOpen] = useState(false);
+
+    // Riders
+    const [riders, setRiders] = useState<{email: string}[]>([]);
+
+    useEffect(() => {
+        if (!isSuperAdmin) return;
+        const q = query(collection(db, "admin_roles"), where("is_rider", "==", true));
+        const unsub = onSnapshot(q, (snap) => {
+            const data = snap.docs.map(d => ({ email: d.id }));
+            setRiders(data);
+        }, (error) => {
+            console.warn("Permission denied for admin_roles or other error:", error);
+        });
+        return () => unsub();
+    }, [isSuperAdmin]);
+
+    const handleAssignRider = async (orderId: string, riderEmail: string) => {
+        try {
+            await updateDoc(doc(db, "orders", orderId), { assignedRider: riderEmail });
+        } catch (error) {
+            console.error("Error assigning rider:", error);
+            alert("Error al asignar repartidor.");
+        }
+    };
 
     const handleDeleteOrder = (id: string, restoreStock: boolean) => {
         setOrderToDeleteParams({ id, restoreStock });
@@ -1171,7 +1212,7 @@ export default function OrdersManager() {
                                                                 className="status-dropdown-table"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
-                                                                {statusOptions.map(opt => (
+                                                                {statusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
                                                                     <option key={opt.value} value={opt.value}>
                                                                         {opt.label}
                                                                     </option>
@@ -1212,15 +1253,15 @@ export default function OrdersManager() {
                                                         <td colSpan={activeTab === 'deliveries' ? 7 : 6}>
                                                             <OrderDetailsExpanded
                                                                 order={order}
-                                                                onEdit={(order) => {
-                                                                    handleOpenEditModal(order);
-                                                                }}
+                                                                onClose={() => setExpandedOrderId(null)}
+                                                                onEdit={handleOpenEditModal}
                                                                 onSourceChange={updateSource}
                                                                 onPaymentMethodChange={updatePaymentMethod}
                                                                 onStatusChange={updateStatus}
-                                                                onClose={() => setExpandedOrderId(null)}
                                                                 onDelete={handleDeleteOrder}
                                                                 isSuperAdmin={isSuperAdmin}
+                                                                riders={riders}
+                                                                onAssignRider={handleAssignRider}
                                                             />
                                                         </td>
                                                     </tr>
