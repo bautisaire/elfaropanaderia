@@ -7,7 +7,8 @@ service cloud.firestore {
       return request.auth != null && (
         request.auth.token.email == "sairebautista@gmail.com" || 
         request.auth.token.email == "mariacoronel160478@gmail.com" ||
-        request.auth.token.email == "litijunior@hotmail.com.ar" 
+        request.auth.token.email == "litijunior@hotmail.com.ar" ||
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email))
       );
     }
 
@@ -81,6 +82,11 @@ service cloud.firestore {
     // Estadísticas
     match /stats/{document=**} {
       allow read, write: if true;
+    }
+
+    // Observaciones de clientes
+    match /customer_notes/{noteId} {
+      allow read, write: if isAdmin();
     }
 
     // Extras/Bonos de Repartidores
