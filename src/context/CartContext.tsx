@@ -43,6 +43,7 @@ export interface Product {
   comboItemsCount?: number;
   comboOptions?: { name: string; image?: string }[];
   selectedComboItems?: { name: string; quantity: number }[];
+  createdAt?: string;
 }
 
 interface CartContextType {
