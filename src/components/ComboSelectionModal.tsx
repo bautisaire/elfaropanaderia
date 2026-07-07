@@ -19,14 +19,18 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
     if (isOpen) {
       let initialQuantities: Record<string, number> = {};
       if (product.comboOptions && product.comboOptions.length > 0 && totalRequired > 0) {
-        const optionsCount = product.comboOptions.length;
-        const baseQty = Math.floor(totalRequired / optionsCount);
-        let remainder = totalRequired % optionsCount;
+        const availableOptions = product.comboOptions.filter(opt => !(opt as any).disabled);
+        const optionsCount = availableOptions.length;
         
-        product.comboOptions.forEach(opt => {
-          initialQuantities[opt.name] = baseQty + (remainder > 0 ? 1 : 0);
-          if (remainder > 0) remainder--;
-        });
+        if (optionsCount > 0) {
+          const baseQty = Math.floor(totalRequired / optionsCount);
+          let remainder = totalRequired % optionsCount;
+          
+          availableOptions.forEach(opt => {
+            initialQuantities[opt.name] = baseQty + (remainder > 0 ? 1 : 0);
+            if (remainder > 0) remainder--;
+          });
+        }
       }
       setQuantities(initialQuantities);
     }
