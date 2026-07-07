@@ -58,8 +58,8 @@ export default function Header() {
             discount: data.discount || 0,
             categoria: (data.categoria || "Otros").trim(),
             stockReadyTime: data.stockReadyTime,
-            customBadgeText: data.customBadgeText,
-            badgeExpiresAt: data.badgeExpiresAt
+            availableAt: data.availableAt,
+            createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
           } as Product;
         });
         setProducts(prods.filter(p => p.isVisible !== false));

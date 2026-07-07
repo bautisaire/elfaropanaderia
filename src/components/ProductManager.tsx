@@ -46,8 +46,7 @@ export interface FirestoreProduct {
         unitsToDeduct: number;
     };
     stockReadyTime?: string; // ISO string
-    customBadgeText?: string;
-    badgeExpiresAt?: string;
+    availableAt?: string;
     createdAt?: any;
     updatedAt?: any;
     isCombo?: boolean;
@@ -76,8 +75,7 @@ const INITIAL_STATE: FirestoreProduct = {
     excludeFromStats: false,
     requiresRecipe: true,
     stockReadyTime: "",
-    customBadgeText: "",
-    badgeExpiresAt: "",
+    availableAt: "",
     isCombo: false,
     comboItemsCount: 6,
     comboOptions: []
@@ -238,8 +236,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                         shortId: data.shortId || "",
                         images: data.images || (data.img ? [data.img] : []),
                         stockReadyTime: data.stockReadyTime || "",
-                        customBadgeText: data.customBadgeText || "",
-                        badgeExpiresAt: data.badgeExpiresAt || ""
+                        availableAt: data.availableAt || "",
                     } as FirestoreProduct;
                 });
                 setProducts(prods);
@@ -973,38 +970,37 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         )}
                                     </div>
 
-                                    {/* Custom Badge / Ready Time Section */}
+                                                           {/* Availability Time Section */}
                                     <div className="form-group" style={{ background: '#fffbeb', padding: '10px', borderRadius: '8px', marginTop: '10px', border: '1px solid #fcd34d' }}>
-                                        <label style={{ color: '#b45309' }}><strong>Etiqueta de Estado (Reemplaza Descuento)</strong></label>
-                                        <input
-                                            type="text"
-                                            placeholder="Ej. En el horno, Preparando..."
-                                            value={formData.customBadgeText || ""}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, customBadgeText: e.target.value }))}
-                                            style={{ marginBottom: '8px', width: '100%', padding: '6px' }}
-                                        />
-
-                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
-                                                const time = new Date(Date.now() + 20 * 60000).toISOString();
-                                                setFormData(prev => ({ ...prev, customBadgeText: "En el horno", badgeExpiresAt: time }));
-                                            }}>Horno (20m)</button>
-                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
-                                                const time = new Date(Date.now() + 10 * 60000).toISOString();
-                                                setFormData(prev => ({ ...prev, customBadgeText: "Preparando", badgeExpiresAt: time }));
-                                            }}>Prep (10m)</button>
-                                            <button type="button" className="btn-secondary btn-sm" onClick={() => {
-                                                const time = new Date(Date.now() + 60 * 60000).toISOString();
-                                                setFormData(prev => ({ ...prev, badgeExpiresAt: time }));
-                                            }}>+1h Expira</button>
-                                            <button type="button" className="btn-icon-danger" title="Limpiar" onClick={() => setFormData(prev => ({ ...prev, customBadgeText: "", badgeExpiresAt: "" }))}>
+                                        <label style={{ color: '#b45309' }}><strong>Aviso de Preparación (Hora de disponibilidad)</strong></label>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <input
+                                                type="time"
+                                                value={formData.availableAt ? new Date(formData.availableAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : ""}
+                                                onChange={(e) => {
+                                                    const timeVal = e.target.value;
+                                                    if (!timeVal) {
+                                                        setFormData(prev => ({ ...prev, availableAt: "" }));
+                                                        return;
+                                                    }
+                                                    const [hours, minutes] = timeVal.split(':').map(Number);
+                                                    const now = new Date();
+                                                    let availableDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                                                    if (availableDate < now) {
+                                                        availableDate.setDate(availableDate.getDate() + 1);
+                                                    }
+                                                    setFormData(prev => ({ ...prev, availableAt: availableDate.toISOString() }));
+                                                }}
+                                                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
+                                            />
+                                            <button type="button" className="btn-icon-danger" title="Limpiar hora" onClick={() => setFormData(prev => ({ ...prev, availableAt: "" }))}>
                                                 <FaTrash />
                                             </button>
                                         </div>
-                                        {formData.badgeExpiresAt && (
+                                        {formData.availableAt && (
                                             <div style={{ marginTop: '5px', fontSize: '0.85rem', color: '#b45309' }}>
-                                                Expira: {new Date(formData.badgeExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                {new Date(formData.badgeExpiresAt) < new Date() ? " (Expirado)" : ""}
+                                                Estará listo: {new Date(formData.availableAt).toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(formData.availableAt) < new Date() ? " (Ya disponible)" : ""}
                                             </div>
                                         )}
                                     </div>

@@ -30,8 +30,7 @@ export interface Product {
   categoria?: string;
   isVisible?: boolean;
   stockReadyTime?: string;
-  customBadgeText?: string;
-  badgeExpiresAt?: string;
+  availableAt?: string;
   selectedVariant?: string;
   baseProductId?: string | number;
   stockDependency?: {

@@ -161,27 +161,26 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
         <img
           src={currentImage}
           alt={product.name}
-          className={`product-image ${isOutOfStock && !(liveProduct.customBadgeText && (!liveProduct.badgeExpiresAt || new Date(liveProduct.badgeExpiresAt) > new Date())) ? "grayscale" : ""}`}
+          className={`product-image ${isOutOfStock ? "grayscale" : ""}`}
           loading="lazy"
           decoding="async"
         />
 
 
-        {/* Custom Badge Logic */}
+        {/* Preparation Notice Badge */}
         {(() => {
-          // Check for valid custom badge
-          const hasCustomBadge = liveProduct.customBadgeText &&
-            (!liveProduct.badgeExpiresAt || new Date(liveProduct.badgeExpiresAt) > new Date());
+          const isPreparationDelayed = liveProduct.availableAt && new Date(liveProduct.availableAt) > new Date();
 
-          if (hasCustomBadge) {
+          if (isPreparationDelayed) {
+            const timeString = new Date(liveProduct.availableAt!).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
             return (
               <div className="discount-badge" style={{ backgroundColor: '#eab308', color: '#fff', fontSize: '0.75rem', padding: '4px 8px', zIndex: 10 }}>
-                {liveProduct.customBadgeText}
+                A partir de las {timeString}
               </div>
             );
           }
 
-          // Fallback to discount if no custom badge
+          // Fallback to discount if no preparation notice
           if (hasDiscount && !isOutOfStock) {
             return (
               <div className="discount-badge">

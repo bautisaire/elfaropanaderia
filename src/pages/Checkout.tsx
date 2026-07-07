@@ -12,7 +12,7 @@ import StockErrorModal from "../components/StockErrorModal";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
-  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart } = useContext(CartContext);
+  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, getCatalogProduct } = useContext(CartContext);
   
   useEffect(() => {
     document.body.classList.add('svg-background');
@@ -1044,6 +1044,22 @@ export default function Checkout() {
                   </div>
 
                   <div className="form-actions">
+                    {(() => {
+                      const maxDelayProduct = cart
+                        .map(item => getCatalogProduct(String(item.baseProductId || item.id)) || item)
+                        .filter(p => p.availableAt && new Date(p.availableAt) > new Date())
+                        .sort((a, b) => new Date(b.availableAt!).getTime() - new Date(a.availableAt!).getTime())[0];
+                        
+                      if (maxDelayProduct) {
+                        return (
+                          <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#b45309', padding: '15px', borderRadius: '8px', marginBottom: '15px', textAlign: 'center' }}>
+                            <strong style={{ display: 'block', marginBottom: '5px' }}>⚠️ Atención: Tienes productos en preparación</strong>
+                            Tu pedido completo estará listo para entrega a partir de las <strong>{new Date(maxDelayProduct.availableAt!).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</strong>.
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
                       {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
                     </button>
