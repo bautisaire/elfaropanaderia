@@ -84,9 +84,11 @@ export default function EmployeesManager() {
             setUnpaidOrders(data);
         });
 
-        const unsubExtras = onSnapshot(query(collection(db, 'rider_extras'), where("paidToRider", "==", false)), (snap) => {
-            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUnpaidExtras(data);
+        const unsubExtras = onSnapshot(collection(db, 'rider_extras'), (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+            // Filter in memory to ensure we catch everything regardless of missing indexes or slightly wrong fields
+            const unpaid = data.filter(d => d.paidToRider === false);
+            setUnpaidExtras(unpaid);
         });
 
         return () => {
@@ -188,8 +190,8 @@ export default function EmployeesManager() {
     });
 
     const debtsByRider = riders.map(rider => {
-        const riderOrders = unpaidOrders.filter(o => o.assignedRider === rider.email);
-        const riderExtras = unpaidExtras.filter(e => e.riderEmail === rider.email);
+        const riderOrders = unpaidOrders.filter(o => o.assignedRider?.trim().toLowerCase() === rider.email?.trim().toLowerCase());
+        const riderExtras = unpaidExtras.filter(e => e.riderEmail?.trim().toLowerCase() === rider.email?.trim().toLowerCase());
 
         const ordersDebt = riderOrders.reduce((sum, o) => {
             let orderShipping = Number(o.shippingCost) || 0;

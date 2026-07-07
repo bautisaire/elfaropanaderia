@@ -52,7 +52,7 @@ export interface FirestoreProduct {
     updatedAt?: any;
     isCombo?: boolean;
     comboItemsCount?: number;
-    comboOptions?: { name: string; image?: string }[];
+    comboOptions?: { name: string; image?: string; disabled?: boolean }[];
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -481,6 +481,14 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
             ...prev,
             comboOptions: prev.comboOptions?.filter((_, i) => i !== idx)
         }));
+    };
+
+    const toggleComboOptionDisabled = (idx: number) => {
+        setFormData(prev => {
+            const newOptions = [...(prev.comboOptions || [])];
+            newOptions[idx] = { ...newOptions[idx], disabled: !newOptions[idx].disabled };
+            return { ...prev, comboOptions: newOptions };
+        });
     };
 
     const handleComboOptionChange = (idx: number, value: string) => {
@@ -941,7 +949,17 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                                     </label>
                                                                 )}
 
-                                                                <button type="button" className="btn-icon-danger" onClick={() => removeComboOption(idx)}>
+                                                                <button 
+                                                                    type="button" 
+                                                                    className="btn-icon-secondary" 
+                                                                    onClick={() => toggleComboOptionDisabled(idx)}
+                                                                    title={opt.disabled ? "Habilitar opción" : "Deshabilitar opción (Sin stock)"}
+                                                                    style={{ color: opt.disabled ? '#ef4444' : '#10b981', border: '1px solid #ddd', padding: '5px', borderRadius: '4px', cursor: 'pointer' }}
+                                                                >
+                                                                    {opt.disabled ? <span style={{ textDecoration: 'line-through', fontWeight: 'bold' }}>S/Stock</span> : <span style={{ fontWeight: 'bold' }}>Stock</span>}
+                                                                </button>
+
+                                                                <button type="button" className="btn-icon-danger" onClick={() => removeComboOption(idx)} title="Eliminar opción">
                                                                     <FaTrash />
                                                                 </button>
                                                             </div>

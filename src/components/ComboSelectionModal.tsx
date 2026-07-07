@@ -93,39 +93,44 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         </div>
 
         <div className="combo-options-list">
-          {product.comboOptions?.map((opt, idx) => (
-            <div key={idx} className="combo-option-item">
-              <div className="combo-option-img-wrapper">
-                {opt.image ? (
-                  <img src={opt.image} alt={opt.name} />
-                ) : (
-                  <div className="combo-option-placeholder">🥐</div>
-                )}
+          {product.comboOptions?.map((opt, idx) => {
+            const isOptionDisabled = (opt as any).disabled;
+            return (
+              <div key={idx} className="combo-option-item" style={{ opacity: isOptionDisabled ? 0.5 : 1 }}>
+                <div className="combo-option-img-wrapper">
+                  {opt.image ? (
+                    <img src={opt.image} alt={opt.name} />
+                  ) : (
+                    <div className="combo-option-placeholder">🥐</div>
+                  )}
+                </div>
+                <div className="combo-option-info">
+                  <h3 style={{ textDecoration: isOptionDisabled ? 'line-through' : 'none' }}>
+                    {opt.name} {isOptionDisabled && <span style={{ fontSize: '0.8em', color: '#ef4444', fontWeight: 'bold', marginLeft: '5px' }}>(Agotado)</span>}
+                  </h3>
+                </div>
+                <div className="combo-option-controls">
+                  <button 
+                    type="button"
+                    className="combo-ctrl-btn" 
+                    onClick={() => handleDecrement(opt.name)}
+                    disabled={!quantities[opt.name] || isOptionDisabled}
+                  >
+                    <FaMinus />
+                  </button>
+                  <span className="combo-qty">{quantities[opt.name] || 0}</span>
+                  <button 
+                    type="button"
+                    className="combo-ctrl-btn" 
+                    onClick={() => handleIncrement(opt.name)}
+                    disabled={totalSelected >= totalRequired || isOptionDisabled}
+                  >
+                    <FaPlus />
+                  </button>
+                </div>
               </div>
-              <div className="combo-option-info">
-                <h3>{opt.name}</h3>
-              </div>
-              <div className="combo-option-controls">
-                <button 
-                  type="button"
-                  className="combo-ctrl-btn" 
-                  onClick={() => handleDecrement(opt.name)}
-                  disabled={!quantities[opt.name]}
-                >
-                  <FaMinus />
-                </button>
-                <span className="combo-qty">{quantities[opt.name] || 0}</span>
-                <button 
-                  type="button"
-                  className="combo-ctrl-btn" 
-                  onClick={() => handleIncrement(opt.name)}
-                  disabled={totalSelected >= totalRequired}
-                >
-                  <FaPlus />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {(!product.comboOptions || product.comboOptions.length === 0) && (
             <div className="combo-empty-state">No hay opciones configuradas para este combo.</div>
           )}

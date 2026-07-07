@@ -84,6 +84,12 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Alertas de Stock
+    match /stock_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if true;
+    }
+
     // Observaciones de clientes
     match /customer_notes/{noteId} {
       allow read, write: if isAdmin();
