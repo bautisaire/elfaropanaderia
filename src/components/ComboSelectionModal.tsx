@@ -73,9 +73,9 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
   };
 
   return createPortal(
-    <div className="combo-modal-overlay" onClick={onClose}>
+    <div className="combo-modal-overlay" onClick={(e) => { e.stopPropagation(); onClose(); }}>
       <div className="combo-modal-content" onClick={e => e.stopPropagation()}>
-        <button type="button" className="combo-close-btn" onClick={onClose}>
+        <button type="button" className="combo-close-btn" onClick={(e) => { e.stopPropagation(); onClose(); }}>
           <FaTimes />
         </button>
 

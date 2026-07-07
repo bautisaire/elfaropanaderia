@@ -51,6 +51,14 @@ export default function RiderDashboard() {
 
     // Accordion History
     const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+    const [visibleHistoryCount, setVisibleHistoryCount] = useState<number>(10);
+
+    // Accordion Active Orders
+    const [expandedActiveOrderId, setExpandedActiveOrderId] = useState<string | null>(null);
+
+    const toggleActiveOrderAccordion = (id: string) => {
+        setExpandedActiveOrderId(prev => prev === id ? null : id);
+    };
 
     const currentUserEmail = auth.currentUser?.email || '';
 
@@ -225,7 +233,7 @@ export default function RiderDashboard() {
                         ) : (
                             <div className="rider-cards-list">
                                 {activeOrders.map(order => (
-                                    <div key={order.id} className="rider-order-card" style={{ borderLeft: `6px solid ${getStatusColor(order.status)}` }}>
+                                    <div key={order.id} className="rider-order-card animate-slide-in" style={{ borderLeft: `6px solid ${getStatusColor(order.status)}` }}>
                                         <div className="rider-card-header">
                                             <span className="rider-card-id">#{order.id.slice(-5)}</span>
                                             <span className="rider-card-time"><FaClock /> {formatTime(order.date)}</span>
@@ -236,34 +244,38 @@ export default function RiderDashboard() {
                                         <div className="rider-card-body">
                                             <div className="rider-info-row"><FaUser /> <strong>{order.cliente.nombre}</strong></div>
                                             <div className="rider-info-row">
-                                                <FaMapMarkerAlt /> 
+                                                <FaMapMarkerAlt />
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">
-                                                        {order.cliente.direccion}
-                                                    </a>
-                                                    {order.cliente.location && (
-                                                        <a 
-                                                            href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`} 
-                                                            target="_blank" 
-                                                            rel="noreferrer"
-                                                            style={{
-                                                                background: '#dcfce7',
-                                                                border: '1px solid #86efac',
-                                                                color: '#166534',
-                                                                padding: '6px 10px',
-                                                                borderRadius: '6px',
-                                                                fontSize: '0.9rem',
-                                                                fontWeight: 'bold',
-                                                                textDecoration: 'none',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px',
-                                                                marginTop: '4px',
-                                                                width: 'fit-content'
-                                                            }}
-                                                        >
-                                                            🗺️ Abrir Ubicación Exacta (GPS)
+                                                    <div key={`dir-${order.cliente.direccion}`} className="animate-highlight" style={{ display: 'inline-block' }}>
+                                                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">
+                                                            {order.cliente.direccion}
                                                         </a>
+                                                    </div>
+                                                    {order.cliente.location && (
+                                                        <div key={`loc-${order.cliente.location.lat}-${order.cliente.location.lng}`} className="animate-pop-in">
+                                                            <a
+                                                                href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                style={{
+                                                                    background: '#dcfce7',
+                                                                    border: '1px solid #86efac',
+                                                                    color: '#166534',
+                                                                    padding: '6px 10px',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.9rem',
+                                                                    fontWeight: 'bold',
+                                                                    textDecoration: 'none',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
+                                                                    marginTop: '4px',
+                                                                    width: 'fit-content'
+                                                                }}
+                                                            >
+                                                                🗺️ Abrir Ubicacion del soporte
+                                                            </a>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -288,6 +300,36 @@ export default function RiderDashboard() {
                                                 <span className={`rider-badge ${order.cliente.metodoPago.toLowerCase()}`}>{order.cliente.metodoPago}</span>
                                             </div>
 
+                                            {/* Products Accordion */}
+                                            {(() => {
+                                                const productItems = order.items.filter(item => !item.name.toLowerCase().includes('envío'));
+                                                if (productItems.length === 0) return null;
+                                                return (
+                                                    <div className="rider-products-accordion">
+                                                        <div
+                                                            className="rider-products-accordion-header"
+                                                            onClick={() => toggleActiveOrderAccordion(order.id)}
+                                                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px 0', borderTop: '1px solid #e5e7eb', marginTop: '10px', fontWeight: 'bold', color: '#4b5563' }}
+                                                        >
+                                                            <span>Productos ({productItems.length})</span>
+                                                            {expandedActiveOrderId === order.id ? <FaChevronUp /> : <FaChevronDown />}
+                                                        </div>
+                                                        {expandedActiveOrderId === order.id && (
+                                                            <div className="rider-products-list" style={{ padding: '5px 0 10px 0', fontSize: '0.9rem', color: '#374151', borderTop: '1px dashed #e5e7eb' }}>
+                                                                {productItems.map((item, idx) => (
+                                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                                        <span style={{ fontWeight: '500' }}>{item.quantity}x {item.name}</span>
+                                                                        {item.variants && item.variants.map((v: any, vi: number) => (
+                                                                            <span key={vi} style={{ fontSize: '0.8rem', color: '#6b7280', display: 'block', marginLeft: '15px' }}>- {v.name}</span>
+                                                                        ))}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
                                             <button className="rider-btn-entregado" onClick={() => setConfirmOrder(order)}>
                                                 MARCAR COMO ENTREGADO
                                             </button>
@@ -298,7 +340,7 @@ export default function RiderDashboard() {
                         )}
 
                         <h3 style={{ marginTop: '30px' }}>Historial Reciente</h3>
-                        {historyOrders.slice(0, 5).map(order => (
+                        {historyOrders.slice(0, visibleHistoryCount).map(order => (
                             <div key={order.id} className="rider-history-card-wrapper">
                                 <div className="rider-history-card" onClick={() => toggleHistoryAccordion(order.id)}>
                                     <span>#{order.id.slice(-5)} - {order.cliente.nombre}</span>
@@ -310,7 +352,7 @@ export default function RiderDashboard() {
                                 {expandedHistoryId === order.id && (
                                     <div className="rider-history-accordion-content">
                                         <p><strong>Dirección:</strong> {order.cliente.direccion}</p>
-                                        <p><strong>Teléfono:</strong> {order.cliente.telefono}</p>
+                                        <p><strong>Teléfono:</strong> <a href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rider-link" style={{ color: '#0ea5e9', textDecoration: 'underline' }}>{order.cliente.telefono}</a></p>
                                         <p><strong>Método de Pago:</strong> {order.cliente.metodoPago}</p>
                                         <p><strong>A cobrar:</strong> ${order.total}</p>
                                         {order.cliente.indicaciones && <p><strong>Indicaciones:</strong> {order.cliente.indicaciones}</p>}
@@ -318,6 +360,25 @@ export default function RiderDashboard() {
                                 )}
                             </div>
                         ))}
+
+                        {visibleHistoryCount < historyOrders.length && (
+                            <button
+                                onClick={() => setVisibleHistoryCount(prev => prev + 10)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    marginTop: '15px',
+                                    background: '#f1f5f9',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '8px',
+                                    color: '#475569',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cargar más
+                            </button>
+                        )}
                     </div>
                 )}
 

@@ -38,7 +38,7 @@ function Layout() {
       <DebugConsole />
 
       {/* Global Notifications for Admins (Active Anywhere) */}
-      {isAdmin && <GlobalAdminNotifications />}
+      {isAdmin && cartContext?.adminPermissions?.is_rider !== true && <GlobalAdminNotifications />}
 
       {!isEditor && <Header />}
 

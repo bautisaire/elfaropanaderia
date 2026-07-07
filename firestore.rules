@@ -23,6 +23,15 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockQuantity', 'variants', 'stock'])
       );
+
+      // Reseñas de productos
+      match /reviews/{reviewId} {
+        allow read: if true;
+        // Permitir a usuarios autenticados crear sus propias reseñas
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Permitir a usuarios editar o borrar sus propias reseñas, o a admins borrarlas
+        allow update, delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
+      }
     }
 
     // Categorías

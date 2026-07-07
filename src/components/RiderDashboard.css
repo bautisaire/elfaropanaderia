@@ -580,3 +580,55 @@
     font-weight: bold;
     cursor: pointer;
 }
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes popIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    70% {
+        transform: scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes highlightFlash {
+    0% {
+        background-color: #fef08a;
+        color: #854d0e;
+    }
+    100% {
+        background-color: transparent;
+        color: inherit;
+    }
+}
+
+.animate-slide-in {
+    animation: slideInUp 0.5s ease-out;
+}
+
+.animate-pop-in {
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-highlight {
+    animation: highlightFlash 2s ease-out;
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    display: inline-block;
+}
