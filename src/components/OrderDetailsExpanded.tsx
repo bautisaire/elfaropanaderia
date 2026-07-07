@@ -41,6 +41,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
 
     const [mapModalOpen, setMapModalOpen] = useState(false);
     const [editAddressModalOpen, setEditAddressModalOpen] = useState(false);
+    const [editPhoneModalOpen, setEditPhoneModalOpen] = useState(false);
 
     const handleUpdateAddress = async (newAddress: string) => {
         try {
@@ -51,6 +52,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
         } catch (error) {
             console.error("Error updating address:", error);
             alert("Error al actualizar la dirección.");
+        }
+    };
+
+    const handleUpdatePhone = async (newPhone: string) => {
+        try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+                'cliente.telefono': newPhone
+            });
+        } catch (error) {
+            console.error("Error updating phone:", error);
+            alert("Error al actualizar el teléfono.");
         }
     };
 
@@ -224,6 +237,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 >
                                     {order.cliente.telefono}
                                 </a>
+                                {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditPhoneModalOpen(true);
+                                        }}
+                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
+                                        title="Editar Teléfono"
+                                    >
+                                        <FaEdit size={14} />
+                                    </button>
+                                )}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -592,6 +617,17 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     title="Editar Dirección"
                     label="Nueva dirección del cliente:"
                     currentText={order.cliente.direccion || ''}
+                />
+            )}
+
+            {editPhoneModalOpen && (
+                <TextEditModal
+                    isOpen={editPhoneModalOpen}
+                    onClose={() => setEditPhoneModalOpen(false)}
+                    onSave={handleUpdatePhone}
+                    title="Editar Teléfono"
+                    label="Nuevo teléfono del cliente:"
+                    currentText={order.cliente.telefono || ''}
                 />
             )}
         </div >

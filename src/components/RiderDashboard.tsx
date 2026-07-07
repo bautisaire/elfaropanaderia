@@ -281,7 +281,9 @@ export default function RiderDashboard() {
                                             </div>
                                             <div className="rider-info-row">
                                                 <FaPhone />
-                                                <a href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.telefono}</a>
+                                                <div key={`tel-${order.cliente.telefono}`} className="animate-highlight" style={{ display: 'inline-block' }}>
+                                                    <a href={`https://wa.me/+549${order.cliente.telefono.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="rider-link">{order.cliente.telefono}</a>
+                                                </div>
                                             </div>
 
                                             {quickReplies.length > 0 && (
