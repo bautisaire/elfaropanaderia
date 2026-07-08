@@ -42,6 +42,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
     const [mapModalOpen, setMapModalOpen] = useState(false);
     const [editAddressModalOpen, setEditAddressModalOpen] = useState(false);
     const [editPhoneModalOpen, setEditPhoneModalOpen] = useState(false);
+    const [editMapsLinkModalOpen, setEditMapsLinkModalOpen] = useState(false);
 
     const handleUpdateAddress = async (newAddress: string) => {
         try {
@@ -52,6 +53,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
         } catch (error) {
             console.error("Error updating address:", error);
             alert("Error al actualizar la dirección.");
+        }
+    };
+
+    const handleUpdateMapsLink = async (newLink: string) => {
+        try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+                'cliente.mapsLink': newLink
+            });
+        } catch (error) {
+            console.error("Error updating maps link:", error);
+            alert("Error al actualizar el link de Maps.");
         }
     };
 
@@ -202,27 +215,50 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                         )}
                                     </div>
                                     {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setMapModalOpen(true);
-                                            }}
-                                            style={{
-                                                background: order.cliente.location ? '#dcfce7' : '#f1f5f9',
-                                                border: `1px solid ${order.cliente.location ? '#86efac' : '#cbd5e1'}`,
-                                                color: order.cliente.location ? '#166534' : '#475569',
-                                                padding: '4px 8px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.8rem',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '5px',
-                                                width: 'fit-content'
-                                            }}
-                                        >
-                                            📍 {order.cliente.location ? 'Ubicación Fijada (Editar)' : 'Fijar Ubicación en Mapa'}
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMapModalOpen(true);
+                                                }}
+                                                style={{
+                                                    background: order.cliente.location ? '#dcfce7' : '#f1f5f9',
+                                                    border: `1px solid ${order.cliente.location ? '#86efac' : '#cbd5e1'}`,
+                                                    color: order.cliente.location ? '#166534' : '#475569',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    width: 'fit-content'
+                                                }}
+                                            >
+                                                📍 {order.cliente.location ? 'Ubicación GPS (Editar)' : 'Fijar GPS en Mapa'}
+                                            </button>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditMapsLinkModalOpen(true);
+                                                }}
+                                                style={{
+                                                    background: order.cliente.mapsLink ? '#e0f2fe' : '#f1f5f9',
+                                                    border: `1px solid ${order.cliente.mapsLink ? '#7dd3fc' : '#cbd5e1'}`,
+                                                    color: order.cliente.mapsLink ? '#0369a1' : '#475569',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    width: 'fit-content'
+                                                }}
+                                            >
+                                                🔗 {order.cliente.mapsLink ? 'Link de Maps (Editar)' : 'Pegar Link de Maps'}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </div >
@@ -628,6 +664,17 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     title="Editar Teléfono"
                     label="Nuevo teléfono del cliente:"
                     currentText={order.cliente.telefono || ''}
+                />
+            )}
+
+            {editMapsLinkModalOpen && (
+                <TextEditModal
+                    isOpen={editMapsLinkModalOpen}
+                    onClose={() => setEditMapsLinkModalOpen(false)}
+                    onSave={handleUpdateMapsLink}
+                    title="Link de Google Maps"
+                    label="Pegá el link de Maps acá:"
+                    currentText={order.cliente.mapsLink || ''}
                 />
             )}
         </div >

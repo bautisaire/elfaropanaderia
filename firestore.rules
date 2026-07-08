@@ -56,6 +56,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Sorteos y Participantes
+    match /raffles/{raffleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      
+      match /participants/{participantId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
     // Configuración antigua (Estado de la tienda)
     match /settings/{document=**} {
       allow read: if true;

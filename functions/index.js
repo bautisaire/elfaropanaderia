@@ -222,6 +222,7 @@ exports.processOrder = onCall(async (request) => {
             const rafflesSnap = await transaction.get(db.collection("raffles").where("isActive", "==", true).limit(1));
 
             let raffleParticipantWrite = null;
+            let raffleParticipantUpdate = null;
             if (!rafflesSnap.empty) {
                 const activeRaffleId = rafflesSnap.docs[0].id;
                 const partsSnap = await transaction.get(
@@ -236,6 +237,17 @@ exports.processOrder = onCall(async (request) => {
                         data: {
                             name: formData.nombre || 'Cliente Web',
                             phoneOrEmail: identifier,
+                            date: new Date(),
+                            chances: 1
+                        }
+                    };
+                } else {
+                    const existingPartDoc = partsSnap.docs[0];
+                    const existingChances = existingPartDoc.data().chances || 1;
+                    raffleParticipantUpdate = {
+                        ref: existingPartDoc.ref,
+                        data: {
+                            chances: existingChances + 1,
                             date: new Date()
                         }
                     };
@@ -398,6 +410,9 @@ exports.processOrder = onCall(async (request) => {
 
             if (raffleParticipantWrite) {
                 transaction.set(raffleParticipantWrite.ref, raffleParticipantWrite.data);
+            }
+            if (raffleParticipantUpdate) {
+                transaction.update(raffleParticipantUpdate.ref, raffleParticipantUpdate.data);
             }
 
             // Log Movements

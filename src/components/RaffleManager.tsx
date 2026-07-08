@@ -27,6 +27,7 @@ interface Participant {
   name: string;
   phoneOrEmail: string;
   date: any;
+  chances?: number;
 }
 
 function isEmailContact(contact: string): boolean {
@@ -205,14 +206,23 @@ export default function RaffleManager() {
       );
       const checkSnap = await getDocs(qCheck);
       if (!checkSnap.empty) {
-        alert("¡Esta persona ya está participando en el sorteo actual!");
+        const existingDoc = checkSnap.docs[0];
+        const existingChances = existingDoc.data().chances || 1;
+        await updateDoc(doc(db, `raffles/${activeRaffle.id}/participants`, existingDoc.id), {
+          chances: existingChances + 1,
+          date: Timestamp.now()
+        });
+        alert("¡Esta persona ya estaba participando! Se le sumó +1 chance.");
+        setNewName("");
+        setNewPhone("");
         return;
       }
 
       await addDoc(collection(db, `raffles/${activeRaffle.id}/participants`), {
         name: newName.trim(),
         phoneOrEmail: newPhone.trim(),
-        date: Timestamp.now()
+        date: Timestamp.now(),
+        chances: 1
       });
       setNewName("");
       setNewPhone("");
@@ -308,7 +318,10 @@ export default function RaffleManager() {
 
   const copyParticipantNames = async (list: Participant[]) => {
     if (list.length === 0) return;
-    const text = list.map(p => p.name).join("\n");
+    const text = list.map(p => {
+      const chances = p.chances || 1;
+      return Array(chances).fill(p.name).join("\n");
+    }).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setNamesCopied(true);
@@ -465,6 +478,7 @@ export default function RaffleManager() {
                           <th>Nombre</th>
                           <th>Contacto (Tel/Email)</th>
                           <th>Fecha</th>
+                          <th>Chances</th>
                           <th>Acciones</th>
                         </tr>
                       </thead>
@@ -500,6 +514,7 @@ export default function RaffleManager() {
                                 )}
                               </td>
                               <td>{p.date?.toDate().toLocaleString() || '---'}</td>
+                              <td><span style={{ fontWeight: 'bold', color: '#10b981', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px' }}>{p.chances || 1}</span></td>
                               <td>
                                 <div className="participant-actions">
                                   {isEditing ? (
@@ -612,6 +627,7 @@ export default function RaffleManager() {
                                 <th>Nombre</th>
                                 <th>Contacto</th>
                                 <th>Fecha</th>
+                                <th>Chances</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -625,6 +641,7 @@ export default function RaffleManager() {
                                   </td>
                                   <td><ParticipantContactLink contact={p.phoneOrEmail} /></td>
                                   <td>{p.date?.toDate().toLocaleString()}</td>
+                                  <td><span style={{ fontWeight: 'bold', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>{p.chances || 1}</span></td>
                                 </tr>
                                 );
                               })}

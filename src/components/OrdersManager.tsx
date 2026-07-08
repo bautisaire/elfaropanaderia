@@ -20,7 +20,9 @@ interface Order {
         telefono: string;
         indicaciones?: string;
         metodoPago: string;
+        mapsLink?: string;
     };
+    transferenciaEstado?: "pendiente" | "pagado";
     date: any;
     status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado" | "pending_payment";
     source?: string;
@@ -845,6 +847,16 @@ export default function OrdersManager() {
         }
     };
 
+    const updateTransferenciaEstado = async (id: string, estado: 'pagado' | 'pendiente') => {
+        try {
+            await updateDoc(doc(db, "orders", id), { transferenciaEstado: estado });
+            setOrders(prev => prev.map(o => (o.id === id ? { ...o, transferenciaEstado: estado } : o)));
+        } catch (error) {
+            console.error("Error actualizando estado de transferencia:", error);
+            alert("Error al actualizar el estado de la transferencia.");
+        }
+    };
+
     return (
         <div className="product-manager-container orders-manager-page">
 
@@ -1200,8 +1212,25 @@ export default function OrdersManager() {
                                                         </div>
                                                     </td>
                                                     <td className="col-pago">
-                                                        <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
-                                                            {order.cliente.metodoPago}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                                            <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`} style={{ width: '110px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                {order.cliente.metodoPago}
+                                                            </div>
+                                                            {order.cliente.metodoPago.toLowerCase().includes('transferencia') && activeTab === 'deliveries' && (
+                                                                <select
+                                                                    className={`retiro-pago-select retiro-pago-select-inline${order.transferenciaEstado === 'pagado' ? ' retiro-pago-pagado' : ' retiro-pago-pendiente'}`}
+                                                                    value={order.transferenciaEstado === 'pagado' ? 'pagado' : 'pendiente'}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    onChange={(e) => {
+                                                                        e.stopPropagation();
+                                                                        updateTransferenciaEstado(order.id, e.target.value as 'pagado' | 'pendiente');
+                                                                    }}
+                                                                    style={{ width: '110px', textAlign: 'center', padding: '2px', fontSize: '0.8rem', boxSizing: 'border-box' }}
+                                                                >
+                                                                    <option value="pendiente">No Pagado</option>
+                                                                    <option value="pagado">Pagado</option>
+                                                                </select>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="col-estado">

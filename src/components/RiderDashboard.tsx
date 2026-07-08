@@ -15,11 +15,13 @@ interface Order {
         telefono: string;
         indicaciones?: string;
         metodoPago: string;
+        mapsLink?: string;
         location?: {
             lat: number;
             lng: number;
         };
     };
+    transferenciaEstado?: "pendiente" | "pagado";
     date: any;
     status: string;
     assignedRider?: string;
@@ -273,7 +275,33 @@ export default function RiderDashboard() {
                                                                     width: 'fit-content'
                                                                 }}
                                                             >
-                                                                🗺️ Abrir Ubicacion del soporte
+                                                                🗺️ Abrir Ubicación GPS
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    {order.cliente.mapsLink && (
+                                                        <div key={`mapslink-${order.id}`} className="animate-pop-in">
+                                                            <a
+                                                                href={order.cliente.mapsLink.startsWith('http') ? order.cliente.mapsLink : `https://${order.cliente.mapsLink}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                style={{
+                                                                    background: '#e0f2fe',
+                                                                    border: '1px solid #7dd3fc',
+                                                                    color: '#0369a1',
+                                                                    padding: '6px 10px',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.9rem',
+                                                                    fontWeight: 'bold',
+                                                                    textDecoration: 'none',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
+                                                                    marginTop: '4px',
+                                                                    width: 'fit-content'
+                                                                }}
+                                                            >
+                                                                🔗 Abrir Link de Maps
                                                             </a>
                                                         </div>
                                                     )}
@@ -299,7 +327,31 @@ export default function RiderDashboard() {
                                             {order.cliente.indicaciones && <div className="rider-info-note">"{order.cliente.indicaciones}"</div>}
                                             <div className="rider-payment-row">
                                                 <span>A Cobrar: <strong style={{ color: '#10b981', fontSize: '1.2rem' }}>${order.total}</strong></span>
-                                                <span className={`rider-badge ${order.cliente.metodoPago.toLowerCase()}`}>{order.cliente.metodoPago}</span>
+                                                <div className="order-details-group">
+                                                    <p className="order-payment-method">
+                                                        <span>💳 Método de Pago:</span>
+                                                        <span className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
+                                                            {order.cliente.metodoPago}
+                                                        </span>
+                                                    </p>
+                                                    {order.cliente.metodoPago.toLowerCase().includes('transferencia') && (
+                                                        <p className="order-payment-method" style={{ marginTop: '5px' }}>
+                                                            <span>🏦 Estado del Pago:</span>
+                                                            <span style={{
+                                                                marginLeft: '10px',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                fontWeight: 'bold',
+                                                                fontSize: '0.9rem',
+                                                                color: order.transferenciaEstado === 'pagado' ? '#166534' : '#991b1b',
+                                                                backgroundColor: order.transferenciaEstado === 'pagado' ? '#dcfce7' : '#fee2e2',
+                                                                border: `1px solid ${order.transferenciaEstado === 'pagado' ? '#86efac' : '#fca5a5'}`
+                                                            }}>
+                                                                {order.transferenciaEstado === 'pagado' ? '✅ Pagado (Confirmado)' : '⏳ No Pagado (Pendiente)'}
+                                                            </span>
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* Products Accordion */}
