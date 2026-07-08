@@ -282,38 +282,37 @@ export default function RuletaPage() {
 
               const color = COLORS[idx % COLORS.length];
 
-              // Posicionar el texto en el centro de la tajada
+              // Posicionar el texto en el centro de la tajada (mitad del ángulo)
+              // Rota desde el centro
               const midAngle = startAngle + (sliceAngle / 2);
               
-              // Usar coordenadas absolutas para evitar bugs de transformaciones anidadas en Safari/iOS
-              const textRadius = 320;
-              const textPos = polarToCartesian(500, 500, textRadius, midAngle - 90);
-              
-              // Si está en la mitad derecha, leemos del centro hacia afuera. 
-              // Si está en la mitad izquierda, leemos de afuera hacia el centro.
-              // Esto asegura que el texto siempre quede al derecho (upright).
+              // Si está en la mitad derecha (0 a 180), leemos del centro hacia afuera (-90 local). 
+              // Si está en la mitad izquierda (180 a 360), leemos de afuera hacia el centro (90 local).
               const isRightSide = midAngle >= 0 && midAngle < 180;
-              const textRotation = isRightSide ? midAngle - 90 : midAngle + 90;
+              const textRotation = isRightSide ? -90 : 90;
 
               return (
                 <g key={idx}>
                   <path d={d} fill={color} stroke="#fff" strokeWidth="2" />
-                  <text 
-                    x={textPos.x} 
-                    y={textPos.y} 
-                    fill="#fff" 
-                    fontSize={participants.length > 20 ? "24" : "32"} 
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    transform={`rotate(${textRotation}, ${textPos.x}, ${textPos.y})`}
+                  <g transform={`translate(500, 500) rotate(${midAngle})`}>
+                    <text 
+                      x="0" 
+                      y="-300" // Subir el texto hacia el borde exterior (radio = 500)
+                      fill="#fff" 
+                      fontSize={participants.length > 20 ? "24" : "32"} 
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      // Rotamos el texto para que se lea desde afuera hacia adentro o viceversa
+                      transform={`rotate(${textRotation}, 0, -300)`}
                       style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
                     >
                       {(() => {
                          const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
                          return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
                       })()}
-                  </text>
+                    </text>
+                  </g>
                 </g>
               );
             })}
