@@ -159,8 +159,23 @@ export default function RuletaPage() {
     };
 
     animFrame = requestAnimationFrame(checkTick);
+    animFrame = requestAnimationFrame(checkTick);
     return () => cancelAnimationFrame(animFrame);
   }, [spinning, participants.length]);
+
+  const totalChances = participants.reduce((acc, p) => acc + (p.chances || 1), 0);
+  
+  const slices = useMemo(() => {
+    let currentAngle = 0;
+    return participants.map(p => {
+      const chances = p.chances || 1;
+      const angle = (chances / totalChances) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      currentAngle = endAngle;
+      return { participant: p, startAngle, endAngle, sliceAngle: angle };
+    });
+  }, [participants, totalChances]);
 
   if (!isSuperAdmin) {
     return (
@@ -181,20 +196,6 @@ export default function RuletaPage() {
       </div>
     );
   }
-
-  const totalChances = participants.reduce((acc, p) => acc + (p.chances || 1), 0);
-  
-  const slices = useMemo(() => {
-    let currentAngle = 0;
-    return participants.map(p => {
-      const chances = p.chances || 1;
-      const angle = (chances / totalChances) * 360;
-      const startAngle = currentAngle;
-      const endAngle = currentAngle + angle;
-      currentAngle = endAngle;
-      return { participant: p, startAngle, endAngle, sliceAngle: angle };
-    });
-  }, [participants]);
 
   const handleSpin = () => {
     if (spinning) return;
