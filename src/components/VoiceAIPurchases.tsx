@@ -48,7 +48,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
             return;
         }
 
-        const fields = ['name', 'qty', 'unit', 'multiplier', 'price'];
+        const fields = ['name', 'qty', 'unit', 'multiplier', 'price', 'subtotal'];
         const currentFieldIndex = fields.indexOf(field);
 
         if (e.key === "ArrowRight") {
@@ -487,8 +487,22 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                                 </div>
                                             </td>
                                             <td style={{ padding: '12px' }}>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f172a' }}>
-                                                    ${((prod.precioEditado || 0) * (prod.multiplicador || 1))}
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span style={{ marginRight: '8px', fontSize: '1.2rem', fontWeight: 'bold' }}>$</span>
+                                                    <input
+                                                        type="number"
+                                                        value={(prod.precioEditado || 0) * (prod.multiplicador || 1)}
+                                                        onChange={e => {
+                                                            const newSubtotal = Number(e.target.value);
+                                                            const newItems = [...ticketItems];
+                                                            const multiplier = newItems[idx].multiplicador || 1;
+                                                            newItems[idx].precioEditado = newSubtotal / multiplier;
+                                                            setTicketItems(newItems);
+                                                        }}
+                                                        onKeyDown={e => handleKeyDown(e, idx, 'subtotal')}
+                                                        ref={el => { if (el) inputRefs.current[`${idx}_subtotal`] = el }}
+                                                        style={{ ...bigInputStyle, fontWeight: 'bold', color: '#0f172a' }}
+                                                    />
                                                 </div>
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
