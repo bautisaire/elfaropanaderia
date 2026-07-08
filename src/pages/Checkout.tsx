@@ -595,9 +595,17 @@ export default function Checkout() {
 
       {activeRaffle && (
         <div className="raffle-banner" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-          <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>🎁 {activeRaffle.title || 'Sorteo Especial'}</div>
-          <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>Premios: {activeRaffle.prize}</div>
-          {activeRaffle.customMessage && <div style={{ fontSize: '0.85rem', marginTop: '6px', opacity: 0.9 }}>{activeRaffle.customMessage}</div>}
+          <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px' }}>🎁 {activeRaffle.title || 'Sorteo Especial'}</div>
+          <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
+            {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+              <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                {activeRaffle.prizes.map((p: string, i: number) => <li key={i}>{p}</li>)}
+              </ol>
+            ) : (
+              <div>Premios: {activeRaffle.prize}</div>
+            )}
+          </div>
+          {activeRaffle.customMessage && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', marginTop: '10px', padding: '8px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px', textShadow: '1px 1px 2px rgba(0,0,0,0.2)' }}>{activeRaffle.customMessage}</div>}
         </div>
       )}
 
@@ -613,9 +621,17 @@ export default function Checkout() {
 
           {activeRaffle && (
             <div style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', margin: '15px 0', border: '1px solid #6ee7b7', textAlign: 'center' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
-              <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>Premios: {activeRaffle.prize}</div>
-              {activeRaffle.customMessage && <div style={{ fontSize: '0.8rem', marginTop: '4px', fontStyle: 'italic', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
+              <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '8px' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
+              <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
+                {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+                  <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                    {activeRaffle.prizes.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                  </ol>
+                ) : (
+                  <div>Premios: {activeRaffle.prize}</div>
+                )}
+              </div>
+              {activeRaffle.customMessage && <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '10px', padding: '8px', background: '#d1fae5', borderRadius: '8px', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
             </div>
           )}
 

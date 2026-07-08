@@ -64,8 +64,8 @@ export default function RaffleManager() {
   
   // Start Raffle Form
   const [titleInput, setTitleInput] = useState("");
-  const [prizeInput, setPrizeInput] = useState("");
-  const [messageInput, setMessageInput] = useState("");
+  const [prizesInput, setPrizesInput] = useState<string[]>([""]);
+  const [messageInput, setMessageInput] = useState("¡Realizando tu pedido sumas chances de ganar!");
   const [drawDateInput, setDrawDateInput] = useState("");
   const [isStarting, setIsStarting] = useState(false);
 
@@ -125,12 +125,14 @@ export default function RaffleManager() {
 
   const handleStartRaffle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titleInput.trim() || !prizeInput.trim()) return;
+    if (!titleInput.trim() || prizesInput.filter(p => p.trim()).length === 0) return;
     setIsStarting(true);
     try {
+      const validPrizes = prizesInput.filter(p => p.trim() !== "");
       await addDoc(collection(db, "raffles"), {
         title: titleInput,
-        prize: prizeInput,
+        prize: validPrizes.join(" - "), // fallback
+        prizes: validPrizes, // new array structure
         customMessage: messageInput,
         drawDate: drawDateInput,
         startDate: Timestamp.now(),
@@ -138,7 +140,7 @@ export default function RaffleManager() {
         isActive: true
       });
       setTitleInput("");
-      setPrizeInput("");
+      setPrizesInput([""]);
       setMessageInput("");
       setDrawDateInput("");
     } catch (error) {
@@ -379,13 +381,32 @@ export default function RaffleManager() {
                 </div>
                 <div className="raffle-form-group">
                   <label>Premios *</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ej: 1er Premio: Torta, 2do: Docena de Facturas" 
-                    value={prizeInput}
-                    onChange={(e) => setPrizeInput(e.target.value)}
-                    required
-                  />
+                  {prizesInput.map((prize, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ marginRight: '10px', fontWeight: 'bold', width: '20px', color: '#64748b' }}>{index + 1}.</span>
+                      <input 
+                        type="text" 
+                        placeholder={`Ej: Camiseta de la selección`} 
+                        value={prize}
+                        onChange={(e) => {
+                          const newPrizes = [...prizesInput];
+                          newPrizes[index] = e.target.value;
+                          setPrizesInput(newPrizes);
+                        }}
+                        required={index === 0}
+                        style={{ flex: 1, margin: 0 }}
+                      />
+                      {prizesInput.length > 1 && (
+                        <button type="button" onClick={() => {
+                          const newPrizes = prizesInput.filter((_, i) => i !== index);
+                          setPrizesInput(newPrizes);
+                        }} style={{ marginLeft: '10px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }} title="Eliminar premio"><FaTrash /></button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setPrizesInput([...prizesInput, ''])} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px dashed #cbd5e1', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', color: '#64748b', marginTop: '5px' }}>
+                    <FaPlus /> Agregar otro premio
+                  </button>
                 </div>
                 <div className="raffle-form-group">
                   <label>Mensaje Promocional (Opcional)</label>

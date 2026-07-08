@@ -3,12 +3,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Función auxiliar para verificar si es admin
-    function isAdmin() {
+    function isSuperAdmin() {
       return request.auth != null && (
         request.auth.token.email == "sairebautista@gmail.com" || 
         request.auth.token.email == "mariacoronel160478@gmail.com" ||
-        request.auth.token.email == "litijunior@hotmail.com.ar" ||
-        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email))
+        request.auth.token.email == "litijunior@hotmail.com.ar"
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (
+        request.auth != null && 
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email)) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email)).data.is_rider != true
       );
     }
 
@@ -132,6 +139,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
     match /expenses/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    match /raw_materials/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    match /lista_espera/{document=**} {
+      allow create: if true;
       allow read, write: if isAdmin();
     }
 

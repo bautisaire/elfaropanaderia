@@ -212,7 +212,21 @@ export default function Home() {
             <button className="raffle-modal-close" onClick={() => setShowRaffleModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#666' }}><FaTimes /></button>
             <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />
             <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
-            <p style={{ color: '#047857', fontWeight: 'bold', marginBottom: activeRaffle.drawDate ? '5px' : '20px' }}>Premios: {activeRaffle.prize}</p>
+            
+            <div style={{ color: '#047857', marginBottom: activeRaffle.drawDate ? '10px' : '20px', textAlign: 'left', width: '100%', fontSize: '0.95rem' }}>
+              {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+                <ol style={{ margin: 0, paddingLeft: '20px', fontWeight: '500' }}>
+                  {activeRaffle.prizes.map((p: string, i: number) => <li key={i} style={{ marginBottom: '4px' }}>{p}</li>)}
+                </ol>
+              ) : (
+                <p style={{ fontWeight: 'bold' }}>Premios: {activeRaffle.prize}</p>
+              )}
+            </div>
+            {activeRaffle.customMessage && (
+               <div style={{ background: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '8px', width: '100%', marginBottom: '15px', fontWeight: 'bold', textAlign: 'center', fontSize: '1.05rem', border: '1px solid #86efac' }}>
+                 {activeRaffle.customMessage}
+               </div>
+            )}
             {activeRaffle.drawDate && (
               <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px' }}>
                 📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}
