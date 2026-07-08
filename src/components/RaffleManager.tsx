@@ -77,6 +77,7 @@ export default function RaffleManager() {
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editChances, setEditChances] = useState<number>(1);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [namesCopied, setNamesCopied] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
@@ -251,12 +252,14 @@ export default function RaffleManager() {
     setEditingParticipantId(participant.id);
     setEditName(participant.name);
     setEditPhone(participant.phoneOrEmail);
+    setEditChances(participant.chances || 1);
   };
 
   const cancelEditParticipant = () => {
     setEditingParticipantId(null);
     setEditName("");
     setEditPhone("");
+    setEditChances(1);
   };
 
   const handleSaveParticipant = async (participantId: string) => {
@@ -284,7 +287,8 @@ export default function RaffleManager() {
 
       await updateDoc(doc(db, `raffles/${activeRaffle.id}/participants`, participantId), {
         name: editName.trim(),
-        phoneOrEmail: trimmedPhone
+        phoneOrEmail: trimmedPhone,
+        chances: editChances > 0 ? editChances : 1
       });
       cancelEditParticipant();
     } catch (error) {
@@ -535,7 +539,21 @@ export default function RaffleManager() {
                                 )}
                               </td>
                               <td>{p.date?.toDate().toLocaleString() || '---'}</td>
-                              <td><span style={{ fontWeight: 'bold', color: '#10b981', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px' }}>{p.chances || 1}</span></td>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    className="participant-edit-input"
+                                    style={{ width: '60px' }}
+                                    value={editChances}
+                                    onChange={(e) => setEditChances(Number(e.target.value))}
+                                    disabled={isSavingEdit}
+                                  />
+                                ) : (
+                                  <span style={{ fontWeight: 'bold', color: '#10b981', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px' }}>{p.chances || 1}</span>
+                                )}
+                              </td>
                               <td>
                                 <div className="participant-actions">
                                   {isEditing ? (

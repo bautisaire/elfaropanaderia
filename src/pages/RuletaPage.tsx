@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import { useCart } from "../context/CartContext";
@@ -145,11 +145,9 @@ export default function RuletaPage() {
           let angle = Math.round(Math.atan2(Number(b), Number(a)) * (180 / Math.PI));
           if (angle < 0) angle += 360;
 
-          const sliceAngle = 360 / participants.length;
-          // Calcular índice actual pasando por el puntero (top = 0 deg)
-          // La rueda gira en sentido horario, pero el transform rotate es absoluto
           const adjustedAngle = (360 - angle) % 360;
-          const currentSlice = Math.floor(adjustedAngle / sliceAngle);
+          const currentSliceIndex = slices.findIndex(s => adjustedAngle >= s.startAngle && adjustedAngle < s.endAngle);
+          const currentSlice = currentSliceIndex !== -1 ? currentSliceIndex : 0;
 
           if (currentSlice !== lastTickAngle.current) {
             audio.playTick();
@@ -184,7 +182,19 @@ export default function RuletaPage() {
     );
   }
 
-  const sliceAngle = 360 / participants.length;
+  const totalChances = participants.reduce((acc, p) => acc + (p.chances || 1), 0);
+  
+  const slices = useMemo(() => {
+    let currentAngle = 0;
+    return participants.map(p => {
+      const chances = p.chances || 1;
+      const angle = (chances / totalChances) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      currentAngle = endAngle;
+      return { participant: p, startAngle, endAngle, sliceAngle: angle };
+    });
+  }, [participants]);
 
   const handleSpin = () => {
     if (spinning) return;
@@ -197,18 +207,26 @@ export default function RuletaPage() {
     setSpinning(true);
 
     const extraSpins = 8; // 8 full rotations
-    const winnerIndex = Math.floor(Math.random() * participants.length);
     
-    // Para que el slice del winnerIndex caiga en 0 grados (arriba)
-    // El centro del slice de winnerIndex está en: winnerIndex * sliceAngle
-    // Por lo tanto, debemos rotar la rueda de manera que: (rotacion + centro_slice) % 360 == 0
-    // rotacion = 360 - centro_slice
+    // Selección ponderada por chances
+    const randomTicket = Math.random() * totalChances;
+    let currentTicketCount = 0;
+    let winnerIndex = 0;
     
-    const centerOffset = sliceAngle / 2;
+    for (let i = 0; i < participants.length; i++) {
+        currentTicketCount += (participants[i].chances || 1);
+        if (randomTicket <= currentTicketCount) {
+            winnerIndex = i;
+            break;
+        }
+    }
+
+    const winnerSlice = slices[winnerIndex];
+    const centerOffset = winnerSlice.sliceAngle / 2;
     // Un pequeño random offset dentro de la porción para que no caiga SIEMPRE en el exacto centro
-    const randomOffset = (Math.random() - 0.5) * (sliceAngle * 0.8); 
+    const randomOffset = (Math.random() - 0.5) * (winnerSlice.sliceAngle * 0.8); 
     
-    const targetDegree = 360 - (winnerIndex * sliceAngle) - centerOffset + randomOffset;
+    const targetDegree = 360 - winnerSlice.startAngle - centerOffset + randomOffset;
     
     const totalRotation = rotation + (360 - (rotation % 360)) + (360 * extraSpins) + targetDegree;
 
@@ -247,9 +265,8 @@ export default function RuletaPage() {
           }}
         >
           <svg viewBox="0 0 1000 1000" width="100%" height="100%">
-            {participants.map((p, idx) => {
-              const startAngle = idx * sliceAngle;
-              const endAngle = startAngle + sliceAngle;
+            {slices.map((slice, idx) => {
+              const { participant: p, startAngle, endAngle, sliceAngle } = slice;
               
               const start = polarToCartesian(500, 500, 500, startAngle - 90);
               const end = polarToCartesian(500, 500, 500, endAngle - 90);
@@ -284,7 +301,10 @@ export default function RuletaPage() {
                       transform="rotate(90, 0, -300)"
                       style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
                     >
-                      {p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name}
+                      {(() => {
+                         const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
+                         return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
+                      })()}
                     </text>
                   </g>
                 </g>
@@ -308,8 +328,8 @@ export default function RuletaPage() {
         <div className="ruleta-winner-modal-overlay" onClick={() => setWinner(null)}>
           <div className="ruleta-winner-modal" onClick={e => e.stopPropagation()}>
             <h2>🎉 ¡Tenemos un ganador! 🎉</h2>
-            <h3>{winner.name}</h3>
-            {winner.phone && <p>Teléfono: {winner.phone}</p>}
+            <h3>{winner.name || winner.phoneOrEmail || "Participante"}</h3>
+            {winner.name && winner.phoneOrEmail && <p>Contacto: {winner.phoneOrEmail}</p>}
             <button onClick={() => setWinner(null)}>Aceptar</button>
           </div>
         </div>
