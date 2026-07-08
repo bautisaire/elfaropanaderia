@@ -99,7 +99,7 @@ export default function RaffleManager() {
         const data = d.data() as Omit<Raffle, 'id'>;
         const raffle = { id: d.id, ...data };
         allRaffles.push(raffle);
-        if (raffle.isActive) {
+        if (raffle.isActive && !active) {
           active = raffle;
         }
       });
@@ -332,7 +332,7 @@ export default function RaffleManager() {
     }
   };
 
-  const pastRaffles = raffles.filter(r => !r.isActive);
+  const pastRaffles = raffles.filter(r => !activeRaffle || r.id !== activeRaffle.id);
 
   const endModalParticipants = participants.filter(p =>
     p.name.toLowerCase().includes(endModalSearch.toLowerCase()) ||
@@ -586,7 +586,7 @@ export default function RaffleManager() {
                         <h4><FaTrophy style={{ color: '#cbd5e1', marginRight: '8px' }} /> {raffle.title || 'Sorteo'}</h4>
                         <div style={{ fontSize: '0.9rem', color: '#475569', margin: '4px 0 2px 28px' }}>Premios: {raffle.prize}</div>
                         <div className="history-dates" style={{ marginLeft: '28px' }}>
-                          <FaCalendarAlt /> {raffle.startDate?.toDate().toLocaleDateString('es-AR')} - {raffle.endDate?.toDate().toLocaleDateString('es-AR')}
+                          <FaCalendarAlt /> {raffle.startDate?.toDate().toLocaleDateString('es-AR')} - {raffle.endDate ? raffle.endDate.toDate().toLocaleDateString('es-AR') : 'Sin finalizar / Duplicado'}
                         </div>
                         {raffle.winner && (
                           <div className="history-winner">
