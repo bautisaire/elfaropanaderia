@@ -282,37 +282,50 @@ export default function RuletaPage() {
 
               const color = COLORS[idx % COLORS.length];
 
-              // Posicionar el texto en el centro de la tajada (mitad del ángulo)
-              // Rota desde el centro
+              // Posicionar el texto en el centro de la tajada usando un textPath
               const midAngle = startAngle + (sliceAngle / 2);
               
-              // Si está en la mitad derecha (0 a 180), leemos del centro hacia afuera (-90 local). 
-              // Si está en la mitad izquierda (180 a 360), leemos de afuera hacia el centro (90 local).
+              // Definimos una línea invisible desde el centro hacia el borde (o viceversa)
+              // para usarla como ruta para el texto, evitando bugs de transformaciones en iOS.
               const isRightSide = midAngle >= 0 && midAngle < 180;
-              const textRotation = isRightSide ? -90 : 90;
+              
+              // Ajustamos los radios para que el texto quede bien centrado en la tajada
+              const innerRadius = 120;
+              const outerRadius = 450;
+              
+              const centerPos = polarToCartesian(500, 500, innerRadius, midAngle - 90);
+              const edgePos = polarToCartesian(500, 500, outerRadius, midAngle - 90);
+              
+              const pathId = `text-path-${idx}`;
+              const textPathD = isRightSide 
+                ? `M ${centerPos.x} ${centerPos.y} L ${edgePos.x} ${edgePos.y}`
+                : `M ${edgePos.x} ${edgePos.y} L ${centerPos.x} ${centerPos.y}`;
 
               return (
                 <g key={idx}>
                   <path d={d} fill={color} stroke="#fff" strokeWidth="2" />
-                  <g transform={`translate(500, 500) rotate(${midAngle})`}>
-                    <text 
-                      x="0" 
-                      y="-300" // Subir el texto hacia el borde exterior (radio = 500)
-                      fill="#fff" 
-                      fontSize={participants.length > 20 ? "24" : "32"} 
-                      fontWeight="bold"
-                      textAnchor="middle"
+                  <defs>
+                    <path id={pathId} d={textPathD} />
+                  </defs>
+                  <text 
+                    fill="#fff" 
+                    fontSize={participants.length > 20 ? "24" : "32"} 
+                    fontWeight="bold"
+                    style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
+                  >
+                    <textPath 
+                      href={`#${pathId}`} 
+                      startOffset="50%" 
+                      textAnchor="middle" 
                       dominantBaseline="middle"
-                      // Rotamos el texto para que se lea desde afuera hacia adentro o viceversa
-                      transform={`rotate(${textRotation}, 0, -300)`}
-                      style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
+                      alignmentBaseline="middle"
                     >
                       {(() => {
                          const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
                          return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
                       })()}
-                    </text>
-                  </g>
+                    </textPath>
+                  </text>
                 </g>
               );
             })}
