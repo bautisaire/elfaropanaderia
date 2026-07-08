@@ -12,6 +12,7 @@ import MyAccount from "./pages/MyAccount";
 import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
 import MisPedidos from "./pages/MisPedidos";
 import FloatingOrderTracker from "./components/FloatingOrderTracker";
+import RuletaPage from "./pages/RuletaPage";
 
 import CartSidebar from "./components/CartSidebar";
 
@@ -56,6 +57,7 @@ function Layout() {
           <Route path="/mi-cuenta/*" element={<MyAccount />} />
           <Route path="/mis-pedidos" element={<MisPedidos />} />
           <Route path="/Proximamente" element={<Proximamente />} />
+          <Route path="/ruleta" element={<RuletaPage />} />
         </Routes>
       </div>
       {!isEditor && <Footer />}
