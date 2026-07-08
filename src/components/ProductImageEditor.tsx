@@ -17,6 +17,8 @@ interface ProductImageEditorProps {
   onCancel: () => void;
   isSaving?: boolean;
   queueLabel?: string;
+  maxWidth?: number;
+  quality?: number;
 }
 
 export default function ProductImageEditor({
@@ -29,6 +31,8 @@ export default function ProductImageEditor({
   onCancel,
   isSaving = false,
   queueLabel,
+  maxWidth = 800,
+  quality = 0.85,
 }: ProductImageEditorProps) {
   const [imageSrc, setImageSrc] = useState("");
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -86,7 +90,7 @@ export default function ProductImageEditor({
 
     setIsProcessing(true);
     try {
-      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels);
+      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels, maxWidth, quality);
       await onConfirm(blob);
     } catch (error) {
       console.error("Error cropping image:", error);

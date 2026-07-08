@@ -1298,9 +1298,11 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                     isSaving={uploading}
                     queueLabel={
                         pendingImageFiles.length > 0
-                            ? `Quedan ${pendingImageFiles.length} imágenes por editar`
+                            ? `+ ${pendingImageFiles.length} imagen(es) en cola`
                             : undefined
                     }
+                    maxWidth={imageEditorTarget.type === 'comboOption' ? 250 : 800}
+                    quality={imageEditorTarget.type === 'comboOption' ? 0.6 : 0.85}
                 />
             )}
 
