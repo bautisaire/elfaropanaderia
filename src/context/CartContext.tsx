@@ -3,6 +3,7 @@ import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
 import ClosedModal from "../components/ClosedModal";
+import PickupOnlyModal from "../components/PickupOnlyModal";
 import {
   mapFirestoreProduct,
   applyDerivedStockToCatalog,
@@ -60,6 +61,11 @@ interface CartContextType {
   closedMessage: string;
   isStoreClosedDismissed: boolean;
   dismissStoreClosed: () => void;
+  allowPickup: boolean;
+  allowDelivery: boolean;
+  pickupOnlyMessage: string;
+  isPickupOnlyDismissed: boolean;
+  dismissPickupOnly: () => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (value: boolean) => void;
   isAdmin: boolean;
@@ -92,6 +98,11 @@ export const CartContext = createContext<CartContextType>({
   closedMessage: "",
   isStoreClosedDismissed: false,
   dismissStoreClosed: () => { },
+  allowPickup: true,
+  allowDelivery: true,
+  pickupOnlyMessage: "",
+  isPickupOnlyDismissed: false,
+  dismissPickupOnly: () => { },
   isSidebarOpen: false,
   setIsSidebarOpen: () => { },
   isAdmin: false,
@@ -119,6 +130,10 @@ export const CartProvider = ({ children }: Props) => {
   const [closedMessage, setClosedMessage] = useState("");
   const [showClosedModal, setShowClosedModal] = useState(false); // Modal control
   const [isStoreClosedDismissed, setIsStoreClosedDismissed] = useState(false);
+  const [allowPickup, setAllowPickup] = useState(true);
+  const [allowDelivery, setAllowDelivery] = useState(true);
+  const [pickupOnlyMessage, setPickupOnlyMessage] = useState("");
+  const [isPickupOnlyDismissed, setIsPickupOnlyDismissed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -129,6 +144,7 @@ export const CartProvider = ({ children }: Props) => {
   const productsCatalogRef = useRef<Record<string, Product>>({});
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
+  const dismissPickupOnly = () => setIsPickupOnlyDismissed(true);
 
   // Catálogo en tiempo real (stock y visibilidad)
   useEffect(() => {
@@ -260,6 +276,9 @@ export const CartProvider = ({ children }: Props) => {
         const data = docSnap.data();
         setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);
         setClosedMessage(data.closeMessage || "Tienda Cerrada");
+        setAllowPickup(data.allowPickup !== undefined ? data.allowPickup : true);
+        setAllowDelivery(data.allowDelivery !== undefined ? data.allowDelivery : true);
+        setPickupOnlyMessage(data.pickupOnlyMessage || "¡Atención! Actualmente solo estamos tomando pedidos para RETIRO EN EL LOCAL.");
       }
     }, (error) => {
       console.error("Error fetching store status:", error);
@@ -456,6 +475,11 @@ export const CartProvider = ({ children }: Props) => {
         closedMessage,
         isStoreClosedDismissed,
         dismissStoreClosed,
+        allowPickup,
+        allowDelivery,
+        pickupOnlyMessage,
+        isPickupOnlyDismissed,
+        dismissPickupOnly,
         isSidebarOpen,
         setIsSidebarOpen,
         updateCartItemPrice,
@@ -479,6 +503,12 @@ export const CartProvider = ({ children }: Props) => {
         isOpen={showClosedModal}
         onClose={() => setShowClosedModal(false)}
         message={closedMessage}
+      />
+
+      <PickupOnlyModal
+        isOpen={!isPickupOnlyDismissed && allowPickup && !allowDelivery && isStoreOpen}
+        onClose={dismissPickupOnly}
+        message={pickupOnlyMessage}
       />
 
     </CartContext.Provider>

@@ -17,6 +17,7 @@ export default function StoreStatusManager() {
     const [message, setMessage] = useState("");
     const [pickupDiscountPercentage, setPickupDiscountPercentage] = useState<number>(0);
     const [pickupDiscountText, setPickupDiscountText] = useState<string>("");
+    const [pickupOnlyMessage, setPickupOnlyMessage] = useState<string>("¡Atención! Actualmente solo estamos tomando pedidos para RETIRO EN EL LOCAL.");
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -34,6 +35,7 @@ export default function StoreStatusManager() {
                     setAllowPickup(data.allowPickup !== undefined ? data.allowPickup : true);
                     setPickupDiscountPercentage(data.pickupDiscountPercentage || 0);
                     setPickupDiscountText(data.pickupDiscountText || "");
+                    setPickupOnlyMessage(data.pickupOnlyMessage || "¡Atención! Actualmente solo estamos tomando pedidos para RETIRO EN EL LOCAL.");
                 }
             } catch (error) {
                 console.error("Error loading settings:", error);
@@ -55,7 +57,8 @@ export default function StoreStatusManager() {
                 allowDelivery: allowDelivery,
                 allowPickup: allowPickup,
                 pickupDiscountPercentage: Number(pickupDiscountPercentage),
-                pickupDiscountText: pickupDiscountText
+                pickupDiscountText: pickupDiscountText,
+                pickupOnlyMessage: pickupOnlyMessage
             }, { merge: true });
             setMessage("🎉 Configuración guardada correctamente");
             setTimeout(() => setMessage(""), 3000);
@@ -194,6 +197,31 @@ export default function StoreStatusManager() {
                         <span className="slider round"></span>
                     </label>
                 </div>
+
+                {allowPickup && !allowDelivery && (
+                    <div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #dcfce7', paddingTop: '15px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', color: '#166534', fontWeight: '500' }}>
+                            Mensaje de Aviso "Solo Retiro en Local":
+                        </label>
+                        <textarea
+                            value={pickupOnlyMessage}
+                            onChange={(e) => setPickupOnlyMessage(e.target.value)}
+                            placeholder="Ej: ¡Atención! Solo estamos tomando pedidos para retiro..."
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '8px',
+                                minHeight: '80px',
+                                fontFamily: 'inherit',
+                                fontSize: '0.95rem',
+                                color: '#14532d',
+                                backgroundColor: '#f0fdf4'
+                            }}
+                        />
+                        <small style={{ color: '#16a34a' }}>Este mensaje aparecerá a los clientes apenas entren a la tienda.</small>
+                    </div>
+                )}
                 
                 <div className="form-group" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
                     <label>Descuento por Retiro en Local (%)</label>

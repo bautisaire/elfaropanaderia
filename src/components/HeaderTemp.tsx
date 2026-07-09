@@ -28,7 +28,7 @@ const BanderinSVG = ({ className }: { className?: string }) => (
 export default function Header() {
   const navigate = useNavigate();
 
-  const { cart, isStoreOpen, setIsSidebarOpen } = useContext(CartContext);
+  const { cart, isStoreOpen, allowPickup, allowDelivery, setIsSidebarOpen } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -143,7 +143,13 @@ export default function Header() {
         </div>
       )}
 
-      <header className={`header-container scrolled ${!isStoreOpen ? 'with-topbar' : ''}`}>
+      {isStoreOpen && allowPickup && !allowDelivery && (
+        <div className="topbar-cerrado" style={{ backgroundColor: '#16a34a' }}>
+          SOLO RETIRO EN LOCAL
+        </div>
+      )}
+
+      <header className={`header-container scrolled ${(!isStoreOpen || (isStoreOpen && allowPickup && !allowDelivery)) ? 'with-topbar' : ''}`}>
         <div className="header-content" style={{ display: isSearchOpen ? 'none' : 'grid' }}>
           <div className="header-left">
             <button className="burger-menu-btn" onClick={() => setIsLeftMenuOpen(true)}>

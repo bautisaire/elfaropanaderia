@@ -269,8 +269,8 @@ export default function RuletaPage() {
             {slices.map((slice, idx) => {
               const { participant: p, startAngle, endAngle, sliceAngle } = slice;
               
-              const start = polarToCartesian(500, 500, 500, startAngle - 90);
-              const end = polarToCartesian(500, 500, 500, endAngle - 90);
+              const start = polarToCartesian(500, 500, 500, startAngle);
+              const end = polarToCartesian(500, 500, 500, endAngle);
               const largeArcFlag = sliceAngle > 180 ? 1 : 0;
               
               const d = [
@@ -293,8 +293,8 @@ export default function RuletaPage() {
               const innerRadius = 120;
               const outerRadius = 450;
               
-              const centerPos = polarToCartesian(500, 500, innerRadius, midAngle - 90);
-              const edgePos = polarToCartesian(500, 500, outerRadius, midAngle - 90);
+              const centerPos = polarToCartesian(500, 500, innerRadius, midAngle);
+              const edgePos = polarToCartesian(500, 500, outerRadius, midAngle);
               
               const pathId = `text-path-${idx}`;
               const textPathD = isRightSide 
