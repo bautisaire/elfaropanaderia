@@ -19,6 +19,7 @@ import CartSidebar from "./components/CartSidebar";
 function Layout() {
   const location = useLocation();
   const isEditor = location.pathname.toLowerCase().startsWith('/editor');
+  const isRuleta = location.pathname.toLowerCase().startsWith('/ruleta');
 
   const cartContext = useContext(CartContext);
 
@@ -30,8 +31,8 @@ function Layout() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
-      {/* Lights Off Global Overlay (Only if not editor, store is closed, and NOT dismissed) */}
-      {!isEditor && !isStoreOpen && !isStoreClosedDismissed && (
+      {/* Lights Off Global Overlay (Only if not editor, not ruleta, store is closed, and NOT dismissed) */}
+      {!isEditor && !isRuleta && !isStoreOpen && !isStoreClosedDismissed && (
         <div className="lights-off-overlay"></div>
       )}
 
@@ -41,13 +42,13 @@ function Layout() {
       {/* Global Notifications for Admins (Active Anywhere) */}
       {isAdmin && cartContext?.adminPermissions?.is_rider !== true && <GlobalAdminNotifications />}
 
-      {!isEditor && <Header />}
+      {!isEditor && !isRuleta && <Header />}
 
       {/* Cart Sidebar rendered globally */}
-      {!isEditor && <CartSidebar />}
+      {!isEditor && !isRuleta && <CartSidebar />}
 
       {/* Floating Order Tracker for non-admins to track local orders */}
-      {!isEditor && !isAdmin && <FloatingOrderTracker />}
+      {!isEditor && !isRuleta && !isAdmin && <FloatingOrderTracker />}
 
       <div style={{ flex: 1 }}>
         <Routes>
@@ -60,7 +61,7 @@ function Layout() {
           <Route path="/ruleta" element={<RuletaPage />} />
         </Routes>
       </div>
-      {!isEditor && <Footer />}
+      {!isEditor && !isRuleta && <Footer />}
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import { useCart } from "../context/CartContext";
 import confetti from "canvas-confetti";
+import logoImg from "../assets/logo.png";
 import "./RuletaPage.css";
 
 const COLORS = [
@@ -91,6 +92,11 @@ export default function RuletaPage() {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState<any | null>(null);
+  const [sessionWinners, setSessionWinners] = useState<any[]>([]);
+  const [activeRaffleId, setActiveRaffleId] = useState<string | null>(null);
+  const [activeRaffleData, setActiveRaffleData] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [numberOfPrizes, setNumberOfPrizes] = useState(3);
 
   const wheelRef = useRef<HTMLDivElement>(null);
   const lastTickAngle = useRef<number>(0);
@@ -110,6 +116,8 @@ export default function RuletaPage() {
         }
 
         const activeDoc = activeSnap.docs[0];
+        setActiveRaffleId(activeDoc.id);
+        setActiveRaffleData(activeDoc.data());
         
         // Listen to participants
         const unsub = onSnapshot(collection(db, `raffles/${activeDoc.id}/participants`), (snap) => {
@@ -159,15 +167,18 @@ export default function RuletaPage() {
     };
 
     animFrame = requestAnimationFrame(checkTick);
-    animFrame = requestAnimationFrame(checkTick);
     return () => cancelAnimationFrame(animFrame);
   }, [spinning, participants.length]);
 
-  const totalChances = participants.reduce((acc, p) => acc + (p.chances || 1), 0);
+  const availableParticipants = useMemo(() => {
+    return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
+  }, [participants, sessionWinners]);
+
+  const totalChances = availableParticipants.reduce((acc, p) => acc + (p.chances || 1), 0);
   
   const slices = useMemo(() => {
     let currentAngle = 0;
-    return participants.map(p => {
+    return availableParticipants.map(p => {
       const chances = p.chances || 1;
       const angle = (chances / totalChances) * 360;
       const startAngle = currentAngle;
@@ -175,7 +186,7 @@ export default function RuletaPage() {
       currentAngle = endAngle;
       return { participant: p, startAngle, endAngle, sliceAngle: angle };
     });
-  }, [participants, totalChances]);
+  }, [availableParticipants, totalChances]);
 
   if (!isSuperAdmin) {
     return (
@@ -197,8 +208,24 @@ export default function RuletaPage() {
     );
   }
 
+  const handleSaveWinners = async () => {
+    if (!activeRaffleId || sessionWinners.length === 0) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "raffles", activeRaffleId), {
+        winners: arrayUnion(...sessionWinners)
+      });
+      alert("¡Ganadores guardados exitosamente en la base de datos!");
+    } catch (error) {
+      console.error("Error saving winners:", error);
+      alert("Error al guardar ganadores.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSpin = () => {
-    if (spinning) return;
+    if (spinning || availableParticipants.length === 0) return;
     
     // Init audio on first user interaction
     audio.init();
@@ -214,8 +241,8 @@ export default function RuletaPage() {
     let currentTicketCount = 0;
     let winnerIndex = 0;
     
-    for (let i = 0; i < participants.length; i++) {
-        currentTicketCount += (participants[i].chances || 1);
+    for (let i = 0; i < availableParticipants.length; i++) {
+        currentTicketCount += (availableParticipants[i].chances || 1);
         if (randomTicket <= currentTicketCount) {
             winnerIndex = i;
             break;
@@ -236,7 +263,9 @@ export default function RuletaPage() {
     // Esperar a que termine la animación de CSS (6s)
     setTimeout(() => {
       setSpinning(false);
-      setWinner(participants[winnerIndex]);
+      const selectedWinner = availableParticipants[winnerIndex];
+      setWinner(selectedWinner);
+      setSessionWinners(prev => [...prev, selectedWinner]);
       audio.playWinner();
       confetti({
         particleCount: 150,
@@ -248,10 +277,41 @@ export default function RuletaPage() {
   };
 
   return (
-    <div className="ruleta-container">
+    <div className="ruleta-page-wrapper">
+      
+      {/* LEFT SIDEBAR: Configuración */}
+      <div className="ruleta-sidebar-left">
+        <h2>Configuración</h2>
+        
+        <div style={{ marginBottom: '15px', background: '#334155', padding: '10px', borderRadius: '8px' }}>
+          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', color: '#cbd5e1' }}>Total de premios:</label>
+          <input 
+            type="number" 
+            value={numberOfPrizes}
+            onChange={e => setNumberOfPrizes(Math.max(1, parseInt(e.target.value) || 1))}
+            disabled={sessionWinners.length > 0} 
+            style={{ 
+              width: '100%', padding: '8px', borderRadius: '4px', 
+              border: '1px solid #475569', background: '#1e293b', 
+              color: 'white', fontSize: '1.1rem', fontWeight: 'bold' 
+            }}
+          />
+          {sessionWinners.length === 0 && <small style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginTop: '5px' }}>Configúralo antes de girar.</small>}
+        </div>
+
+        <button 
+          className="ruleta-save-btn" 
+          onClick={handleSaveWinners}
+          disabled={saving || sessionWinners.length === 0}
+          style={{ marginTop: 'auto' }}
+        >
+          {saving ? "Guardando..." : "Guardar ganadores"}
+        </button>
+      </div>
+
+      <div className="ruleta-container">
       <div className="ruleta-header">
-        <h1>Ruleta de la Suerte</h1>
-        <p>Gira la rueda para elegir al próximo gran ganador</p>
+        <h1>{activeRaffleData?.name || "Ruleta de la Suerte"}</h1>
       </div>
 
       <div className="ruleta-wheel-wrapper">
@@ -309,7 +369,7 @@ export default function RuletaPage() {
                   </defs>
                   <text 
                     fill="#fff" 
-                    fontSize={participants.length > 20 ? "24" : "32"} 
+                    fontSize={availableParticipants.length > 20 ? "24" : "32"} 
                     fontWeight="bold"
                     style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
                   >
@@ -336,9 +396,9 @@ export default function RuletaPage() {
           <button 
             className="ruleta-spin-btn" 
             onClick={handleSpin} 
-            disabled={spinning}
+            disabled={spinning || availableParticipants.length === 0}
           >
-            Girar
+            <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
           </button>
         </div>
       </div>
@@ -348,11 +408,67 @@ export default function RuletaPage() {
           <div className="ruleta-winner-modal" onClick={e => e.stopPropagation()}>
             <h2>🎉 ¡Tenemos un ganador! 🎉</h2>
             <h3>{winner.name || winner.phoneOrEmail || "Participante"}</h3>
-            {winner.name && winner.phoneOrEmail && <p>Contacto: {winner.phoneOrEmail}</p>}
+            {/* Contacto oculto a pedido del usuario */}
             <button onClick={() => setWinner(null)}>Aceptar</button>
           </div>
         </div>
       )}
+      </div>
+
+      {/* RIGHT SIDEBAR: Premios */}
+      <div className="ruleta-sidebar-right">
+        <h2>Premios</h2>
+        
+        <ul className="ruleta-winners-list" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {Array.from({ length: numberOfPrizes }).map((_, idx) => {
+            const pos = idx + 1; // 1, 2, 3...
+            const winnerIndex = numberOfPrizes - pos;
+            const winner = sessionWinners[winnerIndex];
+            
+            let medalColor = '#64748b'; // default gris
+            let shadowColor = 'transparent';
+            if (pos === 1) {
+              medalColor = '#fbbf24'; // Dorado
+              shadowColor = 'rgba(251, 191, 36, 0.4)';
+            } else if (pos === 2) {
+              medalColor = '#cbd5e1'; // Plata
+              shadowColor = 'rgba(203, 213, 225, 0.4)';
+            } else if (pos === 3) {
+              medalColor = '#b45309'; // Bronce
+              shadowColor = 'rgba(180, 83, 9, 0.4)';
+            }
+
+            return (
+              <li key={pos} style={{ 
+                display: 'flex', alignItems: 'center', background: '#334155', 
+                padding: '15px', borderRadius: '12px', border: `2px solid ${winner ? medalColor : 'transparent'}`,
+                boxShadow: winner ? `0 0 15px ${shadowColor}` : 'none',
+                transition: 'all 0.5s ease',
+                opacity: winner ? 1 : 0.6
+              }}>
+                <span style={{ 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  background: medalColor, color: pos === 1 ? '#000' : '#fff',
+                  fontWeight: 'bold', fontSize: '1.2rem',
+                  marginRight: '15px', boxShadow: `0 0 10px ${medalColor}`
+                }}>
+                  {pos}º
+                </span>
+                <span className="winner-name" style={{ 
+                  fontSize: winner ? '1.2rem' : '1rem', 
+                  color: winner ? '#fff' : '#94a3b8',
+                  fontWeight: winner ? 'bold' : 'normal',
+                  fontStyle: winner ? 'normal' : 'italic'
+                }}>
+                  {winner ? (winner.name || winner.phoneOrEmail || "Participante") : "Esperando ganador..."}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
     </div>
   );
 }
