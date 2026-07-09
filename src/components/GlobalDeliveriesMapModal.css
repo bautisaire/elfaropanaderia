@@ -1,0 +1,133 @@
+.global-map-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.global-map-modal {
+    background: white;
+    border-radius: 16px;
+    width: 90vw;
+    height: 85vh;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.global-map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.global-map-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.global-map-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.global-map-close:hover {
+    background: #e2e8f0;
+    color: #ef4444;
+}
+
+.global-map-body {
+    flex-grow: 1;
+    position: relative;
+    background: #f1f5f9;
+}
+
+.leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-content {
+    margin: 16px;
+}
+
+.map-popup-custom h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+}
+
+.map-popup-custom p {
+    margin: 4px 0;
+    color: #475569;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.map-popup-custom strong {
+    color: #10b981;
+}
+
+.map-popup-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fecaca;
+    color: #991b1b;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 10px;
+    transition: all 0.2s;
+    width: 100%;
+    justify-content: center;
+    border: 1px solid #fca5a5;
+}
+
+.map-popup-btn:hover {
+    background: #fca5a5;
+    color: #7f1d1d;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

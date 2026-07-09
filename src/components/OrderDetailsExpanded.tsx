@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint, FaMotorcycle } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 import { db } from "../firebase/firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
 import { useCart } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import TextEditModal from "./TextEditModal";
 import MapLocationPickerModal from "./MapLocationPickerModal";
+
+
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b" },

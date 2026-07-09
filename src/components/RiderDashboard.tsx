@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, limit } from 'firebase/firestore';
 import { FaMotorcycle, FaChartLine, FaCheckCircle, FaMoneyBillWave, FaCalendarAlt, FaMapMarkerAlt, FaPhone, FaUser, FaClock, FaCopy, FaChevronDown, FaChevronUp, FaDollarSign } from 'react-icons/fa';
+import GlobalDeliveriesMapModal from './GlobalDeliveriesMapModal';
 import './RiderDashboard.css';
 
 interface Order {
@@ -57,6 +58,9 @@ export default function RiderDashboard() {
 
     // Accordion Active Orders
     const [expandedActiveOrderId, setExpandedActiveOrderId] = useState<string | null>(null);
+
+    // Global Map
+    const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
 
     const toggleActiveOrderAccordion = (id: string) => {
         setExpandedActiveOrderId(prev => prev === id ? null : id);
@@ -223,6 +227,25 @@ export default function RiderDashboard() {
                     onClick={() => setActiveTab('dashboard')}
                 >
                     <FaChartLine /> Dashboard
+                </button>
+                <button
+                    onClick={() => setIsGlobalMapOpen(true)}
+                    style={{
+                        marginLeft: 'auto',
+                        padding: '10px 15px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#3b82f6',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                    }}
+                >
+                    <FaMapMarkerAlt /> Mapa Global
                 </button>
             </div>
 
@@ -516,6 +539,13 @@ export default function RiderDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Global Map Modal */}
+            <GlobalDeliveriesMapModal 
+                isOpen={isGlobalMapOpen} 
+                onClose={() => setIsGlobalMapOpen(false)} 
+                orders={orders} // Pass the rider's orders
+            />
         </div>
     );
 }

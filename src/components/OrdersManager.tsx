@@ -7,6 +7,7 @@ import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, F
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
+import GlobalDeliveriesMapModal from "./GlobalDeliveriesMapModal";
 import { useCart } from "../context/CartContext";
 import "./OrdersManager.css";
 
@@ -173,6 +174,9 @@ export default function OrdersManager() {
 
     // Expanded Order State
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+    // Global Map State
+    const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
 
     const handleDeleteExpense = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -912,7 +916,7 @@ export default function OrdersManager() {
 
                     <div className="orders-content">
                         {/* Tab Selector */}
-                        <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                        <div className="orders-tabs" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
                             {adminPermissions?.pos_sales !== false && (
                                 <button
                                     className={`tab-btn ${activeTab === 'pos' ? 'active' : ''}`}
@@ -960,6 +964,29 @@ export default function OrdersManager() {
                                     }}
                                 >
                                     💸 Gastos
+                                </button>
+                            )}
+
+                            {/* Botón Mapa Global */}
+                            {activeTab === 'deliveries' && (
+                                <button
+                                    onClick={() => setIsGlobalMapOpen(true)}
+                                    style={{
+                                        marginLeft: 'auto',
+                                        padding: '10px 20px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: '#3b82f6',
+                                        color: '#fff',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                                    }}
+                                >
+                                    <FaMapMarkerAlt /> Ver Mapa Global
                                 </button>
                             )}
 
@@ -1601,6 +1628,15 @@ export default function OrdersManager() {
                     )}
                 </div>
             )}
+            {/* Global Map Modal */}
+            <GlobalDeliveriesMapModal 
+                isOpen={isGlobalMapOpen} 
+                onClose={() => setIsGlobalMapOpen(false)} 
+                orders={orders.filter(o => {
+                    const isPos = o.source === 'pos' || o.source === 'pos_public' || o.source === 'pos_wholesale';
+                    return !isPos;
+                })}
+            />
         </div>
     );
 }

@@ -28,6 +28,7 @@ export const generateOrderMessage = (orderData: any) => {
         .join("\n");
 
     const transferBlock = isTransferPayment(cliente?.metodoPago) ? TRANSFER_DATA_BLOCK : '';
+    const raffleMessage = `\n\n🎉 ¡Ya estás participando del Sorteo!\nRecordá que cada pedido suma chances.`;
 
     return `
 ¡Hola ${cliente.nombre}! Recibimos tu pedido en *El Faro Panadería*.
@@ -43,7 +44,7 @@ ${orderData.shippingCost > 0 ? `\n *Envío:* $${Math.floor(orderData.shippingCos
  ¡Ya lo estamos preparando! 
 ${transferBlock}
 
-    elfaropanificacion.com
+    elfaropanificacion.com${raffleMessage}
   `.trim();
 };
 
@@ -51,6 +52,7 @@ export const generateOrderMessageShort = (orderData: any) => {
     const { cliente, total } = orderData;
 
     const transferBlock = isTransferPayment(cliente?.metodoPago) ? TRANSFER_DATA_BLOCK : '';
+    const raffleMessage = `\n\n🎉 ¡Ya estás participando del Sorteo!\nRecordá que cada pedido suma chances.`;
 
     return `
 ¡Hola ${cliente.nombre}, pedido recibido!
@@ -60,7 +62,7 @@ export const generateOrderMessageShort = (orderData: any) => {
 *Total:* $${Math.floor(total)}
 ${transferBlock}
 
- elfaropanificacion.com
+ elfaropanificacion.com${raffleMessage}
   `.trim();
 };
 

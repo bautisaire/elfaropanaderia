@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
-import { generateOrderMessage } from "../utils/telegram";
+import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
+import { db } from "../firebase/firebaseConfig";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface OrderDetailsModalProps {
     order: any;
@@ -118,7 +120,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                             </button>
                             <button
                                 onClick={() => {
-                                    const msg = `Hola, ¡pedido recibido! Te paso los datos para la transferencia:\nAlias: elfaro80.mp\nCVU: 0000003100006832823516\nEnviar comprobante`;
+                                    const msg = generateOrderMessageShort(order);
                                     navigator.clipboard.writeText(msg);
                                     showToast("Datos copiados");
                                 }}

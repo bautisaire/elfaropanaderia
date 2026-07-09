@@ -1,0 +1,127 @@
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { FaTimes, FaMapMarkerAlt, FaPhone, FaExternalLinkAlt, FaMotorcycle } from 'react-icons/fa';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import './GlobalDeliveriesMapModal.css';
+
+// Fix for default Leaflet icon in React
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+    iconUrl,
+    iconRetinaUrl,
+    shadowUrl,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    tooltipAnchor: [16, -28],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+interface GlobalDeliveriesMapModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    orders: any[];
+}
+
+// Subcomponente para ajustar los límites del mapa automáticamente
+const MapBoundsFitter = ({ markers }: { markers: { lat: number, lng: number }[] }) => {
+    const map = useMap();
+
+    useEffect(() => {
+        if (markers.length > 0) {
+            const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        }
+    }, [markers, map]);
+
+    return null;
+};
+
+export default function GlobalDeliveriesMapModal({ isOpen, onClose, orders }: GlobalDeliveriesMapModalProps) {
+    if (!isOpen) return null;
+
+    // Filtrar pedidos que tengan ubicación y no estén cancelados/entregados
+    const validOrders = orders.filter(o => 
+        o.cliente?.location && 
+        o.status !== 'cancelado' && 
+        o.status !== 'entregado'
+    );
+
+    const markersCoords = validOrders.map(o => o.cliente.location);
+
+    // Centro por defecto (Senillosa) si no hay marcadores
+    const defaultCenter: L.LatLngExpression = markersCoords.length > 0 
+        ? [markersCoords[0].lat, markersCoords[0].lng] 
+        : [-39.0142, -68.4239];
+
+    return createPortal(
+        <div className="global-map-overlay" onClick={onClose}>
+            <div className="global-map-modal" onClick={e => e.stopPropagation()}>
+                <div className="global-map-header">
+                    <h3><FaMotorcycle color="#3b82f6" /> Mapa Global de Deliveries Activos</h3>
+                    <button className="global-map-close" onClick={onClose}>
+                        <FaTimes />
+                    </button>
+                </div>
+                
+                <div className="global-map-body">
+                    {validOrders.length === 0 ? (
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                            <FaMapMarkerAlt size={40} color="#cbd5e1" style={{ marginBottom: '10px' }} />
+                            <p>No hay pedidos activos con ubicación fijada.</p>
+                            <small>Abre los detalles de un pedido y usa el botón "Fijar Ubicación" para que aparezcan aquí.</small>
+                        </div>
+                    ) : (
+                        <MapContainer 
+                            center={defaultCenter} 
+                            zoom={14} 
+                            style={{ height: "100%", width: "100%" }}
+                        >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            
+                            {validOrders.map(order => (
+                                <Marker 
+                                    key={order.id} 
+                                    position={[order.cliente.location.lat, order.cliente.location.lng]}
+                                >
+                                    <Popup>
+                                        <div className="map-popup-custom">
+                                            <h4>{order.cliente.nombre}</h4>
+                                            <p><FaMotorcycle /> Estado: <strong>{order.status.toUpperCase()}</strong></p>
+                                            <p><FaMapMarkerAlt /> {order.cliente.direccion}</p>
+                                            {order.cliente.telefono && (
+                                                <p><FaPhone /> {order.cliente.telefono}</p>
+                                            )}
+                                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 'bold', color: '#64748b' }}>Total:</span>
+                                                <span style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: '800' }}>${Math.ceil(order.total)}</span>
+                                            </div>
+                                            <a 
+                                                href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="map-popup-btn"
+                                            >
+                                                Abrir en Google Maps <FaExternalLinkAlt size={12} />
+                                            </a>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            ))}
+                            <MapBoundsFitter markers={markersCoords} />
+                        </MapContainer>
+                    )}
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
