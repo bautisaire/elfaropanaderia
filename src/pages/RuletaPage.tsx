@@ -93,6 +93,7 @@ export default function RuletaPage() {
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState<any | null>(null);
   const [sessionWinners, setSessionWinners] = useState<any[]>([]);
+  const [wheelExcludedWinners, setWheelExcludedWinners] = useState<any[]>([]);
   const [activeRaffleId, setActiveRaffleId] = useState<string | null>(null);
   const [activeRaffleData, setActiveRaffleData] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
@@ -171,8 +172,8 @@ export default function RuletaPage() {
   }, [spinning, participants.length]);
 
   const availableParticipants = useMemo(() => {
-    return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
-  }, [participants, sessionWinners]);
+    return participants.filter(p => !wheelExcludedWinners.some(w => w.id === p.id));
+  }, [participants, wheelExcludedWinners]);
 
   const totalChances = availableParticipants.reduce((acc, p) => acc + (p.chances || 1), 0);
   
@@ -224,32 +225,49 @@ export default function RuletaPage() {
     }
   };
 
+  const unselectedParticipants = useMemo(() => {
+    return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
+  }, [participants, sessionWinners]);
+
   const handleSpin = () => {
-    if (spinning || availableParticipants.length === 0) return;
+    if (spinning || unselectedParticipants.length === 0) return;
     
     // Init audio on first user interaction
     audio.init();
     audio.playClick();
     
+    setWheelExcludedWinners([...sessionWinners]);
     setWinner(null);
     setSpinning(true);
 
     const extraSpins = 8; // 8 full rotations
     
+    const spinTotalChances = unselectedParticipants.reduce((acc, p) => acc + (p.chances || 1), 0);
+    
+    let currentAngle = 0;
+    const spinSlices = unselectedParticipants.map(p => {
+      const chances = p.chances || 1;
+      const angle = (chances / spinTotalChances) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      currentAngle = endAngle;
+      return { participant: p, startAngle, endAngle, sliceAngle: angle };
+    });
+    
     // Selección ponderada por chances
-    const randomTicket = Math.random() * totalChances;
+    const randomTicket = Math.random() * spinTotalChances;
     let currentTicketCount = 0;
     let winnerIndex = 0;
     
-    for (let i = 0; i < availableParticipants.length; i++) {
-        currentTicketCount += (availableParticipants[i].chances || 1);
+    for (let i = 0; i < unselectedParticipants.length; i++) {
+        currentTicketCount += (unselectedParticipants[i].chances || 1);
         if (randomTicket <= currentTicketCount) {
             winnerIndex = i;
             break;
         }
     }
 
-    const winnerSlice = slices[winnerIndex];
+    const winnerSlice = spinSlices[winnerIndex];
     const centerOffset = winnerSlice.sliceAngle / 2;
     // Un pequeño random offset dentro de la porción para que no caiga SIEMPRE en el exacto centro
     const randomOffset = (Math.random() - 0.5) * (winnerSlice.sliceAngle * 0.8); 
@@ -263,7 +281,7 @@ export default function RuletaPage() {
     // Esperar a que termine la animación de CSS (6s)
     setTimeout(() => {
       setSpinning(false);
-      const selectedWinner = availableParticipants[winnerIndex];
+      const selectedWinner = unselectedParticipants[winnerIndex];
       setWinner(selectedWinner);
       setSessionWinners(prev => [...prev, selectedWinner]);
       audio.playWinner();
@@ -396,7 +414,7 @@ export default function RuletaPage() {
           <button 
             className="ruleta-spin-btn" 
             onClick={handleSpin} 
-            disabled={spinning || availableParticipants.length === 0}
+            disabled={spinning || unselectedParticipants.length === 0}
           >
             <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
           </button>

@@ -173,6 +173,11 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                                             </a>
                                         </p>
                                     )}
+                                    {order.cliente.indicaciones && (
+                                        <div style={{ marginTop: '5px', padding: '6px', backgroundColor: '#f1f5f9', borderRadius: '6px', fontSize: '0.85rem', color: '#475569', borderLeft: '3px solid #3b82f6' }}>
+                                            <strong>Indicaciones:</strong> {order.cliente.indicaciones}
+                                        </div>
+                                    )}
                                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontWeight: 'bold', color: '#64748b' }}>Total:</span>
                                         <span style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: '800' }}>${Math.ceil(order.total)}</span>
