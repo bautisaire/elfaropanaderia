@@ -22,6 +22,30 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const bakerySvg = `
+<svg width="40" height="40" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)" fill="#eab308" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M 4 12 L 8 2 H 24 L 28 12 A 2 2 0 0 1 24 12 A 2 2 0 0 1 20 12 A 2 2 0 0 1 16 12 A 2 2 0 0 1 12 12 A 2 2 0 0 1 8 12 A 2 2 0 0 1 4 12 Z" />
+    <path d="M 6 13 V 30 H 26 V 13 H 22 V 23 H 10 V 13 Z" />
+  </g>
+</svg>
+`;
+
+const bakeryIcon = L.divIcon({
+    html: bakerySvg,
+    className: 'custom-bakery-icon',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+});
+
+const BAKERY_LOCATION = { lat: -39.0189446, lng: -68.4297867 };
+
 interface GlobalDeliveriesMapModalProps {
     isOpen?: boolean;
     onClose?: () => void;
@@ -54,11 +78,12 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
     );
 
     const markersCoords = validOrders.map(o => o.cliente.location);
+    const allMarkersCoords = [BAKERY_LOCATION, ...markersCoords];
 
     // Centro por defecto (Senillosa) si no hay marcadores
     const defaultCenter: L.LatLngExpression = markersCoords.length > 0
         ? [markersCoords[0].lat, markersCoords[0].lng]
-        : [-39.0142, -68.4239];
+        : [BAKERY_LOCATION.lat, BAKERY_LOCATION.lng];
 
     const mapContent = (
         <div className="global-map-body" style={inline ? {
@@ -84,6 +109,18 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
+
+                    {/* Marcador Fijo de la Panadería */}
+                    <Marker position={[BAKERY_LOCATION.lat, BAKERY_LOCATION.lng]} icon={bakeryIcon}>
+                        <Popup>
+                            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: '#1e293b' }}>
+                                🏪 El Faro Panadería
+                            </div>
+                            <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
+                                Punto de Partida
+                            </div>
+                        </Popup>
+                    </Marker>
 
                     {validOrders.map(order => (
                         <Marker
@@ -123,7 +160,7 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                             </Popup>
                         </Marker>
                     ))}
-                    <MapBoundsFitter markers={markersCoords} />
+                    <MapBoundsFitter markers={allMarkersCoords} />
                 </MapContainer>
             )}
         </div>

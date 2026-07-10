@@ -200,7 +200,7 @@ export default function RiderDashboard() {
     const earningsFromExtras = filteredExtras.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
     const totalEarnings = earningsFromOrders + earningsFromExtras;
 
-    const activeOrders = orders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado');
+    const activeOrders = orders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado').reverse();
     const historyOrders = orders.filter(o => o.status === 'entregado' || o.status === 'cancelado');
 
     const formatTime = (timestamp: any) => {
