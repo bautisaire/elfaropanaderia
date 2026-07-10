@@ -134,7 +134,7 @@ export default function Editor() {
     setMobileMenuOpen(false);
   };
 
-  if (checkingAuth) {
+  if (checkingAuth || adminPermissions === null) {
     return <div style={{ marginTop: '100px', textAlign: 'center', fontSize: '1.2rem' }}>Verificando credenciales...</div>;
   }
 
