@@ -59,11 +59,18 @@ export default function RiderDashboard() {
     // Accordion Active Orders
     const [expandedActiveOrderId, setExpandedActiveOrderId] = useState<string | null>(null);
 
+    // Active Card State
+    const [expandedActiveCardIds, setExpandedActiveCardIds] = useState<string[]>([]);
+
     // Pedidos Tab View
     const [pedidosTab, setPedidosTab] = useState<'lista' | 'mapa'>('lista');
 
     const toggleActiveOrderAccordion = (id: string) => {
         setExpandedActiveOrderId(prev => prev === id ? null : id);
+    };
+
+    const toggleActiveCard = (id: string) => {
+        setExpandedActiveCardIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
     const currentUserEmail = auth.currentUser?.email || '';
@@ -259,14 +266,22 @@ export default function RiderDashboard() {
                             <div className="rider-cards-list">
                                 {activeOrders.map(order => (
                                     <div key={order.id} className="rider-order-card animate-slide-in" style={{ borderLeft: `6px solid ${getStatusColor(order.status)}` }}>
-                                        <div className="rider-card-header">
+                                        <div 
+                                            className="rider-card-header" 
+                                            onClick={() => toggleActiveCard(order.id)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
                                             <span className="rider-card-id">#{order.id.slice(-5)}</span>
                                             <span className="rider-card-time"><FaClock /> {formatTime(order.date)}</span>
-                                            <span className="rider-card-status" style={{ backgroundColor: getStatusColor(order.status) }}>
-                                                {order.status.toUpperCase()}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span className="rider-card-status" style={{ backgroundColor: getStatusColor(order.status) }}>
+                                                    {order.status.toUpperCase()}
+                                                </span>
+                                                {expandedActiveCardIds.includes(order.id) ? <FaChevronUp color="#64748b" /> : <FaChevronDown color="#64748b" />}
+                                            </div>
                                         </div>
-                                        <div className="rider-card-body">
+                                        {expandedActiveCardIds.includes(order.id) && (
+                                            <div className="rider-card-body">
                                             <div className="rider-info-row"><FaUser /> <strong>{order.cliente.nombre}</strong></div>
                                             <div className="rider-info-row">
                                                 <FaMapMarkerAlt />
@@ -413,6 +428,7 @@ export default function RiderDashboard() {
                                                 MARCAR COMO ENTREGADO
                                             </button>
                                         </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
