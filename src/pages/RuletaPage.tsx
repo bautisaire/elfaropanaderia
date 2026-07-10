@@ -189,6 +189,10 @@ export default function RuletaPage() {
     });
   }, [availableParticipants, totalChances]);
 
+  const unselectedParticipants = useMemo(() => {
+    return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
+  }, [participants, sessionWinners]);
+
   if (!isSuperAdmin) {
     return (
       <div style={{ textAlign: 'center', marginTop: '100px', fontSize: '2rem' }}>
@@ -224,10 +228,6 @@ export default function RuletaPage() {
       setSaving(false);
     }
   };
-
-  const unselectedParticipants = useMemo(() => {
-    return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
-  }, [participants, sessionWinners]);
 
   const handleSpin = () => {
     if (spinning || unselectedParticipants.length === 0) return;
