@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
-import { collection, query, where, documentId, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { FaCheckCircle, FaUserCircle, FaMotorcycle, FaChevronDown } from 'react-icons/fa';
 import { CartContext } from '../context/CartContext';
 import './MisPedidos.css'; // Let's use the same CSS classes from MyAccount, plus specific ones
@@ -76,40 +76,30 @@ export default function MisPedidos() {
         }
         // If user IS logged in, DO NOT slice. We show all orders.
 
-        const chunkArray = (arr: string[], size: number) => {
-            const chunks = [];
-            for (let i = 0; i < arr.length; i += size) {
-                chunks.push(arr.slice(i, i + size));
-            }
-            return chunks;
-        };
-
-        const chunks = chunkArray(validIds, 10);
-        const unsubscribers: (() => void)[] = [];
         let chunksLoaded = 0;
 
-        chunks.forEach(chunk => {
-            const q = query(collection(db, "orders"), where(documentId(), "in", chunk));
-            const unsub = onSnapshot(q, (snapshot) => {
-                const chunkOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                setOrders(prev => {
-                    const existing = [...prev];
-                    chunkOrders.forEach(newOrder => {
+        const unsubscribers = validIds.map((id: string) => {
+            const docRef = doc(db, "orders", id);
+            return onSnapshot(docRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const newOrder = { id: snapshot.id, ...snapshot.data() } as Order;
+                    setOrders(prev => {
+                        const existing = [...prev];
                         const idx = existing.findIndex(o => o.id === newOrder.id);
                         if (idx >= 0) existing[idx] = newOrder;
                         else existing.push(newOrder);
+                        return existing.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
                     });
-                    return existing.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
-                });
+                }
                 chunksLoaded++;
-                if (chunksLoaded >= chunks.length) setLoading(false);
+                if (chunksLoaded >= validIds.length) setLoading(false);
             }, () => {
-                setLoading(false); // Even on error, stop loading
+                chunksLoaded++;
+                if (chunksLoaded >= validIds.length) setLoading(false);
             });
-            unsubscribers.push(unsub);
         });
 
-        return () => unsubscribers.forEach(unsub => unsub());
+        return () => unsubscribers.forEach((unsub: () => void) => unsub());
     }, [user?.uid]);
 
     return (

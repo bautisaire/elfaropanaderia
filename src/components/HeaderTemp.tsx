@@ -4,7 +4,7 @@ import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png";
 import { db } from "../firebase/firebaseConfig";
-import { onSnapshot, documentId, query, collection, where, getDocs } from "firebase/firestore";
+import { onSnapshot, doc, getDocs, collection } from "firebase/firestore";
 import { FaBars, FaSearch, FaTimes } from "react-icons/fa";
 import LeftSidebar from "./LeftSidebar";
 import SearchBar from "./SearchBar";
@@ -35,7 +35,7 @@ export default function Header() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
-  const [orderStatuses, setOrderStatuses] = useState<Record<string, string>>({});
+  const [orderStatuses, setOrderStatuses] = useState<Record<string, any>>({});
 
   useEffect(() => {
     // Fetch products for global search
@@ -95,27 +95,15 @@ export default function Header() {
 
       if (validIds.length === 0) return;
 
-      const chunkArray = (arr: string[], size: number) => {
-        const chunks = [];
-        for (let i = 0; i < arr.length; i += size) {
-          chunks.push(arr.slice(i, i + size));
-        }
-        return chunks;
-      };
-
-      const chunks = chunkArray(validIds, 10);
-
-      chunks.forEach(chunk => {
-        const q = query(collection(db, "orders"), where(documentId(), "in", chunk));
-        const unsub = onSnapshot(q, (snapshot) => {
-          setOrderStatuses(prev => {
-            const next = { ...prev };
-            snapshot.docs.forEach(doc => {
-              const data = doc.data();
-              next[doc.id] = { status: data.status, date: data.date?.seconds || 0 } as any;
+      validIds.forEach(id => {
+        const docRef = doc(db, "orders", id);
+        const unsub = onSnapshot(docRef, (snapshot) => {
+          if (snapshot.exists()) {
+            setOrderStatuses(prev => {
+              const data = snapshot.data();
+              return { ...prev, [snapshot.id]: { status: data.status, date: data.date?.seconds || 0 } };
             });
-            return next;
-          });
+          }
         });
         unsubscribers.push(unsub);
       });

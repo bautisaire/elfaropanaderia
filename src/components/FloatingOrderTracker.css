@@ -1,6 +1,6 @@
 .floating-tracker-container {
     position: fixed;
-    bottom: 25px;
+    bottom: 95px;
     right: 25px; /* Change to left if needed */
     z-index: 1000;
     cursor: pointer;
@@ -53,7 +53,7 @@
    Assuming cart is bottom: 100px or so, let's keep it here or we can adjust it later. */
 @media (max-width: 768px) {
     .floating-tracker-container {
-        bottom: 20px;
+        bottom: 95px;
         left: 20px; /* Put on the left on mobile to avoid clashing with chat/cart */
         right: auto;
     }

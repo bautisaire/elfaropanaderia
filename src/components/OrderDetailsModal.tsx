@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
-import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
+import { generateOrderMessage, generateOrderMessageShort } from "../utils/orderMessage";
 
 interface OrderDetailsModalProps {
     order: any;

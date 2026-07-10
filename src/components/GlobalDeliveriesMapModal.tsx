@@ -114,7 +114,7 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                     <Marker position={[BAKERY_LOCATION.lat, BAKERY_LOCATION.lng]} icon={bakeryIcon}>
                         <Popup>
                             <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: '#1e293b' }}>
-                                🏪 El Faro Panadería
+                                El Faro Panadería
                             </div>
                             <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
                                 Punto de Partida

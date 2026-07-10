@@ -12,6 +12,37 @@ const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 
 const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
+
+const sendTelegramNotification = async (orderData) => {
+    if (!BOT_TOKEN || !CHAT_ID) return;
+    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/orders/deliveries`;
+
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const chatIds = CHAT_ID.split(",");
+
+    const promises = chatIds.map(async (id) => {
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: id.trim(),
+                    text: adminMessage,
+                    parse_mode: "Markdown",
+                }),
+            });
+            if (!response.ok) console.error(`Telegram Error (ID: ${id}):`, await response.text());
+        } catch (error) {
+            console.error(`Telegram Network Error (ID: ${id}):`, error);
+        }
+    });
+
+    await Promise.all(promises);
+};
+
+
 /** Consumo por venta en kg cuando el padre/hijo es por peso y el valor parece gramos (500 → 0.5). */
 function normalizeUnitsToDeduct(unitsToDeduct, parentUnitType, childUnitType) {
     const u = Number(unitsToDeduct) || 0;
@@ -476,6 +507,12 @@ exports.processOrder = onCall(async (request) => {
                 return { success: true, orderId: result.orderId, error_mp: true };
             }
         }
+
+        // Send Telegram notification (don't await so it doesn't block response)
+        sendTelegramNotification({ 
+            id: result.orderId, 
+            cliente: { nombre: formData.nombre || 'Cliente Web' } 
+        }).catch(e => console.error("Error sending Telegram:", e));
 
         return { 
             success: true, 

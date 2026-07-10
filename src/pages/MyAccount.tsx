@@ -6,7 +6,7 @@ import {
     signOut,
     sendEmailVerification
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, documentId } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
 import AuthForm from '../components/AuthForm';
 import './MyAccount.css';
@@ -428,40 +428,29 @@ function OrdersTab() {
             return;
         }
 
-        const chunkArray = (arr: string[], size: number) => {
-            const chunks = [];
-            for (let i = 0; i < arr.length; i += size) {
-                chunks.push(arr.slice(i, i + size));
-            }
-            return chunks;
-        };
-
-        const chunks = chunkArray(validIds, 10);
-        const unsubscribers: (() => void)[] = [];
         let chunksLoaded = 0;
-
-        chunks.forEach(chunk => {
-            const q = query(collection(db, "orders"), where(documentId(), "in", chunk));
-            const unsub = onSnapshot(q, (snapshot) => {
-                const chunkOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-                setOrders(prev => {
-                    const existing = [...prev];
-                    chunkOrders.forEach(newOrder => {
+        const unsubscribers = validIds.map((id: string) => {
+            const docRef = doc(db, "orders", id);
+            return onSnapshot(docRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const newOrder = { id: snapshot.id, ...snapshot.data() } as Order;
+                    setOrders(prev => {
+                        const existing = [...prev];
                         const idx = existing.findIndex(o => o.id === newOrder.id);
                         if (idx >= 0) existing[idx] = newOrder;
                         else existing.push(newOrder);
+                        return existing.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
                     });
-                    return existing.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
-                });
+                }
                 chunksLoaded++;
-                if (chunksLoaded >= chunks.length) setLoading(false);
+                if (chunksLoaded >= validIds.length) setLoading(false);
             }, () => {
-                setLoading(false);
+                chunksLoaded++;
+                if (chunksLoaded >= validIds.length) setLoading(false);
             });
-            unsubscribers.push(unsub);
         });
 
-        return () => unsubscribers.forEach(unsub => unsub());
+        return () => unsubscribers.forEach((unsub: () => void) => unsub());
     }, []);
 
 

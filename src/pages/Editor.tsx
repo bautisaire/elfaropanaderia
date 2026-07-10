@@ -67,6 +67,7 @@ export default function Editor() {
       if (user && user.email) {
         if (user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user.email)) {
           setCurrentUser(user);
+          setCheckingAuth(false);
         } else {
           roleUnsub = onSnapshot(doc(db, "admin_roles", user.email.toLowerCase()), (roleDoc) => {
             if (roleDoc.exists()) {
@@ -83,9 +84,15 @@ export default function Editor() {
             setCheckingAuth(false);
           });
         }
-      }
-      // Note: setCheckingAuth(false) is called inside onSnapshot for non-superadmins
-      if (!user || user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user?.email || '')) {
+      } else {
+        // No user, or anonymous user (no email)
+        if (user && !user.email) {
+          // You might want to let them stay anonymous for the store, but they aren't admin.
+          // Don't sign them out to not break their cart, but don't set them as admin.
+          setCurrentUser(null);
+        } else {
+          setCurrentUser(null);
+        }
         setCheckingAuth(false);
       }
     });

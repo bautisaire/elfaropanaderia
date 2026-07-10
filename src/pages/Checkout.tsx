@@ -3,9 +3,8 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import "./Checkout.css";
 import { db, functions } from "../firebase/firebaseConfig";
-import { Timestamp, doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, query, collection, where, limit } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, query, collection, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { sendTelegramNotification } from "../utils/telegram";
 import { validateCartStock } from "../utils/stockValidation";
 import { shouldMarkOrderAsTest } from "../utils/testMode";
 import StockErrorModal from "../components/StockErrorModal";
@@ -13,7 +12,7 @@ import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, Fa
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, getCatalogProduct } = useContext(CartContext);
-  
+
   useEffect(() => {
     document.body.classList.add('svg-background');
     return () => document.body.classList.remove('svg-background');
@@ -59,7 +58,7 @@ export default function Checkout() {
   const [storeMapUrlConfig, setStoreMapUrlConfig] = useState<string>("");
   const [allowDelivery, setAllowDelivery] = useState<boolean>(true);
   const [allowPickup, setAllowPickup] = useState<boolean>(true);
-  const [disabledMethodModal, setDisabledMethodModal] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ""});
+  const [disabledMethodModal, setDisabledMethodModal] = useState<{ isOpen: boolean, message: string }>({ isOpen: false, message: "" });
   const [deliveryMethodModalOpen, setDeliveryMethodModalOpen] = useState(false);
   const [deliveryModalReopen, setDeliveryModalReopen] = useState(false);
   const deliveryModalDismissedRef = useRef(false);
@@ -313,17 +312,17 @@ export default function Checkout() {
         setStoreMapUrlConfig(data.storeMapUrl || "");
         setPickupDiscountPercentage(Number(data.pickupDiscountPercentage) || 0);
         setPickupDiscountText(data.pickupDiscountText || "");
-        
+
         const isDeliveryAllowed = data.allowDelivery !== undefined ? data.allowDelivery : true;
         const isPickupAllowed = data.allowPickup !== undefined ? data.allowPickup : true;
-        
+
         setAllowDelivery(isDeliveryAllowed);
         setAllowPickup(isPickupAllowed);
-        
+
         setDeliveryMethod(prev => {
-            if (!isDeliveryAllowed && prev === 'delivery' && isPickupAllowed) return 'pickup';
-            if (!isPickupAllowed && prev === 'pickup' && isDeliveryAllowed) return 'delivery';
-            return prev;
+          if (!isDeliveryAllowed && prev === 'delivery' && isPickupAllowed) return 'pickup';
+          if (!isPickupAllowed && prev === 'pickup' && isDeliveryAllowed) return 'delivery';
+          return prev;
         });
       }
     });
@@ -475,14 +474,7 @@ export default function Checkout() {
         localStorage.setItem('customer_info', JSON.stringify(infoToSave));
       } catch (e) { console.error("Storage error", e); }
 
-      // Telegram local (Se podría mover al backend)
-      if (!isAdmin) {
-        sendTelegramNotification({
-          items: cart, total: finalTotal, shippingCost: effectiveShipping, cliente: orderFormData, date: Timestamp.now(), status: "pending", id: orderId
-        }).catch(console.error);
-      }
-
-
+      // Notificación de Telegram movida al backend en processOrder
 
       // Preparar Ticket
       const itemsWithModifiers = [...cart];
@@ -799,9 +791,9 @@ export default function Checkout() {
                           <strong>
                             {deliveryMethod === "delivery" ? "Envío a domicilio" : "Retiro en local"}
                             {deliveryMethod === "pickup" && pickupDiscountPercentage > 0 && (
-                                <span style={{ color: '#16a34a', fontSize: '0.85em', marginLeft: '6px', fontWeight: 'bold' }}>
-                                    (-{pickupDiscountPercentage}%)
-                                </span>
+                              <span style={{ color: '#16a34a', fontSize: '0.85em', marginLeft: '6px', fontWeight: 'bold' }}>
+                                (-{pickupDiscountPercentage}%)
+                              </span>
                             )}
                           </strong>
                           <p>
@@ -1065,7 +1057,7 @@ export default function Checkout() {
                         .map(item => getCatalogProduct(String(item.baseProductId || item.id)) || item)
                         .filter(p => p.availableAt && new Date(p.availableAt) > new Date())
                         .sort((a, b) => new Date(b.availableAt!).getTime() - new Date(a.availableAt!).getTime())[0];
-                        
+
                       if (maxDelayProduct) {
                         return (
                           <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#b45309', padding: '15px', borderRadius: '8px', marginBottom: '15px', textAlign: 'center' }}>
@@ -1129,10 +1121,10 @@ export default function Checkout() {
                       <span>${deliveryMethod === 'pickup' ? 0 : shippingCost}</span>
                     </div>
                     {deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 && (
-                        <div className="summary-row" style={{ color: '#16a34a', fontWeight: 'bold' }}>
-                            <span>{pickupDiscountText || 'Descuento retiro en local'} (-{pickupDiscountPercentage}%)</span>
-                            <span>-${Math.floor((cartTotal * pickupDiscountPercentage) / 100)}</span>
-                        </div>
+                      <div className="summary-row" style={{ color: '#16a34a', fontWeight: 'bold' }}>
+                        <span>{pickupDiscountText || 'Descuento retiro en local'} (-{pickupDiscountPercentage}%)</span>
+                        <span>-${Math.floor((cartTotal * pickupDiscountPercentage) / 100)}</span>
+                      </div>
                     )}
                     <div className="summary-row total">
                       <span>Total</span>
@@ -1249,15 +1241,15 @@ export default function Checkout() {
               >
                 <FaStore className="delivery-method-modal-card-icon" aria-hidden />
                 <span className="delivery-method-modal-card-title">
-                    Retiro en local
-                    {pickupDiscountPercentage > 0 && (
-                        <span style={{ color: '#16a34a', fontSize: '0.8em', marginLeft: '6px', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '10px' }}>
-                            -{pickupDiscountPercentage}%
-                        </span>
-                    )}
+                  Retiro en local
+                  {pickupDiscountPercentage > 0 && (
+                    <span style={{ color: '#16a34a', fontSize: '0.8em', marginLeft: '6px', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '10px' }}>
+                      -{pickupDiscountPercentage}%
+                    </span>
+                  )}
                 </span>
                 <span className="delivery-method-modal-card-desc">
-                    {pickupDiscountPercentage > 0 && pickupDiscountText ? pickupDiscountText : "Pasás a buscarlo por el local"}
+                  {pickupDiscountPercentage > 0 && pickupDiscountText ? pickupDiscountText : "Pasás a buscarlo por el local"}
                 </span>
               </button>
             </div>
