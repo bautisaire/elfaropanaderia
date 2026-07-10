@@ -53,6 +53,29 @@ interface GlobalDeliveriesMapModalProps {
     inline?: boolean;
 }
 
+const extractCoordinatesFromUrl = (url?: string) => {
+    if (!url) return null;
+    try {
+        url = decodeURIComponent(url);
+    } catch(e) {}
+    const regexList = [
+        /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+        /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
+        /[?&]query=(-?\d+\.\d+),(-?\d+\.\d+)/,
+        /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/
+    ];
+    for (let regex of regexList) {
+        const match = url.match(regex);
+        if (match && match.length >= 3) {
+            return {
+                lat: parseFloat(match[1]),
+                lng: parseFloat(match[2])
+            };
+        }
+    }
+    return null;
+};
+
 // Subcomponente para ajustar los límites del mapa automáticamente
 const MapBoundsFitter = ({ markers }: { markers: { lat: number, lng: number }[] }) => {
     const map = useMap();
@@ -70,14 +93,20 @@ const MapBoundsFitter = ({ markers }: { markers: { lat: number, lng: number }[] 
 export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () => { }, orders, inline = false }: GlobalDeliveriesMapModalProps) {
     if (!isOpen && !inline) return null;
 
-    // Filtrar pedidos que tengan ubicación y no estén cancelados/entregados
-    const validOrders = orders.filter(o =>
-        o.cliente?.location &&
+    // Obtener ubicación efectiva (de location o mapsLink) y filtrar
+    const validOrders = orders.map(o => {
+        let loc = o.cliente?.location;
+        if (!loc && o.cliente?.mapsLink) {
+            loc = extractCoordinatesFromUrl(o.cliente.mapsLink);
+        }
+        return { ...o, effectiveLocation: loc };
+    }).filter(o =>
+        o.effectiveLocation &&
         o.status !== 'cancelado' &&
         o.status !== 'entregado'
     );
 
-    const markersCoords = validOrders.map(o => o.cliente.location);
+    const markersCoords = validOrders.map(o => o.effectiveLocation!);
     const allMarkersCoords = [BAKERY_LOCATION, ...markersCoords];
 
     // Centro por defecto (Senillosa) si no hay marcadores
@@ -125,7 +154,7 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                     {validOrders.map(order => (
                         <Marker
                             key={order.id}
-                            position={[order.cliente.location.lat, order.cliente.location.lng]}
+                            position={[order.effectiveLocation!.lat, order.effectiveLocation!.lng]}
                         >
                             <Popup>
                                 <div className="map-popup-custom">
@@ -149,7 +178,7 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                                         <span style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: '800' }}>${Math.ceil(order.total)}</span>
                                     </div>
                                     <a
-                                        href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`}
+                                        href={order.cliente.mapsLink && order.cliente.mapsLink.startsWith('http') ? order.cliente.mapsLink : (order.cliente.mapsLink ? `https://${order.cliente.mapsLink}` : `https://www.google.com/maps/search/?api=1&query=${order.effectiveLocation!.lat},${order.effectiveLocation!.lng}`)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="map-popup-btn"
