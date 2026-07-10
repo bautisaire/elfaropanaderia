@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { FaTimes, FaMapMarkerAlt, FaPhone, FaExternalLinkAlt, FaMotorcycle } from 'react-icons/fa';
@@ -46,17 +46,17 @@ export default function GlobalDeliveriesMapModal({ isOpen, onClose, orders }: Gl
     if (!isOpen) return null;
 
     // Filtrar pedidos que tengan ubicación y no estén cancelados/entregados
-    const validOrders = orders.filter(o => 
-        o.cliente?.location && 
-        o.status !== 'cancelado' && 
+    const validOrders = orders.filter(o =>
+        o.cliente?.location &&
+        o.status !== 'cancelado' &&
         o.status !== 'entregado'
     );
 
     const markersCoords = validOrders.map(o => o.cliente.location);
 
     // Centro por defecto (Senillosa) si no hay marcadores
-    const defaultCenter: L.LatLngExpression = markersCoords.length > 0 
-        ? [markersCoords[0].lat, markersCoords[0].lng] 
+    const defaultCenter: L.LatLngExpression = markersCoords.length > 0
+        ? [markersCoords[0].lat, markersCoords[0].lng]
         : [-39.0142, -68.4239];
 
     return createPortal(
@@ -68,7 +68,7 @@ export default function GlobalDeliveriesMapModal({ isOpen, onClose, orders }: Gl
                         <FaTimes />
                     </button>
                 </div>
-                
+
                 <div className="global-map-body">
                     {validOrders.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
@@ -77,19 +77,19 @@ export default function GlobalDeliveriesMapModal({ isOpen, onClose, orders }: Gl
                             <small>Abre los detalles de un pedido y usa el botón "Fijar Ubicación" para que aparezcan aquí.</small>
                         </div>
                     ) : (
-                        <MapContainer 
-                            center={defaultCenter} 
-                            zoom={14} 
+                        <MapContainer
+                            center={defaultCenter}
+                            zoom={14}
                             style={{ height: "100%", width: "100%" }}
                         >
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                            
+
                             {validOrders.map(order => (
-                                <Marker 
-                                    key={order.id} 
+                                <Marker
+                                    key={order.id}
                                     position={[order.cliente.location.lat, order.cliente.location.lng]}
                                 >
                                     <Popup>
@@ -104,7 +104,7 @@ export default function GlobalDeliveriesMapModal({ isOpen, onClose, orders }: Gl
                                                 <span style={{ fontWeight: 'bold', color: '#64748b' }}>Total:</span>
                                                 <span style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: '800' }}>${Math.ceil(order.total)}</span>
                                             </div>
-                                            <a 
+                                            <a
                                                 href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"

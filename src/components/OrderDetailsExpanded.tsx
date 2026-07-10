@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaSave, FaPrint, FaMotorcycle } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
 import { db } from "../firebase/firebaseConfig";
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
 import { useCart } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
@@ -28,7 +28,7 @@ interface OrderDetailsExpandedProps {
     onClose: () => void;
     onDelete?: (id: string, restoreStock: boolean) => void;
     isSuperAdmin?: boolean;
-    riders?: {email: string}[];
+    riders?: { email: string }[];
     onAssignRider?: (id: string, riderEmail: string) => void;
 }
 
@@ -218,7 +218,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     </div>
                                     {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries) && (
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                            <button 
+                                            <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setMapModalOpen(true);
@@ -239,7 +239,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                             >
                                                 📍 {order.cliente.location ? 'Ubicación GPS (Editar)' : 'Fijar GPS en Mapa'}
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setEditMapsLinkModalOpen(true);
@@ -385,7 +385,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     </div>
                                 )
                             }
-                            
+
                             {/* Rider Assignment (Available for all order sources) */}
                             {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders)) && onAssignRider && (
                                 <div className="source-selector-wrapper-expanded" style={{ marginTop: '10px', background: '#f0fdf4', padding: '10px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
@@ -605,18 +605,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                 onSave={async (newPrice) => {
                     if (priceEditModal.item) {
                         try {
-                            const updatedItems = order.items.map((it: any) => 
-                                (it.id === priceEditModal.item.id && it.variant === priceEditModal.item.variant) 
+                            const updatedItems = order.items.map((it: any) =>
+                                (it.id === priceEditModal.item.id && it.variant === priceEditModal.item.variant)
                                     ? { ...it, price: newPrice }
                                     : it
                             );
                             const newTotal = updatedItems.reduce((acc: number, it: any) => acc + (it.price * (it.quantity || 1)), 0);
-                            
+
                             await updateDoc(doc(db, "orders", order.id), {
                                 items: updatedItems,
                                 total: newTotal
                             });
-                            
+
                             showToast("Precio actualizado");
                         } catch (err) {
                             console.error("Error al editar precio", err);

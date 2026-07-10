@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort } from "../utils/telegram";
-import { db } from "../firebase/firebaseConfig";
-import { collection, query, where, getDocs } from "firebase/firestore";
 
 interface OrderDetailsModalProps {
     order: any;

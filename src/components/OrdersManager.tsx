@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
-import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaUser, FaCalendarAlt } from 'react-icons/fa';
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaUser, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
@@ -60,7 +60,7 @@ export default function OrdersManager() {
     const navigate = useNavigate();
 
     const { adminPermissions, isSuperAdmin: contextIsSuperAdmin } = useCart();
-    
+
     // Derived state from URL
     const cleanTab = tab ? tab.replace(/^\//, '') : '';
     let normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
@@ -69,7 +69,7 @@ export default function OrdersManager() {
         if (adminPermissions?.pos_sales !== false) normalizedTab = 'pos';
         else if (adminPermissions?.orders !== false) normalizedTab = 'deliveries';
         else if (adminPermissions?.costs !== false) normalizedTab = 'expenses';
-        else normalizedTab = 'pos'; 
+        else normalizedTab = 'pos';
     }
 
     if (normalizedTab === 'pos' && adminPermissions?.pos_sales === false) {
@@ -90,7 +90,7 @@ export default function OrdersManager() {
     const [deleteSuccessModalOpen, setDeleteSuccessModalOpen] = useState(false);
 
     // Riders
-    const [riders, setRiders] = useState<{email: string}[]>([]);
+    const [riders, setRiders] = useState<{ email: string }[]>([]);
 
     useEffect(() => {
         const canAssign = isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders);
@@ -224,10 +224,10 @@ export default function OrdersManager() {
         const endTimestamp = Timestamp.fromDate(endDate);
 
         const q = query(
-            collection(db, "expenses"), 
+            collection(db, "expenses"),
             where("date", ">=", startTimestamp),
             where("date", "<=", endTimestamp),
-            orderBy("date", "desc"), 
+            orderBy("date", "desc"),
             limit(100)
         );
 
@@ -1023,34 +1023,34 @@ export default function OrdersManager() {
                                         {/* Filtros de Fecha */}
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '20px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                             <span style={{ fontWeight: 'bold', color: '#475569', marginRight: '10px' }}>Filtrar por:</span>
-                                            <button 
+                                            <button
                                                 onClick={() => setExpenseFilter('hoy')}
                                                 style={{ background: expenseFilter === 'hoy' ? '#3b82f6' : '#fff', color: expenseFilter === 'hoy' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
                                             >Hoy</button>
-                                            <button 
+                                            <button
                                                 onClick={() => setExpenseFilter('semana')}
                                                 style={{ background: expenseFilter === 'semana' ? '#3b82f6' : '#fff', color: expenseFilter === 'semana' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
                                             >Semana</button>
-                                            <button 
+                                            <button
                                                 onClick={() => setExpenseFilter('mes')}
                                                 style={{ background: expenseFilter === 'mes' ? '#3b82f6' : '#fff', color: expenseFilter === 'mes' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
                                             >Mes Actual</button>
-                                            <button 
+                                            <button
                                                 onClick={() => setExpenseFilter('custom')}
                                                 style={{ background: expenseFilter === 'custom' ? '#3b82f6' : '#fff', color: expenseFilter === 'custom' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
                                             >Personalizado</button>
 
                                             {expenseFilter === 'custom' && (
                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto' }}>
-                                                    <input 
-                                                        type="date" 
+                                                    <input
+                                                        type="date"
                                                         value={expenseCustomStart}
                                                         onChange={(e) => setExpenseCustomStart(e.target.value)}
                                                         style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                                                     />
                                                     <span style={{ color: '#64748b' }}>hasta</span>
-                                                    <input 
-                                                        type="date" 
+                                                    <input
+                                                        type="date"
                                                         value={expenseCustomEnd}
                                                         onChange={(e) => setExpenseCustomEnd(e.target.value)}
                                                         style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
@@ -1063,105 +1063,105 @@ export default function OrdersManager() {
                                             <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>No hay gastos registrados en este periodo.</p>
                                         ) : (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                                            {expenses.map((exp) => {
-                                                const typeLabels: Record<string, string> = {
-                                                    materia_prima: '🛒 Materia Prima',
-                                                    servicio: '💡 Servicio',
-                                                    otro: '📦 Otro'
-                                                };
-                                                const typeLabel = typeLabels[exp.type] || exp.type;
-                                                const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
-                                                return (
-                                                    <div key={exp.id} onClick={() => setExpandedOrderId(expandedOrderId === exp.id ? null : exp.id)} 
-                                                         style={{ 
-                                                             cursor: 'pointer', background: '#fff', border: '2px dashed #cbd5e1', 
-                                                             borderRadius: '12px', padding: '20px', position: 'relative', 
-                                                             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' 
-                                                         }}>
-                                                        
-                                                        {/* Header del Ticket */}
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                                                            <div>
-                                                                <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>
-                                                                    TICKET #{exp.formattedTicketId || exp.id.slice(0, 6).toUpperCase()}
-                                                                </span>
-                                                                <span style={{
-                                                                    background: exp.type === 'materia_prima' ? '#d1fae5' : exp.type === 'servicio' ? '#dbeafe' : '#fef3c7',
-                                                                    color: exp.type === 'materia_prima' ? '#065f46' : exp.type === 'servicio' ? '#1e40af' : '#92400e',
-                                                                    padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700
-                                                                }}>
-                                                                    {typeLabel}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ textAlign: 'right' }}>
-                                                                <div style={{ fontWeight: '800', color: '#ef4444', fontSize: '1.4rem' }}>
-                                                                    ${Number(exp.totalAmount || 0).toLocaleString('es-AR')}
+                                                {expenses.map((exp) => {
+                                                    const typeLabels: Record<string, string> = {
+                                                        materia_prima: '🛒 Materia Prima',
+                                                        servicio: '💡 Servicio',
+                                                        otro: '📦 Otro'
+                                                    };
+                                                    const typeLabel = typeLabels[exp.type] || exp.type;
+                                                    const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
+                                                    return (
+                                                        <div key={exp.id} onClick={() => setExpandedOrderId(expandedOrderId === exp.id ? null : exp.id)}
+                                                            style={{
+                                                                cursor: 'pointer', background: '#fff', border: '2px dashed #cbd5e1',
+                                                                borderRadius: '12px', padding: '20px', position: 'relative',
+                                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column'
+                                                            }}>
+
+                                                            {/* Header del Ticket */}
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                                                                <div>
+                                                                    <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>
+                                                                        TICKET #{exp.formattedTicketId || exp.id.slice(0, 6).toUpperCase()}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        background: exp.type === 'materia_prima' ? '#d1fae5' : exp.type === 'servicio' ? '#dbeafe' : '#fef3c7',
+                                                                        color: exp.type === 'materia_prima' ? '#065f46' : exp.type === 'servicio' ? '#1e40af' : '#92400e',
+                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700
+                                                                    }}>
+                                                                        {typeLabel}
+                                                                    </span>
                                                                 </div>
-                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>MONTO TOTAL</div>
+                                                                <div style={{ textAlign: 'right' }}>
+                                                                    <div style={{ fontWeight: '800', color: '#ef4444', fontSize: '1.4rem' }}>
+                                                                        ${Number(exp.totalAmount || 0).toLocaleString('es-AR')}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>MONTO TOTAL</div>
+                                                                </div>
                                                             </div>
-                                                        </div>
 
-                                                        {/* Cuerpo del Ticket */}
-                                                        <div style={{ flexGrow: 1 }}>
-                                                            <h4 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#1e293b' }}>
-                                                                {exp.description || 'Gasto Sin Título'}
-                                                            </h4>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: '#64748b', fontSize: '0.85rem' }}>
-                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <FaCalendarAlt /> 
-                                                                    {dateObj ? dateObj.toLocaleDateString('es-AR') + ' ' + dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                                                </span>
-                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <FaUser /> 
-                                                                    {exp.createdByEmail || 'admin'}
-                                                                </span>
+                                                            {/* Cuerpo del Ticket */}
+                                                            <div style={{ flexGrow: 1 }}>
+                                                                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#1e293b' }}>
+                                                                    {exp.description || 'Gasto Sin Título'}
+                                                                </h4>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: '#64748b', fontSize: '0.85rem' }}>
+                                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <FaCalendarAlt />
+                                                                        {dateObj ? dateObj.toLocaleDateString('es-AR') + ' ' + dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                                                    </span>
+                                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <FaUser />
+                                                                        {exp.createdByEmail || 'admin'}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        </div>
 
-                                                        {/* Ticket Expandido Items */}
-                                                        {expandedOrderId === exp.id && (
-                                                            <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '15px', marginTop: '15px' }}>
-                                                                {exp.items && exp.items.length > 0 ? (
-                                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '15px', color: '#475569' }}>
-                                                                        <thead>
-                                                                            <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#94a3b8' }}>
-                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Cant. Base</th>
-                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Multipl.</th>
-                                                                                <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Detalle</th>
-                                                                                <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Precio Base</th>
-                                                                                <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Subtotal</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {exp.items.map((item: any, i: number) => (
-                                                                                <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                                                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{item.quantity} <span style={{fontSize: '0.75rem', fontWeight: 'normal'}}>{item.unit}</span></td>
-                                                                                    <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#3b82f6' }}>x{item.multiplier || 1}</td>
-                                                                                    <td style={{ padding: '8px 0' }}>{item.name}</td>
-                                                                                    <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
-                                                                                    <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${Number(item.subtotal || item.price || 0).toLocaleString('es-AR')}</td>
+                                                            {/* Ticket Expandido Items */}
+                                                            {expandedOrderId === exp.id && (
+                                                                <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '15px', marginTop: '15px' }}>
+                                                                    {exp.items && exp.items.length > 0 ? (
+                                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '15px', color: '#475569' }}>
+                                                                            <thead>
+                                                                                <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#94a3b8' }}>
+                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Cant. Base</th>
+                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Multipl.</th>
+                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Detalle</th>
+                                                                                    <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Precio Base</th>
+                                                                                    <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Subtotal</th>
                                                                                 </tr>
-                                                                            ))}
-                                                                        </tbody>
-                                                                    </table>
-                                                                ) : (
-                                                                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '15px' }}>Sin ítems detallados.</p>
-                                                                )}
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {exp.items.map((item: any, i: number) => (
+                                                                                    <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                                                        <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{item.quantity} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>{item.unit}</span></td>
+                                                                                        <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#3b82f6' }}>x{item.multiplier || 1}</td>
+                                                                                        <td style={{ padding: '8px 0' }}>{item.name}</td>
+                                                                                        <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
+                                                                                        <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${Number(item.subtotal || item.price || 0).toLocaleString('es-AR')}</td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    ) : (
+                                                                        <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '15px' }}>Sin ítems detallados.</p>
+                                                                    )}
 
-                                                                {isSuperAdmin && (
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteExpense(exp.id, e); }}
-                                                                        style={{ width: '100%', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}
-                                                                    >
-                                                                        <FaTrash /> Eliminar Registro
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                                    {isSuperAdmin && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteExpense(exp.id, e); }}
+                                                                            style={{ width: '100%', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}
+                                                                        >
+                                                                            <FaTrash /> Eliminar Registro
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         )}
 
                                         {/* Total Section Footer */}
@@ -1629,9 +1629,9 @@ export default function OrdersManager() {
                 </div>
             )}
             {/* Global Map Modal */}
-            <GlobalDeliveriesMapModal 
-                isOpen={isGlobalMapOpen} 
-                onClose={() => setIsGlobalMapOpen(false)} 
+            <GlobalDeliveriesMapModal
+                isOpen={isGlobalMapOpen}
+                onClose={() => setIsGlobalMapOpen(false)}
                 orders={orders.filter(o => {
                     const isPos = o.source === 'pos' || o.source === 'pos_public' || o.source === 'pos_wholesale';
                     return !isPos;
