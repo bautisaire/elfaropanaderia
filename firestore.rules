@@ -4,52 +4,52 @@ service cloud.firestore {
     
     // Función auxiliar para verificar si es admin
     function isSuperAdmin() {
-      return request.auth != null && (
-        request.auth.token.email == "sairebautista@gmail.com" || 
-        request.auth.token.email == "mariacoronel160478@gmail.com" ||
-        request.auth.token.email == "litijunior@hotmail.com.ar"
+      return request.auth != null && request.auth.token.email != null && (
+        request.auth.token.email.lower() == "sairebautista@gmail.com" || 
+        request.auth.token.email.lower() == "mariacoronel160478@gmail.com" ||
+        request.auth.token.email.lower() == "litijunior@hotmail.com.ar" ||
+        request.auth.token.email.lower() == "juampi.sme@outlook.com.ar"
       );
     }
 
     function isAdmin() {
       return isSuperAdmin() || (
-        request.auth != null && 
-        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email)) &&
-        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email)).data.is_rider != true
+        request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('is_rider', false) == false
       );
+    }
+
+    function isRider() {
+      return request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('is_rider', false) == true;
     }
 
     match /products/{productId} {
       allow read: if true;
-      
-      // Solo admins pueden crear o borrar productos
       allow create, delete: if isAdmin();
-      
-      // Admins pueden editar todo. 
-      // Clientes SOLO pueden editar stock (para que funcione el descuento).
       allow update: if isAdmin() || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockQuantity', 'variants', 'stock'])
       );
 
-      // Reseñas de productos
       match /reviews/{reviewId} {
         allow read: if true;
-        // Permitir a usuarios autenticados crear sus propias reseñas
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-        // Permitir a usuarios editar o borrar sus propias reseñas, o a admins borrarlas
         allow update, delete: if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
       }
     }
 
-    // Categorías
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Pedidos
+    // Pedidos (Seguridad Fuerte)
     match /orders/{orderId} {
-      allow create, read: if true;
+      allow get: if true; // Permitir que un cliente lea su propio pedido si conoce el ID exacto
+      allow create: if isAdmin(); // El backend procesa pedidos nuevos o Admins locales
+      allow list: if isAdmin() || isRider(); // Solo admins y riders pueden listar todos los pedidos
       allow update: if isAdmin() || (
         request.auth != null &&
         resource.data.assignedRider == request.auth.token.email
@@ -57,13 +57,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Hero Slides
     match /hero_slides/{slideId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Sorteos y Participantes
     match /raffles/{raffleId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -74,65 +72,47 @@ service cloud.firestore {
       }
     }
 
-    // Configuración antigua (Estado de la tienda)
     match /settings/{document=**} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // --- NUEVO: Configuración General (Compra Mínima y Contador) ---
     match /config/store_settings {
         allow read: if true;
         allow write: if isAdmin();
     }
 
-    // Regla crucial para que los clientes puedan generar IDs secuenciales
     match /config/order_counter {
         allow read: if true;
-        // Permitimos update para que funcione el checkout (incremento)
-        allow update: if true; 
+        allow update: if true; // Frontend incrementa
         allow create: if isAdmin();
     }
     
-    // Fallback para otros docs en config
     match /config/{document} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Movimientos de Stock
     match /stock_movements/{movementId} {
       allow create: if true; 
       allow read, update, delete: if isAdmin();
     }
 
-    // Estadísticas
     match /stats/{document=**} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
 
-    // Alertas de Stock
     match /stock_alerts/{alertId} {
       allow read: if isAdmin();
       allow create, update, delete: if true;
     }
 
-    // Observaciones de clientes
-    match /customer_notes/{noteId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Extras/Bonos de Repartidores
     match /rider_extras/{extraId} {
-      allow read: if isAdmin() || (request.auth != null && request.auth.token.email == resource.data.riderEmail) || true;
+      allow read: if isAdmin() || (request.auth != null && request.auth.token.email == resource.data.riderEmail);
       allow write: if isAdmin();
     }
 
-    // Empleados y Turnos
-    match /employees/{document=**} {
-      allow read, write: if isAdmin();
-    }
-    match /time_entries/{document=**} {
+    match /raw_materials/{document=**} {
       allow read, write: if isAdmin();
     }
     match /cif_items/{document=**} {
@@ -141,7 +121,10 @@ service cloud.firestore {
     match /expenses/{document=**} {
       allow read, write: if isAdmin();
     }
-    match /raw_materials/{document=**} {
+    match /time_entries/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    match /employees/{document=**} {
       allow read, write: if isAdmin();
     }
     match /lista_espera/{document=**} {
@@ -149,17 +132,19 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // --- NUEVOS MÓDULOS DE USUARIOS ---
     match /admin_roles/{roleId} {
-      allow read: if isAdmin() || (request.auth != null && request.auth.token.email == roleId);
-      allow write: if request.auth != null && request.auth.token.email == "sairebautista@gmail.com";
+      allow read: if request.auth != null && (request.auth.token.email != null && request.auth.token.email.lower() == roleId || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    match /{path=**}/reviews/{reviewId} {
+      allow read: if true;
     }
 
     match /users/{userId} {
-      // Un usuario puede leer y escribir SOLO su propio documento
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Un admin puede leer toda la lista de usuarios para el panel "UsersManager"
-      allow read: if isAdmin();
+      // Un usuario solo puede leer/escribir sus propios datos, admins pueden leer todo
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   } 
 }

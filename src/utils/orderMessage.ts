@@ -38,12 +38,18 @@ export const generateOrderMessage = (order: any): string => {
 };
 
 export const generateOrderMessageShort = (order: any): string => {
-    let message = `Pedido #${order.id}\n`;
-    if (order.tipoEnvio === 'delivery' || order.cliente?.direccion) {
-        message += `Dir: ${order.cliente?.direccion || 'No especificada'}\n`;
-    } else {
-        message += `Retira en local\n`;
+    let message = `¡Hola ${order.cliente?.nombre || ''}! Recibimos tu pedido en El Faro Panadería.\n\n`;
+
+    if (order.cliente?.metodoPago?.toLowerCase() === 'transferencia' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia bancaria' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia/mp') {
+        message += ` Datos de Transferencia:\n`;
+        message += `ALIAS: elfaro80.mp\n`;
+        message += `CVU: 0000003100006832823516\n`;
+        message += `A NOMBRE DE: MARIA ELISABETH CORONEL\n`;
+        message += `Enviar comprobante\n\n`;
     }
-    message += `Total: $${order.total}`;
+
+    message += ` ¡Ya lo estamos preparando! \n\n`;
+    message += `    elfaropanificacion.com \n`;
+    
     return message;
 };
