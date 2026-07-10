@@ -317,7 +317,7 @@ export const CartProvider = ({ children }: Props) => {
         } else {
           setIsSuperAdmin(false);
           // Check if it's an admin in admin_roles
-          roleUnsub = onSnapshot(doc(db, "admin_roles", authUser.email), (roleDoc) => {
+          roleUnsub = onSnapshot(doc(db, "admin_roles", authUser.email.toLowerCase()), (roleDoc) => {
             if (roleDoc.exists()) {
               setIsAdmin(true);
               setAdminPermissions(roleDoc.data() as Record<string, boolean>);

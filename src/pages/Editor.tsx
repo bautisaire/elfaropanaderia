@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore";
-import { signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaHeadset } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
@@ -68,11 +68,13 @@ export default function Editor() {
         if (user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user.email)) {
           setCurrentUser(user);
         } else {
-          roleUnsub = onSnapshot(doc(db, "admin_roles", user.email), (roleDoc) => {
+          roleUnsub = onSnapshot(doc(db, "admin_roles", user.email.toLowerCase()), (roleDoc) => {
             if (roleDoc.exists()) {
               setCurrentUser(user);
             } else {
+              signOut(auth);
               setCurrentUser(null);
+              alert("⛔ Acceso denegado: Este email no tiene permisos de administrador.");
             }
             setCheckingAuth(false);
           }, (e) => {
@@ -81,7 +83,6 @@ export default function Editor() {
             setCheckingAuth(false);
           });
         }
-        setCurrentUser(null);
       }
       // Note: setCheckingAuth(false) is called inside onSnapshot for non-superadmins
       if (!user || user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user?.email || '')) {
@@ -116,21 +117,8 @@ export default function Editor() {
 
   const handleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      if (result.user.email) {
-         if (result.user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(result.user.email)) {
-             // allow
-         } else {
-             const roleDoc = await getDoc(doc(db, "admin_roles", result.user.email));
-             if (!roleDoc.exists()) {
-                 await signOut(auth);
-                 alert("⛔ Acceso denegado: Este email no tiene permisos de administrador.");
-             }
-         }
-      } else {
-        await signOut(auth);
-        alert("⛔ Acceso denegado: No se pudo obtener el email.");
-      }
+      // Using signInWithRedirect to bypass Cross-Origin-Opener-Policy (COOP) blocks
+      await signInWithRedirect(auth, googleProvider);
     } catch (error) {
       console.error("Error login:", error);
       setMessage("Error al iniciar sesión con Google");
