@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
-import { collection, query, onSnapshot, doc, getDoc } from "firebase/firestore";
-import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { collection, query, onSnapshot, doc } from "firebase/firestore";
+import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaHeadset } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
@@ -86,7 +86,7 @@ export default function Editor() {
       }
       // Note: setCheckingAuth(false) is called inside onSnapshot for non-superadmins
       if (!user || user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user?.email || '')) {
-         setCheckingAuth(false);
+        setCheckingAuth(false);
       }
     });
     return () => {
@@ -312,11 +312,11 @@ export default function Editor() {
                     href="https://wa.me/5492995206821"
                     target="_blank"
                     rel="noreferrer"
-                    style={{textDecoration: 'none'}}
+                    style={{ textDecoration: 'none' }}
                   >
-                    <button title="Soporte Técnico" style={{width: '100%'}}>
-                        <div className="nav-icon" style={{ color: '#ef4444' }}><FaHeadset /></div>
-                        <span className="nav-text">Soporte Técnico</span>
+                    <button title="Soporte Técnico" style={{ width: '100%' }}>
+                      <div className="nav-icon" style={{ color: '#ef4444' }}><FaHeadset /></div>
+                      <span className="nav-text">Soporte Técnico</span>
                     </button>
                   </a>
                   <button
@@ -358,19 +358,19 @@ export default function Editor() {
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
               <Route path="*" element={
-                 (() => {
-                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
-                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
-                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
-                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
-                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
-                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
-                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
-                   if (adminPermissions?.employees !== false) return <Navigate to="/editor/employees" replace />;
-                   if (adminPermissions?.raffle !== false) return <Navigate to="/editor/raffle" replace />;
-                   if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
-                   return <div style={{padding: '50px', textAlign: 'center'}}>No tienes permiso para ver ninguna sección.</div>;
-                 })()
+                (() => {
+                  if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
+                  if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
+                  if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
+                  if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
+                  if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
+                  if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
+                  if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
+                  if (adminPermissions?.employees !== false) return <Navigate to="/editor/employees" replace />;
+                  if (adminPermissions?.raffle !== false) return <Navigate to="/editor/raffle" replace />;
+                  if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
+                  return <div style={{ padding: '50px', textAlign: 'center' }}>No tienes permiso para ver ninguna sección.</div>;
+                })()
               } />
             </Routes>
           </main>
