@@ -56,29 +56,42 @@ export default function Editor() {
   }, [collapsed]);
 
   useEffect(() => {
+    let roleUnsub: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (roleUnsub) {
+        roleUnsub();
+        roleUnsub = null;
+      }
+
       if (user && user.email) {
         if (user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user.email)) {
           setCurrentUser(user);
         } else {
-          try {
-            const roleDoc = await getDoc(doc(db, "admin_roles", user.email));
+          roleUnsub = onSnapshot(doc(db, "admin_roles", user.email), (roleDoc) => {
             if (roleDoc.exists()) {
               setCurrentUser(user);
             } else {
               setCurrentUser(null);
             }
-          } catch (e) {
+            setCheckingAuth(false);
+          }, (e) => {
             console.error(e);
             setCurrentUser(null);
-          }
+            setCheckingAuth(false);
+          });
         }
-      } else {
         setCurrentUser(null);
       }
-      setCheckingAuth(false);
+      // Note: setCheckingAuth(false) is called inside onSnapshot for non-superadmins
+      if (!user || user.email === 'sairebautista@gmail.com' || ADMIN_EMAILS.includes(user?.email || '')) {
+         setCheckingAuth(false);
+      }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (roleUnsub) roleUnsub();
+    };
   }, []);
 
 

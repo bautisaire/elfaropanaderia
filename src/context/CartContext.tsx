@@ -289,8 +289,14 @@ export const CartProvider = ({ children }: Props) => {
 
   // Check Admin Status and User
   useEffect(() => {
+    let roleUnsub: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
+      if (roleUnsub) {
+        roleUnsub();
+        roleUnsub = null;
+      }
       if (authUser && authUser.email) {
         // SUPERADMIN Check
         if (authUser.email === 'sairebautista@gmail.com') {
@@ -311,8 +317,7 @@ export const CartProvider = ({ children }: Props) => {
         } else {
           setIsSuperAdmin(false);
           // Check if it's an admin in admin_roles
-          try {
-            const roleDoc = await getDoc(doc(db, "admin_roles", authUser.email));
+          roleUnsub = onSnapshot(doc(db, "admin_roles", authUser.email), (roleDoc) => {
             if (roleDoc.exists()) {
               setIsAdmin(true);
               setAdminPermissions(roleDoc.data() as Record<string, boolean>);
@@ -335,11 +340,11 @@ export const CartProvider = ({ children }: Props) => {
               setIsAdmin(false);
               setAdminPermissions({});
             }
-          } catch (e) {
+          }, (e) => {
             console.error("Error fetching admin roles", e);
             setIsAdmin(false);
             setAdminPermissions({});
-          }
+          });
         }
         
         const saveUser = async () => {
@@ -368,7 +373,10 @@ export const CartProvider = ({ children }: Props) => {
         setAdminPermissions({});
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (roleUnsub) roleUnsub();
+    };
   }, []);
 
   const addToCart = (product: any) => {
