@@ -4,6 +4,8 @@ import { db } from "../firebase/firebaseConfig";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaTimes } from "react-icons/fa";
 import { printTicket } from "../utils/printTicket";
+import newOrderSound from "../sounds/neworder.mp3";
+import noStockSound from "../sounds/nostock.mp3";
 
 export default function GlobalAdminNotifications() {
     const navigate = useNavigate();
@@ -99,23 +101,8 @@ export default function GlobalAdminNotifications() {
                     hideTimeoutRef.current = setTimeout(() => setShowNotification(false), 8000);
 
                     try {
-                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                        const oscillator = audioCtx.createOscillator();
-                        const gainNode = audioCtx.createGain();
-
-                        oscillator.type = 'sine';
-                        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-                        oscillator.frequency.exponentialRampToValueAtTime(880.00, audioCtx.currentTime + 0.1); // A5
-
-                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-                        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.05);
-                        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioCtx.destination);
-
-                        oscillator.start(audioCtx.currentTime);
-                        oscillator.stop(audioCtx.currentTime + 0.5);
+                        const audio = new Audio(newOrderSound);
+                        audio.play().catch(e => console.log("Audio play blocked by browser:", e));
                     } catch (e) {
                         console.log("Audio no soportado o interactuación requerida primero", e);
                     }
@@ -177,47 +164,8 @@ export default function GlobalAdminNotifications() {
                     hideTimeoutRef.current = setTimeout(() => setShowNotification(false), 10000);
 
                     try {
-                        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                        const oscillator = audioCtx.createOscillator();
-                        const gainNode = audioCtx.createGain();
-
-                        // Opción 2: Un "Pop" Discreto (estilo notificación corta/burbuja)
-                        oscillator.type = 'sine';
-
-                        // Frecuencia inicial baja, cae muy rápido
-                        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
-                        oscillator.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
-
-                        // Volumen también sube rápido y cae rápido (golpe corto)
-                        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-                        gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
-                        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioCtx.destination);
-
-                        oscillator.start(audioCtx.currentTime);
-                        oscillator.stop(audioCtx.currentTime + 0.15);
-
-                        // Segundo "pop" pequeñito para darle efecto de "doble tono de burbuja"
-                        setTimeout(() => {
-                            try {
-                                const osc2 = audioCtx.createOscillator();
-                                const gain2 = audioCtx.createGain();
-                                osc2.type = 'sine';
-                                osc2.frequency.setValueAtTime(500, audioCtx.currentTime);
-                                osc2.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
-
-                                gain2.gain.setValueAtTime(0, audioCtx.currentTime);
-                                gain2.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
-                                gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-
-                                osc2.connect(gain2);
-                                gain2.connect(audioCtx.destination);
-                                osc2.start(audioCtx.currentTime);
-                                osc2.stop(audioCtx.currentTime + 0.1);
-                            } catch (e) { }
-                        }, 120);
+                        const audio = new Audio(noStockSound);
+                        audio.play().catch(e => console.log("Audio play blocked by browser:", e));
                     } catch (e) {
                         console.log("Audio alert failed", e);
                     }
