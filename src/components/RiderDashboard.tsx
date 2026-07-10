@@ -59,8 +59,8 @@ export default function RiderDashboard() {
     // Accordion Active Orders
     const [expandedActiveOrderId, setExpandedActiveOrderId] = useState<string | null>(null);
 
-    // Global Map
-    const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
+    // Pedidos Tab View
+    const [pedidosTab, setPedidosTab] = useState<'lista' | 'mapa'>('lista');
 
     const toggleActiveOrderAccordion = (id: string) => {
         setExpandedActiveOrderId(prev => prev === id ? null : id);
@@ -228,31 +228,31 @@ export default function RiderDashboard() {
                 >
                     <FaChartLine /> Dashboard
                 </button>
-                <button
-                    onClick={() => setIsGlobalMapOpen(true)}
-                    style={{
-                        marginLeft: 'auto',
-                        padding: '10px 15px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: '#3b82f6',
-                        color: '#fff',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
-                    }}
-                >
-                    <FaMapMarkerAlt /> Mapa Global
-                </button>
             </div>
 
             <div className="rider-content">
                 {activeTab === 'pedidos' && (
                     <div className="rider-pedidos-section">
-                        <h3>Pedidos Activos</h3>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                            <button
+                                onClick={() => setPedidosTab('lista')}
+                                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: pedidosTab === 'lista' ? '#3b82f6' : '#fff', color: pedidosTab === 'lista' ? '#fff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                                Lista de Pedidos
+                            </button>
+                            <button
+                                onClick={() => setPedidosTab('mapa')}
+                                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: pedidosTab === 'mapa' ? '#3b82f6' : '#fff', color: pedidosTab === 'mapa' ? '#fff' : '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                                <FaMapMarkerAlt /> Mapa Global
+                            </button>
+                        </div>
+                        
+                        {pedidosTab === 'mapa' ? (
+                            <GlobalDeliveriesMapModal inline={true} orders={orders} />
+                        ) : (
+                            <>
+                                <h3>Pedidos Activos</h3>
                         {activeOrders.length === 0 ? (
                             <div className="rider-empty">No tienes pedidos activos.</div>
                         ) : (
@@ -352,14 +352,14 @@ export default function RiderDashboard() {
                                                 <span>A Cobrar: <strong style={{ color: '#10b981', fontSize: '1.2rem' }}>${order.total}</strong></span>
                                                 <div className="order-details-group">
                                                     <p className="order-payment-method">
-                                                        <span>💳 Método de Pago:</span>
+                                                        <span> Método de Pago:</span>
                                                         <span className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`}>
                                                             {order.cliente.metodoPago}
                                                         </span>
                                                     </p>
                                                     {order.cliente.metodoPago.toLowerCase().includes('transferencia') && (
                                                         <p className="order-payment-method" style={{ marginTop: '5px' }}>
-                                                            <span>🏦 Estado del Pago:</span>
+                                                            <span>Estado del Pago:</span>
                                                             <span style={{
                                                                 marginLeft: '10px',
                                                                 padding: '4px 8px',
@@ -368,9 +368,11 @@ export default function RiderDashboard() {
                                                                 fontSize: '0.9rem',
                                                                 color: order.transferenciaEstado === 'pagado' ? '#166534' : '#991b1b',
                                                                 backgroundColor: order.transferenciaEstado === 'pagado' ? '#dcfce7' : '#fee2e2',
-                                                                border: `1px solid ${order.transferenciaEstado === 'pagado' ? '#86efac' : '#fca5a5'}`
+                                                                border: `1px solid ${order.transferenciaEstado === 'pagado' ? '#86efac' : '#fca5a5'}`,
+                                                                display: 'inline-block',
+                                                                whiteSpace: 'nowrap'
                                                             }}>
-                                                                {order.transferenciaEstado === 'pagado' ? '✅ Pagado (Confirmado)' : '⏳ No Pagado (Pendiente)'}
+                                                                {order.transferenciaEstado === 'pagado' ? 'Pagado' : 'No Pagado'}
                                                             </span>
                                                         </p>
                                                     )}
@@ -456,6 +458,8 @@ export default function RiderDashboard() {
                                 Cargar más
                             </button>
                         )}
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -539,13 +543,6 @@ export default function RiderDashboard() {
                     </div>
                 </div>
             )}
-
-            {/* Global Map Modal */}
-            <GlobalDeliveriesMapModal 
-                isOpen={isGlobalMapOpen} 
-                onClose={() => setIsGlobalMapOpen(false)} 
-                orders={orders} // Pass the rider's orders
-            />
         </div>
     );
 }
