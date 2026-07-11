@@ -119,7 +119,7 @@ export default function RuletaPage() {
         const activeDoc = activeSnap.docs[0];
         setActiveRaffleId(activeDoc.id);
         setActiveRaffleData(activeDoc.data());
-        
+
         // Listen to participants
         const unsub = onSnapshot(collection(db, `raffles/${activeDoc.id}/participants`), (snap) => {
           const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -176,7 +176,7 @@ export default function RuletaPage() {
   }, [participants, wheelExcludedWinners]);
 
   const totalChances = availableParticipants.reduce((acc, p) => acc + (p.chances || 1), 0);
-  
+
   const slices = useMemo(() => {
     let currentAngle = 0;
     return availableParticipants.map(p => {
@@ -231,19 +231,19 @@ export default function RuletaPage() {
 
   const handleSpin = () => {
     if (spinning || unselectedParticipants.length === 0) return;
-    
+
     // Init audio on first user interaction
     audio.init();
     audio.playClick();
-    
+
     setWheelExcludedWinners([...sessionWinners]);
     setWinner(null);
     setSpinning(true);
 
     const extraSpins = 8; // 8 full rotations
-    
+
     const spinTotalChances = unselectedParticipants.reduce((acc, p) => acc + (p.chances || 1), 0);
-    
+
     let currentAngle = 0;
     const spinSlices = unselectedParticipants.map(p => {
       const chances = p.chances || 1;
@@ -253,27 +253,27 @@ export default function RuletaPage() {
       currentAngle = endAngle;
       return { participant: p, startAngle, endAngle, sliceAngle: angle };
     });
-    
+
     // Selección ponderada por chances
     const randomTicket = Math.random() * spinTotalChances;
     let currentTicketCount = 0;
     let winnerIndex = 0;
-    
+
     for (let i = 0; i < unselectedParticipants.length; i++) {
-        currentTicketCount += (unselectedParticipants[i].chances || 1);
-        if (randomTicket <= currentTicketCount) {
-            winnerIndex = i;
-            break;
-        }
+      currentTicketCount += (unselectedParticipants[i].chances || 1);
+      if (randomTicket <= currentTicketCount) {
+        winnerIndex = i;
+        break;
+      }
     }
 
     const winnerSlice = spinSlices[winnerIndex];
     const centerOffset = winnerSlice.sliceAngle / 2;
     // Un pequeño random offset dentro de la porción para que no caiga SIEMPRE en el exacto centro
-    const randomOffset = (Math.random() - 0.5) * (winnerSlice.sliceAngle * 0.8); 
-    
+    const randomOffset = (Math.random() - 0.5) * (winnerSlice.sliceAngle * 0.8);
+
     const targetDegree = 360 - winnerSlice.startAngle - centerOffset + randomOffset;
-    
+
     const totalRotation = rotation + (360 - (rotation % 360)) + (360 * extraSpins) + targetDegree;
 
     setRotation(totalRotation);
@@ -296,29 +296,29 @@ export default function RuletaPage() {
 
   return (
     <div className="ruleta-page-wrapper">
-      
+
       {/* LEFT SIDEBAR: Configuración */}
       <div className="ruleta-sidebar-left">
         <h2>Configuración</h2>
-        
+
         <div style={{ marginBottom: '15px', background: '#334155', padding: '10px', borderRadius: '8px' }}>
           <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', color: '#cbd5e1' }}>Total de premios:</label>
-          <input 
-            type="number" 
+          <input
+            type="number"
             value={numberOfPrizes}
             onChange={e => setNumberOfPrizes(Math.max(1, parseInt(e.target.value) || 1))}
-            disabled={sessionWinners.length > 0} 
-            style={{ 
-              width: '100%', padding: '8px', borderRadius: '4px', 
-              border: '1px solid #475569', background: '#1e293b', 
-              color: 'white', fontSize: '1.1rem', fontWeight: 'bold' 
+            disabled={sessionWinners.length > 0}
+            style={{
+              width: '100%', padding: '8px', borderRadius: '4px',
+              border: '1px solid #475569', background: '#1e293b',
+              color: 'white', fontSize: '1.1rem', fontWeight: 'bold'
             }}
           />
           {sessionWinners.length === 0 && <small style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginTop: '5px' }}>Configúralo antes de girar.</small>}
         </div>
 
-        <button 
-          className="ruleta-save-btn" 
+        <button
+          className="ruleta-save-btn"
           onClick={handleSaveWinners}
           disabled={saving || sessionWinners.length === 0}
           style={{ marginTop: 'auto' }}
@@ -328,121 +328,121 @@ export default function RuletaPage() {
       </div>
 
       <div className="ruleta-container">
-      <div className="ruleta-header">
-        <h1>{activeRaffleData?.name || "Ruleta de la Suerte"}</h1>
-      </div>
-
-      <div className="ruleta-wheel-wrapper">
-        <div className="ruleta-flapper"></div>
-
-        <div 
-          className="ruleta-wheel"
-          ref={wheelRef}
-          style={{ 
-            transform: `rotate(${rotation}deg)`, 
-            transition: spinning ? 'transform 6s cubic-bezier(0.1, 0.7, 0.1, 1)' : 'none'
-          }}
-        >
-          <svg viewBox="0 0 1000 1000" width="100%" height="100%">
-            {slices.map((slice, idx) => {
-              const { participant: p, startAngle, endAngle, sliceAngle } = slice;
-              
-              const start = polarToCartesian(500, 500, 500, startAngle);
-              const end = polarToCartesian(500, 500, 500, endAngle);
-              const largeArcFlag = sliceAngle > 180 ? 1 : 0;
-              
-              const d = [
-                "M", 500, 500,
-                "L", start.x, start.y,
-                "A", 500, 500, 0, largeArcFlag, 1, end.x, end.y,
-                "Z"
-              ].join(" ");
-
-              const color = COLORS[idx % COLORS.length];
-
-              // Posicionar el texto en el centro de la tajada usando un textPath
-              const midAngle = startAngle + (sliceAngle / 2);
-              
-              // Definimos una línea invisible desde el centro hacia el borde (o viceversa)
-              // para usarla como ruta para el texto, evitando bugs de transformaciones en iOS.
-              const isRightSide = midAngle >= 0 && midAngle < 180;
-              
-              // Ajustamos los radios para que el texto quede bien centrado en la tajada
-              const innerRadius = 120;
-              const outerRadius = 450;
-              
-              const centerPos = polarToCartesian(500, 500, innerRadius, midAngle);
-              const edgePos = polarToCartesian(500, 500, outerRadius, midAngle);
-              
-              const pathId = `text-path-${idx}`;
-              const textPathD = isRightSide 
-                ? `M ${centerPos.x} ${centerPos.y} L ${edgePos.x} ${edgePos.y}`
-                : `M ${edgePos.x} ${edgePos.y} L ${centerPos.x} ${centerPos.y}`;
-
-              return (
-                <g key={idx}>
-                  <path d={d} fill={color} stroke="#fff" strokeWidth="2" />
-                  <defs>
-                    <path id={pathId} d={textPathD} />
-                  </defs>
-                  <text 
-                    fill="#fff" 
-                    fontSize={availableParticipants.length > 20 ? "24" : "32"} 
-                    fontWeight="bold"
-                    style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
-                  >
-                    <textPath 
-                      href={`#${pathId}`} 
-                      startOffset="50%" 
-                      textAnchor="middle" 
-                      dominantBaseline="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {(() => {
-                         const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
-                         return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
-                      })()}
-                    </textPath>
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+        <div className="ruleta-header">
+          <h1>{activeRaffleData?.name || "Ruleta Sorteo Argentino"}</h1>
         </div>
 
-        <div className="ruleta-center">
-          <button 
-            className="ruleta-spin-btn" 
-            onClick={handleSpin} 
-            disabled={spinning || unselectedParticipants.length === 0}
+        <div className="ruleta-wheel-wrapper">
+          <div className="ruleta-flapper"></div>
+
+          <div
+            className="ruleta-wheel"
+            ref={wheelRef}
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transition: spinning ? 'transform 6s cubic-bezier(0.1, 0.7, 0.1, 1)' : 'none'
+            }}
           >
-            <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-          </button>
-        </div>
-      </div>
+            <svg viewBox="0 0 1000 1000" width="100%" height="100%">
+              {slices.map((slice, idx) => {
+                const { participant: p, startAngle, endAngle, sliceAngle } = slice;
 
-      {winner && (
-        <div className="ruleta-winner-modal-overlay" onClick={() => setWinner(null)}>
-          <div className="ruleta-winner-modal" onClick={e => e.stopPropagation()}>
-            <h2>🎉 ¡Tenemos un ganador! 🎉</h2>
-            <h3>{winner.name || winner.phoneOrEmail || "Participante"}</h3>
-            {/* Contacto oculto a pedido del usuario */}
-            <button onClick={() => setWinner(null)}>Aceptar</button>
+                const start = polarToCartesian(500, 500, 500, startAngle);
+                const end = polarToCartesian(500, 500, 500, endAngle);
+                const largeArcFlag = sliceAngle > 180 ? 1 : 0;
+
+                const d = [
+                  "M", 500, 500,
+                  "L", start.x, start.y,
+                  "A", 500, 500, 0, largeArcFlag, 1, end.x, end.y,
+                  "Z"
+                ].join(" ");
+
+                const color = COLORS[idx % COLORS.length];
+
+                // Posicionar el texto en el centro de la tajada usando un textPath
+                const midAngle = startAngle + (sliceAngle / 2);
+
+                // Definimos una línea invisible desde el centro hacia el borde (o viceversa)
+                // para usarla como ruta para el texto, evitando bugs de transformaciones en iOS.
+                const isRightSide = midAngle >= 0 && midAngle < 180;
+
+                // Ajustamos los radios para que el texto quede bien centrado en la tajada
+                const innerRadius = 120;
+                const outerRadius = 450;
+
+                const centerPos = polarToCartesian(500, 500, innerRadius, midAngle);
+                const edgePos = polarToCartesian(500, 500, outerRadius, midAngle);
+
+                const pathId = `text-path-${idx}`;
+                const textPathD = isRightSide
+                  ? `M ${centerPos.x} ${centerPos.y} L ${edgePos.x} ${edgePos.y}`
+                  : `M ${edgePos.x} ${edgePos.y} L ${centerPos.x} ${centerPos.y}`;
+
+                return (
+                  <g key={idx}>
+                    <path d={d} fill={color} stroke="#fff" strokeWidth="2" />
+                    <defs>
+                      <path id={pathId} d={textPathD} />
+                    </defs>
+                    <text
+                      fill="#fff"
+                      fontSize={availableParticipants.length > 20 ? "24" : "32"}
+                      fontWeight="bold"
+                      style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
+                    >
+                      <textPath
+                        href={`#${pathId}`}
+                        startOffset="50%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        alignmentBaseline="middle"
+                      >
+                        {(() => {
+                          const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
+                          return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
+                        })()}
+                      </textPath>
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          <div className="ruleta-center">
+            <button
+              className="ruleta-spin-btn"
+              onClick={handleSpin}
+              disabled={spinning || unselectedParticipants.length === 0}
+            >
+              <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+            </button>
           </div>
         </div>
-      )}
+
+        {winner && (
+          <div className="ruleta-winner-modal-overlay" onClick={() => setWinner(null)}>
+            <div className="ruleta-winner-modal" onClick={e => e.stopPropagation()}>
+              <h2>🎉 ¡Tenemos un ganador! 🎉</h2>
+              <h3>{winner.name || winner.phoneOrEmail || "Participante"}</h3>
+              {/* Contacto oculto a pedido del usuario */}
+              <button onClick={() => setWinner(null)}>Aceptar</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RIGHT SIDEBAR: Premios */}
       <div className="ruleta-sidebar-right">
         <h2>Premios</h2>
-        
+
         <ul className="ruleta-winners-list" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {Array.from({ length: numberOfPrizes }).map((_, idx) => {
             const pos = idx + 1; // 1, 2, 3...
             const winnerIndex = numberOfPrizes - pos;
             const winner = sessionWinners[winnerIndex];
-            
+
             let medalColor = '#64748b'; // default gris
             let shadowColor = 'transparent';
             if (pos === 1) {
@@ -457,14 +457,14 @@ export default function RuletaPage() {
             }
 
             return (
-              <li key={pos} style={{ 
-                display: 'flex', alignItems: 'center', background: '#334155', 
+              <li key={pos} style={{
+                display: 'flex', alignItems: 'center', background: '#334155',
                 padding: '15px', borderRadius: '12px', border: `2px solid ${winner ? medalColor : 'transparent'}`,
                 boxShadow: winner ? `0 0 15px ${shadowColor}` : 'none',
                 transition: 'all 0.5s ease',
                 opacity: winner ? 1 : 0.6
               }}>
-                <span style={{ 
+                <span style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '40px', height: '40px', borderRadius: '50%',
                   background: medalColor, color: pos === 1 ? '#000' : '#fff',
@@ -473,8 +473,8 @@ export default function RuletaPage() {
                 }}>
                   {pos}º
                 </span>
-                <span className="winner-name" style={{ 
-                  fontSize: winner ? '1.2rem' : '1rem', 
+                <span className="winner-name" style={{
+                  fontSize: winner ? '1.2rem' : '1rem',
                   color: winner ? '#fff' : '#94a3b8',
                   fontWeight: winner ? 'bold' : 'normal',
                   fontStyle: winner ? 'normal' : 'italic'
