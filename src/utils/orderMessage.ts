@@ -39,6 +39,7 @@ export const generateOrderMessage = (order: any): string => {
 
 export const generateOrderMessageShort = (order: any): string => {
     let message = `¡Hola ${order.cliente?.nombre || ''}! Recibimos tu pedido en El Faro Panadería.\n\n`;
+    message += `💵 Total: $${order.total}\n\n`;
 
     if (order.cliente?.metodoPago?.toLowerCase() === 'transferencia' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia bancaria' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia/mp') {
         message += ` Datos de Transferencia:\n`;

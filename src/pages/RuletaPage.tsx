@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase/firebaseConfig";
 import { useCart } from "../context/CartContext";
+import { useNavigate } from "react-router-dom";
+import { FaArrowLeft } from "react-icons/fa";
 import confetti from "canvas-confetti";
 import logoImg from "../assets/logo.png";
 import "./RuletaPage.css";
@@ -87,6 +89,7 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
 
 export default function RuletaPage() {
   const { isSuperAdmin } = useCart();
+  const navigate = useNavigate();
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [spinning, setSpinning] = useState(false);
@@ -288,6 +291,28 @@ export default function RuletaPage() {
 
   return (
     <div className="ruleta-page-wrapper">
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          zIndex: 100,
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: 'white',
+          padding: '10px 15px',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          backdropFilter: 'blur(5px)'
+        }}
+      >
+        <FaArrowLeft /> Volver
+      </button>
 
       {/* LEFT SIDEBAR: Configuración */}
       {isSuperAdmin && (
@@ -324,6 +349,7 @@ export default function RuletaPage() {
       <div className="ruleta-container">
         <div className="ruleta-header">
           <h1>{activeRaffleData?.name || "Sorteo Día del Amigo"}</h1>
+          <h1>{activeRaffleData?.name || "20-07"}</h1>
         </div>
 
         <div className="ruleta-wheel-wrapper">
