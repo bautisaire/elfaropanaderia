@@ -104,8 +104,6 @@ export default function RuletaPage() {
 
   // Fetch active raffle participants
   useEffect(() => {
-    if (!isSuperAdmin) return;
-
     const fetchActiveRaffle = async () => {
       try {
         const q = query(collection(db, "raffles"), where("isActive", "==", true));
@@ -135,7 +133,7 @@ export default function RuletaPage() {
     };
 
     fetchActiveRaffle();
-  }, [isSuperAdmin]);
+  }, []);
 
   // Tick effect using requestAnimationFrame
   useEffect(() => {
@@ -193,13 +191,7 @@ export default function RuletaPage() {
     return participants.filter(p => !sessionWinners.some(w => w.id === p.id));
   }, [participants, sessionWinners]);
 
-  if (!isSuperAdmin) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: '100px', fontSize: '2rem' }}>
-        ⛔ Acceso Denegado
-      </div>
-    );
-  }
+
 
   if (loading) {
     return <div style={{ textAlign: 'center', marginTop: '100px' }}>Cargando Ruleta...</div>;
@@ -298,50 +290,52 @@ export default function RuletaPage() {
     <div className="ruleta-page-wrapper">
 
       {/* LEFT SIDEBAR: Configuración */}
-      <div className="ruleta-sidebar-left">
-        <h2>Configuración</h2>
+      {isSuperAdmin && (
+        <div className="ruleta-sidebar-left">
+          <h2>Configuración</h2>
 
-        <div style={{ marginBottom: '15px', background: '#334155', padding: '10px', borderRadius: '8px' }}>
-          <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', color: '#cbd5e1' }}>Total de premios:</label>
-          <input
-            type="number"
-            value={numberOfPrizes}
-            onChange={e => setNumberOfPrizes(Math.max(1, parseInt(e.target.value) || 1))}
-            disabled={sessionWinners.length > 0}
-            style={{
-              width: '100%', padding: '8px', borderRadius: '4px',
-              border: '1px solid #475569', background: '#1e293b',
-              color: 'white', fontSize: '1.1rem', fontWeight: 'bold'
-            }}
-          />
-          {sessionWinners.length === 0 && <small style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginTop: '5px' }}>Configúralo antes de girar.</small>}
+          <div style={{ marginBottom: '15px', background: '#334155', padding: '10px', borderRadius: '8px' }}>
+            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', color: '#cbd5e1' }}>Total de premios:</label>
+            <input
+              type="number"
+              value={numberOfPrizes}
+              onChange={e => setNumberOfPrizes(Math.max(1, parseInt(e.target.value) || 1))}
+              disabled={sessionWinners.length > 0}
+              style={{
+                width: '100%', padding: '8px', borderRadius: '4px',
+                border: '1px solid #475569', background: '#1e293b',
+                color: 'white', fontSize: '1.1rem', fontWeight: 'bold'
+              }}
+            />
+            {sessionWinners.length === 0 && <small style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'block', marginTop: '5px' }}>Configúralo antes de girar.</small>}
+          </div>
+
+          <button
+            className="ruleta-save-btn"
+            onClick={handleSaveWinners}
+            disabled={saving || sessionWinners.length === 0}
+            style={{ marginTop: 'auto' }}
+          >
+            {saving ? "Guardando..." : "Guardar ganadores"}
+          </button>
         </div>
-
-        <button
-          className="ruleta-save-btn"
-          onClick={handleSaveWinners}
-          disabled={saving || sessionWinners.length === 0}
-          style={{ marginTop: 'auto' }}
-        >
-          {saving ? "Guardando..." : "Guardar ganadores"}
-        </button>
-      </div>
+      )}
 
       <div className="ruleta-container">
         <div className="ruleta-header">
-          <h1>{activeRaffleData?.name || "Ruleta Sorteo Argentino"}</h1>
+          <h1>{activeRaffleData?.name || "Sorteo Día del Amigo"}</h1>
         </div>
 
         <div className="ruleta-wheel-wrapper">
           <div className="ruleta-flapper"></div>
 
           <div
-            className="ruleta-wheel"
+            className={`ruleta-wheel ${!isSuperAdmin ? 'idle-spin' : ''}`}
             ref={wheelRef}
-            style={{
+            style={isSuperAdmin ? {
               transform: `rotate(${rotation}deg)`,
               transition: spinning ? 'transform 6s cubic-bezier(0.1, 0.7, 0.1, 1)' : 'none'
-            }}
+            } : {}}
           >
             <svg viewBox="0 0 1000 1000" width="100%" height="100%">
               {slices.map((slice, idx) => {
@@ -363,21 +357,13 @@ export default function RuletaPage() {
                 // Posicionar el texto en el centro de la tajada usando un textPath
                 const midAngle = startAngle + (sliceAngle / 2);
 
-                // Definimos una línea invisible desde el centro hacia el borde (o viceversa)
-                // para usarla como ruta para el texto, evitando bugs de transformaciones en iOS.
-                const isRightSide = midAngle >= 0 && midAngle < 180;
-
-                // Ajustamos los radios para que el texto quede bien centrado en la tajada
                 const innerRadius = 120;
                 const outerRadius = 450;
-
                 const centerPos = polarToCartesian(500, 500, innerRadius, midAngle);
                 const edgePos = polarToCartesian(500, 500, outerRadius, midAngle);
 
                 const pathId = `text-path-${idx}`;
-                const textPathD = isRightSide
-                  ? `M ${centerPos.x} ${centerPos.y} L ${edgePos.x} ${edgePos.y}`
-                  : `M ${edgePos.x} ${edgePos.y} L ${centerPos.x} ${centerPos.y}`;
+                const textPathD = `M ${centerPos.x} ${centerPos.y} L ${edgePos.x} ${edgePos.y}`;
 
                 return (
                   <g key={idx}>
@@ -411,13 +397,19 @@ export default function RuletaPage() {
           </div>
 
           <div className="ruleta-center">
-            <button
-              className="ruleta-spin-btn"
-              onClick={handleSpin}
-              disabled={spinning || unselectedParticipants.length === 0}
-            >
-              <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-            </button>
+            {isSuperAdmin ? (
+              <button
+                className="ruleta-spin-btn"
+                onClick={handleSpin}
+                disabled={spinning || unselectedParticipants.length === 0}
+              >
+                <img src={logoImg} alt="Girar" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+              </button>
+            ) : (
+              <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={logoImg} alt="Logo" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -434,58 +426,60 @@ export default function RuletaPage() {
       </div>
 
       {/* RIGHT SIDEBAR: Premios */}
-      <div className="ruleta-sidebar-right">
-        <h2>Premios</h2>
+      {isSuperAdmin && (
+        <div className="ruleta-sidebar-right">
+          <h2>Premios</h2>
 
-        <ul className="ruleta-winners-list" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {Array.from({ length: numberOfPrizes }).map((_, idx) => {
-            const pos = idx + 1; // 1, 2, 3...
-            const winnerIndex = numberOfPrizes - pos;
-            const winner = sessionWinners[winnerIndex];
+          <ul className="ruleta-winners-list" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {Array.from({ length: numberOfPrizes }).map((_, idx) => {
+              const pos = idx + 1; // 1, 2, 3...
+              const winnerIndex = numberOfPrizes - pos;
+              const winner = sessionWinners[winnerIndex];
 
-            let medalColor = '#64748b'; // default gris
-            let shadowColor = 'transparent';
-            if (pos === 1) {
-              medalColor = '#fbbf24'; // Dorado
-              shadowColor = 'rgba(251, 191, 36, 0.4)';
-            } else if (pos === 2) {
-              medalColor = '#cbd5e1'; // Plata
-              shadowColor = 'rgba(203, 213, 225, 0.4)';
-            } else if (pos === 3) {
-              medalColor = '#b45309'; // Bronce
-              shadowColor = 'rgba(180, 83, 9, 0.4)';
-            }
+              let medalColor = '#64748b'; // default gris
+              let shadowColor = 'transparent';
+              if (pos === 1) {
+                medalColor = '#fbbf24'; // Dorado
+                shadowColor = 'rgba(251, 191, 36, 0.4)';
+              } else if (pos === 2) {
+                medalColor = '#cbd5e1'; // Plata
+                shadowColor = 'rgba(203, 213, 225, 0.4)';
+              } else if (pos === 3) {
+                medalColor = '#b45309'; // Bronce
+                shadowColor = 'rgba(180, 83, 9, 0.4)';
+              }
 
-            return (
-              <li key={pos} style={{
-                display: 'flex', alignItems: 'center', background: '#334155',
-                padding: '15px', borderRadius: '12px', border: `2px solid ${winner ? medalColor : 'transparent'}`,
-                boxShadow: winner ? `0 0 15px ${shadowColor}` : 'none',
-                transition: 'all 0.5s ease',
-                opacity: winner ? 1 : 0.6
-              }}>
-                <span style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '40px', height: '40px', borderRadius: '50%',
-                  background: medalColor, color: pos === 1 ? '#000' : '#fff',
-                  fontWeight: 'bold', fontSize: '1.2rem',
-                  marginRight: '15px', boxShadow: `0 0 10px ${medalColor}`
+              return (
+                <li key={pos} style={{
+                  display: 'flex', alignItems: 'center', background: '#334155',
+                  padding: '15px', borderRadius: '12px', border: `2px solid ${winner ? medalColor : 'transparent'}`,
+                  boxShadow: winner ? `0 0 15px ${shadowColor}` : 'none',
+                  transition: 'all 0.5s ease',
+                  opacity: winner ? 1 : 0.6
                 }}>
-                  {pos}º
-                </span>
-                <span className="winner-name" style={{
-                  fontSize: winner ? '1.2rem' : '1rem',
-                  color: winner ? '#fff' : '#94a3b8',
-                  fontWeight: winner ? 'bold' : 'normal',
-                  fontStyle: winner ? 'normal' : 'italic'
-                }}>
-                  {winner ? (winner.name || winner.phoneOrEmail || "Participante") : "Esperando ganador..."}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+                  <span style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '40px', height: '40px', borderRadius: '50%',
+                    background: medalColor, color: pos === 1 ? '#000' : '#fff',
+                    fontWeight: 'bold', fontSize: '1.2rem',
+                    marginRight: '15px', boxShadow: `0 0 10px ${medalColor}`
+                  }}>
+                    {pos}º
+                  </span>
+                  <span className="winner-name" style={{
+                    fontSize: winner ? '1.2rem' : '1rem',
+                    color: winner ? '#fff' : '#94a3b8',
+                    fontWeight: winner ? 'bold' : 'normal',
+                    fontStyle: winner ? 'normal' : 'italic'
+                  }}>
+                    {winner ? (winner.name || winner.phoneOrEmail || "Participante") : "Esperando ganador..."}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
     </div>
   );

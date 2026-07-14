@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
@@ -54,6 +54,7 @@ export default function Home() {
     getCatalogProduct,
   } = useCart();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
@@ -252,6 +253,25 @@ export default function Home() {
                 )}
               </div>
             </div>
+
+            <button
+              onClick={() => navigate('/ruleta')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '12px',
+                background: '#eab308',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}
+            >
+              🎡 Ver Ruleta
+            </button>
           </div>
         </div>
       )}
