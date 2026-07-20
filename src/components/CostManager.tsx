@@ -93,6 +93,8 @@ export default function CostManager() {
     const [replaceToId, setReplaceToId] = useState<string>('');
     const [isReplacing, setIsReplacing] = useState(false);
 
+    const [simulatorSearchTerm, setSimulatorSearchTerm] = useState('');
+
     // Global CIF State
     const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
 
@@ -530,6 +532,7 @@ export default function CostManager() {
 
     // --- RENDER ---
     const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
+    const displayedProductsForSim = validProductsForSim.filter(p => p.nombre?.toLowerCase().includes(simulatorSearchTerm.toLowerCase()));
     const marginsArray = validProductsForSim.map(p => {
         const cost = calculateRealProductCost(p);
         const currentRetail = Number(p.precio) || 0;
@@ -1364,6 +1367,16 @@ export default function CostManager() {
                         </div>
 
                         <div className="cm-table-container">
+                            <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar producto en simulador..." 
+                                    value={simulatorSearchTerm}
+                                    onChange={(e) => setSimulatorSearchTerm(e.target.value)}
+                                    className="cm-input"
+                                    style={{ width: '100%', maxWidth: '400px' }}
+                                />
+                            </div>
                             <table className="cm-table simulator-table">
                                 <thead>
                                     <tr>
@@ -1378,9 +1391,9 @@ export default function CostManager() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {validProductsForSim.length === 0 ? (
-                                        <tr><td colSpan={8} style={{ textAlign: 'center', color: '#94a3b8' }}>No hay productos con recetas o dependencias configuradas. Ve a la pestaña de "Fichas de Recetas".</td></tr>
-                                    ) : validProductsForSim.map(p => {
+                                    {displayedProductsForSim.length === 0 ? (
+                                        <tr><td colSpan={8} style={{ textAlign: 'center', color: '#94a3b8' }}>No hay productos con recetas o dependencias configuradas (o que coincidan con la búsqueda).</td></tr>
+                                    ) : displayedProductsForSim.map(p => {
                                         const cost = calculateRealProductCost(p);
                                         const sugWholesale = calculateSuggestedPrice(cost, margins.wholesale);
                                         const sugRetail = calculateSuggestedPrice(cost, margins.retail);

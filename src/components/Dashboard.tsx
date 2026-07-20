@@ -480,20 +480,18 @@ export default function Dashboard() {
 
                     if (isShipping || productInfo?.excludeFromStats) return;
 
-                    // 2. Check Dependency (Roll-up)
+                    // 2. We no longer roll up identity to Parent, so derived products show up as themselves.
+                    // But we DO need to get the parent info to calculate the cost later.
+                    let parentInfoForCost = undefined;
+                    let dependencyUnitsToDeduct = 1;
+
                     if (productInfo && productInfo.stockDependency && productInfo.stockDependency.productId) {
                         const parentId = productInfo.stockDependency.productId;
                         const parentInfo = productData.get(parentId);
 
                         if (parentInfo) {
-                            // It is a derived product. Convert to Parent Units
-                            const unitsToDeduct = productInfo.stockDependency.unitsToDeduct || 1;
-                            finalQty = finalQty * unitsToDeduct;
-
-                            // Override Identity to Parent
-                            finalId = parentInfo.id;
-                            // The name will be updated in the next step
-                            finalVariant = undefined; // Merge into parent base
+                            parentInfoForCost = parentInfo;
+                            dependencyUnitsToDeduct = productInfo.stockDependency.unitsToDeduct || 1;
                         }
                     }
 
@@ -582,8 +580,11 @@ export default function Dashboard() {
                         lineTotalCost = item.historicCost * (Number(item.quantity) || 0);
                     } else if (isShipping || isTrackedProduct) {
                         lineTotalCost = price * (Number(item.quantity) || 0);
+                    } else if (parentInfoForCost) {
+                        // If it's a derived product, calculate cost from parent's unit cost * units consumed
+                        lineTotalCost = (parentInfoForCost?.recipe?.costPerUnit || 0) * finalQty * dependencyUnitsToDeduct;
                     } else {
-                        // currentInfo is the rolled-up parent (if applicable), so we multiply its unit cost by finalQty (which is already multiplied by unitsToDeduct)
+                        // currentInfo is the base product, so we multiply its unit cost by finalQty
                         lineTotalCost = (currentInfo?.recipe?.costPerUnit || 0) * finalQty;
                     }
 

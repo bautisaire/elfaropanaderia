@@ -308,12 +308,18 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 [field]: finalValue
             };
 
+            let unitsPerProduct = prev.unitsPerProduct;
+
             // Auto calculate stock if parent is selected
             let calculatedStock = prev.stockQuantity;
             if (newDependency.productId && newDependency.unitsToDeduct > 0) {
                 const parent = products.find(p => p.id === newDependency.productId);
                 if (parent) {
                     calculatedStock = Math.floor((parent.stockQuantity || 0) / newDependency.unitsToDeduct);
+                    
+                    // Auto-calculate unitsPerProduct for derived products
+                    const parentUnits = parent.unitsPerProduct !== undefined ? parent.unitsPerProduct : 1;
+                    unitsPerProduct = parentUnits * newDependency.unitsToDeduct;
                 }
             }
 
@@ -321,7 +327,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 ...prev,
                 stockDependency: newDependency,
                 stockQuantity: calculatedStock,
-                stock: (calculatedStock || 0) > 0
+                stock: (calculatedStock || 0) > 0,
+                unitsPerProduct
             };
         });
     };
@@ -332,7 +339,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 ...prev,
                 stockDependency: { productId: "", unitsToDeduct: 1 },
                 stockQuantity: 0,
-                stock: false
+                stock: false,
+                unitsPerProduct: 1
             }));
         } else {
             setFormData(prev => {
@@ -574,9 +582,13 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         if (p.stockDependency && p.stockDependency.productId) {
             const parent = products.find(prod => prod.id === p.stockDependency?.productId);
             if (parent) {
-                const calculated = Math.floor((parent.stockQuantity || 0) / (p.stockDependency.unitsToDeduct || 1));
+                const unitsToDeduct = p.stockDependency.unitsToDeduct || 1;
+                const calculated = Math.floor((parent.stockQuantity || 0) / unitsToDeduct);
                 p.stockQuantity = calculated;
                 p.stock = calculated > 0;
+                
+                const parentUnits = parent.unitsPerProduct !== undefined ? parent.unitsPerProduct : 1;
+                p.unitsPerProduct = parentUnits * unitsToDeduct;
             }
         }
 
@@ -765,7 +777,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                         <div className="form-group quarter">
                                             <label>Unidades (Estadística)</label>
-                                            <input type="number" name="unitsPerProduct" value={formData.unitsPerProduct !== undefined ? formData.unitsPerProduct : 1} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" step="0.1" title="Cuántas unidades representa para el resumen (ej. Facturas x12 = 12)" />
+                                            <input type="number" name="unitsPerProduct" value={formData.unitsPerProduct !== undefined ? formData.unitsPerProduct : 1} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" step="0.1" title="Cuántas unidades representa para el resumen (ej. Facturas x12 = 12)" disabled={!!formData.stockDependency?.productId} />
                                         </div>
                                         <div className="form-group quarter">
                                             <label>Descuento (%)</label>
