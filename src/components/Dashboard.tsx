@@ -480,8 +480,8 @@ export default function Dashboard() {
 
                     if (isShipping || productInfo?.excludeFromStats) return;
 
-                    // 2. We no longer roll up identity to Parent, so derived products show up as themselves.
-                    // But we DO need to get the parent info to calculate the cost later.
+                    // 2. Get the parent info so derived/combo products can be rolled up into it
+                    // (identity, units and cost) further below.
                     let parentInfoForCost = undefined;
                     let dependencyUnitsToDeduct = 1;
 
@@ -502,12 +502,30 @@ export default function Dashboard() {
                         finalName = currentInfo.nombre;
                     }
 
-                    // 4. Calculate Units using explicit unitsPerProduct or default fallback
+                    // 3b. Roll derived/combo products up into their parent product for reporting,
+                    // so e.g. "Facturas x6" sales are added directly to "Factura" instead of showing
+                    // up as their own row.
+                    if (parentInfoForCost && !isShipping) {
+                        finalId = String(parentInfoForCost.id);
+                        finalName = parentInfoForCost.nombre;
+                    }
+
+                    // 4. Calculate Units using explicit unitsPerProduct or default fallback.
+                    // For derived products we recompute from the parent's unitsPerProduct instead of
+                    // trusting the stored value, since it's only persisted when the product is re-saved
+                    // and can go stale if the parent's own unitsPerProduct changes later.
+                    let effectiveUnitsPerProduct: number | undefined;
+                    if (parentInfoForCost) {
+                        const parentUnitsPerProduct = parentInfoForCost.unitsPerProduct !== undefined ? parentInfoForCost.unitsPerProduct : 1;
+                        effectiveUnitsPerProduct = parentUnitsPerProduct * dependencyUnitsToDeduct;
+                    } else if (currentInfo && currentInfo.unitsPerProduct !== undefined) {
+                        effectiveUnitsPerProduct = currentInfo.unitsPerProduct;
+                    }
 
                     if (isShipping) {
                         finalUnits = 0;
-                    } else if (currentInfo && currentInfo.unitsPerProduct !== undefined) {
-                        finalUnits = finalQty * currentInfo.unitsPerProduct;
+                    } else if (effectiveUnitsPerProduct !== undefined) {
+                        finalUnits = finalQty * effectiveUnitsPerProduct;
                     } else if (currentInfo && currentInfo.unitType === 'weight') {
                         finalUnits = finalQty * 10;
                     } else {
@@ -586,6 +604,13 @@ export default function Dashboard() {
                     } else {
                         // currentInfo is the base product, so we multiply its unit cost by finalQty
                         lineTotalCost = (currentInfo?.recipe?.costPerUnit || 0) * finalQty;
+                    }
+
+                    // Once cost/tracking calculations are done with the original sale quantity,
+                    // convert the derived product's quantity into base-product units for aggregation
+                    // (e.g. 1 "Facturas x6" sold becomes 6 units of "Factura").
+                    if (parentInfoForCost) {
+                        finalQty = finalQty * dependencyUnitsToDeduct;
                     }
 
                     if (current) {
