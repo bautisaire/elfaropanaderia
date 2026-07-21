@@ -464,7 +464,8 @@ export default function OrdersManager() {
                                 quantity: qtyToRestore,
                                 reason: 'Pedido Cancelado',
                                 observation: `Cancelación Pedido derivado: ${item.name}`,
-                                date: new Date()
+                                date: new Date(),
+                                stockAfter: newParentStock
                             });
 
                             await syncChildProducts(parentId, newParentStock);
@@ -473,6 +474,7 @@ export default function OrdersManager() {
                     // --- Fin Lógica Derivados ---
                     else {
                         let variantName = item.variant || "";
+                        let resultStock: number | undefined;
                         if (isVariant && data.variants) {
                             if (!variantName) {
                                 // Fallback para pedidos viejos que no guardaban item.variant
@@ -489,12 +491,14 @@ export default function OrdersManager() {
                                     const newStock = currentStock + (item.quantity || 1);
                                     variants[variantIdx].stockQuantity = newStock;
                                     variants[variantIdx].stock = newStock > 0;
+                                    resultStock = newStock;
                                     await updateDoc(itemRef, { variants });
                                 }
                             }
                         } else {
                             const currentStock = data.stockQuantity || 0;
                             const newStock = currentStock + (item.quantity || 1);
+                            resultStock = newStock;
                             await updateDoc(itemRef, { stockQuantity: newStock });
                             await syncChildProducts(baseId, newStock);
                         }
@@ -507,7 +511,8 @@ export default function OrdersManager() {
                             quantity: item.quantity || 1,
                             reason: 'Pedido Cancelado',
                             observation: `Cancelación Pedido #${/^\d+$/.test(order.id) ? order.id : order.id.slice(-4)}`,
-                            date: new Date()
+                            date: new Date(),
+                            ...(resultStock !== undefined ? { stockAfter: resultStock } : {})
                         });
                     }
                 }
@@ -551,12 +556,14 @@ export default function OrdersManager() {
                                 quantity: qtyToDeduct,
                                 reason: 'Pedido Reactivado',
                                 observation: `Reactivación Pedido derivado: ${item.name}`,
-                                date: new Date()
+                                date: new Date(),
+                                stockAfter: newParentStock
                             });
                             await syncChildProducts(parentId, newParentStock);
                         }
                     } else {
                         let variantName = item.variant || "";
+                        let resultStock: number | undefined;
                         if (isVariant && data.variants) {
                             if (!variantName) {
                                 const match = item.name.match(/\(([^)]+)\)$/);
@@ -571,12 +578,14 @@ export default function OrdersManager() {
                                     const newStock = Math.max(0, currentStock - (item.quantity || 1));
                                     variants[variantIdx].stockQuantity = newStock;
                                     variants[variantIdx].stock = newStock > 0;
+                                    resultStock = newStock;
                                     await updateDoc(itemRef, { variants });
                                 }
                             }
                         } else {
                             const currentStock = data.stockQuantity || 0;
                             const newStock = Math.max(0, currentStock - (item.quantity || 1));
+                            resultStock = newStock;
                             await updateDoc(itemRef, { stockQuantity: newStock });
                             await syncChildProducts(baseId, newStock);
                         }
@@ -588,7 +597,8 @@ export default function OrdersManager() {
                             quantity: item.quantity || 1,
                             reason: 'Pedido Reactivado',
                             observation: reasonObs,
-                            date: new Date()
+                            date: new Date(),
+                            ...(resultStock !== undefined ? { stockAfter: resultStock } : {})
                         });
                     }
                 }
@@ -798,7 +808,8 @@ export default function OrdersManager() {
                         quantity: totalQty,
                         reason: type === 'IN' ? 'Edición Pedido (Devolución)' : 'Edición Pedido (Salida)',
                         observation: reasonObs,
-                        date: new Date()
+                        date: new Date(),
+                        stockAfter: newParentStock
                     });
                     await syncChildProducts(parentId, newParentStock);
                 }
@@ -843,7 +854,8 @@ export default function OrdersManager() {
                         quantity: qty,
                         reason: type === 'IN' ? 'Edición Pedido (Devolución)' : 'Edición Pedido (Salida)',
                         observation: reasonObs,
-                        date: new Date()
+                        date: new Date(),
+                        stockAfter: newStock
                     });
                     await syncChildProducts(baseId, newStock);
                 }

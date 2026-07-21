@@ -315,7 +315,8 @@ exports.processOrder = onCall(async (request) => {
 
                     stockMovementsToLog.push({
                         productId: parentId, productName: parentData.nombre || 'Desconocido', quantity: totalDeduct,
-                        observation: `Venta Derivado: ${item.name || 'Desconocido'}`
+                        observation: `Venta Derivado: ${item.name || 'Desconocido'}`,
+                        stockAfter: parentData.stockQuantity
                     });
                     
                     if(parentData.stockQuantity <= (parentData.minStock || 0)) {
@@ -357,7 +358,10 @@ exports.processOrder = onCall(async (request) => {
 
                     stockMovementsToLog.push({
                         productId: baseId, productName: item.name || 'Desconocido', quantity: qty,
-                        observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`
+                        observation: `Pedido Web${variantName ? ` (Var: ${variantName})` : ''}`,
+                        stockAfter: variantName && productData.variants
+                            ? productData.variants.find(v => v.name === variantName)?.stockQuantity
+                            : productData.stockQuantity
                     });
                     
                     if(productData.stockQuantity <= (productData.minStock || 0)) {

@@ -6,6 +6,7 @@ import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt,
 import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
+import { getDerivedStockFromParent } from '../utils/cartStock';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
@@ -793,6 +794,26 @@ export default function POSManager() {
 
                 cart.forEach(item => {
                     const moveRef = doc(collection(db, "stock_movements"));
+                    const itemDoc = productDataMap[item.id];
+
+                    let stockAfter: number | undefined;
+                    if (itemDoc?.stockDependency?.productId) {
+                        const parentDoc = productDataMap[itemDoc.stockDependency.productId];
+                        if (parentDoc) {
+                            stockAfter = getDerivedStockFromParent(
+                                parentDoc.stockQuantity || 0,
+                                itemDoc.stockDependency.unitsToDeduct || 1,
+                                parentDoc,
+                                itemDoc
+                            );
+                        }
+                    } else if (item.selectedVariant && itemDoc?.variants) {
+                        const v = itemDoc.variants.find((variant: any) => variant.name === item.selectedVariant);
+                        stockAfter = v?.stockQuantity;
+                    } else if (itemDoc) {
+                        stockAfter = itemDoc.stockQuantity;
+                    }
+
                     const movementData = {
                         productId: item.id,
                         productName: item.nombre,
@@ -800,7 +821,8 @@ export default function POSManager() {
                         quantity: item.quantity,
                         reason: 'Venta POS',
                         observation: `Venta Local${item.selectedVariant ? ` (Var: ${item.selectedVariant})` : ''}`,
-                        date: new Date()
+                        date: new Date(),
+                        ...(stockAfter !== undefined ? { stockAfter } : {})
                     };
                     transaction.set(moveRef, movementData);
                 });

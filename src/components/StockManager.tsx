@@ -1,11 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, getDocs, doc, updateDoc, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, doc, updateDoc, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
-import { FaBoxes, FaHistory, FaEdit, FaPlus } from 'react-icons/fa';
+import {
+    FaBoxes, FaHistory, FaEdit, FaPlus, FaFileExport, FaExchangeAlt,
+    FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt
+} from 'react-icons/fa';
 import ProductSearch from './ProductSearch';
 import './StockManager.css';
 import StockAdjustmentModal from './StockAdjustmentModal';
+
+const REASON_META: Record<string, { icon: React.ComponentType }> = {
+    'Venta POS': { icon: FaCashRegister },
+    'Venta Local': { icon: FaCashRegister },
+    'Venta Online': { icon: FaGlobe },
+    'Compra a Proveedor': { icon: FaTruck },
+    'Elaboración': { icon: FaIndustry },
+    'Devolución': { icon: FaUndo },
+    'Ajuste de Inventario': { icon: FaBalanceScale },
+    'Carga Masiva': { icon: FaPlus },
+    'Merma/Desperdicio': { icon: FaTrashAlt },
+    'Consumo Interno': { icon: FaIndustry },
+    'Vencimiento': { icon: FaTrashAlt },
+    'Pedido Cancelado': { icon: FaBan },
+    'Pedido Reactivado': { icon: FaRedo },
+    'Edición Pedido (Devolución)': { icon: FaUndo },
+    'Edición Pedido (Salida)': { icon: FaCashRegister },
+};
+
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
+function formatDateGroup(dateStr: string) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Hoy';
+    if (d.toDateString() === yesterday.toDateString()) return 'Ayer';
+    return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 interface Product {
     id: string;
@@ -30,6 +63,7 @@ interface StockMovement {
     reason: string;
     observation: string;
     date: any; // Timestamp
+    stockAfter?: number;
 }
 
 export default function StockManager() {
@@ -45,6 +79,15 @@ export default function StockManager() {
 
     const [bulkUpdates, setBulkUpdates] = useState<Record<string, number>>({});
     const [bulkReason, setBulkReason] = useState<string>("Compra a Proveedor");
+
+    // History Tab State
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyLimitCount, setHistoryLimitCount] = useState(50);
+    const [hasMoreHistory, setHasMoreHistory] = useState(true);
+    const [historySearch, setHistorySearch] = useState("");
+    const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'IN' | 'OUT'>('all');
+    const [historyReasonFilter, setHistoryReasonFilter] = useState<string>('all');
+    const [historyDateFilter, setHistoryDateFilter] = useState<'all' | 'today' | '7d' | '30d'>('all');
 
     useEffect(() => {
         let unsubscribe: () => void;
@@ -77,30 +120,89 @@ export default function StockManager() {
     };
 
     useEffect(() => {
-        if (activeTab === 'history') {
-            fetchHistory();
-        }
-    }, [activeTab]);
+        if (activeTab !== 'history') return;
 
-    const fetchHistory = async () => {
-        setLoading(true);
-        try {
-            const q = query(
-                collection(db, "stock_movements"),
-                orderBy("date", "desc"),
-                limit(50)
-            );
-            const querySnapshot = await getDocs(q);
-            const moves = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+        setHistoryLoading(true);
+        const q = query(
+            collection(db, "stock_movements"),
+            orderBy("date", "desc"),
+            limit(historyLimitCount)
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const moves = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
             })) as StockMovement[];
             setMovements(moves);
-        } catch (error) {
+            setHasMoreHistory(moves.length === historyLimitCount);
+            setHistoryLoading(false);
+        }, (error) => {
             console.error("Error fetching history:", error);
-        } finally {
-            setLoading(false);
+            setHistoryLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [activeTab, historyLimitCount]);
+
+    const uniqueReasons = useMemo(
+        () => Array.from(new Set(movements.map(m => m.reason))).sort(),
+        [movements]
+    );
+
+    const filteredMovements = useMemo(() => movements.filter(m => {
+        if (historyTypeFilter !== 'all' && m.type !== historyTypeFilter) return false;
+        if (historyReasonFilter !== 'all' && m.reason !== historyReasonFilter) return false;
+        if (historySearch) {
+            const term = historySearch.toLowerCase();
+            const matches = m.productName?.toLowerCase().includes(term) || m.observation?.toLowerCase().includes(term);
+            if (!matches) return false;
         }
+        if (historyDateFilter !== 'all' && m.date?.seconds) {
+            const d = new Date(m.date.seconds * 1000);
+            const now = new Date();
+            const diffDays = (now.getTime() - d.getTime()) / 86400000;
+            if (historyDateFilter === 'today' && d.toDateString() !== now.toDateString()) return false;
+            if (historyDateFilter === '7d' && diffDays > 7) return false;
+            if (historyDateFilter === '30d' && diffDays > 30) return false;
+        }
+        return true;
+    }), [movements, historyTypeFilter, historyReasonFilter, historySearch, historyDateFilter]);
+
+    const historySummary = useMemo(() => filteredMovements.reduce((acc, m) => {
+        if (m.type === 'IN') acc.in += m.quantity; else acc.out += m.quantity;
+        return acc;
+    }, { in: 0, out: 0 }), [filteredMovements]);
+
+    const groupedMovements = useMemo(() => {
+        const groups: Record<string, StockMovement[]> = {};
+        filteredMovements.forEach(m => {
+            const key = m.date?.seconds ? new Date(m.date.seconds * 1000).toDateString() : 'Sin fecha';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(m);
+        });
+        return groups;
+    }, [filteredMovements]);
+
+    const exportHistoryCSV = () => {
+        const header = ['Fecha', 'Producto', 'Tipo', 'Cantidad', 'Motivo', 'Observacion'];
+        const rows = filteredMovements.map(m => [
+            m.date?.seconds ? new Date(m.date.seconds * 1000).toLocaleString('es-AR') : '',
+            m.productName,
+            m.type === 'IN' ? 'Entrada' : 'Salida',
+            String(m.quantity),
+            m.reason,
+            m.observation || ''
+        ]);
+        const csv = [header, ...rows]
+            .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob(["﻿" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `historial_stock_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     const openAdjustmentModal = (product: Product) => {
@@ -154,7 +256,8 @@ export default function StockManager() {
                             quantity: qty,
                             reason: bulkReason,
                             observation: `Carga Masiva (Var: ${variants[varIdx].name})`,
-                            date: new Date()
+                            date: new Date(),
+                            stockAfter: variants[varIdx].stockQuantity
                         });
                     }
                 } else {
@@ -173,7 +276,8 @@ export default function StockManager() {
                         quantity: qty,
                         reason: bulkReason,
                         observation: `Carga Masiva`,
-                        date: new Date()
+                        date: new Date(),
+                        stockAfter: newStock
                     });
                 }
             }
@@ -199,8 +303,6 @@ export default function StockManager() {
 
     return (
         <div className="stock-manager">
-            <h2>Gestión de Stock</h2>
-
             <div className="stock-controls-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <div className="stock-tabs" style={{ marginBottom: 0 }}>
                     <button
@@ -380,23 +482,98 @@ export default function StockManager() {
             )}
 
             {/* TAB HISTORIAL */}
-            {activeTab === 'history' && !loading && (
-                <div className="history-list">
-                    {movements.length === 0 && <p>No hay movimientos registrados.</p>}
-                    {movements.map(m => (
-                        <div key={m.id} className={`movement-item type-${m.type}`}>
-                            <div>
-                                <strong>{m.productName}</strong>
-                                <div className="movement-meta">
-                                    {new Date(m.date.seconds * 1000).toLocaleString()} - {m.reason}
-                                </div>
-                                {m.observation && <div className="movement-meta">"{m.observation}"</div>}
-                            </div>
-                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                {m.type === 'IN' ? '+' : '-'}{m.quantity}
+            {activeTab === 'history' && (
+                <div className="history-container">
+                    <div className="history-summary">
+                        <div className="summary-card in">
+                            <span className="summary-label">Entradas</span>
+                            <span className="summary-value">+{round(historySummary.in)}</span>
+                        </div>
+                        <div className="summary-card out">
+                            <span className="summary-label">Salidas</span>
+                            <span className="summary-value">-{round(historySummary.out)}</span>
+                        </div>
+                        <div className={`summary-card net ${(historySummary.in - historySummary.out) >= 0 ? 'positive' : 'negative'}`}>
+                            <span className="summary-label">Neto</span>
+                            <span className="summary-value">{(historySummary.in - historySummary.out) >= 0 ? '+' : ''}{round(historySummary.in - historySummary.out)}</span>
+                        </div>
+                        <div className="summary-card count">
+                            <span className="summary-label">Movimientos</span>
+                            <span className="summary-value">{filteredMovements.length}</span>
+                        </div>
+                    </div>
+
+                    <div className="history-filters">
+                        <ProductSearch
+                            value={historySearch}
+                            onChange={setHistorySearch}
+                            placeholder="Buscar producto u observación..."
+                            className="history-search"
+                        />
+                        <select value={historyTypeFilter} onChange={e => setHistoryTypeFilter(e.target.value as 'all' | 'IN' | 'OUT')} className="history-filter-select">
+                            <option value="all">Todos los tipos</option>
+                            <option value="IN">Entradas</option>
+                            <option value="OUT">Salidas</option>
+                        </select>
+                        <select value={historyReasonFilter} onChange={e => setHistoryReasonFilter(e.target.value)} className="history-filter-select">
+                            <option value="all">Todos los motivos</option>
+                            {uniqueReasons.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <select value={historyDateFilter} onChange={e => setHistoryDateFilter(e.target.value as 'all' | 'today' | '7d' | '30d')} className="history-filter-select">
+                            <option value="all">Todo el período</option>
+                            <option value="today">Hoy</option>
+                            <option value="7d">Últimos 7 días</option>
+                            <option value="30d">Últimos 30 días</option>
+                        </select>
+                        <button className="btn-export" onClick={exportHistoryCSV} title="Exportar a CSV">
+                            <FaFileExport /> Exportar
+                        </button>
+                    </div>
+
+                    {historyLoading && <p>Cargando...</p>}
+
+                    {!historyLoading && Object.keys(groupedMovements).length === 0 && (
+                        <p className="history-empty">No se encontraron movimientos con estos filtros.</p>
+                    )}
+
+                    {!historyLoading && Object.entries(groupedMovements).map(([dateKey, items]) => (
+                        <div key={dateKey} className="history-day-group">
+                            <div className="history-day-header">{formatDateGroup(dateKey)}</div>
+                            <div className="history-list">
+                                {items.map(m => {
+                                    const Icon = REASON_META[m.reason]?.icon || FaExchangeAlt;
+                                    return (
+                                        <div key={m.id} className={`movement-item type-${m.type}`}>
+                                            <div className={`movement-icon type-${m.type}`}>
+                                                <Icon />
+                                            </div>
+                                            <div className="movement-info">
+                                                <strong>{m.productName}</strong>
+                                                <div className="movement-meta">
+                                                    {m.date?.seconds ? new Date(m.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''} · {m.reason}
+                                                </div>
+                                                {m.observation && <div className="movement-meta observation">"{m.observation}"</div>}
+                                            </div>
+                                            <div className="movement-result">
+                                                <div className={`movement-qty type-${m.type}`}>
+                                                    {m.type === 'IN' ? '+' : '-'}{m.quantity}
+                                                </div>
+                                                {m.stockAfter !== undefined && (
+                                                    <div className="movement-stock-after">Stock: {round(m.stockAfter)}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     ))}
+
+                    {!historyLoading && hasMoreHistory && Object.keys(groupedMovements).length > 0 && (
+                        <button className="btn-load-more" onClick={() => setHistoryLimitCount(c => c + 50)}>
+                            Cargar más movimientos
+                        </button>
+                    )}
                 </div>
             )}
 

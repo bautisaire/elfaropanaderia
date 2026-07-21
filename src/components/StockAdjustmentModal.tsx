@@ -152,7 +152,8 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                 quantity: qty,
                 reason: reason,
                 observation: observation + (variantName ? ` (Var: ${variantName})` : ''),
-                date: new Date()
+                date: new Date(),
+                stockAfter: newStock
             });
 
 
