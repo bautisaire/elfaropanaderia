@@ -53,88 +53,100 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
         aggregatedQuantities.set(key, (aggregatedQuantities.get(key) || 0) + (item.quantity || 1));
     }
 
+    // 1. Fetch all base product docs in parallel (instead of one-by-one per cart item)
+    const uniqueBaseIds = Array.from(new Set(cart.map(getBaseId)));
+    const baseSnaps = await Promise.allSettled(
+        uniqueBaseIds.map(id => getDoc(doc(db, "products", id)))
+    );
+    const baseDataMap = new Map<string, any>();
+    baseSnaps.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value.exists()) {
+            baseDataMap.set(uniqueBaseIds[i], result.value.data());
+        }
+    });
+
+    // 2. Fetch parent docs (for derived/pack products) in parallel
+    const parentIds = new Set<string>();
+    baseDataMap.forEach(data => {
+        if (data.stockDependency?.productId) parentIds.add(data.stockDependency.productId);
+    });
+    const uniqueParentIds = Array.from(parentIds);
+    const parentSnaps = await Promise.allSettled(
+        uniqueParentIds.map(id => getDoc(doc(db, "products", id)))
+    );
+    const parentDataMap = new Map<string, any>();
+    parentSnaps.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value.exists()) {
+            parentDataMap.set(uniqueParentIds[i], result.value.data());
+        }
+    });
+
     for (const item of cart) {
-        try {
-            const baseId = getBaseId(item);
-            const isVariant = item.variant || (item.name && item.name.includes('('));
-            const itemRef = doc(db, "products", baseId);
-            const itemSnap = await getDoc(itemRef);
+        const baseId = getBaseId(item);
+        const isVariant = item.variant || (item.name && item.name.includes('('));
+        const data = baseDataMap.get(baseId);
 
-            if (itemSnap.exists()) {
-                const data = itemSnap.data();
-                let available = 0;
+        if (data) {
+            let available = 0;
 
-                if (data.stockDependency?.productId) {
-                    const parentSnap = await getDoc(
-                        doc(db, "products", data.stockDependency.productId)
-                    );
-                    const parentData = parentSnap.exists() ? parentSnap.data() : null;
-                    const parentStock = parentData
-                        ? getRawStockQuantity({
-                              id: data.stockDependency.productId,
-                              name: '',
-                              price: 0,
-                              image: '',
-                              stockQuantity: parentData.stockQuantity,
-                              stock: parentData.stock,
-                              unitType: parentData.unitType || 'unit',
-                          })
-                        : 0;
-                    const parentProduct = parentData
-                        ? { unitType: parentData.unitType || 'unit' as const }
-                        : undefined;
-                    const childProduct = { unitType: data.unitType || 'unit' as const };
-                    available = getDerivedStockFromParent(
-                        parentStock,
-                        Number(data.stockDependency.unitsToDeduct) || 1,
-                        parentProduct as any,
-                        childProduct as any
-                    );
-                } else if (isVariant && data.variants) {
-                    let variantName = item.variant || "";
-                    if (!variantName) {
-                        const match = item.name.match(/\(([^)]+)\)$/);
-                        if (match) variantName = match[1];
-                    }
-
-                    if (variantName) {
-                        const variant = data.variants.find((v: any) => v.name === variantName);
-                        if (variant) {
-                            available = Number(variant.stockQuantity || 0);
-                        }
-                    }
-                } else {
-                    available = Number(data.stockQuantity || 0);
-                }
-
+            if (data.stockDependency?.productId) {
+                const parentData = parentDataMap.get(data.stockDependency.productId) || null;
+                const parentStock = parentData
+                    ? getRawStockQuantity({
+                          id: data.stockDependency.productId,
+                          name: '',
+                          price: 0,
+                          image: '',
+                          stockQuantity: parentData.stockQuantity,
+                          stock: parentData.stock,
+                          unitType: parentData.unitType || 'unit',
+                      })
+                    : 0;
+                const parentProduct = parentData
+                    ? { unitType: parentData.unitType || 'unit' as const }
+                    : undefined;
+                const childProduct = { unitType: data.unitType || 'unit' as const };
+                available = getDerivedStockFromParent(
+                    parentStock,
+                    Number(data.stockDependency.unitsToDeduct) || 1,
+                    parentProduct as any,
+                    childProduct as any
+                );
+            } else if (isVariant && data.variants) {
                 let variantName = item.variant || "";
-                if (!variantName && item.name && item.name.includes('(')) {
+                if (!variantName) {
                     const match = item.name.match(/\(([^)]+)\)$/);
                     if (match) variantName = match[1];
                 }
-                const key = `${baseId}-${variantName}`;
-                const totalRequested = aggregatedQuantities.get(key) || item.quantity;
 
-                if (totalRequested > available) {
-                    outOfStockItems.push({
-                        id: item.id,
-                        name: item.name,
-                        requested: totalRequested,
-                        available: available
-                    });
+                if (variantName) {
+                    const variant = data.variants.find((v: any) => v.name === variantName);
+                    if (variant) {
+                        available = Number(variant.stockQuantity || 0);
+                    }
                 }
             } else {
-                // Product deleted? Treat as 0 stock
+                available = Number(data.stockQuantity || 0);
+            }
+
+            let variantName = item.variant || "";
+            if (!variantName && item.name && item.name.includes('(')) {
+                const match = item.name.match(/\(([^)]+)\)$/);
+                if (match) variantName = match[1];
+            }
+            const key = `${baseId}-${variantName}`;
+            const totalRequested = aggregatedQuantities.get(key) || item.quantity;
+
+            if (totalRequested > available) {
                 outOfStockItems.push({
                     id: item.id,
                     name: item.name,
-                    requested: item.quantity,
-                    available: 0
+                    requested: totalRequested,
+                    available: available
                 });
             }
-        } catch (error) {
-            console.error("Error validating stock for item:", item, error);
-            // On error, maybe fail safe or block? safe to block for integrity
+        } else {
+            // Product deleted, or the read failed: treat as 0 stock (fail safe)
             outOfStockItems.push({
                 id: item.id,
                 name: item.name,

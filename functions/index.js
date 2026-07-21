@@ -61,46 +61,6 @@ function getDerivedChildStock(parentStock, unitsToDeduct, parentUnitType, childU
     return Math.max(0, Math.floor(parentStock / deduct + 1e-9));
 }
 
-/** Sincroniza stock de productos derivados cuando cambia el padre (misma lógica que el frontend). */
-async function syncChildProductsServer(parentId, newParentStock) {
-    const childrenSnap = await db.collection("products")
-        .where("stockDependency.productId", "==", parentId)
-        .get();
-
-    if (childrenSnap.empty) return;
-
-    const parentSnap = await db.collection("products").doc(parentId).get();
-    const parentUnitType = parentSnap.exists ? (parentSnap.data().unitType || "unit") : "unit";
-
-    const batch = db.batch();
-    let updatesCount = 0;
-
-    childrenSnap.forEach((childDoc) => {
-        const childData = childDoc.data();
-        const dependency = childData.stockDependency;
-        if (dependency && dependency.unitsToDeduct > 0) {
-            const childUnitType = childData.unitType || "unit";
-            const newChildStock = getDerivedChildStock(
-                newParentStock,
-                dependency.unitsToDeduct,
-                parentUnitType,
-                childUnitType
-            );
-            if (childData.stockQuantity !== newChildStock) {
-                batch.update(childDoc.ref, {
-                    stockQuantity: newChildStock,
-                    stock: newChildStock > 0,
-                });
-                updatesCount++;
-            }
-        }
-    });
-
-    if (updatesCount > 0) {
-        await batch.commit();
-    }
-}
-
 exports.createPreference = onRequest((req, res) => {
     cors(req, res, async () => {
         if (req.method !== 'POST') {
@@ -221,10 +181,23 @@ exports.processOrder = onCall(async (request) => {
 
             const uniqueIds = Array.from(productIdsToRead);
             const refs = uniqueIds.map(id => db.collection("products").doc(id));
-            const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
-            
+            const counterRef = db.collection("config").doc("order_counter");
+            const identifier = formData.telefono || (request.auth?.token?.email) || 'Desconocido';
+
+            // Round 1: fetch everything that doesn't depend on another read, in parallel
+            const [docsSnap, counterSnap, rafflesSnap] = await Promise.all([
+                Promise.all(refs.map(ref => transaction.get(ref))),
+                transaction.get(counterRef),
+                transaction.get(db.collection("raffles").where("isActive", "==", true).limit(1))
+            ]);
+
             const productDocsMap = {};
             docsSnap.forEach((snap, i) => { if (snap.exists) productDocsMap[uniqueIds[i]] = snap.data(); });
+
+            let currentOrderId = 1000;
+            if (counterSnap.exists) {
+                currentOrderId = (counterSnap.data().current || 999) + 1;
+            }
 
             // Check Pack dependencies
             const parentIdsToFetch = new Set();
@@ -234,34 +207,28 @@ exports.processOrder = onCall(async (request) => {
                 if (pData?.stockDependency?.productId) parentIdsToFetch.add(pData.stockDependency.productId);
             });
 
-            if (parentIdsToFetch.size > 0) {
-                const parentRefs = Array.from(parentIdsToFetch).map(id => db.collection("products").doc(id));
-                const parentSnaps = await Promise.all(parentRefs.map(ref => transaction.get(ref)));
-                parentSnaps.forEach((snap, i) => { if (snap.exists) productDocsMap[Array.from(parentIdsToFetch)[i]] = snap.data(); });
-            }
+            const activeRaffleId = !rafflesSnap.empty ? rafflesSnap.docs[0].id : null;
+            const parentIdsArr = Array.from(parentIdsToFetch);
 
-            // Read Counter
-            const counterRef = db.collection("config").doc("order_counter");
-            const counterSnap = await transaction.get(counterRef);
-            let currentOrderId = 1000;
-            if (counterSnap.exists) {
-                currentOrderId = (counterSnap.data().current || 999) + 1;
-            }
+            // Round 2: fetch parent products & the raffle participant (both now known), in parallel
+            const [parentSnaps, partsSnap] = await Promise.all([
+                parentIdsArr.length > 0
+                    ? Promise.all(parentIdsArr.map(id => transaction.get(db.collection("products").doc(id))))
+                    : Promise.resolve([]),
+                activeRaffleId
+                    ? transaction.get(
+                        db.collection(`raffles/${activeRaffleId}/participants`)
+                          .where("phoneOrEmail", "==", identifier)
+                          .limit(1)
+                      )
+                    : Promise.resolve(null)
+            ]);
 
-            // Read active raffle & participant (all reads must finish before any write)
-            const identifier = formData.telefono || (request.auth?.token?.email) || 'Desconocido';
-            const rafflesSnap = await transaction.get(db.collection("raffles").where("isActive", "==", true).limit(1));
+            parentSnaps.forEach((snap, i) => { if (snap.exists) productDocsMap[parentIdsArr[i]] = snap.data(); });
 
             let raffleParticipantWrite = null;
             let raffleParticipantUpdate = null;
-            if (!rafflesSnap.empty) {
-                const activeRaffleId = rafflesSnap.docs[0].id;
-                const partsSnap = await transaction.get(
-                    db.collection(`raffles/${activeRaffleId}/participants`)
-                      .where("phoneOrEmail", "==", identifier)
-                      .limit(1)
-                );
-
+            if (activeRaffleId) {
                 if (partsSnap.empty) {
                     raffleParticipantWrite = {
                         ref: db.collection(`raffles/${activeRaffleId}/participants`).doc(),
@@ -376,12 +343,50 @@ exports.processOrder = onCall(async (request) => {
                 }
             }
 
+            // 2b. Sync derived children (e.g. "Pan 500g" when the parent's kg stock drops) inside
+            // the same transaction, instead of a separate read+write pass after commit.
+            const productsToUpdateArr = Array.from(productsToUpdate);
+            const childrenSnaps = productsToUpdateArr.length > 0
+                ? await Promise.all(
+                    productsToUpdateArr.map(pid => transaction.get(
+                        db.collection("products").where("stockDependency.productId", "==", pid)
+                    ))
+                )
+                : [];
+
+            const childUpdates = [];
+            childrenSnaps.forEach((snap, idx) => {
+                const pid = productsToUpdateArr[idx];
+                const parentUnitType = productDocsMap[pid]?.unitType || "unit";
+                const newParentStock = productDocsMap[pid]?.stockQuantity ?? 0;
+                snap.forEach(childDoc => {
+                    const childData = childDoc.data();
+                    const dependency = childData.stockDependency;
+                    if (dependency && dependency.unitsToDeduct > 0) {
+                        const childUnitType = childData.unitType || "unit";
+                        const newChildStock = getDerivedChildStock(
+                            newParentStock,
+                            dependency.unitsToDeduct,
+                            parentUnitType,
+                            childUnitType
+                        );
+                        if (childData.stockQuantity !== newChildStock) {
+                            childUpdates.push({ ref: childDoc.ref, stockQuantity: newChildStock, stock: newChildStock > 0 });
+                        }
+                    }
+                });
+            });
+
             // 3. Write updates
             productsToUpdate.forEach(pid => {
                 const d = productDocsMap[pid];
                 transaction.update(db.collection("products").doc(pid), {
                     stockQuantity: d.stockQuantity, stock: d.stock, variants: d.variants || []
                 });
+            });
+
+            childUpdates.forEach(u => {
+                transaction.update(u.ref, { stockQuantity: u.stockQuantity, stock: u.stock });
             });
 
             // Update counter
@@ -470,14 +475,8 @@ exports.processOrder = onCall(async (request) => {
             return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
         });
 
-        // Sincronizar productos derivados (ej. Pan 500g cuando baja el kg del padre)
-        if (result.productsToUpdate?.length) {
-            await Promise.all(
-                result.productsToUpdate.map((u) =>
-                    syncChildProductsServer(u.id, u.newStock)
-                )
-            );
-        }
+        // Los productos derivados (ej. "Pan 500g" cuando baja el kg del padre) ya se
+        // sincronizan dentro de la misma transacción de arriba (ver "2b. Sync derived children").
 
         // 4. Handle MP Preference creation (outside transaction)
         let init_point = null;

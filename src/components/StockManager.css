@@ -185,15 +185,26 @@
 }
 
 .movement-item {
-    background: #f8fafc;
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 8px;
+    background: #ffffff;
+    padding: 6px 10px;
+    border-radius: 0;
+    margin-bottom: 0;
+    margin-top: -1px;
+    border: 1px solid #000;
     border-left: 4px solid #ccc;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    position: relative;
+}
+
+.movement-item:first-child {
+    margin-top: 0;
+}
+
+.movement-item:nth-child(even) {
+    background: #fdf6d8;
 }
 
 .movement-item.type-IN {
