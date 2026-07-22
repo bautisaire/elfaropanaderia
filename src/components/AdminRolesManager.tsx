@@ -19,6 +19,7 @@ interface AdminRole {
   stock: boolean;
   settings: boolean;
   employees: boolean;
+  notes?: boolean;
   raffle: boolean;
   is_rider: boolean;
 }
@@ -32,6 +33,7 @@ const PERMISSIONS_MAP = [
   { key: 'orders_can_assign_deliveries', label: '↳ Permitir asignar deliveries a riders' },
   { key: 'orders_can_edit_prices', label: '↳ Permitir editar precios de productos (POS y Pedidos)' },
   { key: 'pos_sales', label: 'Ventas POS (Punto de Venta Local)' },
+  { key: 'notes', label: 'Notas y Apuntes' },
   { key: 'store_editor', label: 'Editor de Tienda (Banners, etc.)' },
   { key: 'costs', label: 'Productos, Costos y Recetas' },
   { key: 'stock', label: 'Gestión de Stock' },
@@ -92,6 +94,7 @@ export default function AdminRolesManager() {
         orders_can_assign_deliveries: false,
         orders_can_edit_prices: false,
         pos_sales: false,
+        notes: true,
         store_editor: false,
         costs: false,
         stock: false,

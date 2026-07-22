@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaHeadset } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaHeadset, FaStickyNote } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -17,6 +17,7 @@ import EmployeesManager from "../components/EmployeesManager";
 import RaffleManager from "../components/RaffleManager";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
+import NotesManager from "../components/NotesManager";
 import { useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -294,6 +295,17 @@ export default function Editor() {
                 </button>
               )}
 
+              {adminPermissions?.notes !== false && (
+                <button
+                  className={currentPath === "notes" || currentPath === "notas" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/notes")}
+                  title="Notas"
+                >
+                  <div className="nav-icon" style={{ color: '#e11d48' }}><FaStickyNote /></div>
+                  <span className="nav-text">Notas</span>
+                </button>
+              )}
+
               {adminPermissions?.raffle !== false && (
                 <button
                   className={currentPath === "raffle" ? "active" : ""}
@@ -355,6 +367,7 @@ export default function Editor() {
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
+              {adminPermissions?.notes !== false && <Route path="/notes" element={<NotesManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
               {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
@@ -368,6 +381,7 @@ export default function Editor() {
                 (() => {
                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
+                  if (adminPermissions?.notes !== false) return <Navigate to="/editor/notes" replace />;
                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;

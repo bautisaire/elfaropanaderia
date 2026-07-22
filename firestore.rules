@@ -129,6 +129,9 @@ service cloud.firestore {
     match /time_entries/{document=**} {
       allow read, write: if isAdmin();
     }
+    match /notes/{document=**} {
+      allow read, write: if isAdmin();
+    }
     match /employees/{document=**} {
       allow read, write: if isAdmin();
     }
