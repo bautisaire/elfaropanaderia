@@ -47,6 +47,8 @@ export interface FirestoreProduct {
     };
     stockReadyTime?: string; // ISO string
     availableAt?: string;
+    customBadgeEnabled?: boolean;
+    customBadgeText?: string;
     createdAt?: any;
     updatedAt?: any;
     isCombo?: boolean;
@@ -76,6 +78,8 @@ const INITIAL_STATE: FirestoreProduct = {
     requiresRecipe: true,
     stockReadyTime: "",
     availableAt: "",
+    customBadgeEnabled: false,
+    customBadgeText: "",
     isCombo: false,
     comboItemsCount: 6,
     comboOptions: []
@@ -1014,6 +1018,28 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 Estará listo: {new Date(formData.availableAt).toLocaleString('es-AR', { weekday: 'long', hour: '2-digit', minute: '2-digit' })}
                                                 {new Date(formData.availableAt) < new Date() ? " (Ya disponible)" : ""}
                                             </div>
+                                        )}
+                                    </div>
+
+                                    {/* Custom Badge Section */}
+                                    <div className="form-group" style={{ background: '#eef2ff', padding: '10px', borderRadius: '8px', marginTop: '10px', border: '1px solid #c7d2fe' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#4338ca', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!formData.customBadgeEnabled}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, customBadgeEnabled: e.target.checked }))}
+                                            />
+                                            <strong>Etiqueta Personalizada</strong>
+                                        </label>
+                                        {formData.customBadgeEnabled && (
+                                            <input
+                                                type="text"
+                                                value={formData.customBadgeText || ""}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, customBadgeText: e.target.value }))}
+                                                placeholder="Ej: ¡Nuevo!"
+                                                maxLength={20}
+                                                style={{ marginTop: '8px', padding: '6px', borderRadius: '4px', border: '1px solid #c7d2fe', width: '100%' }}
+                                            />
                                         )}
                                     </div>
 

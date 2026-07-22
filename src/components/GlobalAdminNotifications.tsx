@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaTimes } from "react-icons/fa";
 import { printTicket } from "../utils/printTicket";
 import newOrderSound from "../sounds/neworder.mp3";
+import pickupStoreSound from "../sounds/pickupstore.mp3";
 import noStockSound from "../sounds/nostock.mp3";
 
 export default function GlobalAdminNotifications() {
@@ -90,6 +91,7 @@ export default function GlobalAdminNotifications() {
                     // IN-APP NOTIFICATION & SOUND (Always triggered unless disabled? No, these we always trigger to notify if window is active)
                     const orderIdStr = change.doc.id.slice(-6).toUpperCase();
                     const isPosDelivery = newOrder.source === 'pos_delivery';
+                    const isPickup = newOrder.cliente?.metodoEntrega === 'pickup';
                     setNotificationMessage(isPosDelivery
                         ? `¡Nueva Delivery POS de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`
                         : `¡Nuevo Pedido Web de ${newOrder.cliente?.nombre || 'Cliente'}! Total: $${newOrder.total}`);
@@ -101,7 +103,7 @@ export default function GlobalAdminNotifications() {
                     hideTimeoutRef.current = setTimeout(() => setShowNotification(false), 8000);
 
                     try {
-                        const audio = new Audio(newOrderSound);
+                        const audio = new Audio(isPickup ? pickupStoreSound : newOrderSound);
                         audio.play().catch(e => console.log("Audio play blocked by browser:", e));
                     } catch (e) {
                         console.log("Audio no soportado o interactuación requerida primero", e);

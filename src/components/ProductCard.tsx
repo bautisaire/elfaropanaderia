@@ -169,6 +169,14 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
 
         {/* Preparation Notice Badge */}
         {(() => {
+          if (liveProduct.customBadgeEnabled && liveProduct.customBadgeText) {
+            return (
+              <div className="discount-badge" style={{ backgroundColor: '#4338ca', color: '#fff', fontSize: '0.75rem', padding: '4px 8px', zIndex: 10 }}>
+                {liveProduct.customBadgeText}
+              </div>
+            );
+          }
+
           const isPreparationDelayed = liveProduct.availableAt && new Date(liveProduct.availableAt) > new Date();
 
           if (isPreparationDelayed) {

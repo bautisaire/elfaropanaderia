@@ -90,6 +90,8 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         categoria: ((data.categoria as string) || "Otros").trim(),
         stockReadyTime: data.stockReadyTime as string | undefined,
         availableAt: data.availableAt as string | undefined,
+        customBadgeEnabled: data.customBadgeEnabled as boolean | undefined,
+        customBadgeText: data.customBadgeText as string | undefined,
         createdAt: data.createdAt ? new Date((data.createdAt as any).seconds * 1000).toISOString() : new Date().toISOString(),
         isCombo: data.isCombo as boolean | undefined,
         comboItemsCount: data.comboItemsCount as number | undefined,

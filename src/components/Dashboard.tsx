@@ -317,7 +317,9 @@ export default function Dashboard() {
                         const match = item.name ? item.name.match(/\(([^)]+)\)$/) : null;
                         if (match) variantName = match[1];
                     }
-                    if (item.productId) {
+                    if (item.baseProductId) {
+                        baseId = String(item.baseProductId);
+                    } else if (item.productId) {
                         baseId = String(item.productId);
                     } else if (variantName) {
                         const suffix = `-${variantName}`;
@@ -448,7 +450,9 @@ export default function Dashboard() {
                         if (match) variantName = match[1];
                     }
 
-                    if (item.productId) {
+                    if (item.baseProductId) {
+                        baseId = String(item.baseProductId);
+                    } else if (item.productId) {
                         baseId = String(item.productId);
                     } else if (variantName) {
                         const suffix = `-${variantName}`;

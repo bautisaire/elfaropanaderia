@@ -32,6 +32,8 @@ export interface Product {
   isVisible?: boolean;
   stockReadyTime?: string;
   availableAt?: string;
+  customBadgeEnabled?: boolean;
+  customBadgeText?: string;
   selectedVariant?: string;
   baseProductId?: string | number;
   stockDependency?: {
