@@ -547,21 +547,19 @@ export default function StockManager() {
                                             <div className={`movement-icon type-${m.type}`}>
                                                 <Icon />
                                             </div>
+                                            <div className={`movement-qty type-${m.type}`}>
+                                                {m.type === 'IN' ? '+' : '-'}{m.quantity}
+                                            </div>
                                             <div className="movement-info">
                                                 <strong>{m.productName}</strong>
-                                                <div className="movement-meta">
+                                                <span className="movement-meta">
                                                     {m.date?.seconds ? new Date(m.date.seconds * 1000).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : ''} · {m.reason}
-                                                </div>
-                                                {m.observation && <div className="movement-meta observation">"{m.observation}"</div>}
+                                                </span>
+                                                {m.observation && <span className="movement-meta observation">"{m.observation}"</span>}
                                             </div>
-                                            <div className="movement-result">
-                                                <div className={`movement-qty type-${m.type}`}>
-                                                    {m.type === 'IN' ? '+' : '-'}{m.quantity}
-                                                </div>
-                                                {m.stockAfter !== undefined && (
-                                                    <div className="movement-stock-after">Stock: {round(m.stockAfter)}</div>
-                                                )}
-                                            </div>
+                                            {m.stockAfter !== undefined && (
+                                                <div className="movement-stock-after">Stock: {round(m.stockAfter)}</div>
+                                            )}
                                         </div>
                                     );
                                 })}
