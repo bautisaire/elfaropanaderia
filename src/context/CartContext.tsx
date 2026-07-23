@@ -315,6 +315,7 @@ export const CartProvider = ({ children }: Props) => {
             employees: true,
             settings: true,
             raffle: true,
+            notes: true,
           });
         } else {
           setIsSuperAdmin(false);
@@ -337,6 +338,7 @@ export const CartProvider = ({ children }: Props) => {
                   employees: true,
                   settings: true,
                   raffle: true,
+                  notes: true,
                });
             } else {
               setIsAdmin(false);

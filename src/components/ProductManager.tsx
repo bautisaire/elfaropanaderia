@@ -54,6 +54,7 @@ export interface FirestoreProduct {
     isCombo?: boolean;
     comboItemsCount?: number;
     comboOptions?: { name: string; image?: string; disabled?: boolean }[];
+    isQuickStock?: boolean;
 }
 
 const INITIAL_STATE: FirestoreProduct = {
@@ -82,7 +83,8 @@ const INITIAL_STATE: FirestoreProduct = {
     customBadgeText: "",
     isCombo: false,
     comboItemsCount: 6,
-    comboOptions: []
+    comboOptions: [],
+    isQuickStock: false
 };
 
 type ImageEditorTarget =
@@ -241,6 +243,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                         images: data.images || (data.img ? [data.img] : []),
                         stockReadyTime: data.stockReadyTime || "",
                         availableAt: data.availableAt || "",
+                        isQuickStock: !!data.isQuickStock || !!data.quickStock,
                     } as FirestoreProduct;
                 });
                 setProducts(prods);

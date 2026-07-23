@@ -295,7 +295,7 @@ export default function Editor() {
                 </button>
               )}
 
-              {adminPermissions?.notes !== false && (
+              {adminPermissions?.notes === true && (
                 <button
                   className={currentPath === "notes" || currentPath === "notas" ? "active" : ""}
                   onClick={() => handleNavClick("/editor/notes")}
@@ -367,7 +367,7 @@ export default function Editor() {
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
-              {adminPermissions?.notes !== false && <Route path="/notes" element={<NotesManager />} />}
+              {adminPermissions?.notes === true && <Route path="/notes" element={<NotesManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
               {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
@@ -381,7 +381,7 @@ export default function Editor() {
                 (() => {
                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
-                  if (adminPermissions?.notes !== false) return <Navigate to="/editor/notes" replace />;
+                  if (adminPermissions?.notes === true) return <Navigate to="/editor/notes" replace />;
                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;

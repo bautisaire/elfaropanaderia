@@ -94,7 +94,7 @@ export default function AdminRolesManager() {
         orders_can_assign_deliveries: false,
         orders_can_edit_prices: false,
         pos_sales: false,
-        notes: true,
+        notes: false,
         store_editor: false,
         costs: false,
         stock: false,

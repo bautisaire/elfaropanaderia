@@ -4,7 +4,7 @@ import { collection, doc, updateDoc, addDoc, query, orderBy, limit, onSnapshot }
 import { syncChildProducts } from "../utils/stockUtils";
 import {
     FaBoxes, FaHistory, FaEdit, FaPlus, FaFileExport, FaExchangeAlt,
-    FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt
+    FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt, FaBolt, FaTimes, FaSave, FaCheckCircle
 } from 'react-icons/fa';
 import ProductSearch from './ProductSearch';
 import './StockManager.css';
@@ -19,6 +19,7 @@ const REASON_META: Record<string, { icon: React.ComponentType }> = {
     'Devolución': { icon: FaUndo },
     'Ajuste de Inventario': { icon: FaBalanceScale },
     'Carga Masiva': { icon: FaPlus },
+    'Carga Rápida': { icon: FaBolt },
     'Merma/Desperdicio': { icon: FaTrashAlt },
     'Consumo Interno': { icon: FaIndustry },
     'Vencimiento': { icon: FaTrashAlt },
@@ -28,7 +29,12 @@ const REASON_META: Record<string, { icon: React.ComponentType }> = {
     'Edición Pedido (Salida)': { icon: FaCashRegister },
 };
 
-const round = (n: number) => Math.round(n * 1000) / 1000;
+const round = (n: number) => Math.round(n * 100) / 100;
+
+const formatStock = (n: number | undefined | null): string => {
+    if (n === undefined || n === null || isNaN(n)) return '0';
+    return (Math.round(Number(n) * 100) / 100).toString();
+};
 
 function formatDateGroup(dateStr: string) {
     const d = new Date(dateStr);
@@ -47,6 +53,8 @@ interface Product {
     stockQuantity?: number;
     stockDependency?: any;
     unitType?: 'unit' | 'weight';
+    isQuickStock?: boolean;
+    quickStock?: boolean;
     variants?: {
         name: string;
         stock: boolean;
@@ -67,7 +75,7 @@ interface StockMovement {
 }
 
 export default function StockManager() {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('history');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('bulk');
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
@@ -77,8 +85,19 @@ export default function StockManager() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const [bulkUpdates, setBulkUpdates] = useState<Record<string, number>>({});
-    const [bulkReason, setBulkReason] = useState<string>("Compra a Proveedor");
+    // Carga Rápida State
+    const [quickUpdates, setQuickUpdates] = useState<Record<string, number>>({});
+    const [quickReason, setQuickReason] = useState<string>("Elaboración");
+    const [savingQuick, setSavingQuick] = useState(false);
+    const [isAddQuickModalOpen, setIsAddQuickModalOpen] = useState(false);
+    const [addQuickSearch, setAddQuickSearch] = useState("");
+    const [addingQuickId, setAddingQuickId] = useState<string | null>(null);
+
+    // Custom Confirmation Modals State
+    const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
+    const [resetTarget, setResetTarget] = useState<{ product: Product; variantIndex?: number; targetName: string; currentStock: number } | null>(null);
+    const [isConfirmResetAllModalOpen, setIsConfirmResetAllModalOpen] = useState(false);
+    const [resettingAll, setResettingAll] = useState(false);
 
     // History Tab State
     const [historyLoading, setHistoryLoading] = useState(false);
@@ -211,12 +230,45 @@ export default function StockManager() {
         setIsModalOpen(true);
     };
 
-    // Bulk Update Logic
-    const handleBulkChange = (id: string, value: string) => {
+    // Carga Rápida Logic
+    const quickProducts = useMemo(() => {
+        return products.filter(p => (p.isQuickStock || p.quickStock) && (
+            !searchTerm ||
+            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.variants && p.variants.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())))
+        ));
+    }, [products, searchTerm]);
+
+    const availableForQuick = useMemo(() => {
+        return products.filter(p => {
+            if (p.isQuickStock || p.quickStock) return false;
+            if (!addQuickSearch) return true;
+            const term = addQuickSearch.toLowerCase();
+            return p.nombre.toLowerCase().includes(term) ||
+                (p.variants && p.variants.some(v => v.name.toLowerCase().includes(term)));
+        });
+    }, [products, addQuickSearch]);
+
+    const handleToggleQuickStock = async (product: Product, enable: boolean) => {
+        setAddingQuickId(product.id);
+        try {
+            await updateDoc(doc(db, "products", product.id), {
+                isQuickStock: enable,
+                quickStock: enable
+            });
+        } catch (error) {
+            console.error("Error al actualizar Carga Rápida:", error);
+            alert("Ocurrió un error al actualizar el producto.");
+        } finally {
+            setAddingQuickId(null);
+        }
+    };
+
+    const handleQuickChange = (id: string, value: string) => {
         let val = Number(value);
         val = Math.round(val * 1000) / 1000;
-        setBulkUpdates(prev => {
-            if (val <= 0) {
+        setQuickUpdates(prev => {
+            if (isNaN(val) || val <= 0) {
                 const copy = { ...prev };
                 delete copy[id];
                 return copy;
@@ -225,48 +277,66 @@ export default function StockManager() {
         });
     };
 
-    const handleBulkSave = async () => {
-        const entries = Object.entries(bulkUpdates);
-        if (entries.length === 0) return alert("No hay cambios para guardar.");
-        if (!window.confirm(`¿Confirmar carga masiva de ${entries.length} items?`)) return;
+    const handleQuickInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, currentIndex: number) => {
+        if (e.key === 'Tab' || e.key === 'Enter') {
+            e.preventDefault();
+            const inputs = document.querySelectorAll<HTMLInputElement>('.quick-input');
+            const targetIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
+            const targetInput = inputs[targetIndex];
+            if (targetInput) {
+                targetInput.focus();
+                targetInput.select();
+            }
+        }
+    };
 
-        setLoading(true);
+    const handleOpenSaveConfirm = () => {
+        const entries = Object.entries(quickUpdates);
+        if (entries.length === 0) {
+            alert("No has ingresado ninguna cantidad para sumar.");
+            return;
+        }
+        setIsConfirmSaveModalOpen(true);
+    };
+
+    const executeQuickSave = async () => {
+        const entries = Object.entries(quickUpdates);
+        if (entries.length === 0) return;
+
+        setSavingQuick(true);
         try {
             for (const [key, qty] of entries) {
-                // Key format: "productId" or "productId-variantIndex"
                 const [prodId, varIdxStr] = key.split('-');
                 const product = products.find(p => p.id === prodId);
                 if (!product) continue;
 
                 if (varIdxStr !== undefined) {
-                    // Variant Update
                     const varIdx = Number(varIdxStr);
                     const variants = [...(product.variants || [])];
                     if (variants[varIdx]) {
                         const current = variants[varIdx].stockQuantity || 0;
-                        variants[varIdx].stockQuantity = current + qty;
-                        variants[varIdx].stock = (current + qty) > 0;
+                        const newStock = current + qty;
+                        variants[varIdx].stockQuantity = newStock;
+                        variants[varIdx].stock = newStock > 0;
 
                         await updateDoc(doc(db, "products", prodId), { variants });
 
                         await addDoc(collection(db, "stock_movements"), {
                             productId: prodId,
-                            productName: product.nombre,
+                            productName: `${product.nombre} (${variants[varIdx].name})`,
                             type: 'IN',
                             quantity: qty,
-                            reason: bulkReason,
-                            observation: `Carga Masiva (Var: ${variants[varIdx].name})`,
+                            reason: quickReason,
+                            observation: `Carga Rápida`,
                             date: new Date(),
-                            stockAfter: variants[varIdx].stockQuantity
+                            stockAfter: newStock
                         });
                     }
                 } else {
-                    // Simple Product Update
                     const current = product.stockQuantity || 0;
                     const newStock = current + qty;
                     await updateDoc(doc(db, "products", prodId), { stockQuantity: newStock });
 
-                    // Sync Children
                     await syncChildProducts(prodId, newStock);
 
                     await addDoc(collection(db, "stock_movements"), {
@@ -274,26 +344,165 @@ export default function StockManager() {
                         productName: product.nombre,
                         type: 'IN',
                         quantity: qty,
-                        reason: bulkReason,
-                        observation: `Carga Masiva`,
+                        reason: quickReason,
+                        observation: `Carga Rápida`,
                         date: new Date(),
                         stockAfter: newStock
                     });
                 }
             }
 
-            setBulkUpdates({});
-            alert("Carga masiva completada exitosamente.");
-            fetchProducts();
+            setQuickUpdates({});
+            setIsConfirmSaveModalOpen(false);
         } catch (error) {
-            console.error("Error in bulk update:", error);
-            alert("Error durante la carga masiva. Revise la consola.");
+            console.error("Error al realizar Carga Rápida:", error);
+            alert("Ocurrió un error al guardar la carga rápida.");
         } finally {
-            setLoading(false);
+            setSavingQuick(false);
         }
     };
 
-    const reasonsIn = ["Elaboración", "Compra a Proveedor", "Devolución", "Ajuste de Inventario"];
+    const triggerResetStockModal = (product: Product, variantIndex?: number) => {
+        const isVariant = variantIndex !== undefined && product.variants && product.variants[variantIndex] !== undefined;
+        const targetName = isVariant
+            ? `${product.nombre} (${product.variants![variantIndex].name})`
+            : product.nombre;
+        const currentStock = isVariant
+            ? (product.variants![variantIndex].stockQuantity || 0)
+            : (product.stockQuantity || 0);
+
+        if (currentStock === 0) {
+            alert(`El stock de "${targetName}" ya está en 0.`);
+            return;
+        }
+
+        setResetTarget({ product, variantIndex, targetName, currentStock });
+    };
+
+    const executeResetStock = async () => {
+        if (!resetTarget) return;
+        const { product, variantIndex, targetName, currentStock } = resetTarget;
+
+        try {
+            if (variantIndex !== undefined && product.variants && product.variants[variantIndex] !== undefined) {
+                const variants = [...(product.variants || [])];
+                variants[variantIndex].stockQuantity = 0;
+                variants[variantIndex].stock = false;
+
+                await updateDoc(doc(db, "products", product.id), { variants });
+
+                await addDoc(collection(db, "stock_movements"), {
+                    productId: product.id,
+                    productName: targetName,
+                    type: currentStock > 0 ? 'OUT' : 'IN',
+                    quantity: Math.abs(currentStock),
+                    reason: 'Ajuste de Inventario',
+                    observation: 'Reinicio de stock a 0',
+                    date: new Date(),
+                    stockAfter: 0
+                });
+            } else {
+                await updateDoc(doc(db, "products", product.id), { stockQuantity: 0 });
+                await syncChildProducts(product.id, 0);
+
+                await addDoc(collection(db, "stock_movements"), {
+                    productId: product.id,
+                    productName: targetName,
+                    type: currentStock > 0 ? 'OUT' : 'IN',
+                    quantity: Math.abs(currentStock),
+                    reason: 'Ajuste de Inventario',
+                    observation: 'Reinicio de stock a 0',
+                    date: new Date(),
+                    stockAfter: 0
+                });
+            }
+
+            const isVariant = variantIndex !== undefined;
+            const key = isVariant ? `${product.id}-${variantIndex}` : product.id;
+            setQuickUpdates(prev => {
+                const copy = { ...prev };
+                delete copy[key];
+                return copy;
+            });
+            setResetTarget(null);
+        } catch (error) {
+            console.error("Error al reiniciar stock:", error);
+            alert("Ocurrió un error al reiniciar el stock.");
+        }
+    };
+
+    const handleOpenResetAllConfirm = () => {
+        if (quickProducts.length === 0) return;
+        setIsConfirmResetAllModalOpen(true);
+    };
+
+    const executeResetAllStock = async () => {
+        if (quickProducts.length === 0) return;
+        setResettingAll(true);
+
+        try {
+            let resetCount = 0;
+            for (const product of quickProducts) {
+                if (product.variants && product.variants.length > 0) {
+                    let updatedVariants = false;
+                    const variants = [...product.variants];
+
+                    for (let idx = 0; idx < variants.length; idx++) {
+                        const v = variants[idx];
+                        const currentStock = v.stockQuantity || 0;
+                        if (currentStock !== 0) {
+                            variants[idx].stockQuantity = 0;
+                            variants[idx].stock = false;
+                            updatedVariants = true;
+                            resetCount++;
+
+                            await addDoc(collection(db, "stock_movements"), {
+                                productId: product.id,
+                                productName: `${product.nombre} (${v.name})`,
+                                type: currentStock > 0 ? 'OUT' : 'IN',
+                                quantity: Math.abs(currentStock),
+                                reason: 'Ajuste de Inventario',
+                                observation: 'Reinicio masivo de stock a 0',
+                                date: new Date(),
+                                stockAfter: 0
+                            });
+                        }
+                    }
+
+                    if (updatedVariants) {
+                        await updateDoc(doc(db, "products", product.id), { variants });
+                    }
+                } else {
+                    const currentStock = product.stockQuantity || 0;
+                    if (currentStock !== 0) {
+                        resetCount++;
+                        await updateDoc(doc(db, "products", product.id), { stockQuantity: 0 });
+                        await syncChildProducts(product.id, 0);
+
+                        await addDoc(collection(db, "stock_movements"), {
+                            productId: product.id,
+                            productName: product.nombre,
+                            type: currentStock > 0 ? 'OUT' : 'IN',
+                            quantity: Math.abs(currentStock),
+                            reason: 'Ajuste de Inventario',
+                            observation: 'Reinicio masivo de stock a 0',
+                            date: new Date(),
+                            stockAfter: 0
+                        });
+                    }
+                }
+            }
+
+            setQuickUpdates({});
+            setIsConfirmResetAllModalOpen(false);
+            alert(`¡Reinicio completado! Se restableció el stock a 0 en ${resetCount} ítem(s).`);
+        } catch (error) {
+            console.error("Error al reiniciar todo el stock:", error);
+            alert("Ocurrió un error al reiniciar el stock.");
+        } finally {
+            setResettingAll(false);
+        }
+    };
 
     // Filter Logic
     const filteredProducts = products.filter(p =>
@@ -306,22 +515,22 @@ export default function StockManager() {
             <div className="stock-controls-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <div className="stock-tabs" style={{ marginBottom: 0 }}>
                     <button
-                        className={`stock-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('inventory')}
-                    >
-                        <FaBoxes /> Inventario
-                    </button>
-                    <button
                         className={`stock-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
                         onClick={() => setActiveTab('bulk')}
                     >
-                        <FaPlus /> Carga Masiva
+                        <FaBolt /> Carga Rápida
                     </button>
                     <button
                         className={`stock-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
                         onClick={() => setActiveTab('history')}
                     >
                         <FaHistory /> Historial
+                    </button>
+                    <button
+                        className={`stock-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('inventory')}
+                    >
+                        <FaBoxes /> Inventario
                     </button>
                 </div>
 
@@ -330,7 +539,7 @@ export default function StockManager() {
                         <ProductSearch
                             value={searchTerm}
                             onChange={setSearchTerm}
-                            placeholder={activeTab === 'bulk' ? "Buscar para carga masiva..." : "Buscar en inventario..."}
+                            placeholder={activeTab === 'bulk' ? "Buscar en carga rápida..." : "Buscar en inventario..."}
                         />
                     </div>
                 )}
@@ -397,87 +606,173 @@ export default function StockManager() {
                 </div>
             )}
 
-            {/* TAB CARGA MASIVA */}
+            {/* TAB CARGA RÁPIDA */}
             {activeTab === 'bulk' && !loading && (
-                <div className="stock-bulk-container">
-                    <div className="bulk-header">
-                        <label>Motivo de la carga:</label>
-                        <select value={bulkReason} onChange={e => setBulkReason(e.target.value)} className="bulk-reason-select">
-                            {reasonsIn.map(r => <option key={r} value={r}>{r}</option>)}
+                <div className="quick-stock-wrapper">
+                    <div className="quick-stock-header">
+                        <label>
+                            <FaBolt style={{ color: '#16a34a' }} /> Motivo de la carga:
+                        </label>
+                        <select
+                            value={quickReason}
+                            onChange={e => setQuickReason(e.target.value)}
+                            className="quick-reason-select"
+                        >
+                            <option value="Elaboración">Elaboración</option>
+                            <option value="Compra a Proveedor">Compra a Proveedor</option>
+                            <option value="Devolución">Devolución</option>
+                            <option value="Ajuste de Inventario">Ajuste de Inventario</option>
                         </select>
-                        <button className="btn-save-bulk" onClick={handleBulkSave}>
-                            Guardar Carga ({Object.keys(bulkUpdates).length})
-                        </button>
+
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <button
+                                className="btn-save-quick"
+                                onClick={handleOpenSaveConfirm}
+                                disabled={savingQuick || Object.keys(quickUpdates).length === 0}
+                            >
+                                <FaBolt /> Guardar Stock ({Object.keys(quickUpdates).length})
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-reset-all-quick"
+                                onClick={handleOpenResetAllConfirm}
+                                disabled={savingQuick || resettingAll || quickProducts.length === 0}
+                            >
+                                <FaUndo /> Reiniciar Todo
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="stock-table-container">
-                        <table className="stock-table">
-                            <thead>
-                                <tr>
-                                    <th>Producto / Variante</th>
-                                    <th>Stock Actual</th>
-                                    <th>Agregar Cantidad (+)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredProducts.map(p => {
-                                    // If product has variants, render a row for each variant
-                                    if (p.variants && p.variants.length > 0) {
-                                        return p.variants.map((v, idx) => (
-                                            <tr key={`${p.id}-${idx}`}>
-                                                <td data-label="Producto">
-                                                    <strong>{p.nombre}</strong> <br />
-                                                    <span className="text-sm text-gray">{v.name}</span>
-                                                </td>
-                                                <td data-label="Stock Actual">{v.stockQuantity || 0}</td>
-                                                <td data-label="Agregar">
-                                                    <input
-                                                        type="number"
-                                                        step="0.001"
-                                                        min="0"
-                                                        placeholder="0"
-                                                        className="bulk-input"
-                                                        value={bulkUpdates[`${p.id}-${idx}`] || ''}
-                                                        onChange={e => handleBulkChange(`${p.id}-${idx}`, e.target.value)}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        ));
-                                    } else {
-                                        // Simple product row
-                                        return (
-                                            <tr key={p.id}>
-                                                <td data-label="Producto">
-                                                    <strong>{p.nombre}</strong>
-                                                    {p.stockDependency && <span className="text-xs-gray"> (Calc. Auto)</span>}
-                                                </td>
-                                                <td data-label="Stock Actual">{p.stockQuantity || 0}</td>
-                                                <td data-label="Agregar">
-                                                    <input
-                                                        type="number"
-                                                        step="0.001"
-                                                        min="0"
-                                                        placeholder={p.stockDependency ? "Auto" : "0"}
-                                                        className="bulk-input"
-                                                        value={bulkUpdates[p.id] || ''}
-                                                        onChange={e => handleBulkChange(p.id, e.target.value)}
-                                                        disabled={!!p.stockDependency}
-                                                    />
-                                                </td>
-                                            </tr>
-                                        );
-                                    }
-                                })}
-                                {filteredProducts.length === 0 && (
+                    {quickProducts.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                            <FaBolt style={{ fontSize: '40px', color: '#cbd5e1', marginBottom: '12px' }} />
+                            <h4 style={{ color: '#334155', marginBottom: '6px' }}>No hay productos habilitados para Carga Rápida</h4>
+                            <p style={{ fontSize: '13px', maxWidth: '420px', margin: '0 auto 20px auto' }}>
+                                Puedes agregar productos haciendo clic en el botón de abajo.
+                            </p>
+                            <button
+                                type="button"
+                                className="btn-add-quick-product"
+                                onClick={() => setIsAddQuickModalOpen(true)}
+                            >
+                                <FaPlus /> Agregar otro producto
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <table className="quick-table" style={{ maxWidth: '640px', margin: '0 auto' }}>
+                                <thead>
                                     <tr>
-                                        <td colSpan={3} style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-                                            No se encontraron productos.
-                                        </td>
+                                        <th style={{ textAlign: 'center', width: '45%' }}>Producto</th>
+                                        <th style={{ textAlign: 'center', width: '30%' }}>Sumar Stock (+)</th>
+                                        <th style={{ textAlign: 'center', width: '25%' }}>Acción</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        let inputCount = 0;
+                                        return quickProducts.map(p => {
+                                            if (p.variants && p.variants.length > 0) {
+                                                return p.variants.map((v, idx) => {
+                                                    const key = `${p.id}-${idx}`;
+                                                    const currentIndex = inputCount++;
+                                                    return (
+                                                        <tr key={key}>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <strong style={{ color: '#1e293b', fontSize: '15px' }}>{p.nombre}</strong>
+                                                                <span style={{ display: 'block', fontSize: '12px', color: '#64748b' }}>
+                                                                    {v.name} (Stock: {formatStock(v.stockQuantity)})
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.001"
+                                                                    min="0"
+                                                                    placeholder="0"
+                                                                    className="quick-input"
+                                                                    value={quickUpdates[key] || ''}
+                                                                    onChange={e => handleQuickChange(key, e.target.value)}
+                                                                    onKeyDown={e => handleQuickInputKeyDown(e, currentIndex)}
+                                                                />
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn-reset-stock"
+                                                                    title="Reiniciar stock a 0"
+                                                                    tabIndex={-1}
+                                                                    onClick={() => triggerResetStockModal(p, idx)}
+                                                                >
+                                                                    <FaUndo /> Reiniciar
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            }
+
+                                            const currentIndex = inputCount++;
+                                            return (
+                                                <tr key={p.id}>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <strong style={{ color: '#1e293b', fontSize: '15px' }}>{p.nombre}</strong>
+                                                        <span style={{ display: 'block', fontSize: '12px', color: '#64748b' }}>
+                                                            Stock actual: {formatStock(p.stockQuantity)}{p.unitType === 'weight' ? ' kg' : ''}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <input
+                                                            type="number"
+                                                            step="0.001"
+                                                            min="0"
+                                                            placeholder="0"
+                                                            className="quick-input"
+                                                            value={quickUpdates[p.id] || ''}
+                                                            onChange={e => handleQuickChange(p.id, e.target.value)}
+                                                            onKeyDown={e => handleQuickInputKeyDown(e, currentIndex)}
+                                                        />
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                            <button
+                                                                type="button"
+                                                                className="btn-reset-stock"
+                                                                title="Reiniciar stock a 0"
+                                                                tabIndex={-1}
+                                                                onClick={() => triggerResetStockModal(p)}
+                                                            >
+                                                                <FaUndo /> Reiniciar
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="btn-remove-quick"
+                                                                title="Quitar de Carga Rápida"
+                                                                tabIndex={-1}
+                                                                onClick={() => handleToggleQuickStock(p, false)}
+                                                            >
+                                                                <FaTrashAlt />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })()}
+                                </tbody>
+                            </table>
+
+                            <div style={{ width: '100%', maxWidth: '640px', marginTop: '16px' }}>
+                                <button
+                                    type="button"
+                                    className="btn-add-quick-product"
+                                    onClick={() => setIsAddQuickModalOpen(true)}
+                                >
+                                    <FaPlus /> Agregar otro producto
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -582,6 +877,227 @@ export default function StockManager() {
                 product={selectedProduct}
                 onSuccess={fetchProducts}
             />
+
+            {/* Quick Add Product Modal */}
+            {isAddQuickModalOpen && (
+                <div className="stock-modal-overlay" onClick={() => setIsAddQuickModalOpen(false)}>
+                    <div className="stock-modal" onClick={e => e.stopPropagation()} style={{ width: '520px', maxWidth: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
+                                <FaBolt style={{ color: '#16a34a' }} /> Agregar Productos a Carga Rápida
+                            </h3>
+                            <button
+                                onClick={() => setIsAddQuickModalOpen(false)}
+                                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <ProductSearch
+                                value={addQuickSearch}
+                                onChange={setAddQuickSearch}
+                                placeholder="Buscar producto por nombre..."
+                            />
+                        </div>
+
+                        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '380px' }}>
+                            {availableForQuick.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: '#64748b', padding: '20px' }}>No se encontraron productos.</p>
+                            ) : (
+                                availableForQuick.map(p => {
+                                    const isAdded = !!(p.isQuickStock || p.quickStock);
+                                    return (
+                                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isAdded ? '#f0fdf4' : '#f8fafc', border: `1px solid ${isAdded ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '8px' }}>
+                                            <div>
+                                                <strong style={{ display: 'block', color: '#1e293b', fontSize: '0.95rem' }}>{p.nombre}</strong>
+                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                                    Stock actual: {formatStock(p.stockQuantity)}{p.unitType === 'weight' ? ' kg' : ''}
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleQuickStock(p, !isAdded)}
+                                                disabled={addingQuickId === p.id}
+                                                style={{
+                                                    background: isAdded ? '#dcfce7' : '#16a34a',
+                                                    color: isAdded ? '#166534' : '#ffffff',
+                                                    border: isAdded ? '1px solid #86efac' : 'none',
+                                                    padding: '6px 14px',
+                                                    borderRadius: '6px',
+                                                    fontWeight: 600,
+                                                    fontSize: '0.85rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                            >
+                                                {isAdded ? (
+                                                    <>✓ En Carga Rápida</>
+                                                ) : (
+                                                    <><FaPlus /> Agregar</>
+                                                )}
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
+                            <button className="btn-cancel" onClick={() => setIsAddQuickModalOpen(false)}>
+                                Listo / Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal: Guardar Cambios de Stock */}
+            {isConfirmSaveModalOpen && (
+                <div className="stock-modal-overlay" onClick={() => setIsConfirmSaveModalOpen(false)}>
+                    <div className="stock-modal" onClick={e => e.stopPropagation()} style={{ width: '460px', maxWidth: '95vw' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                            <h3 style={{ margin: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FaSave /> ¿Guardar Cambios de Stock?
+                            </h3>
+                            <button onClick={() => setIsConfirmSaveModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}>
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '12px' }}>
+                            Se aplicará la carga de stock para <strong>{Object.keys(quickUpdates).length} producto(s)</strong>.
+                        </p>
+
+                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: '8px', marginBottom: '15px' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 600 }}>Motivo seleccionado: </span>
+                            <strong style={{ color: '#14532d' }}>{quickReason}</strong>
+                        </div>
+
+                        <div style={{ maxHeight: '200px', overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {Object.entries(quickUpdates).map(([key, qty]) => {
+                                const [prodId, varIdxStr] = key.split('-');
+                                const product = products.find(p => p.id === prodId);
+                                if (!product) return null;
+                                const varName = varIdxStr !== undefined && product.variants ? product.variants[Number(varIdxStr)]?.name : null;
+                                const name = varName ? `${product.nombre} (${varName})` : product.nombre;
+                                return (
+                                    <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#1e293b' }}>
+                                        <span>{name}</span>
+                                        <strong style={{ color: '#16a34a' }}>+{qty}</strong>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button className="btn-cancel" onClick={() => setIsConfirmSaveModalOpen(false)} disabled={savingQuick}>
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn-save-stock"
+                                style={{ background: '#16a34a', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={executeQuickSave}
+                                disabled={savingQuick}
+                            >
+                                <FaCheckCircle /> {savingQuick ? 'Guardando...' : 'Confirmar y Guardar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal: Reiniciar Stock */}
+            {resetTarget && (
+                <div className="stock-modal-overlay" onClick={() => setResetTarget(null)}>
+                    <div className="stock-modal" onClick={e => e.stopPropagation()} style={{ width: '420px', maxWidth: '95vw' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                            <h3 style={{ margin: 0, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FaUndo /> ¿Reiniciar Stock?
+                            </h3>
+                            <button onClick={() => setResetTarget(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}>
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <p style={{ color: '#1e293b', fontSize: '0.98rem', marginBottom: '15px' }}>
+                            ¿Estás seguro de reiniciar el stock de <strong>"{resetTarget.targetName}"</strong>?
+                        </p>
+
+                        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '10px 14px', borderRadius: '8px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: '#7f1d1d', fontSize: '0.9rem' }}>Stock actual: <strong>{formatStock(resetTarget.currentStock)}</strong></span>
+                            <span style={{ color: '#dc2626', fontWeight: 700, fontSize: '0.95rem' }}>Nuevo stock: 0</span>
+                        </div>
+
+                        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button className="btn-cancel" onClick={() => setResetTarget(null)}>
+                                Cancelar
+                            </button>
+                            <button
+                                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={executeResetStock}
+                            >
+                                <FaCheckCircle /> Sí, Reiniciar a 0
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isConfirmResetAllModalOpen && (
+                <div className="stock-modal-overlay" onClick={() => setIsConfirmResetAllModalOpen(false)}>
+                    <div className="stock-modal" onClick={e => e.stopPropagation()} style={{ width: '450px', maxWidth: '95vw' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                            <h3 style={{ margin: 0, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FaUndo /> ¿Reiniciar Todo el Stock a 0?
+                            </h3>
+                            <button onClick={() => setIsConfirmResetAllModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}>
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <p style={{ color: '#1e293b', fontSize: '0.98rem', marginBottom: '15px' }}>
+                            Se restablecerá a <strong>0</strong> el stock de los <strong>{quickProducts.length} producto(s)</strong> cargados en Carga Rápida.
+                        </p>
+
+                        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', padding: '12px 14px', borderRadius: '8px', marginBottom: '20px', color: '#991b1b', fontSize: '0.88rem' }}>
+                            ⚠️ Esta acción creará un registro de <strong>'Ajuste de Inventario'</strong> en el historial para cada producto.
+                        </div>
+
+                        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button className="btn-cancel" onClick={() => setIsConfirmResetAllModalOpen(false)} disabled={resettingAll}>
+                                Cancelar
+                            </button>
+                            <button
+                                style={{ background: '#dc2626', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={executeResetAllStock}
+                                disabled={resettingAll}
+                            >
+                                <FaCheckCircle /> {resettingAll ? 'Reiniciando...' : 'Sí, Reiniciar Todo a 0'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mobile Floating Action Button (Save Stock) */}
+            {activeTab === 'bulk' && (
+                <button
+                    type="button"
+                    className="btn-save-quick-fab"
+                    onClick={handleOpenSaveConfirm}
+                    disabled={savingQuick || Object.keys(quickUpdates).length === 0}
+                    title="Guardar Cambios de Stock"
+                >
+                    <FaSave />
+                    {Object.keys(quickUpdates).length > 0 && (
+                        <span className="fab-badge">{Object.keys(quickUpdates).length}</span>
+                    )}
+                </button>
+            )}
         </div>
     );
 }

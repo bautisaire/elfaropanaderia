@@ -190,6 +190,16 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
         );
     }
 
+    const currentStock = (selectedVariantIdx !== null && product.variants && product.variants[selectedVariantIdx])
+        ? (product.variants[selectedVariantIdx].stockQuantity || 0)
+        : (product.stockQuantity || 0);
+
+    const parsedAmount = Number(amount) || 0;
+    const resultingStock = adjustmentType === 'IN'
+        ? currentStock + parsedAmount
+        : currentStock - parsedAmount;
+    const roundedResultingStock = Math.round(resultingStock * 100) / 100;
+
     return (
         <div className="stock-modal-overlay" onClick={onClose}>
             <div className="stock-modal" onClick={e => e.stopPropagation()}>
@@ -214,7 +224,7 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                                 <option value="" disabled>-- Elige una variante --</option>
                                 {product.variants.map((v, idx) => (
                                     <option key={idx} value={idx}>
-                                        {v.name} (Stock: {v.stockQuantity || 0})
+                                        {v.name} (Stock: {Math.round((v.stockQuantity || 0) * 100) / 100})
                                     </option>
                                 ))}
                             </select>
@@ -255,21 +265,29 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                             {adjustmentType === 'OUT' && (
                                 <button
                                     className="btn-remove-all"
-                                    onClick={() => {
-                                        // Calcular stock actual
-                                        let currentStock = 0;
-                                        if (product?.variants && selectedVariantIdx !== null) {
-                                            currentStock = product.variants[selectedVariantIdx].stockQuantity || 0;
-                                        } else {
-                                            currentStock = product?.stockQuantity || 0;
-                                        }
-                                        setAmount(currentStock.toString());
-                                    }}
+                                    onClick={() => setAmount(currentStock.toString())}
                                     title="Quitar todo el stock"
                                 >
                                     Todo
                                 </button>
                             )}
+                        </div>
+
+                        {/* Real-time Resulting Stock Box */}
+                        <div style={{
+                            marginTop: '10px',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: adjustmentType === 'OUT' ? '#fef2f2' : '#f0fdf4',
+                            border: `1px solid ${adjustmentType === 'OUT' ? '#fca5a5' : '#bbf7d0'}`,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            fontSize: '0.95rem'
+                        }}>
+                            <span style={{ color: adjustmentType === 'OUT' ? '#dc2626' : '#166534', fontWeight: 600 }}>
+                                Stock resultante: <strong style={{ fontSize: '1.1rem', color: adjustmentType === 'OUT' ? '#dc2626' : '#15803d' }}>{roundedResultingStock}</strong>
+                            </span>
                         </div>
                     </div>
 

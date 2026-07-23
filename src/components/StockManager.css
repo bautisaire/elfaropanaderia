@@ -634,4 +634,361 @@
         width: 100%;
         padding: 12px;
     }
+
+    /* Carga Rápida Mobile Responsive */
+    .quick-stock-wrapper {
+        padding: 14px 10px;
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+    .quick-stock-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px 16px;
+    }
+
+    .quick-reason-select {
+        width: 100%;
+        max-width: 100%;
+        font-size: 16px;
+    }
+
+    .btn-save-quick {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 20px;
+        font-size: 1rem;
+    }
+
+    .quick-table thead {
+        display: none;
+    }
+
+    .quick-table,
+    .quick-table tbody,
+    .quick-table tr {
+        display: block;
+        width: 100%;
+    }
+
+    .quick-table tr {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .quick-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        background: transparent !important;
+        border-radius: 0 !important;
+        text-align: left !important;
+    }
+
+    .quick-table td:first-child {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+    }
+
+    .quick-table td:nth-child(2)::before {
+        content: 'Sumar Stock (+):';
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: #475569;
+    }
+
+    .quick-table td:last-child {
+        border-top: 1px solid #f1f5f9;
+        padding-top: 8px;
+        margin-top: 4px;
+        justify-content: flex-end;
+    }
+
+    .quick-input {
+        width: 120px;
+        margin: 0;
+        font-size: 17px;
+        padding: 6px 10px;
+    }
+}
+
+/* Carga Rápida Styles */
+.quick-stock-wrapper {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.quick-stock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.quick-stock-header label {
+    font-weight: 600;
+    color: #166534;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quick-reason-select {
+    padding: 8px 12px;
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    background: white;
+    font-weight: 500;
+    color: #14532d;
+    outline: none;
+}
+
+.btn-save-quick {
+    background: #16a34a;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+
+.btn-save-quick:hover {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.btn-save-quick:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.quick-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+.quick-table th {
+    text-align: center;
+    padding: 12px;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.quick-table td {
+    text-align: center;
+    padding: 12px;
+    background: #f8fafc;
+    vertical-align: middle;
+}
+
+.quick-table tr td:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.quick-table tr td:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.quick-input {
+    width: 110px;
+    padding: 8px 12px;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #0f172a;
+    transition: border-color 0.2s;
+    margin: 0 auto;
+    display: block;
+}
+
+.quick-input:focus {
+    border-color: #16a34a;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.btn-reset-stock {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-reset-stock:hover {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
+}
+
+.btn-add-quick-product {
+    background: #f8fafc;
+    color: #1e293b;
+    border: 2px dashed #cbd5e1;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-add-quick-product:hover {
+    background: #f0fdf4;
+    border-color: #16a34a;
+    color: #166534;
+}
+
+.btn-remove-quick {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-remove-quick:hover {
+    background: #fee2e2;
+    color: #ef4444;
+    border-color: #fca5a5;
+}
+
+.btn-reset-all-quick {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+}
+
+.btn-reset-all-quick:hover {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
+}
+
+.btn-reset-all-quick:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #cbd5e1;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Mobile Floating Action Button (Save Stock) */
+.btn-save-quick-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    z-index: 999;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: #16a34a;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 16px rgba(22, 163, 74, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-save-quick-fab:hover {
+    background: #15803d;
+    transform: scale(1.08);
+}
+
+.btn-save-quick-fab:active {
+    transform: scale(0.95);
+}
+
+.btn-save-quick-fab:disabled {
+    background: #9ca3af;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-save-quick-fab .fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #dc2626;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+}
+
+@media (min-width: 769px) {
+    .btn-save-quick-fab {
+        display: none !important;
+    }
 }
