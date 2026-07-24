@@ -45,6 +45,21 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
     const [editAddressModalOpen, setEditAddressModalOpen] = useState(false);
     const [editPhoneModalOpen, setEditPhoneModalOpen] = useState(false);
     const [editMapsLinkModalOpen, setEditMapsLinkModalOpen] = useState(false);
+    const [editNameModalOpen, setEditNameModalOpen] = useState(false);
+    const [editIndicacionesModalOpen, setEditIndicacionesModalOpen] = useState(false);
+
+    const handleUpdateName = async (newName: string) => {
+        try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+                'cliente.nombre': newName
+            });
+            showToast("Nombre actualizado");
+        } catch (error) {
+            console.error("Error updating name:", error);
+            alert("Error al actualizar el nombre.");
+        }
+    };
 
     const handleUpdateAddress = async (newAddress: string) => {
         try {
@@ -52,6 +67,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
             await updateDoc(orderRef, {
                 'cliente.direccion': newAddress
             });
+            showToast("Dirección actualizada");
         } catch (error) {
             console.error("Error updating address:", error);
             alert("Error al actualizar la dirección.");
@@ -64,6 +80,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
             await updateDoc(orderRef, {
                 'cliente.mapsLink': newLink
             });
+            showToast("Link de Maps actualizado");
         } catch (error) {
             console.error("Error updating maps link:", error);
             alert("Error al actualizar el link de Maps.");
@@ -76,9 +93,23 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
             await updateDoc(orderRef, {
                 'cliente.telefono': newPhone
             });
+            showToast("Teléfono actualizado");
         } catch (error) {
             console.error("Error updating phone:", error);
             alert("Error al actualizar el teléfono.");
+        }
+    };
+
+    const handleUpdateIndicaciones = async (newIndicaciones: string) => {
+        try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+                'cliente.indicaciones': newIndicaciones
+            });
+            showToast("Indicaciones actualizadas");
+        } catch (error) {
+            console.error("Error updating indicaciones:", error);
+            alert("Error al actualizar las indicaciones.");
         }
     };
 
@@ -189,6 +220,18 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                             <h5>
                                 <FaUser /> Cliente:
                                 <span className="client-name-inline">{order.cliente.nombre}</span>
+                                {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || adminPermissions?.orders_can_modify !== false) && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditNameModalOpen(true);
+                                        }}
+                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0 4px', marginLeft: '4px' }}
+                                        title="Editar Nombre del Cliente"
+                                    >
+                                        <FaEdit size={14} />
+                                    </button>
+                                )}
                             </h5>
                             <div className="info-row">
                                 <FaMapMarkerAlt className="icon-muted" />
@@ -358,11 +401,30 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 );
                             })()}
 
-                            {
-                                order.cliente.indicaciones && (
-                                    <div className="order-note-expanded">"{order.cliente.indicaciones}"</div>
-                                )
-                            }
+                            <div className="info-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', marginTop: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                    <strong style={{ fontSize: '0.85rem', color: '#64748b' }}>Indicaciones:</strong>
+                                    {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || adminPermissions?.orders_can_modify !== false) && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditIndicacionesModalOpen(true);
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
+                                            title="Editar Indicaciones del Cliente"
+                                        >
+                                            <FaEdit size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                                {order.cliente.indicaciones ? (
+                                    <div className="order-note-expanded" style={{ marginTop: '2px', width: '100%' }}>"{order.cliente.indicaciones}"</div>
+                                ) : (
+                                    <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                        Sin indicaciones adicionales
+                                    </span>
+                                )}
+                            </div>
 
                             {
                                 order.source && (
@@ -647,6 +709,17 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                 />
             )}
 
+            {editNameModalOpen && (
+                <TextEditModal
+                    isOpen={editNameModalOpen}
+                    onClose={() => setEditNameModalOpen(false)}
+                    onSave={handleUpdateName}
+                    title="Editar Nombre del Cliente"
+                    label="Nuevo nombre del cliente:"
+                    currentText={order.cliente.nombre || ''}
+                />
+            )}
+
             {editAddressModalOpen && (
                 <TextEditModal
                     isOpen={editAddressModalOpen}
@@ -666,6 +739,19 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     title="Editar Teléfono"
                     label="Nuevo teléfono del cliente:"
                     currentText={order.cliente.telefono || ''}
+                />
+            )}
+
+            {editIndicacionesModalOpen && (
+                <TextEditModal
+                    isOpen={editIndicacionesModalOpen}
+                    onClose={() => setEditIndicacionesModalOpen(false)}
+                    onSave={handleUpdateIndicaciones}
+                    title="Editar Indicaciones del Cliente"
+                    label="Indicaciones para el envío / entrega:"
+                    currentText={order.cliente.indicaciones || ''}
+                    multiline={true}
+                    allowEmpty={true}
                 />
             )}
 

@@ -9,11 +9,13 @@ interface TextEditModalProps {
     title: string;
     label: string;
     currentText: string;
+    multiline?: boolean;
+    allowEmpty?: boolean;
 }
 
-export default function TextEditModal({ isOpen, onClose, onSave, title, label, currentText }: TextEditModalProps) {
+export default function TextEditModal({ isOpen, onClose, onSave, title, label, currentText, multiline = false, allowEmpty = false }: TextEditModalProps) {
     const [textInput, setTextInput] = useState(currentText);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -21,13 +23,15 @@ export default function TextEditModal({ isOpen, onClose, onSave, title, label, c
             // Small delay to allow render before focusing
             setTimeout(() => {
                 inputRef.current?.focus();
-                inputRef.current?.select();
+                if (inputRef.current && 'select' in inputRef.current && typeof inputRef.current.select === 'function') {
+                    inputRef.current.select();
+                }
             }, 50);
         }
     }, [isOpen, currentText]);
 
     const handleSave = () => {
-        if (textInput.trim() !== '') {
+        if (allowEmpty || textInput.trim() !== '') {
             onSave(textInput.trim());
             onClose();
         }
@@ -47,17 +51,39 @@ export default function TextEditModal({ isOpen, onClose, onSave, title, label, c
                 <div className="price-modal-body">
                     <p className="price-modal-label">{label}</p>
                     <div className="price-modal-input-group" style={{ paddingLeft: '10px' }}>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={textInput}
-                            onChange={(e) => setTextInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSave();
-                                if (e.key === 'Escape') onClose();
-                            }}
-                            style={{ paddingLeft: '10px' }}
-                        />
+                        {multiline ? (
+                            <textarea
+                                ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSave();
+                                    if (e.key === 'Escape') onClose();
+                                }}
+                                rows={3}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #d1d5db',
+                                    fontSize: '0.95rem',
+                                    resize: 'vertical',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        ) : (
+                            <input
+                                ref={inputRef as React.RefObject<HTMLInputElement>}
+                                type="text"
+                                value={textInput}
+                                onChange={(e) => setTextInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSave();
+                                    if (e.key === 'Escape') onClose();
+                                }}
+                                style={{ paddingLeft: '10px' }}
+                            />
+                        )}
                     </div>
                 </div>
                 <div className="price-modal-footer">
