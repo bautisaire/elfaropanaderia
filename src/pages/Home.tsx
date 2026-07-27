@@ -8,7 +8,7 @@ import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
-import { collection, doc, increment, setDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, increment, setDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
@@ -21,14 +21,22 @@ export default function Home() {
 
   const [activeRaffle, setActiveRaffle] = useState<any>(null);
   const [raffleParticipants, setRaffleParticipants] = useState<any[]>([]);
-  const [showRaffleModal, setShowRaffleModal] = useState(false);
+  const [showRaffleModal, setShowRaffleModal] = useState(false); // Participate modal
+  const [showRaffleInfoModal, setShowRaffleInfoModal] = useState(false); // Info modal (participants/roulette)
+  const [raffleModalStep, setRaffleModalStep] = useState<1 | 2>(1);
 
   useEffect(() => {
     const qRaffle = query(collection(db, "raffles"), where("isActive", "==", true), limit(1));
     const unsubRaffle = onSnapshot(qRaffle, (snap) => {
       if (!snap.empty) {
-        const raffleData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        const raffleData = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
         setActiveRaffle(raffleData);
+
+        // Preload the image so it's ready when the modal opens
+        if (raffleData.imageUrl) {
+          const img = new Image();
+          img.src = raffleData.imageUrl;
+        }
 
         const qParts = query(collection(db, `raffles/${raffleData.id}/participants`), orderBy("date", "desc"));
         onSnapshot(qParts, (snapParts) => {
@@ -52,6 +60,7 @@ export default function Home() {
     catalogProducts: products,
     catalogLoading: loading,
     getCatalogProduct,
+    user,
   } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
@@ -98,6 +107,42 @@ export default function Home() {
     });
   }, [location.search]);
 
+  // Modal Automático para sorteos
+  useEffect(() => {
+    if (activeRaffle?.isModalMode && isStoreOpen) {
+      const shown = localStorage.getItem(`raffle_modal_shown_${activeRaffle.id}`);
+      if (!shown) {
+        setShowRaffleModal(true);
+        setRaffleModalStep(1);
+        localStorage.setItem(`raffle_modal_shown_${activeRaffle.id}`, 'true');
+      }
+    }
+  }, [activeRaffle, isStoreOpen]);
+
+  const [dbParticipated, setDbParticipated] = useState(false);
+  useEffect(() => {
+    if (user?.uid && activeRaffle) {
+      getDoc(doc(db, "users", user.uid)).then(d => {
+        if (d.exists() && d.data().participatedRaffles?.[activeRaffle.id]) {
+          setDbParticipated(true);
+          localStorage.setItem(`raffle_unlocked_${activeRaffle.id}`, 'true');
+        }
+      });
+    }
+  }, [user, activeRaffle]);
+
+  const handleOpenRaffleModal = () => {
+    if (!activeRaffle) return;
+    const isUnlocked = localStorage.getItem(`raffle_unlocked_${activeRaffle.id}`) || dbParticipated;
+    if (isUnlocked) {
+      setShowRaffleInfoModal(true);
+    } else {
+      const step1Done = sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`);
+      setRaffleModalStep(step1Done ? 2 : 1);
+      setShowRaffleModal(true);
+    }
+  };
+
   // Removed redundant fetchStoreStatus useEffect since Context handles it
 
   // Categorías (productos vienen en vivo desde CartContext)
@@ -129,7 +174,7 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <Hero onRaffleClick={() => setShowRaffleModal(true)} activeRaffle={activeRaffle} />
+      <Hero onRaffleClick={handleOpenRaffleModal} activeRaffle={activeRaffle} />
       <div className="home">
         {loading ? (
           // Mostrar 6 esqueletos mientras carga
@@ -200,78 +245,195 @@ export default function Home() {
       {activeRaffle && (
         <button
           className="floating-raffle-btn"
-          onClick={() => setShowRaffleModal(true)}
+          onClick={handleOpenRaffleModal}
           title="Ver Sorteo Actual"
         >
           <FaTrophy color="#eab308" size={24} />
         </button>
       )}
 
+      {/* Modal de Participación (Auto-start) */}
       {showRaffleModal && activeRaffle && (
         <div className="store-closed-overlay" onClick={() => setShowRaffleModal(false)} style={{ zIndex: 10000 }}>
-          <div className="store-closed-modal raffle-home-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%' }}>
-            <button className="raffle-modal-close" onClick={() => setShowRaffleModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#666' }}><FaTimes /></button>
-            <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />
-            <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
-            
-            <div style={{ color: '#047857', marginBottom: activeRaffle.drawDate ? '10px' : '20px', textAlign: 'left', width: '100%', fontSize: '0.95rem' }}>
-              {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
-                <ol style={{ margin: 0, paddingLeft: '20px', fontWeight: '500' }}>
-                  {activeRaffle.prizes.map((p: string, i: number) => <li key={i} style={{ marginBottom: '4px' }}>{p}</li>)}
-                </ol>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+            <button className="raffle-modal-close" onClick={() => setShowRaffleModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: '#333', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}><FaTimes /></button>
+
+            {activeRaffle.imageUrl && (
+              <div style={{
+                width: '100%',
+                height: '200px',
+                backgroundImage: `url(${activeRaffle.imageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundColor: '#f1f5f9',
+                position: 'relative'
+              }}>
+                {/* Optional skeleton animation class could be added here */}
+              </div>
+            )}
+
+            <div style={{ padding: '20px' }}>
+              {raffleModalStep === 1 ? (
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ background: '#fef3c7', color: '#d97706', display: 'inline-block', padding: '4px 12px', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '15px' }}>Paso 1/2</div>
+                    <br />
+                    {!activeRaffle.imageUrl && <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />}
+                    <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
+                    {activeRaffle.description && <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '15px', fontStyle: 'italic' }}>{activeRaffle.description}</p>}
+                  </div>
+
+                  <div style={{ color: '#047857', marginBottom: activeRaffle.drawDate ? '10px' : '20px', textAlign: 'center', width: '100%', fontSize: '0.95rem' }}>
+                    {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontWeight: '500' }}>
+                        {activeRaffle.prizes.map((p: string, i: number) => <li key={i} style={{ marginBottom: '4px' }}>{activeRaffle.prizes.length > 1 ? `${i + 1}. ` : ''}{p}</li>)}
+                      </ul>
+                    ) : (
+                      <p style={{ fontWeight: 'bold' }}>Premios: {activeRaffle.prize}</p>
+                    )}
+                  </div>
+
+                  {activeRaffle.drawDate && (
+                    <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', textAlign: 'center' }}>
+                      Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}
+                    </p>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem(`raffle_step1_done_${activeRaffle.id}`, 'true');
+                      setRaffleModalStep(2);
+                    }}
+                    style={{
+                      marginTop: '10px',
+                      width: '100%',
+                      padding: '12px',
+                      background: '#b45309', // Dark gold / Amber-700
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    Participar!
+                  </button>
+                </>
               ) : (
-                <p style={{ fontWeight: 'bold' }}>Premios: {activeRaffle.prize}</p>
+                <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                  <div style={{ background: '#fef3c7', color: '#d97706', display: 'inline-block', padding: '4px 12px', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '15px' }}>Paso 2/2</div>
+                  <h2 style={{ marginBottom: '15px', fontSize: '1.4rem', color: '#1e293b' }}>¡Estás a un paso!</h2>
+                  <p style={{ color: '#475569', fontSize: '1.05rem', lineHeight: '1.5', marginBottom: '25px' }}>
+                    Debes realizar un pedido para participar en el sorteo.<br /><i>Con cada compra sumás chances de ganar!</i>
+                  </p>
+                  <button
+                    onClick={() => setShowRaffleModal(false)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#eab308',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    Hacer un pedido
+                  </button>
+                </div>
               )}
             </div>
-            {activeRaffle.customMessage && (
-               <div style={{ background: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '8px', width: '100%', marginBottom: '15px', fontWeight: 'bold', textAlign: 'center', fontSize: '1.05rem', border: '1px solid #86efac' }}>
-                 {activeRaffle.customMessage}
-               </div>
-            )}
-            {activeRaffle.drawDate && (
-              <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px' }}>
-                📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}
-              </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Información (Manual: Participantes y Ruleta) */}
+      {showRaffleInfoModal && activeRaffle && (
+        <div className="store-closed-overlay" onClick={() => setShowRaffleInfoModal(false)} style={{ zIndex: 10000 }}>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+            <button className="raffle-modal-close" onClick={() => setShowRaffleInfoModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: activeRaffle.imageUrl ? 'rgba(255,255,255,0.8)' : 'none', border: 'none', borderRadius: activeRaffle.imageUrl ? '50%' : '0', width: activeRaffle.imageUrl ? '30px' : 'auto', height: activeRaffle.imageUrl ? '30px' : 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: activeRaffle.imageUrl ? '#333' : '#666', zIndex: 10, boxShadow: activeRaffle.imageUrl ? '0 2px 4px rgba(0,0,0,0.2)' : 'none' }}><FaTimes /></button>
+
+            {activeRaffle.imageUrl && (
+              <div style={{
+                width: '100%',
+                height: '200px',
+                backgroundImage: `url(${activeRaffle.imageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundColor: '#f1f5f9',
+                position: 'relative'
+              }} />
             )}
 
-            <div style={{ textAlign: 'left', width: '100%', marginTop: '10px' }}>
-              <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', color: '#334155' }}>
-                Participantes ({raffleParticipants.length})
-              </h3>
-              <div className="raffle-participants-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '5px' }}>
-                {raffleParticipants.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>Aún no hay participantes. ¡Haz tu pedido para ser el primero!</p>
+            <div style={{ padding: '25px 20px', textAlign: 'center' }}>
+              {!activeRaffle.imageUrl && <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />}
+              <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
+
+              <div style={{ color: '#047857', marginBottom: '15px', textAlign: 'center', width: '100%', fontSize: '0.95rem' }}>
+                {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+                  <ol style={{ margin: 0, paddingLeft: '0', listStylePosition: 'inside', fontWeight: '500' }}>
+                    {activeRaffle.prizes.map((p: string, i: number) => <li key={i} style={{ marginBottom: '4px' }}>{activeRaffle.prizes.length > 1 ? `${i + 1}. ` : ''}{p}</li>)}
+                  </ol>
                 ) : (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {raffleParticipants.map(p => (
-                      <li key={p.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', fontSize: '0.95rem', color: '#475569' }}>
-                        <FaGift style={{ color: '#34d399', marginRight: '10px', flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p style={{ fontWeight: 'bold' }}>Premios: {activeRaffle.prize}</p>
                 )}
               </div>
-            </div>
 
-            <button
-              onClick={() => navigate('/ruleta')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '12px',
-                background: '#eab308',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-              }}
-            >
-              🎡 Ver Ruleta
-            </button>
+              <div style={{ background: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #6ee7b7' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '5px' }}>🎉 ¡Ya estás participando!🎉</div>
+                {activeRaffle.customMessage && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', marginTop: '5px' }}>{activeRaffle.customMessage}</div>}
+              </div>
+
+              {activeRaffle.drawDate && (
+                <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '20px', textAlign: 'center' }}>
+                  📅 Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}
+                </p>
+              )}
+
+              <div style={{ textAlign: 'left', width: '100%', marginTop: '10px' }}>
+                <h3 style={{ fontSize: '1.1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '10px', color: '#334155' }}>
+                  Participantes ({raffleParticipants.length})
+                </h3>
+                <div className="raffle-participants-list" style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }}>
+                  {raffleParticipants.length === 0 ? (
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', margin: '20px 0' }}>Aún no hay participantes. ¡Haz tu pedido para ser el primero!</p>
+                  ) : (
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {raffleParticipants.map(p => (
+                        <li key={p.id} style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', fontSize: '0.95rem', color: '#475569' }}>
+                          <FaGift style={{ color: '#34d399', marginRight: '10px', flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate('/ruleta')}
+                style={{
+                  marginTop: '20px',
+                  width: '100%',
+                  padding: '12px',
+                  background: '#eab308',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+              >
+                🎡 Ver Ruleta
+              </button>
+            </div>
           </div>
         </div>
       )}

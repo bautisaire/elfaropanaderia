@@ -3,7 +3,7 @@
     bottom: 25px;
     right: 20px;
     z-index: 1100;
-    background-color: var(--primary-color);
+    background-color: #d63336; /* Darker than --primary-color to stand out */
     color: white;
     width: 60px;
     height: 60px;
@@ -20,7 +20,7 @@
 
 .floating-cart-btn:hover {
     transform: scale(1.08);
-    background-color: #924600;
+    background-color: #b5292c; /* Even darker on hover */
 }
 
 .floating-cart-btn:active {

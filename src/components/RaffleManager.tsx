@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../firebase/firebaseConfig";
+import { db, storage } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, where, getDocs, limit } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import ProductImageEditor from "./ProductImageEditor";
 import "./RaffleManager.css";
-import { FaGift, FaSearch, FaTrash, FaPlus, FaTrophy, FaCalendarAlt, FaChevronDown, FaChevronUp, FaStopCircle, FaPlayCircle, FaEdit, FaSave, FaTimes, FaCopy } from "react-icons/fa";
+import { FaGift, FaSearch, FaTrash, FaPlus, FaTrophy, FaCalendarAlt, FaChevronDown, FaChevronUp, FaStopCircle, FaPlayCircle, FaEdit, FaSave, FaTimes, FaCopy, FaCheckCircle } from "react-icons/fa";
 
 interface RaffleWinner {
   participantId: string;
@@ -20,6 +22,10 @@ interface Raffle {
   endDate: any;
   isActive: boolean;
   winner?: RaffleWinner | null;
+  description?: string;
+  imageUrl?: string;
+  isModalMode?: boolean;
+  prizes?: string[];
 }
 
 interface Participant {
@@ -64,6 +70,9 @@ export default function RaffleManager() {
   
   // Start Raffle Form
   const [titleInput, setTitleInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isModalMode, setIsModalMode] = useState(false);
   const [prizesInput, setPrizesInput] = useState<string[]>([""]);
   const [messageInput, setMessageInput] = useState("¡Realizando tu pedido sumas chances de ganar!");
   const [drawDateInput, setDrawDateInput] = useState("");
@@ -84,6 +93,21 @@ export default function RaffleManager() {
   const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
   const [endModalSearch, setEndModalSearch] = useState("");
   const [isEnding, setIsEnding] = useState(false);
+
+  // Edit Raffle State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPrizes, setEditPrizes] = useState<string[]>([""]);
+  const [editMessage, setEditMessage] = useState("");
+  const [editDrawDate, setEditDrawDate] = useState("");
+  const [editIsModalMode, setEditIsModalMode] = useState(false);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [isSavingRaffle, setIsSavingRaffle] = useState(false);
+
+  // Image Editor State
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [imageEditorTarget, setImageEditorTarget] = useState<'start' | 'edit' | null>(null);
 
   // History expanded items
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
@@ -124,14 +148,36 @@ export default function RaffleManager() {
     }
   }, [activeRaffle]);
 
+  const handleImageEditorConfirm = async (blob: Blob) => {
+    if (!pendingImageFile || !imageEditorTarget) return;
+    const croppedFile = new File([blob], pendingImageFile.name, { type: 'image/jpeg' });
+    if (imageEditorTarget === 'start') {
+      setImageFile(croppedFile);
+    } else if (imageEditorTarget === 'edit') {
+      setEditImageFile(croppedFile);
+    }
+    setPendingImageFile(null);
+    setImageEditorTarget(null);
+  };
+
   const handleStartRaffle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titleInput.trim() || prizesInput.filter(p => p.trim()).length === 0) return;
     setIsStarting(true);
     try {
+      let imageUrl = "";
+      if (imageFile) {
+        const storageRef = ref(storage, `raffles/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
       const validPrizes = prizesInput.filter(p => p.trim() !== "");
       await addDoc(collection(db, "raffles"), {
         title: titleInput,
+        description: descriptionInput,
+        imageUrl: imageUrl,
+        isModalMode: isModalMode,
         prize: validPrizes.join(" - "), // fallback
         prizes: validPrizes, // new array structure
         customMessage: messageInput,
@@ -141,6 +187,9 @@ export default function RaffleManager() {
         isActive: true
       });
       setTitleInput("");
+      setDescriptionInput("");
+      setImageFile(null);
+      setIsModalMode(false);
       setPrizesInput([""]);
       setMessageInput("");
       setDrawDateInput("");
@@ -195,6 +244,60 @@ export default function RaffleManager() {
       alert("No se pudo finalizar el sorteo.");
     } finally {
       setIsEnding(false);
+    }
+  };
+
+  const handleEditRaffle = () => {
+    if (!activeRaffle) return;
+    setEditTitle(activeRaffle.title || "");
+    setEditDescription(activeRaffle.description || "");
+    
+    let initialPrizes = [""];
+    if (activeRaffle.prizes && activeRaffle.prizes.length > 0) {
+      initialPrizes = activeRaffle.prizes;
+    } else if (activeRaffle.prize) {
+      initialPrizes = activeRaffle.prize.split(" - ");
+    }
+    setEditPrizes(initialPrizes);
+
+    setEditMessage(activeRaffle.customMessage || "");
+    setEditDrawDate(activeRaffle.drawDate || "");
+    setEditIsModalMode(activeRaffle.isModalMode || false);
+    setEditImageFile(null);
+    setShowEditModal(true);
+  };
+
+  const saveEditRaffle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeRaffle || !editTitle.trim() || editPrizes.filter(p => p.trim()).length === 0) return;
+    
+    setIsSavingRaffle(true);
+    try {
+      let newImageUrl = activeRaffle.imageUrl || "";
+      if (editImageFile) {
+        const storageRef = ref(storage, `raffles/${Date.now()}_${editImageFile.name}`);
+        await uploadBytes(storageRef, editImageFile);
+        newImageUrl = await getDownloadURL(storageRef);
+      }
+
+      const validPrizes = editPrizes.filter(p => p.trim() !== "");
+      await updateDoc(doc(db, "raffles", activeRaffle.id), {
+        title: editTitle,
+        description: editDescription,
+        imageUrl: newImageUrl,
+        isModalMode: editIsModalMode,
+        prize: validPrizes.join(" - "),
+        prizes: validPrizes,
+        customMessage: editMessage,
+        drawDate: editDrawDate
+      });
+
+      setShowEditModal(false);
+    } catch (error) {
+      console.error("Error saving raffle:", error);
+      alert("No se pudo guardar el sorteo.");
+    } finally {
+      setIsSavingRaffle(false);
     }
   };
 
@@ -384,6 +487,37 @@ export default function RaffleManager() {
                   />
                 </div>
                 <div className="raffle-form-group">
+                  <label>Descripción del Sorteo</label>
+                  <textarea 
+                    placeholder="Ej: Participá para ganarte increíbles premios este fin de semana." 
+                    value={descriptionInput}
+                    onChange={(e) => setDescriptionInput(e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                </div>
+                <div className="raffle-form-group">
+                  <label>Imagen de Portada (Opcional)</label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPendingImageFile(e.target.files[0]);
+                        setImageEditorTarget('start');
+                      }
+                    }}
+                    style={{ border: 'none', padding: '0' }}
+                  />
+                  {imageFile && (
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 'bold' }}><FaCheckCircle style={{ verticalAlign: 'middle', marginRight: '5px' }} />Imagen ajustada y lista</span>
+                      <button type="button" onClick={() => setImageFile(null)} style={{ marginLeft: '10px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0' }} title="Quitar imagen"><FaTrash /></button>
+                    </div>
+                  )}
+                  <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Imagen recomendada para el modal automático. Se abrirá el editor para ajustarla.</small>
+                </div>
+                <div className="raffle-form-group">
                   <label>Premios *</label>
                   {prizesInput.map((prize, index) => (
                     <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
@@ -431,6 +565,16 @@ export default function RaffleManager() {
                   />
                   <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Indica qué día se realizará el sorteo.</small>
                 </div>
+                <div className="raffle-form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <input 
+                    type="checkbox" 
+                    id="modalModeCheckbox"
+                    checked={isModalMode}
+                    onChange={(e) => setIsModalMode(e.target.checked)}
+                    style={{ width: '20px', height: '20px', margin: 0, cursor: 'pointer' }}
+                  />
+                  <label htmlFor="modalModeCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#0f172a' }}>Habilitar modalidad de modal automático al iniciar</label>
+                </div>
                 <button type="submit" className="btn-start-raffle" disabled={isStarting}>
                   <FaPlayCircle /> {isStarting ? 'Iniciando...' : 'Comenzar Sorteo'}
                 </button>
@@ -441,13 +585,20 @@ export default function RaffleManager() {
               <div className="active-raffle-info">
                 <div className="info-text">
                   <h3><FaTrophy style={{ color: '#eab308' }} /> {activeRaffle.title}</h3>
+                  {activeRaffle.description && <p style={{ fontStyle: 'italic', color: '#475569', marginTop: '5px', marginBottom: '5px' }}>{activeRaffle.description}</p>}
                   <p style={{ fontWeight: 'bold', marginTop: '5px' }}>Premios: {activeRaffle.prize}</p>
                   {activeRaffle.drawDate && <p style={{ color: '#0f172a', marginTop: '5px', fontWeight: 'bold' }}>Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}</p>}
                   <p style={{ fontSize: '0.9rem', marginTop: '5px' }}>Iniciado el: {activeRaffle.startDate?.toDate().toLocaleDateString('es-AR')} a las {activeRaffle.startDate?.toDate().toLocaleTimeString('es-AR')}</p>
+                  {activeRaffle.isModalMode && <span style={{ display: 'inline-block', background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', marginTop: '8px', fontWeight: 'bold' }}>Modal Automático Activado</span>}
                 </div>
-                <button onClick={handleEndRaffle} className="btn-end-raffle">
-                  <FaStopCircle /> Finalizar Sorteo
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={handleEditRaffle} className="btn-edit-raffle" style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FaEdit /> Editar
+                  </button>
+                  <button onClick={handleEndRaffle} className="btn-end-raffle">
+                    <FaStopCircle /> Finalizar Sorteo
+                  </button>
+                </div>
               </div>
 
               <div className="raffle-card">
@@ -765,6 +916,148 @@ export default function RaffleManager() {
             </div>
           </div>
         </div>
+      )}
+
+      {showEditModal && activeRaffle && (
+        <div className="raffle-modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="raffle-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="raffle-modal-header">
+              <h3><FaEdit style={{ color: '#3b82f6' }} /> Editar Sorteo</h3>
+              <button type="button" className="raffle-modal-close" onClick={() => setShowEditModal(false)} disabled={isSavingRaffle}>
+                <FaTimes />
+              </button>
+            </div>
+            
+            <form onSubmit={saveEditRaffle} className="start-raffle-form" style={{ padding: '20px' }}>
+                <div className="raffle-form-group">
+                  <label>Nombre del Sorteo *</label>
+                  <input 
+                    type="text" 
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="raffle-form-group">
+                  <label>Descripción del Sorteo</label>
+                  <textarea 
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontFamily: 'inherit', resize: 'vertical' }}
+                  />
+                </div>
+                <div className="raffle-form-group">
+                  <label>Imagen de Portada (Opcional)</label>
+                  {activeRaffle.imageUrl && !editImageFile && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <img src={activeRaffle.imageUrl} alt="Actual" style={{ height: '60px', borderRadius: '4px', objectFit: 'cover' }} />
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Imagen actual</div>
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPendingImageFile(e.target.files[0]);
+                        setImageEditorTarget('edit');
+                      }
+                    }}
+                    style={{ border: 'none', padding: '0' }}
+                  />
+                  {editImageFile && (
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 'bold' }}><FaCheckCircle style={{ verticalAlign: 'middle', marginRight: '5px' }} />Nueva imagen ajustada</span>
+                      <button type="button" onClick={() => setEditImageFile(null)} style={{ marginLeft: '10px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0' }} title="Quitar nueva imagen"><FaTrash /></button>
+                    </div>
+                  )}
+                  <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Selecciona una imagen nueva para reemplazar la actual. Se abrirá el editor.</small>
+                </div>
+                <div className="raffle-form-group">
+                  <label>Premios *</label>
+                  {editPrizes.map((prize, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ marginRight: '10px', fontWeight: 'bold', width: '20px', color: '#64748b' }}>{index + 1}.</span>
+                      <input 
+                        type="text" 
+                        value={prize}
+                        onChange={(e) => {
+                          const newPrizes = [...editPrizes];
+                          newPrizes[index] = e.target.value;
+                          setEditPrizes(newPrizes);
+                        }}
+                        required={index === 0}
+                        style={{ flex: 1, margin: 0 }}
+                      />
+                      {editPrizes.length > 1 && (
+                        <button type="button" onClick={() => {
+                          const newPrizes = editPrizes.filter((_, i) => i !== index);
+                          setEditPrizes(newPrizes);
+                        }} style={{ marginLeft: '10px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }} title="Eliminar premio"><FaTrash /></button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setEditPrizes([...editPrizes, ''])} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px dashed #cbd5e1', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', color: '#64748b', marginTop: '5px' }}>
+                    <FaPlus /> Agregar otro premio
+                  </button>
+                </div>
+                <div className="raffle-form-group">
+                  <label>Mensaje Promocional (Opcional)</label>
+                  <input 
+                    type="text" 
+                    value={editMessage}
+                    onChange={(e) => setEditMessage(e.target.value)}
+                  />
+                </div>
+                <div className="raffle-form-group">
+                  <label>Fecha del Sorteo (Opcional)</label>
+                  <input 
+                    type="date" 
+                    value={editDrawDate}
+                    onChange={(e) => setEditDrawDate(e.target.value)}
+                  />
+                </div>
+                <div className="raffle-form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <input 
+                    type="checkbox" 
+                    id="editModalModeCheckbox"
+                    checked={editIsModalMode}
+                    onChange={(e) => setEditIsModalMode(e.target.checked)}
+                    style={{ width: '20px', height: '20px', margin: 0, cursor: 'pointer' }}
+                  />
+                  <label htmlFor="editModalModeCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#0f172a' }}>Habilitar modalidad de modal automático al iniciar</label>
+                </div>
+                
+                <div className="raffle-modal-actions" style={{ padding: '20px 0 0 0', marginTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                  <button type="button" className="btn-cancel-end" onClick={() => setShowEditModal(false)} disabled={isSavingRaffle}>
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-confirm-end"
+                    style={{ background: '#3b82f6', color: 'white' }}
+                    disabled={isSavingRaffle}
+                  >
+                    <FaSave /> {isSavingRaffle ? "Guardando..." : "Guardar Cambios"}
+                  </button>
+                </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {pendingImageFile && imageEditorTarget && (
+        <ProductImageEditor
+          imageFile={pendingImageFile}
+          previewType="simple"
+          aspectRatio={2 / 1}
+          onConfirm={handleImageEditorConfirm}
+          onCancel={() => {
+            setPendingImageFile(null);
+            setImageEditorTarget(null);
+          }}
+        />
       )}
     </div>
   );

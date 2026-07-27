@@ -5,12 +5,11 @@ import { getCroppedImageBlob, getCroppedImagePreviewUrl } from "../utils/imageUt
 import "./ProductCard.css";
 import "./ProductImageEditor.css";
 
-const CARD_ASPECT = 4 / 3;
 
 interface ProductImageEditorProps {
   imageFile: File;
-  productName: string;
-  productPrice: number;
+  productName?: string;
+  productPrice?: number;
   productDiscount?: number;
   stockQuantity?: number;
   onConfirm: (blob: Blob) => void | Promise<void>;
@@ -19,12 +18,14 @@ interface ProductImageEditorProps {
   queueLabel?: string;
   maxWidth?: number;
   quality?: number;
+  aspectRatio?: number;
+  previewType?: 'product' | 'simple';
 }
 
 export default function ProductImageEditor({
   imageFile,
-  productName,
-  productPrice,
+  productName = "Producto",
+  productPrice = 0,
   productDiscount = 0,
   stockQuantity = 0,
   onConfirm,
@@ -33,6 +34,8 @@ export default function ProductImageEditor({
   queueLabel,
   maxWidth = 800,
   quality = 0.85,
+  aspectRatio = 4 / 3,
+  previewType = 'product',
 }: ProductImageEditorProps) {
   const [imageSrc, setImageSrc] = useState("");
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -127,7 +130,7 @@ export default function ProductImageEditor({
                   image={imageSrc}
                   crop={crop}
                   zoom={zoom}
-                  aspect={CARD_ASPECT}
+                  aspect={aspectRatio}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onCropComplete={onCropComplete}
@@ -151,47 +154,57 @@ export default function ProductImageEditor({
           </div>
 
           <div className="pie-preview-panel">
-            <h4>Vista previa ProductCard</h4>
+            <h4>Vista previa</h4>
             <div className="pie-preview-frame">
-              <div className="product-card pie-product-card-preview">
-                <div className="image-wrapper">
+              {previewType === 'product' ? (
+                <div className="product-card pie-product-card-preview">
+                  <div className="image-wrapper">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt={productName || "Vista previa"}
+                        className="product-image"
+                      />
+                    ) : (
+                      <div className="pie-preview-placeholder">Ajustando vista previa...</div>
+                    )}
+
+                    {hasDiscount && (
+                      <div className="discount-badge">
+                        -{productDiscount}% OFF
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="card-body">
+                    <h3 className="product-title">{productName || "Nombre del producto"}</h3>
+                    <div className="card-footer">
+                      <div className="price-container">
+                        {hasDiscount && (
+                          <span className="original-price">${Math.floor(productPrice)}</span>
+                        )}
+                        <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
+                          ${Math.floor(finalPrice)}
+                        </span>
+                        <span className="stock-display">Stock: {stockQuantity}</span>
+                      </div>
+                      <button type="button" className="btn-add" disabled>
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', borderRadius: '8px', overflow: 'hidden' }}>
                   {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt={productName || "Vista previa"}
-                      className="product-image"
-                    />
+                    <img src={previewUrl} alt="Vista previa" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                   ) : (
                     <div className="pie-preview-placeholder">Ajustando vista previa...</div>
                   )}
-
-                  {hasDiscount && (
-                    <div className="discount-badge">
-                      -{productDiscount}% OFF
-                    </div>
-                  )}
                 </div>
-
-                <div className="card-body">
-                  <h3 className="product-title">{productName || "Nombre del producto"}</h3>
-                  <div className="card-footer">
-                    <div className="price-container">
-                      {hasDiscount && (
-                        <span className="original-price">${Math.floor(productPrice)}</span>
-                      )}
-                      <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
-                        ${Math.floor(finalPrice)}
-                      </span>
-                      <span className="stock-display">Stock: {stockQuantity}</span>
-                    </div>
-                    <button type="button" className="btn-add" disabled>
-                      Agregar
-                    </button>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-            <p className="pie-preview-note">Proporción 4:3, igual que en el catálogo.</p>
+            <p className="pie-preview-note">Proporción {aspectRatio === 16 / 9 ? '16:9' : aspectRatio === 4 / 3 ? '4:3' : aspectRatio}, se redimensionará para optimizar su peso.</p>
           </div>
         </div>
 

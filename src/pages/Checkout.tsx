@@ -472,6 +472,21 @@ export default function Checkout() {
           infoToSave.direccion = '';
         }
         localStorage.setItem('customer_info', JSON.stringify(infoToSave));
+        
+        if (activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true') {
+          localStorage.setItem(`raffle_unlocked_${activeRaffle.id}`, 'true');
+          if (user?.uid) {
+            try {
+              await setDoc(doc(db, "users", user.uid), {
+                participatedRaffles: {
+                  [activeRaffle.id]: true
+                }
+              }, { merge: true });
+            } catch (err) {
+              console.error("Error saving raffle participation to user doc:", err);
+            }
+          }
+        }
       } catch (e) { console.error("Storage error", e); }
 
       // Notificación de Telegram movida al backend en processOrder
@@ -585,7 +600,7 @@ export default function Checkout() {
         </div>
       )}
 
-      {activeRaffle && (
+      {!confirmedOrder && activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
         <div className="raffle-banner" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px' }}>🎁 {activeRaffle.title || 'Sorteo Especial'}</div>
           <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
@@ -611,21 +626,6 @@ export default function Checkout() {
           <h2>¡Compra Exitosa!</h2>
           <p className="success-subtitle">Tu pedido ha sido registrado correctamente.</p>
 
-          {activeRaffle && (
-            <div style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', margin: '15px 0', border: '1px solid #6ee7b7', textAlign: 'center' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '8px' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
-              <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
-                {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
-                  <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                    {activeRaffle.prizes.map((p: string, i: number) => <li key={i}>{p}</li>)}
-                  </ol>
-                ) : (
-                  <div>Premios: {activeRaffle.prize}</div>
-                )}
-              </div>
-              {activeRaffle.customMessage && <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '10px', padding: '8px', background: '#d1fae5', borderRadius: '8px', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
-            </div>
-          )}
 
           <div className="success-ticket">
             <div className="ticket-header">
@@ -715,6 +715,22 @@ export default function Checkout() {
             <Link to="/mis-pedidos" className="btn-secondary-action">
               <FaShoppingBag /> Ver Seguimiento
             </Link>
+
+            {activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
+              <div style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', margin: '10px 0', border: '1px solid #6ee7b7', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '8px' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
+                  {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
+                    <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                      {activeRaffle.prizes.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                    </ol>
+                  ) : (
+                    <div>Premios: {activeRaffle.prize}</div>
+                  )}
+                </div>
+                {activeRaffle.customMessage && <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '10px', padding: '8px', background: '#d1fae5', borderRadius: '8px', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
+              </div>
+            )}
 
             <button onClick={() => { setConfirmedOrder(null); navigate("/"); }} className="btn-text-action" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontSize: '0.9rem', color: '#888' }}>
               <FaArrowLeft /> Volver al Inicio
@@ -1130,7 +1146,7 @@ export default function Checkout() {
                       <span>Total</span>
                       <span className="total-amount-display">${Math.floor(finalTotal)}</span>
                     </div>
-                    {activeRaffle && (
+                    {activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
                       <div style={{ marginTop: '15px', color: '#16a34a', fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold' }}>
                         Realizando esta compra participas del sorteo automáticamente
                       </div>

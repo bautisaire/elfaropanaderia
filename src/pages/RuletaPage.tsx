@@ -348,8 +348,8 @@ export default function RuletaPage() {
 
       <div className="ruleta-container">
         <div className="ruleta-header">
-          <h1>{activeRaffleData?.name || "Sorteo Día del Amigo"}</h1>
-          <h1>{activeRaffleData?.name || "20-07"}</h1>
+          <h1>{activeRaffleData?.name || "Sorteo de la semana"}</h1>
+          <h1>{activeRaffleData?.name || "01-08"}</h1>
         </div>
 
         <div className="ruleta-wheel-wrapper">
