@@ -27,6 +27,7 @@ interface Raffle {
   isModalMode?: boolean;
   prizes?: string[];
   linkClicks?: number;
+  abandonedParticipations?: number;
   imageLink?: string;
 }
 
@@ -610,6 +611,9 @@ export default function RaffleManager() {
                   {activeRaffle.isModalMode && <span style={{ display: 'inline-block', background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', marginTop: '8px', fontWeight: 'bold' }}>Modal Automático Activado</span>}
                   <p style={{ marginTop: '10px', fontSize: '0.95rem', color: '#047857', fontWeight: 'bold' }}>
                     🔗 Clics en enlaces: {activeRaffle.linkClicks || 0}
+                  </p>
+                  <p style={{ marginTop: '5px', fontSize: '0.95rem', color: '#b91c1c', fontWeight: 'bold' }}>
+                    ⚠️ Participaciones incompletas (abandonos): {activeRaffle.abandonedParticipations || 0}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>

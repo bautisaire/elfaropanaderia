@@ -132,6 +132,27 @@ export default function Home() {
     }
   }, [user, activeRaffle]);
 
+  // Handle abandoned participations
+  useEffect(() => {
+    if (activeRaffle?.id) {
+      const hasIntent = localStorage.getItem(`raffle_intent_${activeRaffle.id}`);
+      const isUnlocked = localStorage.getItem(`raffle_unlocked_${activeRaffle.id}`) || dbParticipated;
+      const sessionStep1 = sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`);
+
+      if (hasIntent && !isUnlocked && !sessionStep1) {
+        // User started participating but closed/restarted session without completing an order
+        updateDoc(doc(db, "raffles", activeRaffle.id), {
+          abandonedParticipations: increment(1)
+        }).catch(err => console.error("Error updating abandoned participations", err));
+        
+        localStorage.removeItem(`raffle_intent_${activeRaffle.id}`);
+      } else if (isUnlocked && hasIntent) {
+        // User successfully completed participation
+        localStorage.removeItem(`raffle_intent_${activeRaffle.id}`);
+      }
+    }
+  }, [activeRaffle, dbParticipated]);
+
   const handleDescriptionLinkClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName === 'A' || target.closest('a')) {
@@ -368,6 +389,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       sessionStorage.setItem(`raffle_step1_done_${activeRaffle.id}`, 'true');
+                      localStorage.setItem(`raffle_intent_${activeRaffle.id}`, 'true');
                       setRaffleModalStep(2);
                     }}
                     style={{

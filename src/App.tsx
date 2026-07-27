@@ -1,20 +1,22 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, lazy, Suspense } from "react";
 import { CartContext } from "./context/CartContext";
 import Home from "./pages/Home";
 import Checkout from "./pages/Checkout";
 import Header from "./components/HeaderTemp";
 import Footer from "./components/Footer";
-import Editor from "./pages/Editor";
 import Proximamente from "./pages/Proximamente";
 import DebugConsole from "./components/DebugConsole";
-import MyAccount from "./pages/MyAccount";
 import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
-import MisPedidos from "./pages/MisPedidos";
 import FloatingOrderTracker from "./components/FloatingOrderTracker";
-import RuletaPage from "./pages/RuletaPage";
 
 import CartSidebar from "./components/CartSidebar";
+
+// Rutas que el cliente normal no visita: se descargan solo al entrar en ellas.
+const Editor = lazy(() => import("./pages/Editor"));
+const MyAccount = lazy(() => import("./pages/MyAccount"));
+const MisPedidos = lazy(() => import("./pages/MisPedidos"));
+const RuletaPage = lazy(() => import("./pages/RuletaPage"));
 
 function Layout() {
   const location = useLocation();
@@ -51,15 +53,17 @@ function Layout() {
       {!isEditor && !isRuleta && !isAdmin && <FloatingOrderTracker />}
 
       <div style={{ flex: 1 }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/editor/*" element={<Editor />} />
-          <Route path="/mi-cuenta/*" element={<MyAccount />} />
-          <Route path="/mis-pedidos" element={<MisPedidos />} />
-          <Route path="/Proximamente" element={<Proximamente />} />
-          <Route path="/ruleta" element={<RuletaPage />} />
-        </Routes>
+        <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/editor/*" element={<Editor />} />
+            <Route path="/mi-cuenta/*" element={<MyAccount />} />
+            <Route path="/mis-pedidos" element={<MisPedidos />} />
+            <Route path="/Proximamente" element={<Proximamente />} />
+            <Route path="/ruleta" element={<RuletaPage />} />
+          </Routes>
+        </Suspense>
       </div>
       {!isEditor && !isRuleta && <Footer />}
     </div>
