@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingBag, FaEdit } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
@@ -27,6 +27,17 @@ export default function CartSidebar() {
         itemName: string;
         currentPrice: number;
     }>({ isOpen: false, itemId: '', itemName: '', currentPrice: 0 });
+
+    useEffect(() => {
+        if (isSidebarOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isSidebarOpen]);
 
     const handleClose = () => {
         setIsSidebarOpen(false);
