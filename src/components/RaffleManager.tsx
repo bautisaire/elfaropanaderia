@@ -26,6 +26,8 @@ interface Raffle {
   imageUrl?: string;
   isModalMode?: boolean;
   prizes?: string[];
+  linkClicks?: number;
+  imageLink?: string;
 }
 
 interface Participant {
@@ -72,6 +74,7 @@ export default function RaffleManager() {
   const [titleInput, setTitleInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageLinkInput, setImageLinkInput] = useState("");
   const [isModalMode, setIsModalMode] = useState(false);
   const [prizesInput, setPrizesInput] = useState<string[]>([""]);
   const [messageInput, setMessageInput] = useState("¡Realizando tu pedido sumas chances de ganar!");
@@ -103,6 +106,7 @@ export default function RaffleManager() {
   const [editDrawDate, setEditDrawDate] = useState("");
   const [editIsModalMode, setEditIsModalMode] = useState(false);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImageLink, setEditImageLink] = useState("");
   const [isSavingRaffle, setIsSavingRaffle] = useState(false);
 
   // Image Editor State
@@ -177,6 +181,7 @@ export default function RaffleManager() {
         title: titleInput,
         description: descriptionInput,
         imageUrl: imageUrl,
+        imageLink: imageLinkInput,
         isModalMode: isModalMode,
         prize: validPrizes.join(" - "), // fallback
         prizes: validPrizes, // new array structure
@@ -189,6 +194,7 @@ export default function RaffleManager() {
       setTitleInput("");
       setDescriptionInput("");
       setImageFile(null);
+      setImageLinkInput("");
       setIsModalMode(false);
       setPrizesInput([""]);
       setMessageInput("");
@@ -264,6 +270,7 @@ export default function RaffleManager() {
     setEditDrawDate(activeRaffle.drawDate || "");
     setEditIsModalMode(activeRaffle.isModalMode || false);
     setEditImageFile(null);
+    setEditImageLink(activeRaffle.imageLink || "");
     setShowEditModal(true);
   };
 
@@ -285,6 +292,7 @@ export default function RaffleManager() {
         title: editTitle,
         description: editDescription,
         imageUrl: newImageUrl,
+        imageLink: editImageLink,
         isModalMode: editIsModalMode,
         prize: validPrizes.join(" - "),
         prizes: validPrizes,
@@ -518,6 +526,16 @@ export default function RaffleManager() {
                   <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Imagen recomendada para el modal automático. Se abrirá el editor para ajustarla.</small>
                 </div>
                 <div className="raffle-form-group">
+                  <label>Enlace de la Imagen (Opcional)</label>
+                  <input 
+                    type="url" 
+                    placeholder="Ej: https://instagram.com/..." 
+                    value={imageLinkInput}
+                    onChange={(e) => setImageLinkInput(e.target.value)}
+                  />
+                  <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Si se indica un enlace, la imagen mostrará un botón "Visitar" al tocarla.</small>
+                </div>
+                <div className="raffle-form-group">
                   <label>Premios *</label>
                   {prizesInput.map((prize, index) => (
                     <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
@@ -590,6 +608,9 @@ export default function RaffleManager() {
                   {activeRaffle.drawDate && <p style={{ color: '#0f172a', marginTop: '5px', fontWeight: 'bold' }}>Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}</p>}
                   <p style={{ fontSize: '0.9rem', marginTop: '5px' }}>Iniciado el: {activeRaffle.startDate?.toDate().toLocaleDateString('es-AR')} a las {activeRaffle.startDate?.toDate().toLocaleTimeString('es-AR')}</p>
                   {activeRaffle.isModalMode && <span style={{ display: 'inline-block', background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', marginTop: '8px', fontWeight: 'bold' }}>Modal Automático Activado</span>}
+                  <p style={{ marginTop: '10px', fontSize: '0.95rem', color: '#047857', fontWeight: 'bold' }}>
+                    🔗 Clics en enlaces: {activeRaffle.linkClicks || 0}
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={handleEditRaffle} className="btn-edit-raffle" style={{ padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -973,6 +994,16 @@ export default function RaffleManager() {
                     </div>
                   )}
                   <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Selecciona una imagen nueva para reemplazar la actual. Se abrirá el editor.</small>
+                </div>
+                <div className="raffle-form-group">
+                  <label>Enlace de la Imagen (Opcional)</label>
+                  <input 
+                    type="url" 
+                    placeholder="Ej: https://instagram.com/..." 
+                    value={editImageLink}
+                    onChange={(e) => setEditImageLink(e.target.value)}
+                  />
+                  <small style={{ color: '#94a3b8', marginTop: '5px', display: 'block' }}>Si se indica un enlace, la imagen mostrará un botón "Visitar" al tocarla.</small>
                 </div>
                 <div className="raffle-form-group">
                   <label>Premios *</label>

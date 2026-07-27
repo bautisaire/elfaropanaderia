@@ -8,12 +8,12 @@ import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db, auth } from "../firebase/firebaseConfig";
-import { collection, doc, getDoc, increment, setDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, increment, setDoc, updateDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
-import { FaStoreSlash, FaWhatsapp, FaTrophy, FaTimes, FaGift } from "react-icons/fa";
+import { FaStoreSlash, FaWhatsapp, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
 export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
@@ -24,6 +24,7 @@ export default function Home() {
   const [showRaffleModal, setShowRaffleModal] = useState(false); // Participate modal
   const [showRaffleInfoModal, setShowRaffleInfoModal] = useState(false); // Info modal (participants/roulette)
   const [raffleModalStep, setRaffleModalStep] = useState<1 | 2>(1);
+  const [showImageLinkOverlay, setShowImageLinkOverlay] = useState(false);
 
   useEffect(() => {
     const qRaffle = query(collection(db, "raffles"), where("isActive", "==", true), limit(1));
@@ -130,6 +131,35 @@ export default function Home() {
       });
     }
   }, [user, activeRaffle]);
+
+  const handleDescriptionLinkClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A' || target.closest('a')) {
+      if (activeRaffle?.id) {
+        updateDoc(doc(db, "raffles", activeRaffle.id), {
+          linkClicks: increment(1)
+        }).catch(err => console.error("Error updating link clicks", err));
+      }
+    }
+  };
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    if (!activeRaffle?.imageLink) return;
+    e.stopPropagation();
+    
+    const isDesktop = window.matchMedia('(hover: hover)').matches;
+    if (isDesktop || showImageLinkOverlay) {
+      if (activeRaffle?.id) {
+        updateDoc(doc(db, "raffles", activeRaffle.id), {
+          linkClicks: increment(1)
+        }).catch(err => console.error("Error updating link clicks", err));
+      }
+      window.open(activeRaffle.imageLink, "_blank", "noopener,noreferrer");
+      setShowImageLinkOverlay(false);
+    } else {
+      setShowImageLinkOverlay(true);
+    }
+  };
 
   const handleOpenRaffleModal = () => {
     if (!activeRaffle) return;
@@ -254,21 +284,57 @@ export default function Home() {
 
       {/* Modal de Participación (Auto-start) */}
       {showRaffleModal && activeRaffle && (
-        <div className="store-closed-overlay" onClick={() => setShowRaffleModal(false)} style={{ zIndex: 10000 }}>
-          <div className="store-closed-modal raffle-home-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
-            <button className="raffle-modal-close" onClick={() => setShowRaffleModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: '#333', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}><FaTimes /></button>
+        <div className="store-closed-overlay" onClick={() => { setShowRaffleModal(false); setShowImageLinkOverlay(false); }} style={{ zIndex: 10000 }}>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+            <button className="raffle-modal-close" onClick={() => { setShowRaffleModal(false); setShowImageLinkOverlay(false); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: '#333', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}><FaTimes /></button>
 
             {activeRaffle.imageUrl && (
-              <div style={{
-                width: '100%',
-                height: '200px',
-                backgroundImage: `url(${activeRaffle.imageUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundColor: '#f1f5f9',
-                position: 'relative'
-              }}>
-                {/* Optional skeleton animation class could be added here */}
+              <div
+                onClick={activeRaffle.imageLink ? handleImageClick : undefined}
+                onMouseEnter={() => {
+                  if (activeRaffle.imageLink && window.matchMedia('(hover: hover)').matches) {
+                    setShowImageLinkOverlay(true);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (activeRaffle.imageLink && window.matchMedia('(hover: hover)').matches) {
+                    setShowImageLinkOverlay(false);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  backgroundImage: `url(${activeRaffle.imageUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: '#f1f5f9',
+                  position: 'relative',
+                  cursor: activeRaffle.imageLink ? 'pointer' : 'default'
+                }}>
+                {activeRaffle.imageLink && showImageLinkOverlay && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(50, 50, 50, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2
+                  }}>
+                    <span style={{
+                      color: 'white',
+                      fontSize: '1.4rem',
+                      fontWeight: 'bold',
+                      padding: '10px 28px',
+                      border: '3px solid #8b0000',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                      letterSpacing: '1px'
+                    }}>
+                      Visitar
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -280,7 +346,7 @@ export default function Home() {
                     <br />
                     {!activeRaffle.imageUrl && <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />}
                     <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
-                    {activeRaffle.description && <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '15px', fontStyle: 'italic' }}>{activeRaffle.description}</p>}
+                    {activeRaffle.description && <p className="raffle-description-html" style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '15px', fontStyle: 'italic' }} dangerouslySetInnerHTML={{ __html: activeRaffle.description }} onClick={handleDescriptionLinkClick}></p>}
                   </div>
 
                   <div style={{ color: '#047857', marginBottom: activeRaffle.drawDate ? '10px' : '20px', textAlign: 'center', width: '100%', fontSize: '0.95rem' }}>
@@ -354,25 +420,68 @@ export default function Home() {
 
       {/* Modal de Información (Manual: Participantes y Ruleta) */}
       {showRaffleInfoModal && activeRaffle && (
-        <div className="store-closed-overlay" onClick={() => setShowRaffleInfoModal(false)} style={{ zIndex: 10000 }}>
-          <div className="store-closed-modal raffle-home-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
-            <button className="raffle-modal-close" onClick={() => setShowRaffleInfoModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: activeRaffle.imageUrl ? 'rgba(255,255,255,0.8)' : 'none', border: 'none', borderRadius: activeRaffle.imageUrl ? '50%' : '0', width: activeRaffle.imageUrl ? '30px' : 'auto', height: activeRaffle.imageUrl ? '30px' : 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: activeRaffle.imageUrl ? '#333' : '#666', zIndex: 10, boxShadow: activeRaffle.imageUrl ? '0 2px 4px rgba(0,0,0,0.2)' : 'none' }}><FaTimes /></button>
+        <div className="store-closed-overlay" onClick={() => { setShowRaffleInfoModal(false); setShowImageLinkOverlay(false); }} style={{ zIndex: 10000 }}>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+            <button className="raffle-modal-close" onClick={() => { setShowRaffleInfoModal(false); setShowImageLinkOverlay(false); }} style={{ position: 'absolute', top: '15px', right: '15px', background: activeRaffle.imageUrl ? 'rgba(255,255,255,0.8)' : 'none', border: 'none', borderRadius: activeRaffle.imageUrl ? '50%' : '0', width: activeRaffle.imageUrl ? '30px' : 'auto', height: activeRaffle.imageUrl ? '30px' : 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: activeRaffle.imageUrl ? '#333' : '#666', zIndex: 10, boxShadow: activeRaffle.imageUrl ? '0 2px 4px rgba(0,0,0,0.2)' : 'none' }}><FaTimes /></button>
 
             {activeRaffle.imageUrl && (
-              <div style={{
-                width: '100%',
-                height: '200px',
-                backgroundImage: `url(${activeRaffle.imageUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundColor: '#f1f5f9',
-                position: 'relative'
-              }} />
+              <div
+                onClick={activeRaffle.imageLink ? handleImageClick : undefined}
+                onMouseEnter={() => {
+                  if (activeRaffle.imageLink && window.matchMedia('(hover: hover)').matches) {
+                    setShowImageLinkOverlay(true);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (activeRaffle.imageLink && window.matchMedia('(hover: hover)').matches) {
+                    setShowImageLinkOverlay(false);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  backgroundImage: `url(${activeRaffle.imageUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: '#f1f5f9',
+                  position: 'relative',
+                  cursor: activeRaffle.imageLink ? 'pointer' : 'default'
+                }}>
+                {activeRaffle.imageLink && showImageLinkOverlay && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(50, 50, 50, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2
+                  }}>
+                    <span style={{
+                      backgroundColor: 'var(--primary-color)',
+                      color: 'white',
+                      fontSize: '1.2rem',
+                      fontWeight: '600',
+                      padding: '12px 28px',
+                      border: 'none',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                      cursor: 'pointer'
+                    }}>
+                      Visitar <FaExternalLinkAlt size={16} />
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
 
             <div style={{ padding: '25px 20px', textAlign: 'center' }}>
               {!activeRaffle.imageUrl && <FaTrophy color="#eab308" size={40} style={{ marginBottom: '10px' }} />}
               <h2 style={{ marginBottom: '5px', fontSize: '1.5rem', color: '#1e293b' }}>{activeRaffle.title || 'Sorteo de la Semana'}</h2>
+              {activeRaffle.description && <p className="raffle-description-html" style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '15px', fontStyle: 'italic' }} dangerouslySetInnerHTML={{ __html: activeRaffle.description }} onClick={handleDescriptionLinkClick}></p>}
 
               <div style={{ color: '#047857', marginBottom: '15px', textAlign: 'center', width: '100%', fontSize: '0.95rem' }}>
                 {activeRaffle.prizes && Array.isArray(activeRaffle.prizes) ? (
@@ -386,7 +495,7 @@ export default function Home() {
 
               <div style={{ background: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #6ee7b7' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '5px' }}>🎉 ¡Ya estás participando!🎉</div>
-                {activeRaffle.customMessage && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', marginTop: '5px' }}>{activeRaffle.customMessage}</div>}
+                {activeRaffle.customMessage && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', marginTop: '5px' }} dangerouslySetInnerHTML={{ __html: activeRaffle.customMessage }} onClick={handleDescriptionLinkClick}></div>}
               </div>
 
               {activeRaffle.drawDate && (
