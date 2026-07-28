@@ -108,6 +108,17 @@ export default function Home() {
     });
   }, [location.search]);
 
+  useEffect(() => {
+    if (showRaffleModal || showRaffleInfoModal || (!isStoreOpen && !isStoreClosedDismissed)) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showRaffleModal, showRaffleInfoModal, isStoreOpen, isStoreClosedDismissed]);
+
   // Modal Automático para sorteos
   useEffect(() => {
     if (activeRaffle?.isModalMode && isStoreOpen) {
@@ -306,7 +317,7 @@ export default function Home() {
       {/* Modal de Participación (Auto-start) */}
       {showRaffleModal && activeRaffle && (
         <div className="store-closed-overlay" onClick={() => { setShowRaffleModal(false); setShowImageLinkOverlay(false); }} style={{ zIndex: 10000 }}>
-          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', maxHeight: '90vh', overflowY: 'auto' }}>
             <button className="raffle-modal-close" onClick={() => { setShowRaffleModal(false); setShowImageLinkOverlay(false); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: '#333', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}><FaTimes /></button>
 
             {activeRaffle.imageUrl && (
@@ -443,7 +454,7 @@ export default function Home() {
       {/* Modal de Información (Manual: Participantes y Ruleta) */}
       {showRaffleInfoModal && activeRaffle && (
         <div className="store-closed-overlay" onClick={() => { setShowRaffleInfoModal(false); setShowImageLinkOverlay(false); }} style={{ zIndex: 10000 }}>
-          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', overflow: 'hidden' }}>
+          <div className="store-closed-modal raffle-home-modal" onClick={e => { e.stopPropagation(); setShowImageLinkOverlay(false); }} style={{ maxWidth: '400px', width: '90%', padding: '0', maxHeight: '90vh', overflowY: 'auto' }}>
             <button className="raffle-modal-close" onClick={() => { setShowRaffleInfoModal(false); setShowImageLinkOverlay(false); }} style={{ position: 'absolute', top: '15px', right: '15px', background: activeRaffle.imageUrl ? 'rgba(255,255,255,0.8)' : 'none', border: 'none', borderRadius: activeRaffle.imageUrl ? '50%' : '0', width: activeRaffle.imageUrl ? '30px' : 'auto', height: activeRaffle.imageUrl ? '30px' : 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: activeRaffle.imageUrl ? '#333' : '#666', zIndex: 10, boxShadow: activeRaffle.imageUrl ? '0 2px 4px rgba(0,0,0,0.2)' : 'none' }}><FaTimes /></button>
 
             {activeRaffle.imageUrl && (
