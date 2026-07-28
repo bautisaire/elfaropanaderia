@@ -4,7 +4,7 @@ import { db } from '../firebase/firebaseConfig';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FaCheckCircle, FaUserCircle, FaMotorcycle, FaChevronDown } from 'react-icons/fa';
 import { CartContext } from '../context/CartContext';
-import './MisPedidos.css'; // Let's use the same CSS classes from MyAccount, plus specific ones
+import './MisPedidos.css';
 
 interface Order {
     id: string;
