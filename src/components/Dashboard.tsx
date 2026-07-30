@@ -603,8 +603,13 @@ export default function Dashboard() {
                     } else if (isShipping || isTrackedProduct) {
                         lineTotalCost = price * (Number(item.quantity) || 0);
                     } else if (parentInfoForCost) {
-                        // If it's a derived product, calculate cost from parent's unit cost * units consumed
-                        lineTotalCost = (parentInfoForCost?.recipe?.costPerUnit || 0) * finalQty * dependencyUnitsToDeduct;
+                        // El costo guardado del producto derivado ya incluye lo heredado del padre
+                        // más su costo propio (empaque, etc.). Sólo lo derivamos desde el padre si
+                        // el hijo todavía no tiene costo sincronizado.
+                        const derivedCost = currentInfo?.recipe?.costPerUnit;
+                        lineTotalCost = derivedCost
+                            ? derivedCost * finalQty
+                            : (parentInfoForCost?.recipe?.costPerUnit || 0) * finalQty * dependencyUnitsToDeduct;
                     } else {
                         // currentInfo is the base product, so we multiply its unit cost by finalQty
                         lineTotalCost = (currentInfo?.recipe?.costPerUnit || 0) * finalQty;

@@ -150,9 +150,14 @@ export const CartProvider = ({ children }: Props) => {
 
   // Catálogo en tiempo real (stock y visibilidad)
   useEffect(() => {
+    const fallbackTimeout = setTimeout(() => {
+      setCatalogLoading(false);
+    }, 15000);
+
     const unsub = onSnapshot(
       collection(db, "products"),
       (snapshot) => {
+        clearTimeout(fallbackTimeout);
         const catalog: Record<string, Product> = {};
         const visible: Product[] = [];
 
@@ -216,7 +221,10 @@ export const CartProvider = ({ children }: Props) => {
         setCatalogLoading(false);
       }
     );
-    return () => unsub();
+    return () => {
+      clearTimeout(fallbackTimeout);
+      unsub();
+    };
   }, []);
 
   const getCatalogProduct = useCallback(

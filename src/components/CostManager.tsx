@@ -269,7 +269,12 @@ export default function CostManager() {
     const handleSaveRecipe = async () => {
         if (!selectedProductId || !editingRecipe) return;
 
-        const unitCost = calculateRecipeUnitCost(editingRecipe, recipeYieldType);
+        // Guardamos el costo real (receta propia + lo heredado del padre) para que coincida
+        // con lo que escribe la sincronización global y con lo que después lee el POS.
+        const currentProduct = products.find(p => p.id === selectedProductId);
+        const unitCost = currentProduct
+            ? calculateRealProductCost(currentProduct, new Set(), editingRecipe, recipeYieldType)
+            : calculateRecipeUnitCost(editingRecipe, recipeYieldType);
 
         try {
             await updateDoc(doc(db, "products", selectedProductId), {
@@ -356,7 +361,18 @@ export default function CostManager() {
         return isNaN(cost) ? 0 : cost;
     };
 
-    const calculateRealProductCost = (product: Product, visitedIds: Set<string> = new Set()): number => {
+    /**
+     * Costo unitario real: lo que hereda del producto padre (si tiene dependencia de stock)
+     * más el costo de su propia receta.
+     * `recipeOverride` permite calcularlo sobre una receta que todavía no está en Firestore
+     * (el borrador que se está editando, o el resultado de un reemplazo global de ingredientes).
+     */
+    const calculateRealProductCost = (
+        product: Product,
+        visitedIds: Set<string> = new Set(),
+        recipeOverride?: ProductRecipe | null,
+        yieldTypeOverride?: 'units' | 'kg'
+    ): number => {
         if (!product) return 0;
         if (visitedIds.has(product.id)) return 0; // Evitar lazos infinitos
 
@@ -373,8 +389,9 @@ export default function CostManager() {
         }
 
         // 2. Costo propio de la receta (ej. empaques o insumos extras)
-        if (product.recipe) {
-            totalCost += calculateRecipeUnitCost(product.recipe, product.recipe.yieldType || 'units');
+        const recipe = recipeOverride !== undefined ? recipeOverride : product.recipe;
+        if (recipe) {
+            totalCost += calculateRecipeUnitCost(recipe, yieldTypeOverride || recipe.yieldType || 'units');
         }
 
         return isNaN(totalCost) ? 0 : totalCost;
@@ -491,7 +508,7 @@ export default function CostManager() {
                         ...prod.recipe,
                         ingredients: newIngredients
                     };
-                    const unitCost = calculateRecipeUnitCost(updatedRecipe, prod.recipe.yieldType || 'units');
+                    const unitCost = calculateRealProductCost(prod, new Set(), updatedRecipe, prod.recipe.yieldType || 'units');
                     
                     await updateDoc(doc(db, "products", prod.id), {
                         recipe: {

@@ -243,6 +243,12 @@ export default function Home() {
           Array.from({ length: 6 }).map((_, index) => (
             <ProductSkeleton key={index} />
           ))
+        ) : products.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '50px 20px', color: '#64748b' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Problemas de conexión</h3>
+            <p>Parece que el internet está inestable o no hay productos disponibles en este momento.</p>
+            <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', marginTop: '15px', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Reintentar</button>
+          </div>
         ) : (
           Object.entries(
             products.reduce((acc, product) => {

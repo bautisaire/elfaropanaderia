@@ -10,6 +10,54 @@ interface VoiceAIPurchasesProps {
     rawMaterials: RawMaterial[];
 }
 
+// Unidades equivalentes: dentro de una misma familia se puede convertir (kg↔g, l↔ml).
+// Incluye ambos alias de "unidades" porque el selector de Materias Primas (CostManager)
+// usa "un" mientras que el selector del ticket usa "unidad" — sin este alias, una materia
+// prima creada como "un" nunca matcheaba contra un ítem de ticket en "unidad" y el chequeo
+// de conflicto de precio se saltaba en silencio.
+const UNIT_CONVERSION: Record<string, { family: string; toBase: number }> = {
+    g: { family: 'peso', toBase: 1 },
+    kg: { family: 'peso', toBase: 1000 },
+    ml: { family: 'volumen', toBase: 1 },
+    l: { family: 'volumen', toBase: 1000 },
+    unidad: { family: 'unidad', toBase: 1 },
+    un: { family: 'unidad', toBase: 1 },
+};
+
+/** Convierte una cantidad entre unidades de la misma familia. null si no son compatibles. */
+const convertQuantity = (qty: number, fromUnit: string, toUnit: string): number | null => {
+    const from = UNIT_CONVERSION[fromUnit];
+    const to = UNIT_CONVERSION[toUnit];
+    if (!from || !to || from.family !== to.family) return null;
+    return (qty * from.toBase) / to.toBase;
+};
+
+/**
+ * Lleva una cantidad a la unidad base de su familia (kg→g, l→ml).
+ * Las materias primas se guardan siempre en la unidad base para que las recetas,
+ * que cargan los ingredientes en gramos/ml, calculen bien el costo.
+ */
+const toBaseUnit = (qty: number, unit: string): { quantity: number; unit: string } => {
+    const info = UNIT_CONVERSION[unit];
+    // "un" es el estándar de unidades usado en el resto de Materias Primas (CostManager);
+    // normalizamos acá para que un material creado desde un ticket combine bien con uno
+    // creado a mano.
+    if (!info || info.family === 'unidad') return { quantity: qty, unit: 'un' };
+    return { quantity: qty * info.toBase, unit: info.family === 'peso' ? 'g' : 'ml' };
+};
+
+/** Muestra cantidades sin ceros de más (12.5 → "12,5"). */
+const formatQty = (n: number) => Number(Number(n).toFixed(3)).toLocaleString('es-AR');
+
+/** Redondea a centavos, evitando arrastrar floats larguísimos (4166.666666666667 → 4166.67). */
+const roundMoney = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/** Redondea cantidades a 3 decimales (suficiente para kg/l) para evitar ruido de coma flotante. */
+const roundQty = (n: number) => Math.round((Number(n) || 0) * 1000) / 1000;
+
+/** Formatea un monto para mostrar, con separador de miles y máximo 2 decimales. */
+const formatMoney = (n: number) => Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
 export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -108,18 +156,46 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
 
         const conflicts: any[] = [];
         for (const item of ticketItems) {
-            if (item.rawMaterialId) {
-                const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
-                if (matData && item.cantidad === matData.baseQuantity && item.unidad === matData.unit && item.precioEditado !== matData.price) {
-                    conflicts.push({
-                        id: item.rawMaterialId,
-                        name: item.nombre,
-                        oldPrice: matData.price,
-                        newPrice: item.precioEditado,
-                        updatePrice: true
-                    });
-                }
-            }
+            if (!item.rawMaterialId) continue;
+
+            const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
+            if (!matData || !(matData.baseQuantity > 0)) continue;
+
+            // Comparamos el precio POR UNIDAD, no el precio de la presentación. Así detectamos
+            // el cambio aunque el ticket venga en otro formato (bolsa de 12,5 kg vs 25 kg)
+            // o en otra unidad compatible (1 kg vs 1000 g).
+            const qtyInMatUnit = convertQuantity(Number(item.cantidad) || 0, item.unidad, matData.unit);
+            if (qtyInMatUnit === null || qtyInMatUnit <= 0) continue;
+
+            const newPrice = Number(item.precioEditado) || 0;
+            if (newPrice <= 0) continue;
+
+            const oldUnitPrice = matData.price / matData.baseQuantity;
+            const newUnitPrice = newPrice / qtyInMatUnit;
+
+            // Tolerancia relativa para no disparar el modal por ruido de coma flotante.
+            const priceChanged = Math.abs(newUnitPrice - oldUnitPrice) > Math.max(oldUnitPrice * 0.0001, 1e-9);
+            const quantityChanged = Math.abs(qtyInMatUnit - matData.baseQuantity) > 1e-9;
+
+            // Avisamos si cambió el costo por unidad O si cambió la presentación (aunque el
+            // costo por unidad dé igual, ej. 25kg a $25000 vs 12,5kg a $12500): en ambos casos
+            // el registro de la materia prima queda desactualizado si no se toca nada.
+            if (!priceChanged && !quantityChanged) continue;
+
+            conflicts.push({
+                id: item.rawMaterialId,
+                name: item.nombre,
+                unit: matData.unit,
+                oldPrice: matData.price,
+                newPrice: roundMoney(newPrice),
+                oldBaseQuantity: matData.baseQuantity,
+                newBaseQuantity: roundQty(qtyInMatUnit),
+                oldUnitPrice,
+                newUnitPrice,
+                priceChanged,
+                quantityChanged,
+                updatePrice: true
+            });
         }
 
         if (conflicts.length > 0) {
@@ -183,21 +259,27 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                     const isNew = !item.rawMaterialId;
                 
                 if (isNew) {
+                    // Normalizamos a la unidad base (kg→g, l→ml): si guardáramos "25 kg" tal cual,
+                    // toda receta que cargue este material en gramos calcularía mal el costo.
+                    const normalized = toBaseUnit(Number(item.cantidad) || 0, item.unidad);
+                    const baseQuantity = normalized.quantity > 0 ? roundQty(normalized.quantity) : 1000;
+                    const newMatPrice = roundMoney(item.precioEditado);
+
                     const newMatRef = doc(collection(db, "raw_materials"));
                     batch.set(newMatRef, {
                         name: item.nombre.trim(),
-                        unit: item.unidad,
-                        baseQuantity: item.cantidad > 0 ? item.cantidad : 1000, 
-                        price: item.precioEditado,
-                        currentPrice: item.precioEditado,
-                        stockQuantity: item.cantidad * (item.multiplicador || 1),
+                        unit: normalized.unit,
+                        baseQuantity,
+                        price: newMatPrice,
+                        currentPrice: newMatPrice,
+                        stockQuantity: roundQty(normalized.quantity * (item.multiplicador || 1)),
                         category: "materia prima",
                         lastUpdated: Timestamp.now(),
-                        priceHistory: [{ 
-                            date: new Date().toISOString(), 
-                            price: item.precioEditado, 
-                            baseQuantity: item.cantidad > 0 ? item.cantidad : 1000, 
-                            unit: item.unidad 
+                        priceHistory: [{
+                            date: new Date().toISOString(),
+                            price: newMatPrice,
+                            baseQuantity,
+                            unit: normalized.unit
                         }]
                     });
                 } else {
@@ -205,26 +287,37 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                     const matData = rawMaterials.find(m => m.id === item.rawMaterialId);
                     
                     if (matData) {
-                        let qtyAddedToStock = item.cantidad * (item.multiplicador || 1);
-                        if (item.unidad === 'kg' && matData.unit === 'g') qtyAddedToStock *= 1000;
-                        else if (item.unidad === 'l' && matData.unit === 'ml') qtyAddedToStock *= 1000;
-                        
+                        // El stock se lleva siempre en la unidad del material: convertimos lo
+                        // que vino en el ticket (kg→g, l→ml, etc.) antes de sumarlo.
+                        const rawQty = (Number(item.cantidad) || 0) * (item.multiplicador || 1);
+                        const convertedQty = convertQuantity(rawQty, item.unidad, matData.unit);
+                        const qtyAddedToStock = convertedQty !== null ? convertedQty : rawQty;
+
                         const currentStock = (matData as any).stockQuantity || 0;
-                        const newStock = currentStock + qtyAddedToStock;
-                        let history = matData.priceHistory || [];
-                        
+                        const newStock = roundQty(currentStock + qtyAddedToStock);
+                        let history = [...(matData.priceHistory || [])];
+
                         const updates: any = {
                             stockQuantity: newStock,
                             lastUpdated: Timestamp.now()
                         };
 
                         const conflict = resolvedConflicts.find(c => c.id === item.rawMaterialId);
-                        
+
                         if (conflict && conflict.updatePrice) {
-                            updates.currentPrice = item.precioEditado;
-                            updates.price = item.precioEditado;
-                            
-                            // Si el historial está vacío (producto creado antes de añadir soporte), 
+                            // Usamos los valores ya redondeados que se mostraron en el modal
+                            // (conflict.newPrice), no el float crudo de precioEditado.
+                            updates.currentPrice = conflict.newPrice;
+                            updates.price = conflict.newPrice;
+
+                            // Si el ticket trae otra presentación (ej. bolsa de 12,5 kg en vez de
+                            // 25 kg), movemos también la cantidad base; si no, el costo por unidad
+                            // de las recetas quedaría calculado sobre la presentación vieja.
+                            if (conflict.newBaseQuantity > 0) {
+                                updates.baseQuantity = conflict.newBaseQuantity;
+                            }
+
+                            // Si el historial está vacío (producto creado antes de añadir soporte),
                             // inyectamos el precio antiguo como "base" inicial.
                             if (history.length === 0) {
                                 history.push({
@@ -235,11 +328,13 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                 });
                             }
 
-                            history = [ ...history, { date: new Date().toISOString(), price: item.precioEditado, baseQuantity: item.cantidad, unit: item.unidad } ];
+                            // El historial se guarda en la unidad del material para que las
+                            // entradas sean comparables entre sí.
+                            history = [ ...history, { date: new Date().toISOString(), price: conflict.newPrice, baseQuantity: conflict.newBaseQuantity, unit: matData.unit } ];
                             if(history.length > 10) history.shift();
                             updates.priceHistory = history;
                         }
-                        
+
                         batch.update(matRef, updates);
                     }
                 }
@@ -587,15 +682,19 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             <FaList /> ¡Actualizaciones de Precio Detectadas!
                         </h3>
                         <p style={{ color: '#4b5563', marginBottom: '20px' }}>
-                            Algunos productos del ticket tienen un precio diferente al costo base guardado para la misma cantidad.
-                            ¿Deseas actualizar el precio de estos productos en tu inventario general?
+                            Algunos productos del ticket tienen un costo por unidad y/o una cantidad diferente a la guardada.
+                            ¿Deseas actualizar el precio y la presentación de estos productos en tu inventario general?
                         </p>
                         <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '20px' }}>
                             {priceConflicts.map((c, idx) => {
-                                const cambioPct = (((c.newPrice - c.oldPrice) / c.oldPrice) * 100).toFixed(1);
-                                const isSubida = c.newPrice > c.oldPrice;
+                                // El porcentaje se calcula sobre el precio por unidad, que es lo
+                                // comparable cuando además cambió la presentación.
+                                const cambioPct = c.oldUnitPrice > 0
+                                    ? (((c.newUnitPrice - c.oldUnitPrice) / c.oldUnitPrice) * 100).toFixed(1)
+                                    : '0.0';
+                                const isSubida = c.newUnitPrice > c.oldUnitPrice;
                                 return (
-                                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', borderBottom: '1px solid #e2e8f0', background: isSubida ? '#fef2f2' : '#f0fdf4', borderRadius: '8px', marginBottom: '10px', cursor: 'pointer' }}>
+                                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', borderBottom: '1px solid #e2e8f0', background: c.priceChanged ? (isSubida ? '#fef2f2' : '#f0fdf4') : '#f8fafc', borderRadius: '8px', marginBottom: '10px', cursor: 'pointer' }}>
                                         <input
                                             type="checkbox"
                                             checked={c.updatePrice}
@@ -609,12 +708,25 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                                         <div style={{ flex: 1 }}>
                                             <strong style={{ display: 'block', fontSize: '1.1rem' }}>{c.name}</strong>
                                             <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                                                Anterior: <span style={{ textDecoration: 'line-through' }}>${c.oldPrice}</span> 👉 Nuevo: <strong>${c.newPrice}</strong>
+                                                Anterior: <span style={{ textDecoration: 'line-through' }}>${formatMoney(c.oldPrice)} / {formatQty(c.oldBaseQuantity)} {c.unit}</span>
+                                                {' '}👉 Nuevo: <strong>${formatMoney(c.newPrice)} / {formatQty(c.newBaseQuantity)} {c.unit}</strong>
                                             </div>
+                                            {c.quantityChanged && (
+                                                <div style={{ color: '#b45309', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                    Cambia la presentación: {formatQty(c.oldBaseQuantity)} {c.unit} → {formatQty(c.newBaseQuantity)} {c.unit}
+                                                </div>
+                                            )}
+                                            {!c.priceChanged && (
+                                                <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                    Costo por unidad sin cambios.
+                                                </div>
+                                            )}
                                         </div>
+                                        {c.priceChanged && (
                                         <div style={{ color: isSubida ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
                                             {isSubida ? '🔺' : '🔻'} {Math.abs(Number(cambioPct))}%
                                         </div>
+                                        )}
                                     </label>
                                 );
                             })}
