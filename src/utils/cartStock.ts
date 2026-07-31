@@ -1,12 +1,36 @@
 import type { Product } from "../context/CartContext";
 
-/** Stock bruto del producto (kg con decimales o unidades enteras). */
-export function getRawStockQuantity(product: Product | undefined): number {
+/**
+ * Stock bruto del producto (kg con decimales o unidades enteras).
+ * Si se pasa variantName y el producto tiene variantes, devuelve el stock de esa
+ * variante puntual (0 si el producto tiene variantes pero ninguna coincide con ese nombre).
+ */
+export function getRawStockQuantity(product: Product | undefined, variantName?: string | null): number {
     if (!product) return 0;
+    if (variantName && product.variants && product.variants.length > 0) {
+        const variant = product.variants.find((v) => v.name === variantName);
+        if (!variant) return 0;
+        if (variant.stockQuantity !== undefined) {
+            return Math.max(0, Number(variant.stockQuantity) || 0);
+        }
+        return variant.stock ? 999 : 0;
+    }
     if (product.stockQuantity !== undefined) {
         return Math.max(0, Number(product.stockQuantity) || 0);
     }
     return product.stock !== false ? 999 : 0;
+}
+
+/** Nombre de variante de un item vendido (carrito, pedido o línea de POS). */
+export function getItemVariantName(item: {
+    variant?: string | null;
+    selectedVariant?: string | null;
+    name?: string;
+}): string {
+    if (item.selectedVariant) return item.selectedVariant;
+    if (item.variant) return item.variant;
+    const match = item.name?.match(/\(([^)]+)\)$/);
+    return match ? match[1] : "";
 }
 
 /**
@@ -52,6 +76,25 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
 
         const parent = catalog[dep.productId];
         if (!parent) return;
+
+        if (child.variants && child.variants.length > 0) {
+            const newVariants = child.variants.map((v) => {
+                const parentStock = getRawStockQuantity(parent, v.name);
+                const derivedStock = getDerivedStockFromParent(
+                    parentStock,
+                    dep.unitsToDeduct,
+                    parent,
+                    child
+                );
+                return { ...v, stockQuantity: derivedStock, stock: derivedStock > 0 };
+            });
+            catalog[childId] = {
+                ...child,
+                variants: newVariants,
+                stock: newVariants.some((v) => (v.stockQuantity || 0) > 0),
+            };
+            return;
+        }
 
         const parentStock = getRawStockQuantity(parent);
         const derivedStock = getDerivedStockFromParent(
@@ -146,6 +189,21 @@ export function getAvailableStock(
     if (product.stockDependency?.productId && catalog) {
         const parent = catalog[String(product.stockDependency.productId)];
         if (parent) {
+            if (product.variants && product.variants.length > 0) {
+                const vName =
+                    variantName ||
+                    product.variants.find((v) =>
+                        v.stockQuantity !== undefined ? v.stockQuantity > 0 : v.stock
+                    )?.name ||
+                    product.variants[0]?.name;
+                const parentStock = getRawStockQuantity(parent, vName);
+                return getDerivedStockFromParent(
+                    parentStock,
+                    Number(product.stockDependency.unitsToDeduct) || 1,
+                    parent,
+                    product
+                );
+            }
             const parentStock = getRawStockQuantity(parent);
             return getDerivedStockFromParent(
                 parentStock,

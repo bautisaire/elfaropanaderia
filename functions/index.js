@@ -264,6 +264,10 @@ exports.processOrder = onCall(async (request) => {
 
                 const qty = Number(item.quantity) || 1;
 
+                let variantName = "";
+                const nameMatch = item.name.match(/\(([^)]+)\)$/);
+                if (nameMatch) variantName = nameMatch[1];
+
                 // Pack/Derived
                 if (productData.stockDependency && productData.stockDependency.productId) {
                     const parentId = productData.stockDependency.productId;
@@ -272,36 +276,64 @@ exports.processOrder = onCall(async (request) => {
 
                     const unitsToDeduct = Number(productData.stockDependency.unitsToDeduct) || 1;
                     const totalDeduct = qty * unitsToDeduct;
-                    const currentStock = Number(parentData.stockQuantity) || 0;
 
-                    if (currentStock < totalDeduct) throw new HttpsError("failed-precondition", `Stock insuficiente: ${item.name} (Pack)`);
+                    const parentVIdx = variantName && parentData.variants
+                        ? parentData.variants.findIndex(v => v.name === variantName)
+                        : -1;
 
-                    parentData.stockQuantity = currentStock - totalDeduct;
-                    parentData.stock = parentData.stockQuantity > 0;
-                    productsToUpdate.add(parentId);
+                    if (parentVIdx >= 0) {
+                        const variant = parentData.variants[parentVIdx];
+                        const currentStock = Number(variant.stockQuantity) || 0;
 
-                    stockMovementsToLog.push({
-                        productId: parentId, productName: parentData.nombre || 'Desconocido', quantity: totalDeduct,
-                        observation: `Venta Derivado: ${item.name || 'Desconocido'}`,
-                        stockAfter: parentData.stockQuantity
-                    });
-                    
-                    if(parentData.stockQuantity <= (parentData.minStock || 0)) {
-                        stockAlertsToLog.push({
-                            productId: parentId,
-                            productName: parentData.nombre || 'Desconocido',
-                            message: `Stock bajo para ${parentData.nombre || 'Desconocido'}. Nivel actual: ${parentData.stockQuantity}`,
-                            createdAt: new Date(),
-                            status: 'unread'
+                        if (currentStock < totalDeduct) throw new HttpsError("failed-precondition", `Stock insuficiente: ${item.name} (${variantName})`);
+
+                        variant.stockQuantity = currentStock - totalDeduct;
+                        variant.stock = variant.stockQuantity > 0;
+                        productsToUpdate.add(parentId);
+
+                        stockMovementsToLog.push({
+                            productId: parentId, productName: `${parentData.nombre || 'Desconocido'} (${variantName})`, quantity: totalDeduct,
+                            observation: `Venta Derivado: ${item.name || 'Desconocido'}`,
+                            stockAfter: variant.stockQuantity
                         });
+
+                        if (variant.stockQuantity <= (parentData.minStock || 0)) {
+                            stockAlertsToLog.push({
+                                productId: parentId,
+                                productName: `${parentData.nombre || 'Desconocido'} (${variantName})`,
+                                message: `Stock bajo para ${parentData.nombre || 'Desconocido'} (${variantName}). Nivel actual: ${variant.stockQuantity}`,
+                                createdAt: new Date(),
+                                status: 'unread'
+                            });
+                        }
+                    } else {
+                        const currentStock = Number(parentData.stockQuantity) || 0;
+
+                        if (currentStock < totalDeduct) throw new HttpsError("failed-precondition", `Stock insuficiente: ${item.name} (Pack)`);
+
+                        parentData.stockQuantity = currentStock - totalDeduct;
+                        parentData.stock = parentData.stockQuantity > 0;
+                        productsToUpdate.add(parentId);
+
+                        stockMovementsToLog.push({
+                            productId: parentId, productName: parentData.nombre || 'Desconocido', quantity: totalDeduct,
+                            observation: `Venta Derivado: ${item.name || 'Desconocido'}`,
+                            stockAfter: parentData.stockQuantity
+                        });
+
+                        if(parentData.stockQuantity <= (parentData.minStock || 0)) {
+                            stockAlertsToLog.push({
+                                productId: parentId,
+                                productName: parentData.nombre || 'Desconocido',
+                                message: `Stock bajo para ${parentData.nombre || 'Desconocido'}. Nivel actual: ${parentData.stockQuantity}`,
+                                createdAt: new Date(),
+                                status: 'unread'
+                            });
+                        }
                     }
 
                 } else {
                     // Standard/Variant
-                    let variantName = "";
-                    const match = item.name.match(/\(([^)]+)\)$/);
-                    if (match) variantName = match[1];
-
                     if (variantName && productData.variants) {
                         const vIdx = productData.variants.findIndex(v => v.name === variantName);
                         if (vIdx < 0) throw new HttpsError("failed-precondition", `Variante no encontrada: ${variantName}`);
@@ -357,22 +389,51 @@ exports.processOrder = onCall(async (request) => {
             const childUpdates = [];
             childrenSnaps.forEach((snap, idx) => {
                 const pid = productsToUpdateArr[idx];
-                const parentUnitType = productDocsMap[pid]?.unitType || "unit";
-                const newParentStock = productDocsMap[pid]?.stockQuantity ?? 0;
+                const parentDoc = productDocsMap[pid] || {};
+                const parentUnitType = parentDoc.unitType || "unit";
+                const parentVariants = parentDoc.variants;
+                const newParentStock = parentDoc.stockQuantity ?? 0;
+
                 snap.forEach(childDoc => {
                     const childData = childDoc.data();
                     const dependency = childData.stockDependency;
-                    if (dependency && dependency.unitsToDeduct > 0) {
-                        const childUnitType = childData.unitType || "unit";
-                        const newChildStock = getDerivedChildStock(
-                            newParentStock,
-                            dependency.unitsToDeduct,
-                            parentUnitType,
-                            childUnitType
-                        );
-                        if (childData.stockQuantity !== newChildStock) {
-                            childUpdates.push({ ref: childDoc.ref, stockQuantity: newChildStock, stock: newChildStock > 0 });
+                    if (!(dependency && dependency.unitsToDeduct > 0)) return;
+
+                    const childUnitType = childData.unitType || "unit";
+                    const childVariants = childData.variants;
+
+                    if (childVariants && childVariants.length > 0) {
+                        let changed = false;
+                        const newVariants = childVariants.map(v => {
+                            const parentStockForVariant = parentVariants
+                                ? (parentVariants.find(pv => pv.name === v.name)?.stockQuantity ?? 0)
+                                : newParentStock;
+                            const newVal = getDerivedChildStock(
+                                parentStockForVariant,
+                                dependency.unitsToDeduct,
+                                parentUnitType,
+                                childUnitType
+                            );
+                            if (newVal !== (v.stockQuantity || 0)) changed = true;
+                            return { ...v, stockQuantity: newVal, stock: newVal > 0 };
+                        });
+                        if (changed) {
+                            childUpdates.push({ ref: childDoc.ref, variants: newVariants });
                         }
+                        return;
+                    }
+
+                    const parentStockForChild = parentVariants
+                        ? parentVariants.reduce((acc, pv) => acc + (Number(pv.stockQuantity) || 0), 0)
+                        : newParentStock;
+                    const newChildStock = getDerivedChildStock(
+                        parentStockForChild,
+                        dependency.unitsToDeduct,
+                        parentUnitType,
+                        childUnitType
+                    );
+                    if (childData.stockQuantity !== newChildStock) {
+                        childUpdates.push({ ref: childDoc.ref, stockQuantity: newChildStock, stock: newChildStock > 0 });
                     }
                 });
             });
@@ -386,7 +447,11 @@ exports.processOrder = onCall(async (request) => {
             });
 
             childUpdates.forEach(u => {
-                transaction.update(u.ref, { stockQuantity: u.stockQuantity, stock: u.stock });
+                if (u.variants) {
+                    transaction.update(u.ref, { variants: u.variants });
+                } else {
+                    transaction.update(u.ref, { stockQuantity: u.stockQuantity, stock: u.stock });
+                }
             });
 
             // Update counter

@@ -86,21 +86,34 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
         const isVariant = item.variant || (item.name && item.name.includes('('));
         const data = baseDataMap.get(baseId);
 
+        let variantName = item.variant || "";
+        if (!variantName && item.name && item.name.includes('(')) {
+            const match = item.name.match(/\(([^)]+)\)$/);
+            if (match) variantName = match[1];
+        }
+
         if (data) {
             let available = 0;
 
             if (data.stockDependency?.productId) {
                 const parentData = parentDataMap.get(data.stockDependency.productId) || null;
+                const parentHasVariants = parentData?.variants && parentData.variants.length > 0;
+                const childHasVariants = data.variants && data.variants.length > 0;
+
                 const parentStock = parentData
-                    ? getRawStockQuantity({
-                          id: data.stockDependency.productId,
-                          name: '',
-                          price: 0,
-                          image: '',
-                          stockQuantity: parentData.stockQuantity,
-                          stock: parentData.stock,
-                          unitType: parentData.unitType || 'unit',
-                      })
+                    ? getRawStockQuantity(
+                          {
+                              id: data.stockDependency.productId,
+                              name: '',
+                              price: 0,
+                              image: '',
+                              stockQuantity: parentData.stockQuantity,
+                              stock: parentData.stock,
+                              variants: parentData.variants,
+                              unitType: parentData.unitType || 'unit',
+                          },
+                          childHasVariants && parentHasVariants ? variantName : undefined
+                      )
                     : 0;
                 const parentProduct = parentData
                     ? { unitType: parentData.unitType || 'unit' as const }
@@ -113,12 +126,6 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                     childProduct as any
                 );
             } else if (isVariant && data.variants) {
-                let variantName = item.variant || "";
-                if (!variantName) {
-                    const match = item.name.match(/\(([^)]+)\)$/);
-                    if (match) variantName = match[1];
-                }
-
                 if (variantName) {
                     const variant = data.variants.find((v: any) => v.name === variantName);
                     if (variant) {
@@ -129,11 +136,6 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                 available = Number(data.stockQuantity || 0);
             }
 
-            let variantName = item.variant || "";
-            if (!variantName && item.name && item.name.includes('(')) {
-                const match = item.name.match(/\(([^)]+)\)$/);
-                if (match) variantName = match[1];
-            }
             const key = `${baseId}-${variantName}`;
             const totalRequested = aggregatedQuantities.get(key) || item.quantity;
 

@@ -6,6 +6,7 @@ import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getD
 import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaUser, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
+import { getItemVariantName } from "../utils/cartStock";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
 import GlobalDeliveriesMapModal from "./GlobalDeliveriesMapModal";
 import { useCart } from "../context/CartContext";
@@ -452,14 +453,27 @@ export default function OrdersManager() {
 
                         if (parentSnap.exists()) {
                             const parentData = parentSnap.data();
-                            const currentParentStock = parentData.stockQuantity || 0;
-                            const newParentStock = currentParentStock + qtyToRestore;
+                            const parentVariantName = getItemVariantName(item);
+                            const parentVariants = parentData.variants as any[] | undefined;
+                            const variantIdx = parentVariantName && parentVariants
+                                ? parentVariants.findIndex((v: any) => v.name === parentVariantName)
+                                : -1;
 
-                            await updateDoc(parentRef, { stockQuantity: newParentStock });
+                            let newParentStock: number;
+                            if (variantIdx >= 0) {
+                                const variants = [...parentVariants!];
+                                const newVariantStock = (variants[variantIdx].stockQuantity || 0) + qtyToRestore;
+                                variants[variantIdx] = { ...variants[variantIdx], stockQuantity: newVariantStock, stock: newVariantStock > 0 };
+                                await updateDoc(parentRef, { variants });
+                                newParentStock = newVariantStock;
+                            } else {
+                                newParentStock = (parentData.stockQuantity || 0) + qtyToRestore;
+                                await updateDoc(parentRef, { stockQuantity: newParentStock });
+                            }
 
                             await addDoc(collection(db, "stock_movements"), {
                                 productId: parentId,
-                                productName: parentData.nombre,
+                                productName: variantIdx >= 0 ? `${parentData.nombre} (${parentVariantName})` : parentData.nombre,
                                 type: 'IN',
                                 quantity: qtyToRestore,
                                 reason: 'Pedido Cancelado',
@@ -544,14 +558,27 @@ export default function OrdersManager() {
 
                         if (parentSnap.exists()) {
                             const parentData = parentSnap.data();
-                            const currentParentStock = parentData.stockQuantity || 0;
-                            const newParentStock = Math.max(0, currentParentStock - qtyToDeduct);
+                            const parentVariantName = getItemVariantName(item);
+                            const parentVariants = parentData.variants as any[] | undefined;
+                            const variantIdx = parentVariantName && parentVariants
+                                ? parentVariants.findIndex((v: any) => v.name === parentVariantName)
+                                : -1;
 
-                            await updateDoc(parentRef, { stockQuantity: newParentStock });
+                            let newParentStock: number;
+                            if (variantIdx >= 0) {
+                                const variants = [...parentVariants!];
+                                const newVariantStock = Math.max(0, (variants[variantIdx].stockQuantity || 0) - qtyToDeduct);
+                                variants[variantIdx] = { ...variants[variantIdx], stockQuantity: newVariantStock, stock: newVariantStock > 0 };
+                                await updateDoc(parentRef, { variants });
+                                newParentStock = newVariantStock;
+                            } else {
+                                newParentStock = Math.max(0, (parentData.stockQuantity || 0) - qtyToDeduct);
+                                await updateDoc(parentRef, { stockQuantity: newParentStock });
+                            }
 
                             await addDoc(collection(db, "stock_movements"), {
                                 productId: parentId,
-                                productName: parentData.nombre,
+                                productName: variantIdx >= 0 ? `${parentData.nombre} (${parentVariantName})` : parentData.nombre,
                                 type: 'OUT',
                                 quantity: qtyToDeduct,
                                 reason: 'Pedido Reactivado',
@@ -796,14 +823,31 @@ export default function OrdersManager() {
 
                 if (parentSnap.exists()) {
                     const parentData = parentSnap.data();
-                    let newParentStock = parentData.stockQuantity || 0;
-                    if (type === 'IN') newParentStock += totalQty;
-                    else newParentStock = Math.max(0, newParentStock - totalQty);
+                    const parentVariantName = getItemVariantName(item);
+                    const parentVariants = parentData.variants as any[] | undefined;
+                    const variantIdx = parentVariantName && parentVariants
+                        ? parentVariants.findIndex((v: any) => v.name === parentVariantName)
+                        : -1;
 
-                    await updateDoc(parentRef, { stockQuantity: newParentStock });
+                    let newParentStock: number;
+                    if (variantIdx >= 0) {
+                        const variants = [...parentVariants!];
+                        let newVariantStock = variants[variantIdx].stockQuantity || 0;
+                        if (type === 'IN') newVariantStock += totalQty;
+                        else newVariantStock = Math.max(0, newVariantStock - totalQty);
+                        variants[variantIdx] = { ...variants[variantIdx], stockQuantity: newVariantStock, stock: newVariantStock > 0 };
+                        await updateDoc(parentRef, { variants });
+                        newParentStock = newVariantStock;
+                    } else {
+                        newParentStock = parentData.stockQuantity || 0;
+                        if (type === 'IN') newParentStock += totalQty;
+                        else newParentStock = Math.max(0, newParentStock - totalQty);
+                        await updateDoc(parentRef, { stockQuantity: newParentStock });
+                    }
+
                     await addDoc(collection(db, "stock_movements"), {
                         productId: parentId,
-                        productName: parentData.nombre,
+                        productName: variantIdx >= 0 ? `${parentData.nombre} (${parentVariantName})` : parentData.nombre,
                         type: type,
                         quantity: totalQty,
                         reason: type === 'IN' ? 'Edición Pedido (Devolución)' : 'Edición Pedido (Salida)',

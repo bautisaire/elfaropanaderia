@@ -679,23 +679,49 @@ export default function POSManager() {
                         if (parentDoc) {
                             const unitsToDeduct = itemDoc.stockDependency.unitsToDeduct || 1;
                             const totalDeduct = item.quantity * unitsToDeduct;
-                            const currentStock = parentDoc.stockQuantity || 0;
+                            const parentVariantName = item.selectedVariant;
+                            const parentVIdx = parentVariantName && parentDoc.variants
+                                ? parentDoc.variants.findIndex((v: any) => v.name === parentVariantName)
+                                : -1;
 
-                            if (currentStock < totalDeduct) {
-                                throw new Error(`Stock insuficiente para ${item.nombre} (Pack). Quedan: ${Math.floor(currentStock / unitsToDeduct)} unidades.`);
-                            }
+                            if (parentVIdx >= 0) {
+                                const variant = parentDoc.variants[parentVIdx];
+                                const currentStock = variant.stockQuantity || 0;
 
-                            parentDoc.stockQuantity = currentStock - totalDeduct;
-                            parentDoc.stock = parentDoc.stockQuantity > 0;
+                                if (currentStock < totalDeduct) {
+                                    throw new Error(`Stock insuficiente para ${item.nombre} (${parentVariantName}). Quedan: ${Math.floor(currentStock / unitsToDeduct)} unidades.`);
+                                }
 
-                            productsToUpdate.add(parentId);
+                                variant.stockQuantity = currentStock - totalDeduct;
+                                variant.stock = variant.stockQuantity > 0;
+                                productsToUpdate.add(parentId);
 
-                            if (currentStock > 0 && parentDoc.stockQuantity <= 0 && parentDoc.isVisible !== false) {
-                                stockAlertsToLog.push({
-                                    productId: parentId,
-                                    productName: parentDoc.nombre,
-                                    date: new Date()
-                                });
+                                if (currentStock > 0 && variant.stockQuantity <= 0 && parentDoc.isVisible !== false) {
+                                    stockAlertsToLog.push({
+                                        productId: parentId,
+                                        productName: `${parentDoc.nombre} (${parentVariantName})`,
+                                        date: new Date()
+                                    });
+                                }
+                            } else {
+                                const currentStock = parentDoc.stockQuantity || 0;
+
+                                if (currentStock < totalDeduct) {
+                                    throw new Error(`Stock insuficiente para ${item.nombre} (Pack). Quedan: ${Math.floor(currentStock / unitsToDeduct)} unidades.`);
+                                }
+
+                                parentDoc.stockQuantity = currentStock - totalDeduct;
+                                parentDoc.stock = parentDoc.stockQuantity > 0;
+
+                                productsToUpdate.add(parentId);
+
+                                if (currentStock > 0 && parentDoc.stockQuantity <= 0 && parentDoc.isVisible !== false) {
+                                    stockAlertsToLog.push({
+                                        productId: parentId,
+                                        productName: parentDoc.nombre,
+                                        date: new Date()
+                                    });
+                                }
                             }
                         }
                     } else {
@@ -800,8 +826,12 @@ export default function POSManager() {
                     if (itemDoc?.stockDependency?.productId) {
                         const parentDoc = productDataMap[itemDoc.stockDependency.productId];
                         if (parentDoc) {
+                            const parentVariant = item.selectedVariant && parentDoc.variants
+                                ? parentDoc.variants.find((v: any) => v.name === item.selectedVariant)
+                                : undefined;
+                            const parentStockForCalc = parentVariant ? (parentVariant.stockQuantity || 0) : (parentDoc.stockQuantity || 0);
                             stockAfter = getDerivedStockFromParent(
-                                parentDoc.stockQuantity || 0,
+                                parentStockForCalc,
                                 itemDoc.stockDependency.unitsToDeduct || 1,
                                 parentDoc,
                                 itemDoc

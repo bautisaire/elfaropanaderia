@@ -6,9 +6,13 @@ import type { Product } from '../context/CartContext';
 /**
  * Sincroniza el stock de todos los productos "Hijos" (Derivados)
  * basándose en el nuevo stock del Producto Padre.
- * 
+ *
+ * Siempre relee el padre para obtener sus variantes actuales: si el padre tiene
+ * variantes (ej. sabores), cada variante del hijo se deriva de la variante del
+ * padre con el mismo nombre, en vez de un único número plano.
+ *
  * @param parentId ID del producto Padre que cambió de stock.
- * @param newParentStock La nueva cantidad de stock disponible del Padre.
+ * @param newParentStock Nueva cantidad de stock del Padre (usada solo si el padre no tiene variantes).
  */
 export const syncChildProducts = async (parentId: string, newParentStock: number) => {
     try {
@@ -23,9 +27,9 @@ export const syncChildProducts = async (parentId: string, newParentStock: number
         if (querySnapshot.empty) return;
 
         const parentSnap = await getDoc(doc(db, "products", parentId));
-        const parentUnitType = parentSnap.exists()
-            ? (parentSnap.data().unitType as Product['unitType']) || 'unit'
-            : 'unit';
+        const parentData = parentSnap.exists() ? parentSnap.data() : undefined;
+        const parentUnitType = (parentData?.unitType as Product['unitType']) || 'unit';
+        const parentVariants = parentData?.variants as { name: string; stockQuantity?: number }[] | undefined;
 
         const parentProduct: Product = {
             id: parentId,
@@ -43,31 +47,60 @@ export const syncChildProducts = async (parentId: string, newParentStock: number
             const childData = childDoc.data();
             const dependency = childData.stockDependency;
 
-            if (dependency && dependency.unitsToDeduct > 0) {
-                const childProduct: Product = {
-                    id: childDoc.id,
-                    name: childData.nombre || '',
-                    price: 0,
-                    image: '',
-                    unitType: childData.unitType || 'unit',
-                    stockDependency: dependency,
-                };
-                const newChildStock = getDerivedStockFromParent(
-                    newParentStock,
-                    dependency.unitsToDeduct,
-                    parentProduct,
-                    childProduct
-                );
+            if (!(dependency && dependency.unitsToDeduct > 0)) return;
 
-                // Solo actualizar si cambió
-                if (childData.stockQuantity !== newChildStock) {
-                    const childRef = doc(db, "products", childDoc.id);
-                    batch.update(childRef, {
-                        stockQuantity: newChildStock,
-                        stock: newChildStock > 0
-                    });
+            const childProduct: Product = {
+                id: childDoc.id,
+                name: childData.nombre || '',
+                price: 0,
+                image: '',
+                unitType: childData.unitType || 'unit',
+                stockDependency: dependency,
+            };
+
+            const childVariants = childData.variants as { name: string; stockQuantity?: number; stock?: boolean }[] | undefined;
+
+            if (childVariants && childVariants.length > 0) {
+                let changed = false;
+                const newVariants = childVariants.map((v) => {
+                    const parentStockForVariant = parentVariants
+                        ? (parentVariants.find((pv) => pv.name === v.name)?.stockQuantity ?? 0)
+                        : newParentStock;
+                    const newVal = getDerivedStockFromParent(
+                        parentStockForVariant,
+                        dependency.unitsToDeduct,
+                        parentProduct,
+                        childProduct
+                    );
+                    if (newVal !== (v.stockQuantity || 0)) changed = true;
+                    return { ...v, stockQuantity: newVal, stock: newVal > 0 };
+                });
+
+                if (changed) {
+                    batch.update(doc(db, "products", childDoc.id), { variants: newVariants });
                     updatesCount++;
                 }
+                return;
+            }
+
+            const parentStockForChild = parentVariants
+                ? parentVariants.reduce((acc, pv) => acc + (Number(pv.stockQuantity) || 0), 0)
+                : newParentStock;
+            const newChildStock = getDerivedStockFromParent(
+                parentStockForChild,
+                dependency.unitsToDeduct,
+                parentProduct,
+                childProduct
+            );
+
+            // Solo actualizar si cambió
+            if (childData.stockQuantity !== newChildStock) {
+                const childRef = doc(db, "products", childDoc.id);
+                batch.update(childRef, {
+                    stockQuantity: newChildStock,
+                    stock: newChildStock > 0
+                });
+                updatesCount++;
             }
         });
 
