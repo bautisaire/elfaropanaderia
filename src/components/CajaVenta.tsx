@@ -57,10 +57,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const [cart, setCart] = useState<CartRow[]>([]);
     const [enabledMethods, setEnabledMethods] = useState<Record<PaymentMethod, boolean>>({ Efectivo: true, 'Débito': false, Transferencia: false });
     const [paymentAmounts, setPaymentAmounts] = useState<Record<PaymentMethod, string>>({ Efectivo: '', 'Débito': '', Transferencia: '' });
+    const [combinePayments, setCombinePayments] = useState(false);
     const paymentInputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>({ Efectivo: null, 'Débito': null, Transferencia: null });
     const [discountPercentInput, setDiscountPercentInput] = useState('');
     const [totalInput, setTotalInput] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [lastSale, setLastSale] = useState<{ time: Date; itemCount: number; amount: number } | null>(null);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -302,7 +304,6 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         setPendingProduct(null);
         setQuantityInput('');
         setSearchTerm('');
-        if (isAddModalOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
     };
 
     const confirmWeight = (qty: number) => {
@@ -323,7 +324,6 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
         addRowToCart(freshProduct, variant, qty);
         setSearchTerm('');
-        if (isAddModalOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
     };
 
     const removeRow = (key: string) => {
@@ -455,21 +455,44 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [total]);
 
+    // Unchecking "Combinar formas de pago" collapses back down to a single active method.
+    useEffect(() => {
+        if (combinePayments) return;
+        setEnabledMethods(prev => {
+            const enabledList = PAYMENT_METHODS_ORDER.filter(m => prev[m]);
+            if (enabledList.length <= 1) return prev;
+            const keep = enabledList[0];
+            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', [keep]: total > 0 ? String(total) : '' });
+            return { Efectivo: false, 'Débito': false, Transferencia: false, [keep]: true };
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [combinePayments]);
+
     const togglePaymentMethod = (method: PaymentMethod) => {
         setEnabledMethods(prev => {
-            const willEnable = !prev[method];
-            const next = { ...prev, [method]: willEnable };
+            const isCurrentlyEnabled = prev[method];
 
-            if (willEnable) {
-                const alreadyEnteredSum = PAYMENT_METHODS_ORDER
-                    .filter(m => m !== method && next[m])
-                    .reduce((sum, m) => sum + (parseFloat(paymentAmounts[m]) || 0), 0);
-                const remaining = Math.max(0, round2(total - alreadyEnteredSum));
-                setPaymentAmounts(prevAmounts => ({ ...prevAmounts, [method]: remaining > 0 ? String(remaining) : '' }));
-            } else {
+            // Turning it off: same letter/click on an already-active method disables it.
+            if (isCurrentlyEnabled) {
                 setPaymentAmounts(prevAmounts => ({ ...prevAmounts, [method]: '' }));
+                return { ...prev, [method]: false };
             }
 
+            // Turning it on, single-select mode (default): switch away from whatever was
+            // active and hand the full amount to the newly selected method.
+            if (!combinePayments) {
+                setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', [method]: total > 0 ? String(total) : '' });
+                return { Efectivo: false, 'Débito': false, Transferencia: false, [method]: true };
+            }
+
+            // Turning it on, combine mode: add alongside whatever's already enabled,
+            // defaulting to whatever balance remains.
+            const next = { ...prev, [method]: true };
+            const alreadyEnteredSum = PAYMENT_METHODS_ORDER
+                .filter(m => m !== method && next[m])
+                .reduce((sum, m) => sum + (parseFloat(paymentAmounts[m]) || 0), 0);
+            const remaining = Math.max(0, round2(total - alreadyEnteredSum));
+            setPaymentAmounts(prevAmounts => ({ ...prevAmounts, [method]: remaining > 0 ? String(remaining) : '' }));
             return next;
         });
     };
@@ -726,11 +749,13 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
             onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId });
             setModalConfig({ isOpen: true, type: 'success', title: '¡Venta Registrada!', message: `Total: $${total.toLocaleString('es-AR')}` });
+            setLastSale({ time: new Date(), itemCount: cart.length, amount: total });
             setCart([]);
             setDiscountPercentInput('');
             setTotalInput('');
             setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false });
             setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '' });
+            setCombinePayments(false);
         } catch (error) {
             console.error('Checkout error:', error);
             const errMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -785,6 +810,9 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             } else if (e.key === 'd' || e.key === 'D') {
                 e.preventDefault();
                 activatePaymentMethod('Débito');
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                setIsAddModalOpen(true);
             }
         };
 
@@ -882,6 +910,15 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                         />
                     </div>
 
+                    <label className="caja-venta-combine-toggle">
+                        <input
+                            type="checkbox"
+                            checked={combinePayments}
+                            onChange={(e) => setCombinePayments(e.target.checked)}
+                        />
+                        Combinar formas de pago
+                    </label>
+
                     <div className="caja-venta-payment-methods">
                         {(['Efectivo', 'Débito', 'Transferencia'] as PaymentMethod[]).map(pm => (
                             <div key={pm} className={`caja-venta-payment-row ${enabledMethods[pm] ? 'active' : ''}`}>
@@ -920,6 +957,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     <button className="caja-venta-confirm-btn" disabled={cart.length === 0 || processing || paymentBreakdown.length === 0 || paymentDiff < -0.01} onClick={handleConfirmSale}>
                         {processing ? 'Procesando...' : 'Cobrar Venta'}
                     </button>
+
+                    {lastSale && (
+                        <div className="caja-venta-last-sale">
+                            Última venta: {lastSale.time.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} · {lastSale.itemCount} {lastSale.itemCount === 1 ? 'producto' : 'productos'} · ${lastSale.amount.toLocaleString('es-AR')}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1100,7 +1143,6 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                         }
 
                         setSearchTerm('');
-                        if (isAddModalOpen) setTimeout(() => searchInputRef.current?.focus(), 50);
                     }}
                 />
             )}
