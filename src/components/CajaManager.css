@@ -27,8 +27,14 @@
     font-size: 0.9rem;
 }
 
-.caja-toggle-amounts-btn {
+.caja-header-actions {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.caja-toggle-amounts-btn {
     background: #f3f4f6;
     border: none;
     border-radius: 50%;
@@ -44,6 +50,96 @@
 
 .caja-toggle-amounts-btn:hover {
     background: #e5e7eb;
+}
+
+.caja-secondary-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    border: none;
+    color: #334155;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.caja-secondary-btn:hover {
+    background: #e2e8f0;
+}
+
+.caja-secondary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.caja-close-btn {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.caja-close-btn:hover {
+    background: #fecaca;
+}
+
+.caja-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    border: none;
+    color: #334155;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.caja-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.caja-history-row {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+
+.caja-history-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.caja-history-date {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.caja-history-enCaja {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: #065f46;
+}
+
+.caja-history-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.caja-history-closedby {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: #94a3b8;
 }
 
 .caja-stats-bar {

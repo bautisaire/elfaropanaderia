@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVenta from './CajaVenta';
 import './CajaManager.css';
@@ -20,6 +20,25 @@ interface CajaMovement {
     createdByEmail?: string;
 }
 
+interface CajaSessionStats {
+    enCaja: number;
+    ingresos: number;
+    egresos: number;
+    ventas: number;
+    efectivo: number;
+    transferencia: number;
+    debito: number;
+    cantidad: number;
+}
+
+interface CajaSession {
+    id: string;
+    closedAt?: Timestamp | Date;
+    closedByEmail?: string;
+    periodStart?: Timestamp | Date | null;
+    stats: CajaSessionStats;
+}
+
 const getArgentinaDate = (date: Date) => {
     return new Date(date.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
 };
@@ -30,11 +49,19 @@ const isSameDay = (d1: Date, d2: Date) => {
         d1.getDate() === d2.getDate();
 };
 
+const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
+    if (!value) return null;
+    return value instanceof Timestamp ? value.toDate() : value;
+};
+
 export default function CajaManager() {
     const { user } = useCart();
-    const [view, setView] = useState<'menu' | 'venta'>('menu');
+    const [view, setView] = useState<'menu' | 'venta' | 'historial'>('menu');
     const [movements, setMovements] = useState<CajaMovement[]>([]);
+    const [rawOrders, setRawOrders] = useState<any[]>([]);
+    const [sessions, setSessions] = useState<CajaSession[]>([]);
     const [loading, setLoading] = useState(true);
+    const [closing, setClosing] = useState(false);
 
     const [movementModal, setMovementModal] = useState<'ingreso' | 'egreso' | null>(null);
     const [formAmount, setFormAmount] = useState('');
@@ -64,14 +91,70 @@ export default function CajaManager() {
         return () => unsub();
     }, []);
 
-    const todaysMovements = useMemo(() => {
-        const now = getArgentinaDate(new Date());
-        return movements.filter(m => {
-            if (!m.date) return false;
-            const d = m.date instanceof Timestamp ? m.date.toDate() : m.date;
-            return isSameDay(now, getArgentinaDate(d));
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'orders'), (snap) => {
+            setRawOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (error) => {
+            console.error('Error cargando pedidos:', error);
         });
-    }, [movements]);
+        return () => unsub();
+    }, []);
+
+    useEffect(() => {
+        const q = query(collection(db, 'caja_sessions'), orderBy('closedAt', 'desc'), limit(100));
+        const unsub = onSnapshot(q, (snap) => {
+            setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as CajaSession)));
+        }, (error) => {
+            console.error('Error cargando historial de cajas:', error);
+        });
+        return () => unsub();
+    }, []);
+
+    // The current register session runs from the last close (if any) until now.
+    // With no prior close yet, it falls back to "today" (Argentina time), same as before.
+    const lastSession = sessions[0];
+
+    const isInCurrentSession = (d: Date) => {
+        const closedAtDate = toDate(lastSession?.closedAt);
+        if (closedAtDate) {
+            return d.getTime() > closedAtDate.getTime();
+        }
+        return isSameDay(getArgentinaDate(new Date()), getArgentinaDate(d));
+    };
+
+    const currentSessionMovements = useMemo(() => {
+        const cajaMovs = movements.filter(m => {
+            const d = toDate(m.date);
+            return d ? isInCurrentSession(d) : false;
+        });
+
+        const coveredOrderIds = new Set(
+            cajaMovs.filter(m => m.type === 'venta' && m.orderId).map(m => m.orderId)
+        );
+
+        const orderMovs: CajaMovement[] = rawOrders
+            .filter(o => o.status !== 'cancelado' && !o.isTestOrder && !coveredOrderIds.has(o.id))
+            .map(o => {
+                const d = o.date && typeof o.date.toDate === 'function' ? o.date.toDate() : (o.date ? new Date(o.date) : null);
+                if (!d) return null;
+                return {
+                    id: `order-${o.id}`,
+                    type: 'venta' as MovementType,
+                    amount: Number(o.total) || 0,
+                    paymentMethod: (o.cliente?.metodoPago as PaymentMethod) || undefined,
+                    orderId: o.id,
+                    date: d
+                } as CajaMovement;
+            })
+            .filter((m): m is CajaMovement => m !== null && isInCurrentSession(m.date as Date));
+
+        return [...cajaMovs, ...orderMovs].sort((a, b) => {
+            const da = toDate(a.date)?.getTime() || 0;
+            const db_ = toDate(b.date)?.getTime() || 0;
+            return db_ - da;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [movements, rawOrders, lastSession]);
 
     const stats = useMemo(() => {
         let ingresos = 0;
@@ -81,7 +164,7 @@ export default function CajaManager() {
         let transferencia = 0;
         let debito = 0;
 
-        todaysMovements.forEach(m => {
+        currentSessionMovements.forEach(m => {
             const method = m.paymentMethod || 'Efectivo';
             const sign = m.type === 'egreso' ? -1 : 1;
 
@@ -98,12 +181,13 @@ export default function CajaManager() {
             enCaja: ventas + ingresos - egresos,
             ingresos,
             egresos,
+            ventas,
             efectivo,
             transferencia,
             debito,
-            cantidad: todaysMovements.length
+            cantidad: currentSessionMovements.length
         };
-    }, [todaysMovements]);
+    }, [currentSessionMovements]);
 
     const fmt = (n: number) => showAmounts ? `$${Math.round(n).toLocaleString('es-AR')}` : '***';
 
@@ -179,6 +263,84 @@ export default function CajaManager() {
         return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     };
 
+    const formatDateTime = (timestamp?: Timestamp | Date | null) => {
+        const d = toDate(timestamp);
+        if (!d) return '—';
+        return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const handleCloseCaja = async () => {
+        if (stats.cantidad === 0) {
+            alert('No hay movimientos para cerrar en esta caja.');
+            return;
+        }
+        if (!window.confirm(`¿Cerrar la caja actual?\n\nEn caja: ${fmt(stats.enCaja)}\nMovimientos: ${stats.cantidad}\n\nLos contadores volverán a cero y se guardará este resumen en el historial.`)) {
+            return;
+        }
+
+        setClosing(true);
+        try {
+            await addDoc(collection(db, 'caja_sessions'), {
+                closedAt: serverTimestamp(),
+                closedByEmail: user?.email || 'admin',
+                periodStart: lastSession?.closedAt || null,
+                stats: {
+                    enCaja: stats.enCaja,
+                    ingresos: stats.ingresos,
+                    egresos: stats.egresos,
+                    ventas: stats.ventas,
+                    efectivo: stats.efectivo,
+                    transferencia: stats.transferencia,
+                    debito: stats.debito,
+                    cantidad: stats.cantidad
+                }
+            });
+        } catch (error) {
+            console.error('Error cerrando caja:', error);
+            alert('Error al cerrar la caja.');
+        } finally {
+            setClosing(false);
+        }
+    };
+
+    if (view === 'historial') {
+        return (
+            <div className="caja-container">
+                <div className="caja-header">
+                    <button className="caja-back-btn" onClick={() => setView('menu')}>
+                        <FaArrowLeft /> Volver
+                    </button>
+                    <h2><FaHistory /> Historial de Cajas</h2>
+                </div>
+
+                <div className="caja-history-list">
+                    {sessions.length === 0 ? (
+                        <p className="caja-empty">Todavía no se cerró ninguna caja.</p>
+                    ) : (
+                        sessions.map(s => (
+                            <div key={s.id} className="caja-history-row">
+                                <div className="caja-history-top">
+                                    <span className="caja-history-date">{formatDateTime(s.closedAt)}</span>
+                                    <span className="caja-history-enCaja">{fmt(s.stats?.enCaja || 0)}</span>
+                                </div>
+                                <div className="caja-history-stats">
+                                    <span>Ventas: {fmt(s.stats?.ventas || 0)}</span>
+                                    <span>Ingresos: {fmt(s.stats?.ingresos || 0)}</span>
+                                    <span>Egresos: {fmt(s.stats?.egresos || 0)}</span>
+                                    <span>Efectivo: {fmt(s.stats?.efectivo || 0)}</span>
+                                    <span>Transf.: {fmt(s.stats?.transferencia || 0)}</span>
+                                    <span>Débito: {fmt(s.stats?.debito || 0)}</span>
+                                    <span>{s.stats?.cantidad || 0} mov.</span>
+                                </div>
+                                {s.closedByEmail && <div className="caja-history-closedby">Cerrado por {s.closedByEmail}</div>}
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     if (view === 'venta') {
         return (
             <CajaVenta
@@ -192,14 +354,31 @@ export default function CajaManager() {
         <div className="caja-container">
             <div className="caja-header">
                 <h2><FaCashRegister /> Caja</h2>
-                <span className="caja-subtitle">Resumen del día</span>
-                <button
-                    className="caja-toggle-amounts-btn"
-                    onClick={() => setShowAmounts(!showAmounts)}
-                    title={showAmounts ? 'Ocultar montos' : 'Mostrar montos'}
-                >
-                    {showAmounts ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
-                </button>
+                <span className="caja-subtitle">Caja actual{lastSession ? ` (desde ${formatDateTime(lastSession.closedAt)})` : ' (hoy)'}</span>
+                <div className="caja-header-actions">
+                    <button
+                        className="caja-secondary-btn"
+                        onClick={() => setView('historial')}
+                        title="Historial de Cajas"
+                    >
+                        <FaHistory /> Historial
+                    </button>
+                    <button
+                        className="caja-secondary-btn caja-close-btn"
+                        onClick={handleCloseCaja}
+                        disabled={closing}
+                        title="Cerrar Caja"
+                    >
+                        <FaLock /> {closing ? 'Cerrando...' : 'Cerrar Caja'}
+                    </button>
+                    <button
+                        className="caja-toggle-amounts-btn"
+                        onClick={() => setShowAmounts(!showAmounts)}
+                        title={showAmounts ? 'Ocultar montos' : 'Mostrar montos'}
+                    >
+                        {showAmounts ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                    </button>
+                </div>
             </div>
 
             <div className="caja-stats-bar">
@@ -246,13 +425,13 @@ export default function CajaManager() {
             </div>
 
             <div className="caja-movements-list">
-                <h3>Movimientos de hoy</h3>
+                <h3>Movimientos de la caja actual</h3>
                 {loading ? (
                     <p className="caja-empty">Cargando...</p>
-                ) : todaysMovements.length === 0 ? (
-                    <p className="caja-empty">Todavía no hay movimientos registrados hoy.</p>
+                ) : currentSessionMovements.length === 0 ? (
+                    <p className="caja-empty">Todavía no hay movimientos registrados en esta caja.</p>
                 ) : (
-                    todaysMovements.map(m => (
+                    currentSessionMovements.map(m => (
                         <div key={m.id} className={`caja-movement-row caja-movement-${m.type}`}>
                             <span className="caja-movement-type">
                                 {m.type === 'venta' ? 'Venta' : m.type === 'ingreso' ? 'Ingreso' : 'Egreso'}

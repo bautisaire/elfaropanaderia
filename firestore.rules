@@ -129,6 +129,9 @@ service cloud.firestore {
     match /caja_movements/{document=**} {
       allow read, write: if isAdmin();
     }
+    match /caja_sessions/{document=**} {
+      allow read, write: if isAdmin();
+    }
     match /time_entries/{document=**} {
       allow read, write: if isAdmin();
     }
