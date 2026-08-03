@@ -1,5 +1,127 @@
 /* Bills Manager (Gastos y Tickets) */
 
+.bills-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.bills-big-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: none;
+    border-radius: 14px;
+    padding: 28px 20px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.bills-big-btn svg {
+    font-size: 1.5rem;
+}
+
+.bills-big-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}
+
+.bills-big-btn-ticket {
+    background: #059669;
+    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+}
+
+.bills-big-btn-egreso {
+    background: #dc2626;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+}
+
+.bills-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.bills-modal {
+    background: #fff;
+    padding: 28px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+
+.bills-modal h3 {
+    margin: 0 0 18px 0;
+    color: #1e293b;
+}
+
+.bills-form-group {
+    margin-bottom: 16px;
+}
+
+.bills-form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #475569;
+}
+
+.bills-form-group input,
+.bills-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.bills-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.bills-btn-cancel {
+    padding: 10px 16px;
+    background: #e2e8f0;
+    color: #475569;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.bills-btn-save {
+    padding: 10px 16px;
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.bills-btn-save:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+}
+
 .bills-summary-bar {
     display: flex;
     flex-wrap: wrap;

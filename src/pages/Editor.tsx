@@ -10,6 +10,7 @@ import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
 import StoreEditor from "../components/StoreEditor";
 import POSManager from "../components/POSManager";
+import CajaManager from "../components/CajaManager";
 import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
@@ -228,6 +229,16 @@ export default function Editor() {
                   <span className="nav-text">Punto de Venta</span>
                 </button>
               )}
+              {adminPermissions?.pos_sales !== false && (
+                <button
+                  className={currentPath === "caja" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/caja")}
+                  title="Caja"
+                >
+                  <div className="nav-icon" style={{ color: '#8b5cf6' }}><FaCashRegister /></div>
+                  <span className="nav-text">Caja</span>
+                </button>
+              )}
 
               {adminPermissions?.costs !== false && (
                 <button
@@ -349,10 +360,11 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' || currentPath === 'caja' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
             <Routes>
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
+              {adminPermissions?.pos_sales !== false && <Route path="/caja" element={<CajaManager />} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}

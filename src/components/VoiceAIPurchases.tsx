@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, Timestamp, writeBatch, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { FaTimes, FaCheckCircle, FaTrash, FaPlus, FaList } from 'react-icons/fa';
@@ -8,6 +8,8 @@ import { RawMaterial } from './CostManager';
 
 interface VoiceAIPurchasesProps {
     rawMaterials: RawMaterial[];
+    /** When provided, the component opens straight into the ticket-entry modal (skipping the landing screen) and calls this when the user discards or finishes. */
+    onClose?: () => void;
 }
 
 // Unidades equivalentes: dentro de una misma familia se puede convertir (kg↔g, l↔ml).
@@ -58,10 +60,27 @@ const roundQty = (n: number) => Math.round((Number(n) || 0) * 1000) / 1000;
 /** Formatea un monto para mostrar, con separador de miles y máximo 2 decimales. */
 const formatMoney = (n: number) => Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
 
-export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps) {
+export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurchasesProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [ticketItems, setTicketItems] = useState<any[]>([]);
+
+    // Modal mode (opened directly from Gastos): skip the landing screen and jump straight into ticket entry.
+    useEffect(() => {
+        if (onClose) {
+            setTicketItems([{
+                id: crypto.randomUUID(),
+                nombre: "",
+                cantidad: 0,
+                unidad: "unidad",
+                rawMaterialId: null,
+                precioEditado: 0,
+                multiplicador: 1
+            }]);
+            setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [ticketName, setTicketName] = useState<string>("");
     const [ticketDate, setTicketDate] = useState<string>(() => {
         const now = new Date();
@@ -370,38 +389,46 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
 
     return (
         <div className="cm-tab-content">
-            <h3>Gestión de Tickets de Compra</h3>
-            <p style={{ color: '#64748b', marginBottom: '20px' }}>
-                Ingresa los datos de los tickets de compras manualmente.
-            </p>
+            {!onClose && (
+                <>
+                    <h3>Gestión de Tickets de Compra</h3>
+                    <p style={{ color: '#64748b', marginBottom: '20px' }}>
+                        Ingresa los datos de los tickets de compras manualmente.
+                    </p>
+                </>
+            )}
 
             <div className="cm-ai-voice-container">
-                <button
-                    className="cm-btn-primary"
-                    style={{ background: '#3b82f6', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content' }}
-                    onClick={() => {
-                        setTicketItems([{
-                            id: crypto.randomUUID(),
-                            nombre: "",
-                            cantidad: 0,
-                            unidad: "unidad",
-                            rawMaterialId: null,
-                            precioEditado: 0,
-                            multiplicador: 1
-                        }]);
-                        setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
-                    }}
-                >
-                    <FaPlus style={{ marginRight: '8px' }} /> Cargar Ticket
-                </button>
+                {!onClose && (
+                    <>
+                        <button
+                            className="cm-btn-primary"
+                            style={{ background: '#3b82f6', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content' }}
+                            onClick={() => {
+                                setTicketItems([{
+                                    id: crypto.randomUUID(),
+                                    nombre: "",
+                                    cantidad: 0,
+                                    unidad: "unidad",
+                                    rawMaterialId: null,
+                                    precioEditado: 0,
+                                    multiplicador: 1
+                                }]);
+                                setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
+                            }}
+                        >
+                            <FaPlus style={{ marginRight: '8px' }} /> Cargar Ticket
+                        </button>
 
-                <button
-                    className="cm-btn-secondary"
-                    style={{ background: '#f8fafc', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content', marginLeft: '10px', color: '#475569', border: '1px solid #cbd5e1' }}
-                    onClick={() => navigate('/editor/bills/gastos')}
-                >
-                    <FaList style={{ marginRight: '8px' }} /> Ver Historial de Gastos
-                </button>
+                        <button
+                            className="cm-btn-secondary"
+                            style={{ background: '#f8fafc', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content', marginLeft: '10px', color: '#475569', border: '1px solid #cbd5e1' }}
+                            onClick={() => navigate('/editor/bills/gastos')}
+                        >
+                            <FaList style={{ marginRight: '8px' }} /> Ver Historial de Gastos
+                        </button>
+                    </>
+                )}
 
                 {ticketItems.length > 0 && (
                     <div style={{
@@ -653,7 +680,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                             </div>
 
                             <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                <button onClick={() => { setTicketItems([]); setTicketName(""); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
+                                <button onClick={() => { setTicketItems([]); setTicketName(""); if (onClose) onClose(); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
                                     <FaTimes style={{ marginRight: '8px' }} /> Descartar
                                 </button>
                                 <button onClick={handleConfirmClick} style={{ background: '#0f172a', padding: '15px 40px', fontSize: '1.4rem', fontWeight: 'bold', borderRadius: '6px', border: 'none', color: 'white', cursor: 'pointer' }}>
@@ -757,7 +784,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                         <FaCheckCircle style={{ color: '#10b981', fontSize: '64px', marginBottom: '20px' }} />
                         <h2 style={{ color: '#0f172a', marginBottom: '10px' }}>¡Ticket Creado Exitosamente!</h2>
                         <p style={{ color: '#475569', marginBottom: '30px' }}>Los productos y el inventario han sido actualizados.</p>
-                        <button className="cm-btn-primary" onClick={() => setShowSuccessModal(false)} style={{ width: '100%', padding: '12px' }}>
+                        <button className="cm-btn-primary" onClick={() => { setShowSuccessModal(false); if (onClose) onClose(); }} style={{ width: '100%', padding: '12px' }}>
                             Aceptar y Continuar
                         </button>
                     </div>

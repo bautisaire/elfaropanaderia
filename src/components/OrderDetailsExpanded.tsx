@@ -448,6 +448,15 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 )
                             }
 
+                            {order.createdByEmail && (
+                                <div className="info-row" style={{ alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                    <FaUser className="icon-muted" />
+                                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                                        Generado por: <strong style={{ color: '#334155' }}>{order.createdByEmail}</strong>
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Rider Assignment (Available for all order sources) */}
                             {(isSuperAdmin || adminPermissions?.orders_can_assign_deliveries || (!adminPermissions?.is_rider && adminPermissions?.orders)) && onAssignRider && (
                                 <div className="source-selector-wrapper-expanded" style={{ marginTop: '10px', background: '#f0fdf4', padding: '10px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>

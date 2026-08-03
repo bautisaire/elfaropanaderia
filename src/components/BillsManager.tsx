@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../firebase/firebaseConfig';
-import { collection, doc, deleteDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
-import { FaSync, FaTrash, FaChevronDown, FaFileInvoiceDollar, FaReceipt } from 'react-icons/fa';
+import { collection, doc, addDoc, deleteDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
+import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import VoiceAIPurchases from './VoiceAIPurchases';
 import { RawMaterial } from './CostManager';
@@ -10,14 +9,10 @@ import './CostManager.css';
 import './BillsManager.css';
 
 export default function BillsManager() {
-    const { "*": tab } = useParams();
-    const navigate = useNavigate();
     const { isSuperAdmin: contextIsSuperAdmin } = useCart();
     const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
 
-    const cleanTab = tab ? tab.replace(/^\//, '') : 'gastos';
-    const validTabs = ['gastos', 'tickets'];
-    const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'gastos';
+    const [showTicketModal, setShowTicketModal] = useState(false);
 
     // Raw Materials (necesarios para el generador de tickets)
     const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
@@ -39,6 +34,38 @@ export default function BillsManager() {
     const [expenseCustomEnd, setExpenseCustomEnd] = useState<string>('');
     const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
 
+    // Registrar Egreso (quick manual expense entry)
+    const [isEgresoModalOpen, setIsEgresoModalOpen] = useState(false);
+    const [egresoAmount, setEgresoAmount] = useState('');
+    const [egresoDescription, setEgresoDescription] = useState('');
+    const [egresoType, setEgresoType] = useState<'materia_prima' | 'servicio' | 'delivery' | 'otro'>('otro');
+    const [savingEgreso, setSavingEgreso] = useState(false);
+
+    const handleSaveEgreso = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!egresoAmount || Number(egresoAmount) <= 0) return;
+
+        setSavingEgreso(true);
+        try {
+            await addDoc(collection(db, 'expenses'), {
+                description: egresoDescription.trim() || 'Egreso',
+                totalAmount: Number(egresoAmount),
+                date: Timestamp.now(),
+                type: egresoType,
+                createdByEmail: auth.currentUser?.email || 'admin'
+            });
+            setIsEgresoModalOpen(false);
+            setEgresoAmount('');
+            setEgresoDescription('');
+            setEgresoType('otro');
+        } catch (error) {
+            console.error('Error al registrar egreso:', error);
+            alert('Ocurrió un error al registrar el egreso.');
+        } finally {
+            setSavingEgreso(false);
+        }
+    };
+
     const handleDeleteExpense = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (!isSuperAdmin) return;
@@ -54,7 +81,6 @@ export default function BillsManager() {
     };
 
     useEffect(() => {
-        if (activeTab !== 'gastos') return;
         setLoadingExpenses(true);
 
         let startDate = new Date();
@@ -105,31 +131,25 @@ export default function BillsManager() {
             setLoadingExpenses(false);
         }, () => setLoadingExpenses(false));
         return () => unsub();
-    }, [activeTab, expenseFilter, expenseCustomStart, expenseCustomEnd]);
+    }, [expenseFilter, expenseCustomStart, expenseCustomEnd]);
 
     return (
         <div className="cost-manager-container">
             <header className="cm-header">
-                <h2>Gastos y Tickets</h2>
-                <div className="cm-tabs">
-                    <button
-                        className={`cm-tab ${activeTab === 'gastos' ? 'active' : ''}`}
-                        onClick={() => navigate('/editor/bills/gastos')}
-                    >
-                        <FaFileInvoiceDollar /> 1. Gastos
-                    </button>
-                    <button
-                        className={`cm-tab ${activeTab === 'tickets' ? 'active' : ''}`}
-                        onClick={() => navigate('/editor/bills/tickets')}
-                    >
-                        <FaReceipt /> 2. Cargar Ticket
-                    </button>
-                </div>
+                <h2>Gastos</h2>
             </header>
 
             <main className="cm-content">
-                {activeTab === 'gastos' && (
-                    <div className="orders-table-container">
+                <div className="orders-table-container">
+                        <div className="bills-actions">
+                            <button className="bills-big-btn bills-big-btn-ticket" onClick={() => setShowTicketModal(true)}>
+                                <FaReceipt /> Cargar Ticket
+                            </button>
+                            <button className="bills-big-btn bills-big-btn-egreso" onClick={() => setIsEgresoModalOpen(true)}>
+                                <FaArrowUp /> Registrar Egreso
+                            </button>
+                        </div>
+
                         {loadingExpenses ? (
                             <div className="loading-state"><FaSync className="spin" size={24} /><p>Cargando gastos...</p></div>
                         ) : (
@@ -170,25 +190,6 @@ export default function BillsManager() {
                                             />
                                         </div>
                                     )}
-
-                                    <button
-                                        onClick={() => navigate('/editor/bills/tickets')}
-                                        style={{
-                                            marginLeft: expenseFilter === 'custom' ? '0' : 'auto',
-                                            padding: '8px 16px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #10b981',
-                                            background: '#d1fae5',
-                                            color: '#047857',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}
-                                    >
-                                        <FaReceipt /> Cargar Ticket Nuevo
-                                    </button>
                                 </div>
 
                                 {expenses.length === 0 ? (
@@ -288,13 +289,45 @@ export default function BillsManager() {
                                 </div>
                             </div>
                         )}
-                    </div>
-                )}
-
-                {activeTab === 'tickets' && (
-                    <VoiceAIPurchases rawMaterials={rawMaterials} />
-                )}
+                </div>
             </main>
+
+            {showTicketModal && (
+                <VoiceAIPurchases rawMaterials={rawMaterials} onClose={() => setShowTicketModal(false)} />
+            )}
+
+            {isEgresoModalOpen && (
+                <div className="bills-modal-overlay" onClick={() => setIsEgresoModalOpen(false)}>
+                    <div className="bills-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Registrar Egreso</h3>
+                        <form onSubmit={handleSaveEgreso}>
+                            <div className="bills-form-group">
+                                <label>Monto ($)</label>
+                                <input type="number" required min="1" autoFocus value={egresoAmount} onChange={(e) => setEgresoAmount(e.target.value)} placeholder="Ej: 5000" />
+                            </div>
+                            <div className="bills-form-group">
+                                <label>Tipo</label>
+                                <select value={egresoType} onChange={(e) => setEgresoType(e.target.value as typeof egresoType)}>
+                                    <option value="materia_prima">🛒 Materia Prima</option>
+                                    <option value="servicio">💡 Servicio</option>
+                                    <option value="delivery">🚚 Delivery</option>
+                                    <option value="otro">📦 Otro</option>
+                                </select>
+                            </div>
+                            <div className="bills-form-group">
+                                <label>Descripción</label>
+                                <input type="text" value={egresoDescription} onChange={(e) => setEgresoDescription(e.target.value)} placeholder="Ej: Pago proveedor, arreglo horno..." />
+                            </div>
+                            <div className="bills-modal-actions">
+                                <button type="button" className="bills-btn-cancel" onClick={() => setIsEgresoModalOpen(false)}>Cancelar</button>
+                                <button type="submit" className="bills-btn-save" disabled={savingEgreso || !egresoAmount}>
+                                    {savingEgreso ? 'Guardando...' : 'Guardar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

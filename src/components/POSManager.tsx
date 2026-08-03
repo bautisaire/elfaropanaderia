@@ -12,6 +12,7 @@ import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
 import { useCart } from '../context/CartContext';
 import PriceEditModal from './PriceEditModal';
+import WeightEntryModal from './WeightEntryModal';
 
 interface Product {
     id: string;
@@ -51,7 +52,7 @@ interface ModalState {
 }
 
 export default function POSManager() {
-    const { isSuperAdmin, adminPermissions } = useCart();
+    const { isSuperAdmin, adminPermissions, user } = useCart();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories] = useState<string[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -75,10 +76,6 @@ export default function POSManager() {
     // Weight Logic State
     const [weightModalOpen, setWeightModalOpen] = useState(false);
     const [pendingProduct, setPendingProduct] = useState<{ product: Product, variant?: string } | null>(null);
-    const [weightInput, setWeightInput] = useState("");
-    const [priceInput, setPriceInput] = useState(""); // Local state for price typing
-    const [smartInputUsed, setSmartInputUsed] = useState(false);
-    const [inputMode, setInputMode] = useState<'weight' | 'price'>('weight'); // 'weight' or 'price'
     const [priceMode, setPriceMode] = useState<'public' | 'wholesale'>('public'); // Pricing mode
 
     // Quantity Modal for Short ID (Unit products)
@@ -121,16 +118,9 @@ export default function POSManager() {
 
     const quantityInputRef = useRef<HTMLInputElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const weightInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            if (weightModalOpen && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-                e.preventDefault();
-                setInputMode(prev => prev === 'weight' ? 'price' : 'weight');
-                return;
-            }
-
             if (e.key === 'Escape') {
                 if (quantityModalOpen) {
                     setQuantityModalOpen(false);
@@ -141,7 +131,6 @@ export default function POSManager() {
                 if (weightModalOpen) {
                     setWeightModalOpen(false);
                     setPendingProduct(null);
-                    setWeightInput("");
                     return;
                 }
 
@@ -272,12 +261,6 @@ export default function POSManager() {
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [weightModalOpen, isStockModalOpen, modalConfig, quantityModalOpen, inputBuffer, products, isCartOpen, cart, processing, paymentMethod, envioModalOpen]);
 
-    useEffect(() => {
-        if (weightModalOpen && inputMode === 'weight' && weightInputRef.current) {
-            weightInputRef.current.focus();
-        }
-    }, [inputMode, weightModalOpen]);
-
     const closeModal = () => {
         setModalConfig(prev => ({ ...prev, isOpen: false }));
     };
@@ -367,10 +350,6 @@ export default function POSManager() {
             const handleLogic = (prod: Product, vName?: string) => {
                 if (prod.unitType === 'weight') {
                     setPendingProduct({ product: prod, variant: vName });
-                    setWeightInput("");
-                    setPriceInput("");
-                    setSmartInputUsed(false);
-                    setInputMode('weight');
                     setWeightModalOpen(true);
                     return true;
                 } else {
@@ -495,20 +474,14 @@ export default function POSManager() {
         return true;
     };
 
-    const confirmWeight = () => {
-        if (!pendingProduct || !weightInput) return;
-        let qty = parseFloat(weightInput);
-        if (isNaN(qty) || qty <= 0) return;
-
-        qty = Math.round(qty * 1000) / 1000;
-
+    const confirmWeight = (qty: number) => {
+        if (!pendingProduct) return;
         const { product, variant } = pendingProduct;
 
         addWeightToCart(product, variant, qty);
 
         setWeightModalOpen(false);
         setPendingProduct(null);
-        setWeightInput("");
     };
 
     const addToCart = (product: Product, variantName?: string, checkStock = true) => {
@@ -519,10 +492,6 @@ export default function POSManager() {
 
         if (product.unitType === 'weight') {
             setPendingProduct({ product, variant: variantName });
-            setWeightInput("");
-            setPriceInput("");
-            setSmartInputUsed(false);
-            setInputMode('weight');
             setWeightModalOpen(true);
             return;
         }
@@ -814,6 +783,7 @@ export default function POSManager() {
                     date: new Date(),
                     status: isDeliveryOrder ? "pendiente" : "entregado",
                     source: isDeliveryOrder ? 'pos_delivery' : (priceMode === 'public' ? 'pos_public' : 'pos_wholesale'),
+                    createdByEmail: user?.email || 'admin',
                     id: orderIdString
                 };
                 transaction.set(orderRef, orderData);
@@ -1390,191 +1360,42 @@ export default function POSManager() {
                 </div>
             )}
 
-            {weightModalOpen && (
-                <div className="pos-modal-overlay">
-                    <div className="pos-modal">
-                        {pendingProduct && (
-                            <h3 style={{ color: '#4b5563', margin: '0 0 10px 0', fontWeight: 'normal', textAlign: 'center' }}>
-                                {pendingProduct.product.nombre} {pendingProduct.variant ? `(${pendingProduct.variant})` : ''}
-                                <span style={{ fontSize: '0.8em', color: '#6b7280', display: 'block', marginTop: '5px' }}>
-                                    (Stock Actual: {(() => {
-                                        const { product, variant } = pendingProduct;
-                                        if (variant && product.variants) {
-                                            const v = product.variants.find((v: any) => v.name === variant);
-                                            return v ? (v.stockQuantity || 0) : 0;
-                                        }
-                                        return product.stockQuantity || 0;
-                                    })()}kg)
-                                </span>
-                            </h3>
-                        )}
-                        <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <input
-                                    ref={weightInputRef}
-                                    type="number"
-                                    autoFocus
-                                    value={weightInput}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (inputMode === 'price') return;
-
-                                        if (!smartInputUsed && val.length === 1 && /^[1-9]$/.test(val)) {
-                                            setWeightInput("0." + val);
-                                            setSmartInputUsed(true);
-                                        } else {
-                                            setWeightInput(val);
-                                            setSmartInputUsed(true);
-                                        }
-                                    }}
-                                    onFocus={() => setInputMode('weight')}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') confirmWeight();
-                                        if (e.key === 'Tab') {
-                                            e.preventDefault();
-                                            setInputMode('price');
-                                        }
-                                    }}
-                                    placeholder="0.000"
-                                    step="0.005"
-                                    min="0"
-                                    style={{
-                                        fontSize: '2rem',
-                                        width: '150px',
-                                        padding: '10px',
-                                        textAlign: 'center',
-                                        borderRadius: '10px',
-                                        border: '1px solid #ddd',
-                                        opacity: inputMode === 'price' ? 0.5 : 1
-                                    }}
-                                />
-                                <span style={{ fontSize: '1.2rem', color: '#666' }}>Kg</span>
-                            </div>
-
-                            {pendingProduct && (
-                                <div
-                                    style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2ecc71', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
-                                    onClick={() => {
-                                        if (inputMode === 'price') return;
-                                        setInputMode('price');
-                                        if (weightInput && !isNaN(parseFloat(weightInput))) {
-                                            const basePrice = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
-                                            const finalPrice = (pendingProduct.product.discount || 0) > 0 ? basePrice * (1 - (pendingProduct.product.discount! / 100)) : basePrice;
-                                            const currentPrice = parseFloat(weightInput) * finalPrice;
-                                            setPriceInput(Math.round(currentPrice).toString());
-                                        } else {
-                                            setPriceInput("");
-                                        }
-                                    }}
-                                >
-                                    <span>$</span>
-                                    {inputMode === 'weight' ? (
-                                        <span>
-                                            {(weightInput && !isNaN(parseFloat(weightInput)))
-                                                ? Math.round(parseFloat(weightInput) * ((pendingProduct.product.discount || 0) > 0 ? (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio) * (1 - pendingProduct.product.discount! / 100) : (priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio))).toString()
-                                                : "0"}
-                                        </span>
-                                    ) : (
-                                        <input
-                                            type="number"
-                                            autoFocus
-                                            value={priceInput}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setPriceInput(val);
-
-                                                if (val === "") {
-                                                    setWeightInput("");
-                                                    return;
-                                                }
-
-                                                const basePrice = priceMode === 'wholesale' ? (pendingProduct.product.wholesalePrice || pendingProduct.product.precio) : pendingProduct.product.precio;
-                                                const priceToUse = (pendingProduct.product.discount || 0) > 0 ? basePrice * (1 - pendingProduct.product.discount! / 100) : basePrice;
-                                                const priceVal = parseFloat(val);
-
-                                                if (!isNaN(priceVal) && priceToUse > 0) {
-                                                    const newWeight = priceVal / priceToUse;
-                                                    setWeightInput(newWeight.toFixed(3));
-                                                }
-                                            }}
-                                            placeholder="0"
-                                            step="1"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') confirmWeight();
-                                            }}
-                                            style={{
-                                                fontSize: '1.5rem',
-                                                fontWeight: 'bold',
-                                                color: '#2ecc71',
-                                                width: '120px',
-                                                border: 'none',
-                                                borderBottom: '2px solid #2ecc71',
-                                                outline: 'none',
-                                                textAlign: 'center'
-                                            }}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            <div style={{ width: '100%', padding: '0 20px' }}>
-                                {(() => {
-                                    let maxStock = 10;
-                                    if (pendingProduct) {
-                                        const { product, variant } = pendingProduct;
-                                        if (variant && product.variants) {
-                                            const v = product.variants.find((v: any) => v.name === variant);
-                                            maxStock = v ? (v.stockQuantity || 0) : 0;
-                                        } else {
-                                            maxStock = product.stockQuantity || 0;
-                                        }
-                                        const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
-                                        if (existing) maxStock -= existing.quantity;
-                                        maxStock = Math.max(0, maxStock);
-                                    }
-
-                                    const currentWeight = parseFloat(weightInput) || 0;
-                                    const percentage = maxStock > 0 ? Math.min(100, (currentWeight / maxStock) * 100) : 0;
-
-                                    return (
-                                        <div style={{ width: '100%', margin: '15px 0' }}>
-                                            <div className="pos-stock-meter">
-                                                <div
-                                                    className="pos-stock-fill"
-                                                    style={{
-                                                        width: `${percentage}%`,
-                                                        backgroundColor: percentage > 90 ? '#ef4444' : percentage > 70 ? '#f59e0b' : '#10b981'
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '0.8rem', marginTop: '5px' }}>
-                                                <span>0kg</span>
-                                                <span style={{ fontWeight: 'bold', color: '#374151' }}>{currentWeight.toFixed(3)}kg seleccionados</span>
-                                                <span>{maxStock.toFixed(2)}kg (Max)</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                className="pos-modal-btn"
-                                style={{ background: '#ddd', color: '#333' }}
-                                onClick={() => setWeightModalOpen(false)}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                className="pos-modal-btn"
-                                onClick={confirmWeight}
-                            >
-                                Confirmar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <WeightEntryModal
+                isOpen={weightModalOpen && !!pendingProduct}
+                productName={pendingProduct?.product.nombre || ''}
+                variantName={pendingProduct?.variant}
+                stockActual={(() => {
+                    if (!pendingProduct) return 0;
+                    const { product, variant } = pendingProduct;
+                    if (variant && product.variants) {
+                        const v = product.variants.find((v: any) => v.name === variant);
+                        return v ? (v.stockQuantity || 0) : 0;
+                    }
+                    return product.stockQuantity || 0;
+                })()}
+                maxStock={(() => {
+                    if (!pendingProduct) return 0;
+                    const { product, variant } = pendingProduct;
+                    let maxStock = 0;
+                    if (variant && product.variants) {
+                        const v = product.variants.find((v: any) => v.name === variant);
+                        maxStock = v ? (v.stockQuantity || 0) : 0;
+                    } else {
+                        maxStock = product.stockQuantity || 0;
+                    }
+                    const existing = cart.find(item => item.id === product.id && item.selectedVariant === variant);
+                    if (existing) maxStock -= existing.quantity;
+                    return Math.max(0, maxStock);
+                })()}
+                unitPrice={(() => {
+                    if (!pendingProduct) return 0;
+                    const { product } = pendingProduct;
+                    const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                    return (product.discount || 0) > 0 ? basePrice * (1 - product.discount! / 100) : basePrice;
+                })()}
+                onConfirm={confirmWeight}
+                onCancel={() => { setWeightModalOpen(false); setPendingProduct(null); }}
+            />
 
             {editOptionsModalProduct && (
                 <div className="stock-modal-overlay" onClick={() => setEditOptionsModalProduct(null)}>
