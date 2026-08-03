@@ -16,6 +16,10 @@ interface Order {
     id: string;
     items: any[];
     total: number;
+    subtotal?: number;
+    discountPercent?: number;
+    discountAmount?: number;
+    payments?: { method: string; amount: number }[];
     cliente: {
         nombre: string;
         direccion: string;
@@ -1003,16 +1007,34 @@ export default function OrdersManager() {
                                                         </div>
                                                     </td>
                                                     <td className="col-total">
-                                                        <div className="order-cell-total" style={{ color: '#10b981' }}>${Math.ceil(order.total)}</div>
+                                                        <div className="order-cell-total" style={{ color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                            ${Math.ceil(order.total)}
+                                                            {(order.discountPercent || 0) > 0 && (
+                                                                <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#e11d48', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '10px', padding: '1px 6px' }} title={`Descuento aplicado: ${order.discountPercent}%`}>
+                                                                    -{order.discountPercent}%
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <div className="order-cell-items-count" style={{ fontSize: '0.95rem' }}>
                                                             {order.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0).toFixed(2).replace(/\.?0+$/, "")} u.
                                                         </div>
                                                     </td>
                                                     <td className="col-pago">
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                                                            <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`} style={{ width: '110px', textAlign: 'center', boxSizing: 'border-box' }}>
-                                                                {order.cliente.metodoPago}
-                                                            </div>
+                                                            {order.payments && order.payments.length > 1 ? (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '110px' }}>
+                                                                    {order.payments.map((p, i) => (
+                                                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 'bold', background: '#f1f5f9', borderRadius: '6px', padding: '2px 6px' }}>
+                                                                            <span>{p.method}</span>
+                                                                            <span>${Math.ceil(p.amount)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className={`payment-badge payment-${order.cliente.metodoPago.toLowerCase().replace(/\s/g, '-')}`} style={{ width: '110px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                                                    {order.cliente.metodoPago}
+                                                                </div>
+                                                            )}
                                                             {order.cliente.metodoPago.toLowerCase().includes('transferencia') && activeTab === 'deliveries' && (
                                                                 <select
                                                                     className={`retiro-pago-select retiro-pago-select-inline${order.transferenciaEstado === 'pagado' ? ' retiro-pago-pagado' : ' retiro-pago-pendiente'}`}

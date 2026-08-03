@@ -40,6 +40,7 @@ export default function CajaManager() {
     const [formAmount, setFormAmount] = useState('');
     const [formDescription, setFormDescription] = useState('');
     const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('Efectivo');
+    const [addToExpenses, setAddToExpenses] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const [showAmounts, setShowAmounts] = useState(() => {
@@ -106,16 +107,16 @@ export default function CajaManager() {
 
     const fmt = (n: number) => showAmounts ? `$${Math.round(n).toLocaleString('es-AR')}` : '***';
 
-    const handleSaleComplete = async (data: { amount: number; paymentMethod: string; orderId: string }) => {
+    const handleSaleComplete = async (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string }) => {
         try {
-            await addDoc(collection(db, 'caja_movements'), {
+            await Promise.all(data.payments.map(p => addDoc(collection(db, 'caja_movements'), {
                 type: 'venta',
-                amount: data.amount,
-                paymentMethod: data.paymentMethod,
+                amount: p.amount,
+                paymentMethod: p.method,
                 orderId: data.orderId,
                 date: serverTimestamp(),
                 createdByEmail: user?.email || 'admin'
-            });
+            })));
         } catch (error) {
             console.error('Error registrando venta en caja:', error);
         }
@@ -125,6 +126,7 @@ export default function CajaManager() {
         setFormAmount('');
         setFormDescription(type === 'ingreso' ? 'Inicio de caja' : '');
         setFormPaymentMethod('Efectivo');
+        setAddToExpenses(false);
         setMovementModal(type);
     };
 
@@ -142,6 +144,26 @@ export default function CajaManager() {
                 date: serverTimestamp(),
                 createdByEmail: user?.email || 'admin'
             });
+
+            if (movementModal === 'egreso' && addToExpenses) {
+                const itemName = formDescription.trim() || 'Egreso';
+                await addDoc(collection(db, 'expenses'), {
+                    description: 'Egreso desde Caja',
+                    totalAmount: Number(formAmount),
+                    date: Timestamp.now(),
+                    type: 'otro',
+                    items: [{
+                        name: itemName,
+                        quantity: 1,
+                        unit: 'un',
+                        multiplier: 1,
+                        price: Number(formAmount),
+                        subtotal: Number(formAmount)
+                    }],
+                    createdByEmail: user?.email || 'admin'
+                });
+            }
+
             setMovementModal(null);
         } catch (error) {
             console.error('Error registrando movimiento de caja:', error);
@@ -274,6 +296,14 @@ export default function CajaManager() {
                                 <label>Descripción (Opcional)</label>
                                 <input type="text" value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="Ej: Cambio de caja, retiro de efectivo..." />
                             </div>
+                            {movementModal === 'egreso' && (
+                                <div className="caja-form-group caja-form-checkbox">
+                                    <label>
+                                        <input type="checkbox" checked={addToExpenses} onChange={e => setAddToExpenses(e.target.checked)} />
+                                        Añadir a gastos
+                                    </label>
+                                </div>
+                            )}
                             <div className="caja-modal-actions">
                                 <button type="button" className="caja-btn-cancel" onClick={() => setMovementModal(null)}>Cancelar</button>
                                 <button type="submit" className="caja-btn-save" disabled={saving || !formAmount}>

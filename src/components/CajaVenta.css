@@ -39,6 +39,22 @@
     font-weight: bold;
 }
 
+/* Two-column body: product list on the left, totals/checkout panel on the right */
+.caja-venta-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 20px;
+}
+
+.caja-venta-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
 /* Full-size, no-margin list */
 .caja-venta-list-wrapper {
     flex: 1 1 auto;
@@ -162,65 +178,215 @@
     transform: translateY(-2px);
 }
 
-.caja-venta-footer {
-    flex: 0 0 auto;
+/* Right-hand summary panel: total, discount, payment method, checkout */
+.caja-venta-summary-panel {
+    flex: 0 0 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.caja-venta-total-box {
+    background: linear-gradient(135deg, #065f46, #047857);
+    border-radius: 12px;
+    padding: 22px 24px;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(6, 95, 70, 0.3);
+}
+
+.caja-venta-total-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.caja-venta-total-value {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.caja-venta-total-input-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.caja-venta-total-currency {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.caja-venta-total-value-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1.1;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.caja-venta-total-value-input::placeholder {
+    color: rgba(255,255,255,0.6);
+}
+
+/* Hide native number spinners so the input reads like plain big text */
+.caja-venta-total-value-input::-webkit-outer-spin-button,
+.caja-venta-total-value-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.caja-venta-total-value-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.caja-venta-total-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.85;
+    margin-top: 4px;
+}
+
+.caja-venta-total-sub {
+    display: flex;
+    flex-direction: column;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.25);
+}
+
+.caja-venta-total-sub-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: line-through;
+    opacity: 0.75;
+}
+
+.caja-venta-total-sub-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.7;
+    margin-top: 2px;
+}
+
+.caja-venta-discount-box {
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 16px 20px;
+    padding: 14px 18px;
     display: flex;
     align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
 }
 
-.caja-venta-total-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #1e293b;
+.caja-venta-discount-box label {
+    font-weight: 700;
+    color: #334155;
+    font-size: 0.95rem;
 }
 
-.caja-venta-total-row span:last-child {
+.caja-venta-discount-box input {
+    width: 80px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
     color: #065f46;
 }
 
 .caja-venta-payment-methods {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    flex: 1;
 }
 
-.caja-venta-payment-btn {
+.caja-venta-payment-row {
+    display: flex;
+    gap: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.caja-venta-payment-row.active {
+    border-color: #065f46;
+}
+
+.caja-venta-payment-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 20px;
-    border: 1px solid #cbd5e1;
+    justify-content: center;
+    gap: 8px;
+    flex: 0 0 130px;
+    padding: 12px 10px;
+    border: none;
     background: #fff;
     color: #475569;
     cursor: pointer;
     font-weight: 600;
+    box-sizing: border-box;
 }
 
-.caja-venta-payment-btn.active {
+.caja-venta-payment-row.active .caja-venta-payment-toggle {
     background: #065f46;
-    border-color: #065f46;
     color: #fff;
 }
 
+.caja-venta-payment-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    border-left: 1px solid #cbd5e1;
+    padding: 16px 14px;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #065f46;
+    box-sizing: border-box;
+}
+
+.caja-venta-payment-feedback {
+    text-align: center;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.caja-venta-payment-feedback.change {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.caja-venta-payment-feedback.missing {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
 .caja-venta-confirm-btn {
+    width: 100%;
     background: #16a34a;
     color: #fff;
     border: none;
     border-radius: 10px;
-    padding: 14px 30px;
-    font-size: 1.05rem;
+    padding: 18px 30px;
+    font-size: 1.15rem;
     font-weight: 800;
     cursor: pointer;
+    box-sizing: border-box;
 }
 
 .caja-venta-confirm-btn:disabled {
@@ -469,13 +635,17 @@
         font-size: 0.85rem;
     }
 
-    .caja-venta-footer {
+    .caja-venta-body {
         flex-direction: column;
-        align-items: stretch;
+        overflow-y: auto;
     }
 
-    .caja-venta-payment-methods {
-        flex-wrap: wrap;
+    .caja-venta-main {
+        min-height: 300px;
+    }
+
+    .caja-venta-summary-panel {
+        flex: 0 0 auto;
     }
 
     .caja-venta-add-modal {

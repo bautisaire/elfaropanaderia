@@ -40,10 +40,12 @@ interface CartRow {
 
 interface CajaVentaProps {
     onBack: () => void;
-    onSaleComplete: (data: { amount: number; paymentMethod: string; orderId: string }) => void;
+    onSaleComplete: (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string }) => void;
 }
 
 type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia';
+
+const PAYMENT_METHODS_ORDER: PaymentMethod[] = ['Efectivo', 'Débito', 'Transferencia'];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -53,7 +55,11 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartRow[]>([]);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
+    const [enabledMethods, setEnabledMethods] = useState<Record<PaymentMethod, boolean>>({ Efectivo: true, 'Débito': false, Transferencia: false });
+    const [paymentAmounts, setPaymentAmounts] = useState<Record<PaymentMethod, string>>({ Efectivo: '', 'Débito': '', Transferencia: '' });
+    const paymentInputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>({ Efectivo: null, 'Débito': null, Transferencia: null });
+    const [discountPercentInput, setDiscountPercentInput] = useState('');
+    const [totalInput, setTotalInput] = useState('');
     const [processing, setProcessing] = useState(false);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -400,9 +406,101 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         closeEditRowModal();
     };
 
-    const total = useMemo(() => {
+    const subtotal = useMemo(() => {
         return round2(cart.reduce((sum, r) => sum + r.precioUnitario * r.quantity, 0));
     }, [cart]);
+
+    // The "Importe" total and the "% Descuento" field are bidirectional: editing either one
+    // recalculates the other (same pattern as the cart row P.Unitario/P.Total editor).
+    const total = useMemo(() => {
+        const t = parseFloat(totalInput);
+        return isNaN(t) ? 0 : round2(Math.max(0, t));
+    }, [totalInput]);
+
+    const discountAmount = useMemo(() => round2(subtotal - total), [subtotal, total]);
+
+    const discountPct = useMemo(() => {
+        if (subtotal <= 0) return 0;
+        return round2((discountAmount / subtotal) * 100);
+    }, [subtotal, discountAmount]);
+
+    const handleDiscountPercentChange = (value: string) => {
+        setDiscountPercentInput(value);
+        const pct = Math.min(100, Math.max(0, parseFloat(value) || 0));
+        setTotalInput(subtotal > 0 ? String(round2(subtotal * (1 - pct / 100))) : '');
+    };
+
+    const handleTotalInputChange = (value: string) => {
+        setTotalInput(value);
+        const newTotal = parseFloat(value) || 0;
+        const pct = subtotal > 0 ? round2(Math.min(100, Math.max(0, ((subtotal - newTotal) / subtotal) * 100))) : 0;
+        setDiscountPercentInput(pct > 0 ? String(pct) : '');
+    };
+
+    // Keep the total synced to the cart's subtotal (via the current discount %) whenever
+    // the cart itself changes, so adding/removing products doesn't leave a stale total.
+    useEffect(() => {
+        const pct = Math.min(100, Math.max(0, parseFloat(discountPercentInput) || 0));
+        setTotalInput(subtotal > 0 ? String(round2(subtotal * (1 - pct / 100))) : '');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [subtotal]);
+
+    // A single enabled method always tracks the live total (still freely editable afterwards,
+    // e.g. to enter a higher tendered amount and see "vuelto").
+    useEffect(() => {
+        const enabled = PAYMENT_METHODS_ORDER.filter(m => enabledMethods[m]);
+        if (enabled.length === 1) {
+            setPaymentAmounts(prev => ({ ...prev, [enabled[0]]: total > 0 ? String(total) : '' }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [total]);
+
+    const togglePaymentMethod = (method: PaymentMethod) => {
+        setEnabledMethods(prev => {
+            const willEnable = !prev[method];
+            const next = { ...prev, [method]: willEnable };
+
+            if (willEnable) {
+                const alreadyEnteredSum = PAYMENT_METHODS_ORDER
+                    .filter(m => m !== method && next[m])
+                    .reduce((sum, m) => sum + (parseFloat(paymentAmounts[m]) || 0), 0);
+                const remaining = Math.max(0, round2(total - alreadyEnteredSum));
+                setPaymentAmounts(prevAmounts => ({ ...prevAmounts, [method]: remaining > 0 ? String(remaining) : '' }));
+            } else {
+                setPaymentAmounts(prevAmounts => ({ ...prevAmounts, [method]: '' }));
+            }
+
+            return next;
+        });
+    };
+
+    const handlePaymentAmountChange = (method: PaymentMethod, value: string) => {
+        setPaymentAmounts(prev => ({ ...prev, [method]: value }));
+    };
+
+    const sumEntered = useMemo(() => {
+        return round2(PAYMENT_METHODS_ORDER.reduce((sum, m) => sum + (enabledMethods[m] ? (parseFloat(paymentAmounts[m]) || 0) : 0), 0));
+    }, [enabledMethods, paymentAmounts]);
+
+    const paymentDiff = useMemo(() => round2(sumEntered - total), [sumEntered, total]);
+
+    // What actually gets recorded per method, capped so it never exceeds the total
+    // (any excess on the last contributing method is "vuelto" and isn't kept as revenue).
+    const paymentBreakdown = useMemo(() => {
+        let remaining = total;
+        const result: { method: PaymentMethod; amount: number }[] = [];
+        PAYMENT_METHODS_ORDER.forEach(m => {
+            if (!enabledMethods[m]) return;
+            const entered = parseFloat(paymentAmounts[m]) || 0;
+            if (entered <= 0) return;
+            const applied = Math.min(entered, Math.max(0, remaining));
+            if (applied > 0) {
+                result.push({ method: m, amount: round2(applied) });
+                remaining = round2(remaining - applied);
+            }
+        });
+        return result;
+    }, [enabledMethods, paymentAmounts, total]);
 
     const filteredResults = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -448,7 +546,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
     const handleConfirmSale = async () => {
-        if (cart.length === 0 || processing) return;
+        if (cart.length === 0 || processing || paymentBreakdown.length === 0 || paymentDiff < -0.01) return;
         setProcessing(true);
 
         try {
@@ -572,11 +670,15 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                         };
                     }),
                     total,
+                    subtotal,
+                    discountPercent: discountPct,
+                    discountAmount,
+                    payments: paymentBreakdown,
                     cliente: {
                         nombre: 'Cliente Local',
                         direccion: 'Local Físico',
                         telefono: '',
-                        metodoPago: paymentMethod
+                        metodoPago: paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo'
                     },
                     date: new Date(),
                     status: 'entregado',
@@ -622,9 +724,13 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 await Promise.all(result.updates.map(u => syncChildProducts(u.id, u.newStock)));
             }
 
-            onSaleComplete({ amount: total, paymentMethod, orderId: result.orderId });
+            onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId });
             setModalConfig({ isOpen: true, type: 'success', title: '¡Venta Registrada!', message: `Total: $${total.toLocaleString('es-AR')}` });
             setCart([]);
+            setDiscountPercentInput('');
+            setTotalInput('');
+            setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false });
+            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '' });
         } catch (error) {
             console.error('Checkout error:', error);
             const errMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -639,6 +745,54 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         }
     };
 
+    const activatePaymentMethod = (method: PaymentMethod) => {
+        const wasEnabled = enabledMethods[method];
+        togglePaymentMethod(method);
+        if (wasEnabled) return;
+
+        setTimeout(() => {
+            paymentInputRefs.current[method]?.focus();
+            paymentInputRefs.current[method]?.select();
+        }, 50);
+    };
+
+    // Keyboard shortcuts on the main sale screen: E/T/D activate the matching payment
+    // method's input, Enter charges the sale. Disabled while any modal/overlay is open,
+    // and E/T/D are skipped while typing elsewhere so they don't hijack normal typing.
+    useEffect(() => {
+        const anyModalOpen = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey;
+        if (anyModalOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleConfirmSale();
+                return;
+            }
+
+            const activeEl = document.activeElement as HTMLElement | null;
+            const isPaymentInput = activeEl !== null && PAYMENT_METHODS_ORDER.some(m => paymentInputRefs.current[m] === activeEl);
+            const tag = activeEl?.tagName?.toLowerCase();
+            const isTyping = (tag === 'input' || tag === 'textarea' || tag === 'select') && !isPaymentInput;
+            if (isTyping) return;
+
+            if (e.key === 'e' || e.key === 'E') {
+                e.preventDefault();
+                activatePaymentMethod('Efectivo');
+            } else if (e.key === 't' || e.key === 'T') {
+                e.preventDefault();
+                activatePaymentMethod('Transferencia');
+            } else if (e.key === 'd' || e.key === 'D') {
+                e.preventDefault();
+                activatePaymentMethod('Débito');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, cart, enabledMethods, paymentAmounts, total, processing]);
+
     return (
         <div className="caja-venta-container">
             <div className="caja-venta-header">
@@ -648,66 +802,125 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 <h2>Caja - Registrar Venta</h2>
             </div>
 
-            <div className="caja-venta-list-wrapper">
-                <div className="caja-venta-list-header">
-                    <span>Cantidad</span>
-                    <span>Detalle</span>
-                    <span>P. Unitario</span>
-                    <span>P. Total</span>
-                    <span></span>
-                </div>
-                <div className="caja-venta-list-body">
-                    {cart.length === 0 ? (
-                        <div className="caja-venta-empty">Lista vacía. Usá "Agregar Producto" para comenzar la venta.</div>
-                    ) : (
-                        cart.map(row => (
-                            <div className="caja-venta-row" key={row.key}>
-                                <span>{row.unitType === 'weight' ? `${Math.round(row.quantity * 1000)}g` : row.quantity}</span>
-                                <span>{row.nombre}{row.variant ? ` (${row.variant})` : ''}</span>
-                                <span>${round2(row.precioUnitario).toLocaleString('es-AR')}</span>
-                                <span>${round2(row.precioUnitario * row.quantity).toLocaleString('es-AR')}</span>
-                                <span className="caja-venta-row-actions">
-                                    <button className="caja-venta-row-edit" onClick={() => openEditRowModal(row)} title="Editar">
-                                        <FaEdit />
-                                    </button>
-                                    <button className="caja-venta-row-remove" onClick={() => removeRow(row.key)} title="Eliminar">
-                                        <FaTrash />
-                                    </button>
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
+            <div className="caja-venta-body">
+                <div className="caja-venta-main">
+                    <div className="caja-venta-list-wrapper">
+                        <div className="caja-venta-list-header">
+                            <span>Cantidad</span>
+                            <span>Detalle</span>
+                            <span>P. Unitario</span>
+                            <span>P. Total</span>
+                            <span></span>
+                        </div>
+                        <div className="caja-venta-list-body">
+                            {cart.length === 0 ? (
+                                <div className="caja-venta-empty">Lista vacía. Usá "Agregar Producto" para comenzar la venta.</div>
+                            ) : (
+                                cart.map(row => (
+                                    <div className="caja-venta-row" key={row.key}>
+                                        <span>{row.unitType === 'weight' ? `${Math.round(row.quantity * 1000)}g` : row.quantity}</span>
+                                        <span>{row.nombre}{row.variant ? ` (${row.variant})` : ''}</span>
+                                        <span>${round2(row.precioUnitario).toLocaleString('es-AR')}</span>
+                                        <span>${round2(row.precioUnitario * row.quantity).toLocaleString('es-AR')}</span>
+                                        <span className="caja-venta-row-actions">
+                                            <button className="caja-venta-row-edit" onClick={() => openEditRowModal(row)} title="Editar">
+                                                <FaEdit />
+                                            </button>
+                                            <button className="caja-venta-row-remove" onClick={() => removeRow(row.key)} title="Eliminar">
+                                                <FaTrash />
+                                            </button>
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
 
-            <div className="caja-venta-add-row">
-                <button className="caja-venta-add-btn" onClick={() => setIsAddModalOpen(true)}>
-                    <FaPlus /> Agregar Producto
-                </button>
-            </div>
-
-            <div className="caja-venta-footer">
-                <div className="caja-venta-total-row">
-                    <span>Total</span>
-                    <span>${total.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="caja-venta-payment-methods">
-                    {(['Efectivo', 'Débito', 'Transferencia'] as PaymentMethod[]).map(pm => (
-                        <button
-                            key={pm}
-                            className={`caja-venta-payment-btn ${paymentMethod === pm ? 'active' : ''}`}
-                            onClick={() => setPaymentMethod(pm)}
-                        >
-                            {pm === 'Efectivo' && <FaMoneyBillWave />}
-                            {pm === 'Débito' && <FaCreditCard />}
-                            {pm === 'Transferencia' && <FaExchangeAlt />}
-                            {pm}
+                    <div className="caja-venta-add-row">
+                        <button className="caja-venta-add-btn" onClick={() => setIsAddModalOpen(true)}>
+                            <FaPlus /> Agregar Producto
                         </button>
-                    ))}
+                    </div>
                 </div>
-                <button className="caja-venta-confirm-btn" disabled={cart.length === 0 || processing} onClick={handleConfirmSale}>
-                    {processing ? 'Procesando...' : 'Confirmar Venta'}
-                </button>
+
+                <div className="caja-venta-summary-panel">
+                    <div className="caja-venta-total-box">
+                        <div className="caja-venta-total-main">
+                            <div className="caja-venta-total-input-row">
+                                <span className="caja-venta-total-currency">$</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    className="caja-venta-total-value-input"
+                                    value={totalInput}
+                                    onChange={(e) => handleTotalInputChange(e.target.value)}
+                                    placeholder="0"
+                                />
+                            </div>
+                            <span className="caja-venta-total-label">Importe</span>
+                        </div>
+                        {discountPct > 0 && (
+                            <div className="caja-venta-total-sub">
+                                <span className="caja-venta-total-sub-value">${subtotal.toLocaleString('es-AR')}</span>
+                                <span className="caja-venta-total-sub-label">Importe sin descuento</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="caja-venta-discount-box">
+                        <label htmlFor="caja-venta-discount-input">% Descuento</label>
+                        <input
+                            id="caja-venta-discount-input"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            placeholder="0"
+                            value={discountPercentInput}
+                            onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="caja-venta-payment-methods">
+                        {(['Efectivo', 'Débito', 'Transferencia'] as PaymentMethod[]).map(pm => (
+                            <div key={pm} className={`caja-venta-payment-row ${enabledMethods[pm] ? 'active' : ''}`}>
+                                <button
+                                    type="button"
+                                    className="caja-venta-payment-toggle"
+                                    onClick={() => togglePaymentMethod(pm)}
+                                >
+                                    {pm === 'Efectivo' && <FaMoneyBillWave />}
+                                    {pm === 'Débito' && <FaCreditCard />}
+                                    {pm === 'Transferencia' && <FaExchangeAlt />}
+                                    {pm}
+                                </button>
+                                {enabledMethods[pm] && (
+                                    <input
+                                        ref={(el) => { paymentInputRefs.current[pm] = el; }}
+                                        type="number"
+                                        className="caja-venta-payment-input"
+                                        value={paymentAmounts[pm]}
+                                        onChange={(e) => handlePaymentAmountChange(pm, e.target.value)}
+                                        placeholder="0"
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {paymentBreakdown.length > 0 && Math.abs(paymentDiff) > 0.001 && (
+                        <div className={`caja-venta-payment-feedback ${paymentDiff > 0 ? 'change' : 'missing'}`}>
+                            {paymentDiff > 0
+                                ? `Vuelto: $${paymentDiff.toLocaleString('es-AR')}`
+                                : `Restan: $${Math.abs(paymentDiff).toLocaleString('es-AR')}`}
+                        </div>
+                    )}
+
+                    <button className="caja-venta-confirm-btn" disabled={cart.length === 0 || processing || paymentBreakdown.length === 0 || paymentDiff < -0.01} onClick={handleConfirmSale}>
+                        {processing ? 'Procesando...' : 'Cobrar Venta'}
+                    </button>
+                </div>
             </div>
 
             {isAddModalOpen && (
