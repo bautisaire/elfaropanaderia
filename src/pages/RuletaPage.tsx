@@ -399,7 +399,12 @@ export default function RuletaPage() {
                     </defs>
                     <text
                       fill="#fff"
-                      fontSize={availableParticipants.length > 20 ? "24" : "32"}
+                      fontSize={
+                        availableParticipants.length > 60 ? "14" :
+                        availableParticipants.length > 45 ? "17" :
+                        availableParticipants.length > 30 ? "20" :
+                        availableParticipants.length > 20 ? "24" : "32"
+                      }
                       fontWeight="bold"
                       style={{ textShadow: "1px 1px 3px rgba(0,0,0,0.5)" }}
                     >
@@ -412,7 +417,8 @@ export default function RuletaPage() {
                       >
                         {(() => {
                           const displayName = p.name ? p.name : (p.phoneOrEmail ? p.phoneOrEmail : "Participante");
-                          return displayName.length > 15 ? displayName.substring(0, 15) + '...' : displayName;
+                          const maxLen = availableParticipants.length > 45 ? 20 : 15;
+                          return displayName.length > maxLen ? displayName.substring(0, maxLen) + '...' : displayName;
                         })()}
                       </textPath>
                     </text>

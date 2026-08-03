@@ -398,7 +398,7 @@ export default function VoiceAIPurchases({ rawMaterials }: VoiceAIPurchasesProps
                 <button
                     className="cm-btn-secondary"
                     style={{ background: '#f8fafc', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content', marginLeft: '10px', color: '#475569', border: '1px solid #cbd5e1' }}
-                    onClick={() => navigate('/editor/orders/expenses')}
+                    onClick={() => navigate('/editor/bills/gastos')}
                 >
                     <FaList style={{ marginRight: '8px' }} /> Ver Historial de Gastos
                 </button>

@@ -58,6 +58,13 @@ export default function EmployeesManager() {
     const [manualShiftData, setManualShiftData] = useState({ hours: 0, note: '' });
     const [customClockOutData, setCustomClockOutData] = useState({ hours: 0 });
 
+    // Asignar Extra a Repartidor
+    const [isAssignExtraModalOpen, setIsAssignExtraModalOpen] = useState(false);
+    const [extraModalRiderEmail, setExtraModalRiderEmail] = useState<string | null>(null);
+    const [extraAmount, setExtraAmount] = useState<string>('');
+    const [extraDate, setExtraDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [extraDescription, setExtraDescription] = useState<string>('');
+
     useEffect(() => {
         const unsubEmployees = onSnapshot(collection(db, 'employees'), (snap) => {
             const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
@@ -235,21 +242,23 @@ export default function EmployeesManager() {
 
         try {
             if (selectedEmployeeForPayment.isRider) {
-                const extrasToLog = selectedEmployeeForPayment.extrasDebt || 0;
-                
-                if (extrasToLog > 0) {
-                    await addDoc(collection(db, 'expenses'), {
-                        title: `Pago Extras a Repartidor: ${selectedEmployeeForPayment.name}`,
-                        amount: extrasToLog,
-                        totalAmount: extrasToLog,
-                        date: serverTimestamp(),
-                        dateLabel: new Intl.DateTimeFormat('en-CA').format(new Date()),
-                        category: 'Sueldos'
-                    });
-                }
-
                 const rData = debtsByRider.find(r => r.email === selectedEmployeeForPayment.id);
+
+                // Cada extra se registra como su propio gasto (ej. "Nafta (Delivery)") en vez de
+                // un único "Pago Extras a Repartidor" genérico, así queda identificable en el
+                // historial de gastos qué fue cada uno.
                 if (rData) {
+                    for (const e of rData.riderExtras) {
+                        const label = String(e.description || '').trim();
+                        await addDoc(collection(db, 'expenses'), {
+                            description: `${label || 'Bono Repartidor'} (Delivery)`,
+                            totalAmount: Number(e.amount) || 0,
+                            date: serverTimestamp(),
+                            type: 'delivery',
+                            createdByEmail: user?.email || 'admin'
+                        });
+                    }
+
                     for (let o of rData.riderOrders) {
                         await updateDoc(doc(db, 'orders', o.id), { paidToRider: true });
                     }
@@ -285,12 +294,11 @@ export default function EmployeesManager() {
 
             // Record the expense
             await addDoc(collection(db, 'expenses'), {
-                title: `Pago Sueldo: ${selectedEmployeeForPayment.name}`,
-                amount: paymentAmount,
+                description: `Pago Sueldo: ${selectedEmployeeForPayment.name}`,
                 totalAmount: paymentAmount,
                 date: serverTimestamp(),
-                dateLabel: new Intl.DateTimeFormat('en-CA').format(new Date()),
-                category: 'Sueldos'
+                type: 'servicio',
+                createdByEmail: user?.email || 'admin'
             });
 
             // Mark entries as closed
@@ -336,6 +344,28 @@ export default function EmployeesManager() {
         } catch (error) {
             console.error("Error al procesar pago", error);
             alert("Error al registrar pago");
+        }
+    };
+
+    const handleAddExtra = async () => {
+        if (!extraModalRiderEmail || !extraAmount) return;
+        try {
+            await addDoc(collection(db, 'rider_extras'), {
+                riderEmail: extraModalRiderEmail,
+                amount: Number(extraAmount),
+                date: extraDate,
+                description: extraDescription,
+                createdAt: serverTimestamp(),
+                paidToRider: false
+            });
+            alert('Bono/Extra asignado correctamente.');
+            setIsAssignExtraModalOpen(false);
+            setExtraModalRiderEmail(null);
+            setExtraAmount('');
+            setExtraDescription('');
+        } catch (error) {
+            console.error('Error adding extra:', error);
+            alert('Error al asignar el extra.');
         }
     };
 
@@ -615,6 +645,17 @@ export default function EmployeesManager() {
                                 <div className="debt-amount">${rider.totalDebt.toLocaleString()}</div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                {isSuperAdmin && (
+                                    <button className="btn-secondary" style={{ backgroundColor: '#dcfce7', border: '1px solid #22c55e', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => {
+                                        setExtraModalRiderEmail(rider.email);
+                                        setExtraAmount('');
+                                        setExtraDate(new Date().toISOString().split('T')[0]);
+                                        setExtraDescription('');
+                                        setIsAssignExtraModalOpen(true);
+                                    }}>
+                                        <FaMoneyBillWave /> Asignar Extra
+                                    </button>
+                                )}
                                 {rider.totalDebt > 0 && (
                                     <button className="btn-pay" onClick={() => {
                                         setSelectedEmployeeForPayment({ id: rider.email, name: rider.email, totalDebt: rider.totalDebt, isRider: true, extrasDebt: rider.extrasDebt });
@@ -776,6 +817,33 @@ export default function EmployeesManager() {
                             <div className="em-modal-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setIsManualShiftModalOpen(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Generar Turno</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {isAssignExtraModalOpen && extraModalRiderEmail && (
+                <div className="em-modal-overlay">
+                    <div className="em-modal">
+                        <h3>Asignar Bono / Extra</h3>
+                        <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '10px' }}>Repartidor: {extraModalRiderEmail}</p>
+                        <form onSubmit={(e) => { e.preventDefault(); handleAddExtra(); }}>
+                            <div className="em-form-group">
+                                <label>Monto ($)</label>
+                                <input type="number" required min="1" value={extraAmount} onChange={e => setExtraAmount(e.target.value)} placeholder="Ej: 5000" />
+                            </div>
+                            <div className="em-form-group">
+                                <label>Fecha</label>
+                                <input type="date" value={extraDate} onChange={e => setExtraDate(e.target.value)} />
+                            </div>
+                            <div className="em-form-group">
+                                <label>Descripción (Opcional)</label>
+                                <input type="text" value={extraDescription} onChange={e => setExtraDescription(e.target.value)} placeholder="Ej: Propina local, lluvia..." />
+                            </div>
+                            <div className="em-modal-actions">
+                                <button type="button" className="btn-secondary" onClick={() => setIsAssignExtraModalOpen(false)}>Cancelar</button>
+                                <button type="submit" className="btn-primary" disabled={!extraAmount}>Asignar Extra</button>
                             </div>
                         </form>
                     </div>

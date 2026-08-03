@@ -5,7 +5,6 @@ import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, order
 import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot, FaBuilding } from 'react-icons/fa';
 import './CostManager.css';
 import ProductManager from './ProductManager';
-import VoiceAIPurchases from './VoiceAIPurchases';
 import CifManager from './CifManager';
 
 export interface RawMaterial {
@@ -56,7 +55,7 @@ export default function CostManager() {
     
     // Parseo de la ruta actual
     const cleanTab = tab ? tab.replace(/^\//, '') : 'products';
-    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'tickets', 'cif'];
+    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'cif'];
     const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'products';
 
     // --- SYSTEM CONFIG (MARGINS) ---
@@ -593,16 +592,10 @@ export default function CostManager() {
                         <FaChartLine /> 4. Precios y Ganancias
                     </button>
                     <button
-                        className={`cm-tab ${activeTab === 'tickets' ? 'active' : ''}`}
-                        onClick={() => navigate('/editor/costs/tickets')}
-                    >
-                        5. Tickets
-                    </button>
-                    <button
                         className={`cm-tab ${activeTab === 'cif' ? 'active' : ''}`}
                         onClick={() => navigate('/editor/costs/cif')}
                     >
-                        <FaBuilding /> 6. Gtos. Fijos (CIF)
+                        <FaBuilding /> 5. Gtos. Fijos (CIF)
                     </button>
                 </div>
             </header>
@@ -1466,9 +1459,6 @@ export default function CostManager() {
                             </table>
                         </div>
                     </div>
-                )}
-                {activeTab === 'tickets' && (
-                    <VoiceAIPurchases rawMaterials={rawMaterials} />
                 )}
                 {activeTab === 'cif' && (
                     <CifManager />

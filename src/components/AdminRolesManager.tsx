@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
-import { FaTrash, FaUserPlus, FaChevronDown, FaChevronUp, FaMoneyBillWave } from 'react-icons/fa';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { FaTrash, FaUserPlus, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 
 interface AdminRole {
@@ -16,6 +16,7 @@ interface AdminRole {
   pos_sales: boolean;
   store_editor: boolean;
   costs: boolean;
+  bills?: boolean;
   stock: boolean;
   settings: boolean;
   employees: boolean;
@@ -36,6 +37,7 @@ const PERMISSIONS_MAP = [
   { key: 'notes', label: 'Notas y Apuntes' },
   { key: 'store_editor', label: 'Editor de Tienda (Banners, etc.)' },
   { key: 'costs', label: 'Productos, Costos y Recetas' },
+  { key: 'bills', label: 'Gastos y Tickets' },
   { key: 'stock', label: 'Gestión de Stock' },
   { key: 'employees', label: 'Personal (Empleados, Horarios, Anticipos)' },
   { key: 'raffle', label: 'Sorteos' },
@@ -49,11 +51,6 @@ export default function AdminRolesManager() {
   const [newEmail, setNewEmail] = useState('');
   const [expandedEmail, setExpandedEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [extraModalData, setExtraModalData] = useState<{email: string} | null>(null);
-  const [extraAmount, setExtraAmount] = useState<string>('');
-  const [extraDate, setExtraDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [extraDescription, setExtraDescription] = useState<string>('');
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -97,6 +94,7 @@ export default function AdminRolesManager() {
         notes: false,
         store_editor: false,
         costs: false,
+        bills: false,
         stock: false,
         settings: false,
         employees: false,
@@ -132,27 +130,6 @@ export default function AdminRolesManager() {
     } catch (err) {
       console.error('Error toggling permission:', err);
       alert('Error al actualizar permisos');
-    }
-  };
-
-  const handleAddExtra = async () => {
-    if (!extraModalData || !extraAmount) return;
-    try {
-      await addDoc(collection(db, 'rider_extras'), {
-        riderEmail: extraModalData.email,
-        amount: Number(extraAmount),
-        date: extraDate,
-        description: extraDescription,
-        createdAt: new Date(),
-        paidToRider: false
-      });
-      alert('Bono/Extra asignado correctamente.');
-      setExtraModalData(null);
-      setExtraAmount('');
-      setExtraDescription('');
-    } catch (error) {
-      console.error('Error adding extra:', error);
-      alert('Error al asignar el extra.');
     }
   };
 
@@ -199,16 +176,7 @@ export default function AdminRolesManager() {
                   {role.email}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  {role.is_rider && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setExtraModalData({ email: role.email }); }}
-                      style={{ background: '#dcfce7', border: '1px solid #22c55e', color: '#16a34a', cursor: 'pointer', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      title="Asignar Bono o Extra al Repartidor"
-                    >
-                      <FaMoneyBillWave /> Asignar Extra
-                    </button>
-                  )}
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteAdmin(role.email); }}
                     style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }}
                     title="Eliminar Administrador"
@@ -267,36 +235,6 @@ export default function AdminRolesManager() {
 
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Rider Extra Modal */}
-      {extraModalData && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ background: '#fff', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '400px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ marginTop: 0, color: '#334155' }}>Asignar Bono / Extra</h3>
-            <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Repartidor: {extraModalData.email}</p>
-            
-            <div style={{ marginTop: '15px' }}>
-              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px', color: '#475569' }}>Monto ($)</label>
-              <input type="number" value={extraAmount} onChange={(e) => setExtraAmount(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} placeholder="Ej: 5000" />
-            </div>
-
-            <div style={{ marginTop: '15px' }}>
-              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px', color: '#475569' }}>Fecha</label>
-              <input type="date" value={extraDate} onChange={(e) => setExtraDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-            </div>
-
-            <div style={{ marginTop: '15px', marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px', color: '#475569' }}>Descripción (Opcional)</label>
-              <input type="text" value={extraDescription} onChange={(e) => setExtraDescription(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }} placeholder="Ej: Propina local, lluvia..." />
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setExtraModalData(null)} style={{ padding: '10px 15px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
-              <button onClick={handleAddExtra} disabled={!extraAmount} style={{ padding: '10px 15px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: extraAmount ? 'pointer' : 'not-allowed', fontWeight: 'bold', opacity: extraAmount ? 1 : 0.5 }}>Asignar Extra</button>
-            </div>
-          </div>
         </div>
       )}
     </div>

@@ -2,13 +2,16 @@ import { useState } from 'react';
 import CategoryManager from './CategoryManager';
 import HeroManager from './HeroManager';
 import StoreStatusManager from './StoreStatusManager';
-import { FaFolder, FaImages, FaStore, FaUsers } from 'react-icons/fa';
+import RaffleManager from './RaffleManager';
+import { FaFolder, FaImages, FaStore, FaUsers, FaGift } from 'react-icons/fa';
 import './StoreEditor.css';
 
 import UsersManager from './UsersManager';
+import { useCart } from '../context/CartContext';
 
 export default function StoreEditor() {
-    const [activeTab, setActiveTab] = useState<'categories' | 'hero' | 'status' | 'users'>('categories');
+    const { adminPermissions } = useCart();
+    const [activeTab, setActiveTab] = useState<'categories' | 'hero' | 'status' | 'users' | 'raffle'>('categories');
 
     return (
         <div className="store-editor-container">
@@ -39,6 +42,14 @@ export default function StoreEditor() {
                 >
                     <FaUsers /> Usuarios
                 </button>
+                {adminPermissions?.raffle !== false && (
+                    <button
+                        className={`store-tab-btn ${activeTab === 'raffle' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('raffle')}
+                    >
+                        <FaGift /> Sorteos
+                    </button>
+                )}
             </div>
 
             <div className="store-editor-content">
@@ -46,6 +57,7 @@ export default function StoreEditor() {
                 {activeTab === 'hero' && <HeroManager />}
                 {activeTab === 'status' && <StoreStatusManager />}
                 {activeTab === 'users' && <UsersManager />}
+                {activeTab === 'raffle' && adminPermissions?.raffle !== false && <RaffleManager />}
             </div>
         </div>
     );

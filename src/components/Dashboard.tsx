@@ -5,9 +5,11 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
+import { useCart } from "../context/CartContext";
+import NotesManager from "./NotesManager";
 
 registerLocale('es', es);
 
@@ -23,6 +25,8 @@ interface ProductSale {
 }
 
 export default function Dashboard() {
+    const { adminPermissions } = useCart();
+    const [showNotes, setShowNotes] = useState(false);
     const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
     const [customRange, setCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
@@ -806,6 +810,29 @@ export default function Dashboard() {
                     >
                         {showSensitiveData ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
                     </button>
+
+                    {adminPermissions?.notes === true && (
+                        <button
+                            onClick={() => setShowNotes(!showNotes)}
+                            style={{
+                                background: showNotes ? '#e11d48' : '#f3f4f6',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: showNotes ? '#fff' : '#e11d48',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 14px',
+                                borderRadius: '20px',
+                                fontWeight: 600,
+                                fontSize: '0.9rem'
+                            }}
+                            title={showNotes ? "Ocultar notas" : "Ver notas"}
+                        >
+                            <FaStickyNote size={16} />
+                            Notas
+                        </button>
+                    )}
                 </div>
 
                 <div className="timeframe-selector-row">
@@ -864,6 +891,34 @@ export default function Dashboard() {
                     )}
                 </div>
             </div >
+
+            {showNotes && adminPermissions?.notes === true && (
+                <div className="dashboard-notes-embed" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '30px', position: 'relative' }}>
+                    <button
+                        onClick={() => setShowNotes(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '16px',
+                            right: '16px',
+                            background: '#f3f4f6',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#6b7280',
+                            zIndex: 1
+                        }}
+                        title="Cerrar notas"
+                    >
+                        <FaTimes />
+                    </button>
+                    <NotesManager />
+                </div>
+            )}
 
             <div className="stats-grid">
                 {/* Ingresos brutos */}

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
-import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaUser, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
@@ -66,21 +66,15 @@ export default function OrdersManager() {
     const cleanTab = tab ? tab.replace(/^\//, '') : '';
     let normalizedTab = cleanTab === 'web' ? 'deliveries' : cleanTab;
 
-    if (!normalizedTab || !['deliveries', 'pos', 'expenses'].includes(normalizedTab)) {
-        if (adminPermissions?.pos_sales !== false) normalizedTab = 'pos';
-        else if (adminPermissions?.orders !== false) normalizedTab = 'deliveries';
-        else if (adminPermissions?.costs !== false) normalizedTab = 'expenses';
-        else normalizedTab = 'pos';
+    if (!normalizedTab || !['deliveries', 'pos'].includes(normalizedTab)) {
+        normalizedTab = adminPermissions?.pos_sales !== false ? 'pos' : 'deliveries';
     }
 
     if (normalizedTab === 'pos' && adminPermissions?.pos_sales === false) {
-        normalizedTab = adminPermissions?.orders !== false ? 'deliveries' : 'expenses';
+        normalizedTab = 'deliveries';
     }
     if (normalizedTab === 'deliveries' && adminPermissions?.orders === false) {
-        normalizedTab = adminPermissions?.pos_sales !== false ? 'pos' : 'expenses';
-    }
-    if (normalizedTab === 'expenses' && adminPermissions?.costs === false) {
-        normalizedTab = adminPermissions?.pos_sales !== false ? 'pos' : 'deliveries';
+        normalizedTab = 'pos';
     }
 
     const activeTab = normalizedTab;
@@ -155,13 +149,6 @@ export default function OrdersManager() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
 
-    // Expenses State
-    const [expenses, setExpenses] = useState<any[]>([]);
-    const [loadingExpenses, setLoadingExpenses] = useState(false);
-    const [expenseFilter, setExpenseFilter] = useState<'hoy' | 'semana' | 'mes' | 'custom'>('mes');
-    const [expenseCustomStart, setExpenseCustomStart] = useState<string>('');
-    const [expenseCustomEnd, setExpenseCustomEnd] = useState<string>('');
-
     // Edit Modal State
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -178,75 +165,6 @@ export default function OrdersManager() {
 
     // Global Map State
     const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
-
-    const handleDeleteExpense = async (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!isSuperAdmin) return;
-        if (window.confirm('¿Estás seguro de que deseas eliminar este registro de gasto? Esta acción solo borrará este registro del historial. NO se descontará ninguna materia prima creada o actualizada. ¿Deseas proceder?')) {
-            try {
-                await deleteDoc(doc(db, "expenses", id));
-                setExpenses(prev => prev.filter(exp => exp.id !== id));
-            } catch (error) {
-                console.error("Error al eliminar gasto:", error);
-                alert("Error al eliminar el registro.");
-            }
-        }
-    };
-
-    // Expenses fetch
-    useEffect(() => {
-        if (activeTab !== 'expenses') return;
-        setLoadingExpenses(true);
-
-        let startDate = new Date();
-        let endDate = new Date();
-        endDate.setHours(23, 59, 59, 999);
-
-        if (expenseFilter === 'hoy') {
-            startDate.setHours(0, 0, 0, 0);
-        } else if (expenseFilter === 'semana') {
-            const day = startDate.getDay();
-            const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-            startDate.setDate(diff);
-            startDate.setHours(0, 0, 0, 0);
-        } else if (expenseFilter === 'mes') {
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
-        } else if (expenseFilter === 'custom') {
-            if (expenseCustomStart && expenseCustomEnd) {
-                startDate = new Date(expenseCustomStart + 'T00:00:00');
-                endDate = new Date(expenseCustomEnd + 'T23:59:59');
-            } else {
-                startDate.setFullYear(2020);
-            }
-        }
-
-        const startTimestamp = Timestamp.fromDate(startDate);
-        const endTimestamp = Timestamp.fromDate(endDate);
-
-        const q = query(
-            collection(db, "expenses"),
-            where("date", ">=", startTimestamp),
-            where("date", "<=", endTimestamp),
-            orderBy("date", "desc"),
-            limit(100)
-        );
-
-        const unsub = onSnapshot(q, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-            data.sort((a: any, b: any) => {
-                const dateA = a.date?.seconds || 0;
-                const dateB = b.date?.seconds || 0;
-                if (dateB !== dateA) return dateB - dateA;
-                const numA = a.ticketNumber || 0;
-                const numB = b.ticketNumber || 0;
-                return numB - numA;
-            });
-            setExpenses(data);
-            setLoadingExpenses(false);
-        }, () => setLoadingExpenses(false));
-        return () => unsub();
-    }, [activeTab, expenseFilter, expenseCustomStart, expenseCustomEnd]);
 
     useEffect(() => {
         setLoading(true);
@@ -1005,24 +923,6 @@ export default function OrdersManager() {
                             >
                                 Deliveries
                             </button>
-                            {adminPermissions?.costs !== false && (
-                                <button
-                                    className={`tab-btn ${activeTab === 'expenses' ? 'active' : ''}`}
-                                    onClick={() => navigate('/editor/orders/expenses')}
-                                    style={{
-                                        padding: '10px 20px',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        background: activeTab === 'expenses' ? '#f59e0b' : '#f3f4f6',
-                                        color: activeTab === 'expenses' ? 'white' : '#4b5563',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    💸 Gastos
-                                </button>
-                            )}
-
                             {/* Botón Mapa Global */}
                             {activeTab === 'deliveries' && (
                                 <button
@@ -1046,196 +946,10 @@ export default function OrdersManager() {
                                 </button>
                             )}
 
-                            {/* Botón rápido a Tickets (VoiceAIPurchases) */}
-                            {activeTab === 'expenses' && (
-                                <button
-                                    onClick={() => navigate('/editor/costs/tickets')}
-                                    style={{
-                                        marginLeft: 'auto',
-                                        padding: '10px 20px',
-                                        borderRadius: '8px',
-                                        border: '1px solid #10b981',
-                                        background: '#d1fae5',
-                                        color: '#047857',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <FaPlus /> Cargar Ticket Nuevo
-                                </button>
-                            )}
                         </div>
 
-                        {/* Expenses Table */}
-                        {activeTab === 'expenses' && adminPermissions?.costs !== false && (
-                            <div className="orders-table-container">
-                                {loadingExpenses ? (
-                                    <div className="loading-state"><FaSync className="spin" size={24} /><p>Cargando gastos...</p></div>
-                                ) : (
-                                    <div style={{ padding: '0px' }}>
-                                        {/* Filtros de Fecha */}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '20px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                            <span style={{ fontWeight: 'bold', color: '#475569', marginRight: '10px' }}>Filtrar por:</span>
-                                            <button
-                                                onClick={() => setExpenseFilter('hoy')}
-                                                style={{ background: expenseFilter === 'hoy' ? '#3b82f6' : '#fff', color: expenseFilter === 'hoy' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
-                                            >Hoy</button>
-                                            <button
-                                                onClick={() => setExpenseFilter('semana')}
-                                                style={{ background: expenseFilter === 'semana' ? '#3b82f6' : '#fff', color: expenseFilter === 'semana' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
-                                            >Semana</button>
-                                            <button
-                                                onClick={() => setExpenseFilter('mes')}
-                                                style={{ background: expenseFilter === 'mes' ? '#3b82f6' : '#fff', color: expenseFilter === 'mes' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
-                                            >Mes Actual</button>
-                                            <button
-                                                onClick={() => setExpenseFilter('custom')}
-                                                style={{ background: expenseFilter === 'custom' ? '#3b82f6' : '#fff', color: expenseFilter === 'custom' ? '#fff' : '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
-                                            >Personalizado</button>
-
-                                            {expenseFilter === 'custom' && (
-                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto' }}>
-                                                    <input
-                                                        type="date"
-                                                        value={expenseCustomStart}
-                                                        onChange={(e) => setExpenseCustomStart(e.target.value)}
-                                                        style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                                                    />
-                                                    <span style={{ color: '#64748b' }}>hasta</span>
-                                                    <input
-                                                        type="date"
-                                                        value={expenseCustomEnd}
-                                                        onChange={(e) => setExpenseCustomEnd(e.target.value)}
-                                                        style={{ padding: '6px 12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {expenses.length === 0 ? (
-                                            <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>No hay gastos registrados en este periodo.</p>
-                                        ) : (
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                                                {expenses.map((exp) => {
-                                                    const typeLabels: Record<string, string> = {
-                                                        materia_prima: '🛒 Materia Prima',
-                                                        servicio: '💡 Servicio',
-                                                        otro: '📦 Otro'
-                                                    };
-                                                    const typeLabel = typeLabels[exp.type] || exp.type;
-                                                    const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
-                                                    return (
-                                                        <div key={exp.id} onClick={() => setExpandedOrderId(expandedOrderId === exp.id ? null : exp.id)}
-                                                            style={{
-                                                                cursor: 'pointer', background: '#fff', border: '2px dashed #cbd5e1',
-                                                                borderRadius: '12px', padding: '20px', position: 'relative',
-                                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column'
-                                                            }}>
-
-                                                            {/* Header del Ticket */}
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                                                                <div>
-                                                                    <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>
-                                                                        TICKET #{exp.formattedTicketId || exp.id.slice(0, 6).toUpperCase()}
-                                                                    </span>
-                                                                    <span style={{
-                                                                        background: exp.type === 'materia_prima' ? '#d1fae5' : exp.type === 'servicio' ? '#dbeafe' : '#fef3c7',
-                                                                        color: exp.type === 'materia_prima' ? '#065f46' : exp.type === 'servicio' ? '#1e40af' : '#92400e',
-                                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700
-                                                                    }}>
-                                                                        {typeLabel}
-                                                                    </span>
-                                                                </div>
-                                                                <div style={{ textAlign: 'right' }}>
-                                                                    <div style={{ fontWeight: '800', color: '#ef4444', fontSize: '1.4rem' }}>
-                                                                        ${Number(exp.totalAmount || 0).toLocaleString('es-AR')}
-                                                                    </div>
-                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>MONTO TOTAL</div>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Cuerpo del Ticket */}
-                                                            <div style={{ flexGrow: 1 }}>
-                                                                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#1e293b' }}>
-                                                                    {exp.description || 'Gasto Sin Título'}
-                                                                </h4>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: '#64748b', fontSize: '0.85rem' }}>
-                                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                        <FaCalendarAlt />
-                                                                        {dateObj ? dateObj.toLocaleDateString('es-AR') + ' ' + dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                                                                    </span>
-                                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                        <FaUser />
-                                                                        {exp.createdByEmail || 'admin'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Ticket Expandido Items */}
-                                                            {expandedOrderId === exp.id && (
-                                                                <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '15px', marginTop: '15px' }}>
-                                                                    {exp.items && exp.items.length > 0 ? (
-                                                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', marginBottom: '15px', color: '#475569' }}>
-                                                                            <thead>
-                                                                                <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#94a3b8' }}>
-                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Cant. Base</th>
-                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Multipl.</th>
-                                                                                    <th style={{ textAlign: 'left', paddingBottom: '6px' }}>Detalle</th>
-                                                                                    <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Precio Base</th>
-                                                                                    <th style={{ textAlign: 'right', paddingBottom: '6px' }}>Subtotal</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                {exp.items.map((item: any, i: number) => (
-                                                                                    <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                                                                        <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{item.quantity} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>{item.unit}</span></td>
-                                                                                        <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#3b82f6' }}>x{item.multiplier || 1}</td>
-                                                                                        <td style={{ padding: '8px 0' }}>{item.name}</td>
-                                                                                        <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
-                                                                                        <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${Number(item.subtotal || item.price || 0).toLocaleString('es-AR')}</td>
-                                                                                    </tr>
-                                                                                ))}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    ) : (
-                                                                        <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '15px' }}>Sin ítems detallados.</p>
-                                                                    )}
-
-                                                                    {isSuperAdmin && (
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteExpense(exp.id, e); }}
-                                                                            style={{ width: '100%', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}
-                                                                        >
-                                                                            <FaTrash /> Eliminar Registro
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-
-                                        {/* Total Section Footer */}
-                                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                                            <span style={{ fontSize: '1.2rem', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                                TOTAL GASTOS ({expenseFilter})
-                                            </span>
-                                            <span style={{ fontSize: '2rem', color: '#ef4444', fontWeight: '800' }}>
-                                                ${expenses.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0).toLocaleString('es-AR')}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                         {/* Orders Table */}
-                        {activeTab !== 'expenses' && (<div className="orders-table-container">
+                        {(<div className="orders-table-container">
                             <table className="orders-table">
                                 <thead>
                                     <tr>
@@ -1393,7 +1107,7 @@ export default function OrdersManager() {
                     </div>
 
                     {/* Load More Button */}
-                    {(hasMore || !isHistorical) && activeTab !== 'expenses' && (
+                    {(hasMore || !isHistorical) && (
                         <div className="load-more-container">
                             <button
                                 className="load-more-btn"

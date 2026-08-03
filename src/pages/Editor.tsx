@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaGift, FaMotorcycle, FaHeadset, FaStickyNote } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaMotorcycle, FaHeadset, FaFileInvoiceDollar } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -13,11 +13,10 @@ import POSManager from "../components/POSManager";
 import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
+import BillsManager from "../components/BillsManager";
 import EmployeesManager from "../components/EmployeesManager";
-import RaffleManager from "../components/RaffleManager";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
-import NotesManager from "../components/NotesManager";
 import { useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -250,6 +249,16 @@ export default function Editor() {
                   <span className="nav-text">Gestión de Stock</span>
                 </button>
               )}
+              {adminPermissions?.bills === true && (
+                <button
+                  className={currentPath === "bills" ? "active" : ""}
+                  onClick={() => handleNavClick("/editor/bills/gastos")}
+                  title="Gastos y Tickets"
+                >
+                  <div className="nav-icon" style={{ color: '#dc2626' }}><FaFileInvoiceDollar /></div>
+                  <span className="nav-text">Gastos</span>
+                </button>
+              )}
               {adminPermissions?.orders !== false && (
                 <button
                   className={currentPath === "orders" ? "active" : ""}
@@ -292,28 +301,6 @@ export default function Editor() {
                 >
                   <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaUserFriends /></div>
                   <span className="nav-text">Personal</span>
-                </button>
-              )}
-
-              {adminPermissions?.notes === true && (
-                <button
-                  className={currentPath === "notes" || currentPath === "notas" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/notes")}
-                  title="Notas"
-                >
-                  <div className="nav-icon" style={{ color: '#e11d48' }}><FaStickyNote /></div>
-                  <span className="nav-text">Notas</span>
-                </button>
-              )}
-
-              {adminPermissions?.raffle !== false && (
-                <button
-                  className={currentPath === "raffle" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/raffle")}
-                  title="Sorteos"
-                >
-                  <div className="nav-icon" style={{ color: '#f43f5e' }}><FaGift /></div>
-                  <span className="nav-text">Sorteos</span>
                 </button>
               )}
 
@@ -362,33 +349,31 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''} ${currentPath === 'orders' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
             <Routes>
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
-              {adminPermissions?.notes === true && <Route path="/notes" element={<NotesManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
               {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
               {adminPermissions?.costs !== false && <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />}
+              {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
               {adminPermissions?.employees !== false && <Route path="/employees" element={<EmployeesManager />} />}
-              {adminPermissions?.raffle !== false && <Route path="/raffle" element={<RaffleManager />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
               <Route path="*" element={
                 (() => {
                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
-                  if (adminPermissions?.notes === true) return <Navigate to="/editor/notes" replace />;
                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
                   if (adminPermissions?.employees !== false) return <Navigate to="/editor/employees" replace />;
-                  if (adminPermissions?.raffle !== false) return <Navigate to="/editor/raffle" replace />;
+                  if (adminPermissions?.bills === true) return <Navigate to="/editor/bills/gastos" replace />;
                   if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
                   return <div style={{ padding: '50px', textAlign: 'center' }}>No tienes permiso para ver ninguna sección.</div>;
                 })()
