@@ -513,6 +513,18 @@
     border-bottom: 1px dashed #cbd5e1;
 }
 
+.caja-venta-search-result.stock-mode {
+    grid-template-columns: 90px 1fr 150px;
+}
+
+/* Ajustar Stock: mismo look del picker de "Agregar Producto" pero como pantalla completa,
+   no como modal flotante. */
+.caja-stock-adjust-panel {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .caja-venta-search-result:hover {
     background: #f8fafc;
 }

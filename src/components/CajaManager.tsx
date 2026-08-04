@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft } from 'react-icons/fa';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVenta from './CajaVenta';
+import CajaStockAdjust from './CajaStockAdjust';
 import './CajaManager.css';
 
 type MovementType = 'venta' | 'ingreso' | 'egreso';
@@ -56,7 +57,7 @@ const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
 
 export default function CajaManager() {
     const { user } = useCart();
-    const [view, setView] = useState<'menu' | 'venta' | 'historial'>('menu');
+    const [view, setView] = useState<'menu' | 'venta' | 'historial' | 'stock'>('menu');
     const [movements, setMovements] = useState<CajaMovement[]>([]);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
     const [sessions, setSessions] = useState<CajaSession[]>([]);
@@ -350,6 +351,10 @@ export default function CajaManager() {
         );
     }
 
+    if (view === 'stock') {
+        return <CajaStockAdjust onBack={() => setView('menu')} />;
+    }
+
     return (
         <div className="caja-container">
             <div className="caja-header">
@@ -421,6 +426,9 @@ export default function CajaManager() {
                 </button>
                 <button className="caja-big-btn" onClick={() => openMovementModal('egreso')}>
                     <FaArrowUp /> Registrar egreso
+                </button>
+                <button className="caja-big-btn" onClick={() => setView('stock')}>
+                    <FaBoxOpen /> Ajustar Stock
                 </button>
             </div>
 
