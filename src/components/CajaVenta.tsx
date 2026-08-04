@@ -64,6 +64,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const [processing, setProcessing] = useState(false);
     const [lastSale, setLastSale] = useState<{ time: Date; itemCount: number; amount: number } | null>(null);
 
+    // Envío Modal State: si el carrito tiene un producto "Envío", pedimos el nombre del
+    // cliente antes de cobrar y el pedido se registra como delivery pendiente (igual que el POS anterior).
+    const [envioModalOpen, setEnvioModalOpen] = useState(false);
+    const [envioClientName, setEnvioClientName] = useState('');
+    const envioInputRef = useRef<HTMLInputElement>(null);
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [addModalError, setAddModalError] = useState('');
@@ -135,6 +141,10 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     useEffect(() => {
         if (quantityModalOpen && quantityInputRef.current) quantityInputRef.current.focus();
     }, [quantityModalOpen]);
+
+    useEffect(() => {
+        if (envioModalOpen && envioInputRef.current) envioInputRef.current.focus();
+    }, [envioModalOpen]);
 
     const findByCode = (code: string): { product: Product; variant?: string } | null => {
         for (const p of products) {
@@ -570,9 +580,19 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     const handleConfirmSale = async () => {
         if (cart.length === 0 || processing || paymentBreakdown.length === 0 || paymentDiff < -0.01) return;
+
+        const hasEnvio = cart.some(row => row.nombre.toLowerCase().includes('envío') || row.nombre.toLowerCase().includes('envio'));
+
+        if (hasEnvio && !envioClientName && !envioModalOpen) {
+            setEnvioModalOpen(true);
+            return;
+        }
+
         setProcessing(true);
 
         try {
+            const isDeliveryOrder = hasEnvio;
+
             const result = await runTransaction(db, async (transaction) => {
                 const productIdsToRead = new Set<string>();
                 cart.forEach(row => {
@@ -583,15 +603,36 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
                 const uniqueIds = Array.from(productIdsToRead);
                 const refs = uniqueIds.map(id => doc(db, 'products', id));
-                const docsSnap = await Promise.all(refs.map(ref => transaction.get(ref)));
+                const counterRef = doc(db, 'config', 'order_counter');
+
+                const reads: Promise<any>[] = refs.map(ref => transaction.get(ref));
+                if (isDeliveryOrder) reads.push(transaction.get(counterRef));
+
+                const allSnaps = await Promise.all(reads);
+                const docsSnap = allSnaps.slice(0, refs.length);
+                const counterSnap = isDeliveryOrder ? allSnaps[refs.length] : null;
 
                 const productDataMap: Record<string, any> = {};
                 docsSnap.forEach((d, i) => {
                     if (d.exists()) productDataMap[uniqueIds[i]] = d.data();
                 });
 
-                const orderRef = doc(collection(db, 'orders'));
-                const orderIdString = orderRef.id;
+                let orderRef;
+                let orderIdString = '';
+                let nextOrderCounter = 0;
+
+                if (isDeliveryOrder) {
+                    nextOrderCounter = 1000;
+                    if (counterSnap && counterSnap.exists()) {
+                        nextOrderCounter = (counterSnap.data().current || 999) + 1;
+                    }
+                    orderIdString = nextOrderCounter.toString();
+                    orderRef = doc(db, 'orders', orderIdString);
+                } else {
+                    orderRef = doc(collection(db, 'orders'));
+                    orderIdString = orderRef.id;
+                }
+
                 const productsToUpdate = new Set<string>();
                 const stockAlertsToLog: any[] = [];
 
@@ -674,6 +715,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     });
                 });
 
+                if (isDeliveryOrder) {
+                    transaction.set(counterRef, { current: nextOrderCounter }, { merge: true });
+                }
+
+                const metodoPago = paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo';
+
                 const orderData = {
                     ...(shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
                     items: cart.map(row => {
@@ -698,14 +745,14 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     discountAmount,
                     payments: paymentBreakdown,
                     cliente: {
-                        nombre: 'Cliente Local',
-                        direccion: 'Local Físico',
+                        nombre: isDeliveryOrder ? (envioClientName.trim() || 'Cliente') : 'Cliente Local',
+                        direccion: isDeliveryOrder ? 'Envío' : 'Local Físico',
                         telefono: '',
-                        metodoPago: paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo'
+                        metodoPago
                     },
                     date: new Date(),
-                    status: 'entregado',
-                    source: 'pos_public',
+                    status: isDeliveryOrder ? 'pendiente' : 'entregado',
+                    source: isDeliveryOrder ? 'pos_delivery' : 'pos_public',
                     createdByEmail: user?.email || 'admin',
                     id: orderIdString
                 };
@@ -748,7 +795,37 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             }
 
             onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId });
-            setModalConfig({ isOpen: true, type: 'success', title: '¡Venta Registrada!', message: `Total: $${total.toLocaleString('es-AR')}` });
+
+            if (isDeliveryOrder) {
+                setModalConfig({ isOpen: true, type: 'success', title: `¡Pedido #${result.orderId} Registrado!`, message: `Enviado a Deliveries. Total: $${total.toLocaleString('es-AR')}` });
+
+                if (!shouldMarkOrderAsTest()) {
+                    const metodoPago = paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo';
+                    const ticketItems = cart.map(row => ({
+                        name: row.nombre,
+                        price: row.precioUnitario,
+                        quantity: row.quantity,
+                        variant: row.variant || null,
+                        unitType: row.unitType
+                    }));
+                    import('../utils/printTicket').then(({ printTicket }) => {
+                        printTicket({
+                            id: result.orderId,
+                            items: ticketItems,
+                            total,
+                            cliente: {
+                                nombre: envioClientName.trim(),
+                                direccion: 'Envío',
+                                metodoPago
+                            },
+                            date: new Date()
+                        });
+                    });
+                }
+            } else {
+                setModalConfig({ isOpen: true, type: 'success', title: '¡Venta Registrada!', message: `Total: $${total.toLocaleString('es-AR')}` });
+            }
+
             setLastSale({ time: new Date(), itemCount: cart.length, amount: total });
             setCart([]);
             setDiscountPercentInput('');
@@ -756,6 +833,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false });
             setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '' });
             setCombinePayments(false);
+            setEnvioModalOpen(false);
+            setEnvioClientName('');
         } catch (error) {
             console.error('Checkout error:', error);
             const errMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -785,7 +864,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     // method's input, Enter charges the sale. Disabled while any modal/overlay is open,
     // and E/T/D are skipped while typing elsewhere so they don't hijack normal typing.
     useEffect(() => {
-        const anyModalOpen = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey;
+        const anyModalOpen = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey || envioModalOpen;
         if (anyModalOpen) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -819,7 +898,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, cart, enabledMethods, paymentAmounts, total, processing]);
+    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen, envioClientName, cart, enabledMethods, paymentAmounts, total, processing]);
 
     return (
         <div className="caja-venta-container">
@@ -1053,6 +1132,45 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 onConfirm={confirmWeight}
                 onCancel={() => { setWeightModalOpen(false); setPendingProduct(null); }}
             />
+
+            {envioModalOpen && (
+                <div className="caja-venta-modal-overlay">
+                    <div className="caja-venta-entry-modal">
+                        <h3>Pedido con Envío</h3>
+                        <p style={{ margin: '0 0 15px 0', color: '#475569' }}>Ingresá el nombre del cliente para registrar el pedido:</p>
+                        <input
+                            ref={envioInputRef}
+                            type="text"
+                            placeholder="Nombre del cliente"
+                            value={envioClientName}
+                            onChange={(e) => setEnvioClientName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && envioClientName.trim() !== '') {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleConfirmSale();
+                                }
+                                if (e.key === 'Escape') { setEnvioModalOpen(false); setEnvioClientName(''); }
+                            }}
+                        />
+                        <div className="caja-venta-entry-actions">
+                            <button
+                                className="caja-venta-entry-confirm"
+                                disabled={envioClientName.trim() === '' || processing}
+                                onClick={handleConfirmSale}
+                            >
+                                Confirmar
+                            </button>
+                            <button
+                                className="caja-venta-entry-cancel"
+                                onClick={() => { setEnvioModalOpen(false); setEnvioClientName(''); setProcessing(false); }}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {editRowKey && (() => {
                 const editingRow = cart.find(r => r.key === editRowKey);

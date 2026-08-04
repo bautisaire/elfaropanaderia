@@ -5,6 +5,7 @@ import { FaTimes, FaCheckCircle, FaTrash, FaPlus, FaList } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { RawMaterial } from './CostManager';
+import { useExpenseCategories } from '../hooks/useExpenseCategories';
 
 interface VoiceAIPurchasesProps {
     rawMaterials: RawMaterial[];
@@ -63,6 +64,7 @@ const formatMoney = (n: number) => Number(n).toLocaleString('es-AR', { maximumFr
 export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurchasesProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { categories } = useExpenseCategories();
     const [ticketItems, setTicketItems] = useState<any[]>([]);
 
     // Modal mode (opened directly from Gastos): skip the landing screen and jump straight into ticket entry.
@@ -462,9 +464,9 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                             onChange={(e) => setTicketType(e.target.value)} 
                                             style={{ padding: '5px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit', background: '#fff' }}
                                         >
-                                            <option value="materia_prima">Materia Prima</option>
-                                            <option value="servicio">Servicio (Luz, agua...)</option>
-                                            <option value="otro">Otro (Limpieza, resurtido...)</option>
+                                            {categories.map(cat => (
+                                                <option key={cat.key} value={cat.key}>{cat.icon} {cat.label}</option>
+                                            ))}
                                         </select>
                                     </div>
                                     <span style={{ fontWeight: 'bold' }}>USUARIO: {user?.email || 'Administrador'}</span>

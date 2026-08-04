@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, deleteDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
-import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp } from 'react-icons/fa';
+import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import VoiceAIPurchases from './VoiceAIPurchases';
+import ExpenseCategoryManager from './ExpenseCategoryManager';
+import { useExpenseCategories, FALLBACK_CATEGORY_KEY } from '../hooks/useExpenseCategories';
 import { RawMaterial } from './CostManager';
 import './CostManager.css';
 import './BillsManager.css';
@@ -13,6 +15,11 @@ export default function BillsManager() {
     const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
 
     const [showTicketModal, setShowTicketModal] = useState(false);
+    const [showCategoryManager, setShowCategoryManager] = useState(false);
+    const { categories } = useExpenseCategories();
+    const categoryByKey: Record<string, { label: string; icon: string }> = Object.fromEntries(
+        categories.map(c => [c.key, { label: c.label, icon: c.icon }])
+    );
 
     // Raw Materials (necesarios para el generador de tickets)
     const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
@@ -38,7 +45,7 @@ export default function BillsManager() {
     const [isEgresoModalOpen, setIsEgresoModalOpen] = useState(false);
     const [egresoAmount, setEgresoAmount] = useState('');
     const [egresoDescription, setEgresoDescription] = useState('');
-    const [egresoType, setEgresoType] = useState<'materia_prima' | 'servicio' | 'delivery' | 'otro'>('otro');
+    const [egresoType, setEgresoType] = useState<string>(FALLBACK_CATEGORY_KEY);
     const [savingEgreso, setSavingEgreso] = useState(false);
 
     const handleSaveEgreso = async (e: React.FormEvent) => {
@@ -57,7 +64,7 @@ export default function BillsManager() {
             setIsEgresoModalOpen(false);
             setEgresoAmount('');
             setEgresoDescription('');
-            setEgresoType('otro');
+            setEgresoType(FALLBACK_CATEGORY_KEY);
         } catch (error) {
             console.error('Error al registrar egreso:', error);
             alert('Ocurrió un error al registrar el egreso.');
@@ -150,6 +157,13 @@ export default function BillsManager() {
                             </button>
                         </div>
 
+                        <button
+                            onClick={() => setShowCategoryManager(true)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', background: 'transparent', border: '1px dashed #cbd5e1', color: '#475569', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                        >
+                            <FaTags /> Gestionar Categorías
+                        </button>
+
                         {loadingExpenses ? (
                             <div className="loading-state"><FaSync className="spin" size={24} /><p>Cargando gastos...</p></div>
                         ) : (
@@ -197,13 +211,8 @@ export default function BillsManager() {
                                 ) : (
                                     <div className="tickets-list" style={{ marginBottom: '30px' }}>
                                         {expenses.map((exp) => {
-                                            const typeLabels: Record<string, string> = {
-                                                materia_prima: '🛒 Materia Prima',
-                                                servicio: '💡 Servicio',
-                                                delivery: '🚚 Delivery',
-                                                otro: '📦 Otro'
-                                            };
-                                            const typeLabel = typeLabels[exp.type] || exp.type || '📦 Otro';
+                                            const cat = categoryByKey[exp.type];
+                                            const typeLabel = cat ? `${cat.icon} ${cat.label}` : (exp.type || '📦 Otro');
                                             const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
                                             const isExpanded = expandedTicketId === exp.id;
                                             return (
@@ -296,6 +305,10 @@ export default function BillsManager() {
                 <VoiceAIPurchases rawMaterials={rawMaterials} onClose={() => setShowTicketModal(false)} />
             )}
 
+            {showCategoryManager && (
+                <ExpenseCategoryManager onClose={() => setShowCategoryManager(false)} />
+            )}
+
             {isEgresoModalOpen && (
                 <div className="bills-modal-overlay" onClick={() => setIsEgresoModalOpen(false)}>
                     <div className="bills-modal" onClick={(e) => e.stopPropagation()}>
@@ -307,11 +320,10 @@ export default function BillsManager() {
                             </div>
                             <div className="bills-form-group">
                                 <label>Tipo</label>
-                                <select value={egresoType} onChange={(e) => setEgresoType(e.target.value as typeof egresoType)}>
-                                    <option value="materia_prima">🛒 Materia Prima</option>
-                                    <option value="servicio">💡 Servicio</option>
-                                    <option value="delivery">🚚 Delivery</option>
-                                    <option value="otro">📦 Otro</option>
+                                <select value={egresoType} onChange={(e) => setEgresoType(e.target.value)}>
+                                    {categories.map(cat => (
+                                        <option key={cat.key} value={cat.key}>{cat.icon} {cat.label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="bills-form-group">

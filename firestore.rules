@@ -26,6 +26,16 @@ service cloud.firestore {
         get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('is_rider', false) == true;
     }
 
+    // Acceso a Caja/POS: igual que en el frontend (Editor.tsx), se permite si pos_sales
+    // no está explícitamente en false, sin excluir a cuentas marcadas is_rider.
+    function canPosSales() {
+      return isSuperAdmin() || (
+        request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('pos_sales', true) != false
+      );
+    }
+
     match /products/{productId} {
       allow read: if true;
       allow create, delete: if isAdmin();
@@ -126,11 +136,14 @@ service cloud.firestore {
     match /expenses/{document=**} {
       allow read, write: if isAdmin();
     }
-    match /caja_movements/{document=**} {
+    match /expense_categories/{document=**} {
       allow read, write: if isAdmin();
     }
+    match /caja_movements/{document=**} {
+      allow read, write: if canPosSales();
+    }
     match /caja_sessions/{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if canPosSales();
     }
     match /time_entries/{document=**} {
       allow read, write: if isAdmin();
