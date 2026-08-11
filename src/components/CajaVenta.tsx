@@ -40,7 +40,7 @@ interface CartRow {
 
 interface CajaVentaProps {
     onBack: () => void;
-    onSaleComplete: (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string }) => void;
+    onSaleComplete: (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string; itemCount: number }) => void;
 }
 
 type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia';
@@ -71,9 +71,17 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const envioInputRef = useRef<HTMLInputElement>(null);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    // Dentro del mismo picker de "Agregar Producto": si está activo, seleccionar un producto
+    // abre el ajuste de stock en vez de agregarlo al carrito. Se resetea al cerrar el modal.
+    const [addModalStockMode, setAddModalStockMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [addModalError, setAddModalError] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const closeAddModal = () => {
+        setIsAddModalOpen(false);
+        setAddModalStockMode(false);
+    };
 
     const [codeBuffer, setCodeBuffer] = useState('');
     const [showBuffer, setShowBuffer] = useState(false);
@@ -168,6 +176,24 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         }
     };
 
+    const openStockAdjustModal = (product: Product, variant?: string) => {
+        setStockModalProduct(product);
+        setStockModalVariant(variant);
+        setStockModalInitialValue(undefined);
+        setPendingRetry(null);
+        setIsStockModalOpen(true);
+    };
+
+    // Selección de producto desde el picker de "Agregar Producto": en modo normal se agrega
+    // al carrito, en modo "Ajustar Stock" abre directamente el ajuste de stock del producto.
+    const handleProductPicked = (product: Product, variant?: string) => {
+        if (addModalStockMode) {
+            openStockAdjustModal(product, variant);
+        } else {
+            openEntryModal(product, variant);
+        }
+    };
+
     // Numeric buffer for barcode-style code entry: only while the add-product menu is open
     // and the user hasn't focused the search box (matches a barcode scanner typing digits + Enter).
     useEffect(() => {
@@ -179,7 +205,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     setCodeBuffer('');
                     setShowBuffer(false);
                 } else {
-                    setIsAddModalOpen(false);
+                    closeAddModal();
                 }
                 return;
             }
@@ -209,7 +235,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 setShowBuffer(false);
                 if (found) {
                     setAddModalError('');
-                    openEntryModal(found.product, found.variant);
+                    handleProductPicked(found.product, found.variant);
                 } else {
                     setAddModalError(`No existe producto con código "${codeBuffer}"`);
                 }
@@ -219,7 +245,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAddModalOpen, codeBuffer, quantityModalOpen, weightModalOpen, products]);
+    }, [isAddModalOpen, codeBuffer, quantityModalOpen, weightModalOpen, products, addModalStockMode]);
 
     const getEffectivePrice = (product: Product) => {
         return (product.discount || 0) > 0 ? product.precio * (1 - product.discount! / 100) : product.precio;
@@ -794,7 +820,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 await Promise.all(result.updates.map(u => syncChildProducts(u.id, u.newStock)));
             }
 
-            onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId });
+            onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId, itemCount: cart.length });
 
             if (isDeliveryOrder) {
                 setModalConfig({ isOpen: true, type: 'success', title: `¡Pedido #${result.orderId} Registrado!`, message: `Enviado a Deliveries. Total: $${total.toLocaleString('es-AR')}` });
@@ -1046,11 +1072,19 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             </div>
 
             {isAddModalOpen && (
-                <div className="caja-venta-modal-overlay" onClick={() => setIsAddModalOpen(false)}>
-                    <div className="caja-venta-add-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="caja-venta-modal-overlay" onClick={closeAddModal}>
+                    <div className={`caja-venta-add-modal ${addModalStockMode ? 'stock-mode' : ''}`} onClick={(e) => e.stopPropagation()}>
                         <div className="caja-venta-add-modal-header">
-                            <h3>Agregar Producto</h3>
-                            <button className="caja-venta-modal-close" onClick={() => setIsAddModalOpen(false)}>
+                            <h3>{addModalStockMode ? 'Ajustar Stock' : 'Agregar Producto'}</h3>
+                            <button
+                                type="button"
+                                className={`caja-venta-stock-mode-toggle ${addModalStockMode ? 'active' : ''}`}
+                                onClick={() => setAddModalStockMode(prev => !prev)}
+                                title="Al seleccionar un producto se abre su ajuste de stock en vez de agregarlo al carrito"
+                            >
+                                <FaBoxOpen /> Ajustar Stock
+                            </button>
+                            <button className="caja-venta-modal-close" onClick={closeAddModal}>
                                 <FaTimes />
                             </button>
                         </div>
@@ -1072,7 +1106,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                                     <div
                                         key={`${item.product.id}-${item.variant || 'base'}-${idx}`}
                                         className="caja-venta-search-result"
-                                        onClick={() => openEntryModal(item.product, item.variant)}
+                                        onClick={() => handleProductPicked(item.product, item.variant)}
                                     >
                                         <span className="caja-venta-search-result-code">{item.code || '—'}</span>
                                         <span className="caja-venta-search-result-name">{item.label}</span>

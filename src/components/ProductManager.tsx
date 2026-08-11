@@ -16,6 +16,7 @@ export interface FirestoreProduct {
     shortId?: string; // Código rápido para POS (ej: "001")
     precio: number;
     wholesalePrice?: number;
+    webPrice?: number;
     categoria: string;
     descripcion: string;
     img: string;
@@ -62,6 +63,7 @@ const INITIAL_STATE: FirestoreProduct = {
     shortId: "",
     precio: 0,
     wholesalePrice: 0,
+    webPrice: 0,
     categoria: "General",
     descripcion: "",
     img: "https://via.placeholder.com/150",
@@ -759,6 +761,23 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                     </div>
 
+                                    <div className="form-group">
+                                        <label>Precio Web (Home)</label>
+                                        <div className="price-input-container">
+                                            <span className="currency-symbol">$</span>
+                                            <input
+                                                type="number"
+                                                name="webPrice"
+                                                placeholder="0"
+                                                value={formData.webPrice || ""}
+                                                onChange={handleInputChange}
+                                                onBlur={handleInputBlur}
+                                                onWheel={handleWheel}
+                                                title="Opcional. Si es distinto de 0, este precio reemplaza al Precio normal en el Home."
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="form-row">
                                         <div className="form-group half">
                                             <label>Categoría</label>
@@ -1258,6 +1277,10 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             <div className="price-block">
                                                 <small>Mayorista</small>
                                                 <span className="price-wholesale">${product.wholesalePrice ? (Math.round(product.wholesalePrice * 100) / 100).toFixed(2) : '-'}</span>
+                                            </div>
+                                            <div className="price-block">
+                                                <small>Web</small>
+                                                <span className="price-wholesale">${product.webPrice ? (Math.round(product.webPrice * 100) / 100).toFixed(2) : '-'}</span>
                                             </div>
                                         </div>
 

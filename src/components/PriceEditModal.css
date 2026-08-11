@@ -7,10 +7,13 @@
     background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    overflow-y: auto;
     z-index: 10000;
     animation: fadeIn 0.2s ease-out forwards;
     backdrop-filter: blur(2px);
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .price-modal {
@@ -18,8 +21,12 @@
     border-radius: 12px;
     width: 90%;
     max-width: 400px;
+    margin: auto 0;
+    flex-shrink: 0;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
@@ -60,6 +67,9 @@
 
 .price-modal-body {
     padding: 20px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .price-modal-label {

@@ -23,6 +23,7 @@ interface AdminRole {
   notes?: boolean;
   raffle: boolean;
   is_rider: boolean;
+  auto_assign_orders?: boolean;
 }
 
 const PERMISSIONS_MAP = [
@@ -42,7 +43,8 @@ const PERMISSIONS_MAP = [
   { key: 'employees', label: 'Personal (Empleados, Horarios, Anticipos)' },
   { key: 'raffle', label: 'Sorteos' },
   { key: 'settings', label: 'Configuración (Delivery, etc.)' },
-  { key: 'is_rider', label: 'Rol: Repartidor (Rider)' }
+  { key: 'is_rider', label: 'Rol: Repartidor (Rider)' },
+  { key: 'auto_assign_orders', label: '↳ Auto-asignar pedidos delivery (si es Rider)' }
 ];
 
 export default function AdminRolesManager() {
@@ -99,7 +101,8 @@ export default function AdminRolesManager() {
         settings: false,
         employees: false,
         raffle: false,
-        is_rider: false
+        is_rider: false,
+        auto_assign_orders: false
       });
       setNewEmail('');
       alert(`Administrador ${emailKey} agregado. Configura sus permisos.`);

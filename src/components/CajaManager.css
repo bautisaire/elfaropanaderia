@@ -243,12 +243,28 @@
 
 .caja-movement-row {
     display: grid;
-    grid-template-columns: 90px 1fr 120px 70px 110px;
+    grid-template-columns: 90px 1fr 100px 120px 70px 110px 30px;
     align-items: center;
     gap: 10px;
     padding: 10px 8px;
     border-bottom: 1px solid #f1f5f9;
     font-size: 0.9rem;
+}
+
+.caja-movement-delete-btn {
+    background: transparent;
+    border: none;
+    color: #dc2626;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.caja-movement-delete-btn:hover {
+    background: #fee2e2;
 }
 
 .caja-movement-row:last-child {
@@ -281,6 +297,12 @@
 
 .caja-movement-desc {
     color: #475569;
+}
+
+.caja-movement-qty {
+    color: #64748b;
+    font-size: 0.82rem;
+    white-space: nowrap;
 }
 
 .caja-movement-method {

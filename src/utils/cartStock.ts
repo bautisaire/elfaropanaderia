@@ -114,11 +114,13 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
 
 export function mapFirestoreProduct(docId: string, data: Record<string, unknown>): Product {
     const stockDependency = data.stockDependency as Product["stockDependency"];
+    const basePrice = (data.precio as number) || 0;
+    const webPrice = Number(data.webPrice) || 0;
 
     return {
         id: docId,
         name: (data.nombre as string) || "",
-        price: (data.precio as number) || 0,
+        price: webPrice > 0 ? webPrice : basePrice,
         image: (data.img as string) || "",
         images: (data.images as string[]) || (data.img ? [data.img as string] : []),
         variants: (data.variants as Product["variants"]) || [],

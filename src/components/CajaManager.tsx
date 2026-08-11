@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen } from 'react-icons/fa';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVenta from './CajaVenta';
 import CajaStockAdjust from './CajaStockAdjust';
@@ -17,6 +17,7 @@ interface CajaMovement {
     paymentMethod?: PaymentMethod;
     description?: string;
     orderId?: string;
+    itemCount?: number;
     date?: Timestamp | Date;
     createdByEmail?: string;
 }
@@ -56,7 +57,7 @@ const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
 };
 
 export default function CajaManager() {
-    const { user } = useCart();
+    const { user, isSuperAdmin } = useCart();
     const [view, setView] = useState<'menu' | 'venta' | 'historial' | 'stock'>('menu');
     const [movements, setMovements] = useState<CajaMovement[]>([]);
     const [rawOrders, setRawOrders] = useState<any[]>([]);
@@ -144,6 +145,7 @@ export default function CajaManager() {
                     amount: Number(o.total) || 0,
                     paymentMethod: (o.cliente?.metodoPago as PaymentMethod) || undefined,
                     orderId: o.id,
+                    itemCount: Array.isArray(o.items) ? o.items.length : 0,
                     date: d
                 } as CajaMovement;
             })
@@ -192,13 +194,14 @@ export default function CajaManager() {
 
     const fmt = (n: number) => showAmounts ? `$${Math.round(n).toLocaleString('es-AR')}` : '***';
 
-    const handleSaleComplete = async (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string }) => {
+    const handleSaleComplete = async (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string; itemCount: number }) => {
         try {
             await Promise.all(data.payments.map(p => addDoc(collection(db, 'caja_movements'), {
                 type: 'venta',
                 amount: p.amount,
                 paymentMethod: p.method,
                 orderId: data.orderId,
+                itemCount: data.itemCount,
                 date: serverTimestamp(),
                 createdByEmail: user?.email || 'admin'
             })));
@@ -255,6 +258,18 @@ export default function CajaManager() {
             alert('Error al registrar el movimiento.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDeleteMovement = async (movement: CajaMovement) => {
+        if (!isSuperAdmin) return;
+        if (!window.confirm(`¿Eliminar este movimiento de caja${movement.description ? ` ("${movement.description}")` : ''} por ${fmt(movement.amount)}? Esta acción no se puede deshacer.`)) return;
+
+        try {
+            await deleteDoc(doc(db, 'caja_movements', movement.id));
+        } catch (error) {
+            console.error('Error eliminando movimiento de caja:', error);
+            alert('Error al eliminar el movimiento.');
         }
     };
 
@@ -439,19 +454,34 @@ export default function CajaManager() {
                 ) : currentSessionMovements.length === 0 ? (
                     <p className="caja-empty">Todavía no hay movimientos registrados en esta caja.</p>
                 ) : (
-                    currentSessionMovements.map(m => (
-                        <div key={m.id} className={`caja-movement-row caja-movement-${m.type}`}>
-                            <span className="caja-movement-type">
-                                {m.type === 'venta' ? 'Venta' : m.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
-                            </span>
-                            <span className="caja-movement-desc">{m.description || (m.orderId ? `Pedido #${m.orderId}` : '—')}</span>
-                            <span className="caja-movement-method">{m.paymentMethod || ''}</span>
-                            <span className="caja-movement-time">{formatTime(m.date)}</span>
-                            <span className={`caja-movement-amount ${m.type === 'egreso' ? 'negative' : 'positive'}`}>
-                                {showAmounts ? `${m.type === 'egreso' ? '-' : '+'}${fmt(m.amount)}` : '***'}
-                            </span>
-                        </div>
-                    ))
+                    currentSessionMovements.map(m => {
+                        const isRealMovement = !m.id.startsWith('order-');
+                        return (
+                            <div key={m.id} className={`caja-movement-row caja-movement-${m.type}`}>
+                                <span className="caja-movement-type">
+                                    {m.type === 'venta' ? 'Venta' : m.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
+                                </span>
+                                <span className="caja-movement-desc">{m.description || (m.orderId ? `Pedido #${m.orderId}` : '—')}</span>
+                                <span className="caja-movement-qty">
+                                    {m.type === 'venta' && m.itemCount ? `${m.itemCount} ${m.itemCount === 1 ? 'producto' : 'productos'}` : ''}
+                                </span>
+                                <span className="caja-movement-method">{m.paymentMethod || ''}</span>
+                                <span className="caja-movement-time">{formatTime(m.date)}</span>
+                                <span className={`caja-movement-amount ${m.type === 'egreso' ? 'negative' : 'positive'}`}>
+                                    {showAmounts ? `${m.type === 'egreso' ? '-' : '+'}${fmt(m.amount)}` : '***'}
+                                </span>
+                                {isSuperAdmin && isRealMovement && (
+                                    <button
+                                        className="caja-movement-delete-btn"
+                                        onClick={() => handleDeleteMovement(m)}
+                                        title="Eliminar movimiento"
+                                    >
+                                        <FaTrash />
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })
                 )}
             </div>
 

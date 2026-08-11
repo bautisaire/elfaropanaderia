@@ -1,4 +1,5 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const cors = require("cors")({ origin: true });
 const { MercadoPagoConfig, Preference } = require("mercadopago");
@@ -596,4 +597,52 @@ exports.processOrder = onCall(async (request) => {
         }
         throw new HttpsError("internal", error.message || "Error interno al procesar el pedido.");
     }
+});
+
+/** Normaliza texto para comparaciones (sin acentos, minúsculas) — misma lógica que OrdersManager.tsx */
+function normalizeOrderText(v) {
+    return String(v ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+}
+
+/** Determina si un pedido es "retiro en el local" (no debe asignarse a ningún rider). */
+function orderIsPickup(order) {
+    const source = order.source;
+    if (source === "pos_public" || source === "pos_wholesale" || source === "pos") return true;
+    if (source === "pos_delivery") return false;
+
+    const metodoEntrega = order.cliente?.metodoEntrega;
+    if (metodoEntrega === "pickup") return true;
+    if (metodoEntrega === "delivery") return false;
+
+    const direccion = normalizeOrderText(order.cliente?.direccion);
+    const indicaciones = normalizeOrderText(order.cliente?.indicaciones);
+    return direccion.includes("retiro") || indicaciones.includes("retiro");
+}
+
+/**
+ * Al crearse un pedido nuevo (web checkout o POS delivery), lo asigna automáticamente
+ * al rider con auto_assign_orders habilitado, salvo que sea retiro en el local.
+ */
+exports.autoAssignRiderOnOrderCreate = onDocumentCreated("orders/{orderId}", async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const order = snap.data();
+    if (order.assignedRider) return;
+    if (orderIsPickup(order)) return;
+
+    const ridersSnap = await db.collection("admin_roles")
+        .where("is_rider", "==", true)
+        .where("auto_assign_orders", "==", true)
+        .limit(1)
+        .get();
+
+    if (ridersSnap.empty) return;
+
+    const riderEmail = ridersSnap.docs[0].id;
+    await snap.ref.update({ assignedRider: riderEmail });
 });
