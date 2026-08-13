@@ -4,6 +4,7 @@ import { collection, doc, runTransaction, onSnapshot } from 'firebase/firestore'
 import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen } from 'react-icons/fa';
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
+import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { useCart } from '../context/CartContext';
 import POSModal from './POSModal';
 import WeightEntryModal from './WeightEntryModal';
@@ -26,6 +27,7 @@ interface Product {
     stockDependency?: { productId: string; unitsToDeduct?: number };
     isHiddenInPOS?: boolean;
     discount?: number;
+    priceTiers?: PriceTier[];
 }
 
 interface CartRow {
@@ -36,7 +38,16 @@ interface CartRow {
     quantity: number;
     unitType?: 'unit' | 'weight';
     precioUnitario: number;
+    priceTiers?: PriceTier[];
+    manualPriceOverride?: boolean;
 }
+
+const getRowLineTotal = (row: CartRow): number => {
+    if (row.manualPriceOverride || row.unitType === 'weight') {
+        return round2(row.precioUnitario * row.quantity);
+    }
+    return round2(calculateTieredTotal(row.quantity, row.precioUnitario, row.priceTiers));
+};
 
 interface CajaVentaProps {
     onBack: () => void;
@@ -101,6 +112,9 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const [editUnitInput, setEditUnitInput] = useState('');
     const [editTotalInput, setEditTotalInput] = useState('');
     const [editError, setEditError] = useState('');
+    // true once the admin explicitly touches P.Unitario/P.Total in the edit modal: from then on
+    // this row's price is a manual override and stops auto-applying quantity price tiers.
+    const [editIsManualOverride, setEditIsManualOverride] = useState(false);
 
     // Stock Insuficiente -> Corregir/Agregar Stock -> retry adding to cart
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -280,7 +294,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 nombre: product.nombre,
                 quantity: qty,
                 unitType: product.unitType,
-                precioUnitario
+                precioUnitario,
+                priceTiers: product.priceTiers
             }];
         });
     };
@@ -370,7 +385,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         setEditRowKey(row.key);
         setEditQuantityInput(String(row.quantity));
         setEditUnitInput(String(row.precioUnitario));
-        setEditTotalInput(String(round2(row.precioUnitario * row.quantity)));
+        setEditTotalInput(String(getRowLineTotal(row)));
+        setEditIsManualOverride(!!row.manualPriceOverride);
         setEditError('');
     };
 
@@ -383,14 +399,19 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         setEditQuantityInput(value);
         setEditError('');
         const qty = parseFloat(value) || 0;
+        const row = cart.find(r => r.key === editRowKey);
         const unit = parseFloat(editUnitInput) || 0;
-        setEditTotalInput(String(round2(qty * unit)));
+        const total = editIsManualOverride || row?.unitType === 'weight'
+            ? round2(qty * unit)
+            : round2(calculateTieredTotal(qty, unit, row?.priceTiers));
+        setEditTotalInput(String(total));
     };
 
     const handleEditUnitChange = (value: string) => {
         if (!canEditPrices) return;
         setEditUnitInput(value);
         setEditError('');
+        setEditIsManualOverride(true);
         const qty = parseFloat(editQuantityInput) || 0;
         const unit = parseFloat(value) || 0;
         setEditTotalInput(String(round2(qty * unit)));
@@ -400,6 +421,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         if (!canEditPrices) return;
         setEditTotalInput(value);
         setEditError('');
+        setEditIsManualOverride(true);
         const qty = parseFloat(editQuantityInput) || 0;
         const totalVal = parseFloat(value) || 0;
         setEditUnitInput(qty > 0 ? String(round2(totalVal / qty)) : '0');
@@ -436,14 +458,19 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         }
 
         setCart(prev => prev.map(r => r.key === editRowKey
-            ? { ...r, quantity: row.unitType === 'weight' ? Math.round(qty * 1000) / 1000 : qty, precioUnitario: canEditPrices ? unit : r.precioUnitario }
+            ? {
+                ...r,
+                quantity: row.unitType === 'weight' ? Math.round(qty * 1000) / 1000 : qty,
+                precioUnitario: canEditPrices ? unit : r.precioUnitario,
+                manualPriceOverride: canEditPrices ? editIsManualOverride : r.manualPriceOverride
+            }
             : r
         ));
         closeEditRowModal();
     };
 
     const subtotal = useMemo(() => {
-        return round2(cart.reduce((sum, r) => sum + r.precioUnitario * r.quantity, 0));
+        return round2(cart.reduce((sum, r) => sum + getRowLineTotal(r), 0));
     }, [cart]);
 
     // The "Importe" total and the "% Descuento" field are bidirectional: editing either one
@@ -563,7 +590,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     const filteredResults = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
-        const items: { product: Product; variant?: string; label: string; price: number; code?: string; stock: number }[] = [];
+        const items: { product: Product; variant?: string; label: string; price: number; code?: string; stock: number; priceTiers?: PriceTier[] }[] = [];
 
         products.forEach(p => {
             if (p.isHiddenInPOS) return;
@@ -573,14 +600,14 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     const code = v.shortId || '';
                     const matches = !term || label.toLowerCase().includes(term) || code.toLowerCase().includes(term);
                     if (matches) {
-                        items.push({ product: p, variant: v.name, label, price: getEffectivePrice(p), code: v.shortId, stock: v.stockQuantity || 0 });
+                        items.push({ product: p, variant: v.name, label, price: getEffectivePrice(p), code: v.shortId, stock: v.stockQuantity || 0, priceTiers: p.priceTiers });
                     }
                 });
             } else {
                 const code = p.shortId || '';
                 const matches = !term || p.nombre.toLowerCase().includes(term) || code.toLowerCase().includes(term);
                 if (matches) {
-                    items.push({ product: p, label: p.nombre, price: getEffectivePrice(p), code: p.shortId, stock: p.stockQuantity || 0 });
+                    items.push({ product: p, label: p.nombre, price: getEffectivePrice(p), code: p.shortId, stock: p.stockQuantity || 0, priceTiers: p.priceTiers });
                 }
             }
         });
@@ -751,10 +778,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     ...(shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
                     items: cart.map(row => {
                         const originalDoc = productDataMap[row.productId] || {};
+                        const rowLineTotal = getRowLineTotal(row);
+                        const effectivePrice = row.quantity > 0 ? round2(rowLineTotal / row.quantity) : row.precioUnitario;
                         return {
                             id: row.productId,
                             name: row.nombre,
-                            price: row.precioUnitario,
+                            price: effectivePrice,
                             quantity: row.quantity,
                             variant: row.variant || null,
                             unitType: row.unitType,
@@ -829,7 +858,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     const metodoPago = paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo';
                     const ticketItems = cart.map(row => ({
                         name: row.nombre,
-                        price: row.precioUnitario,
+                        price: row.quantity > 0 ? round2(getRowLineTotal(row) / row.quantity) : row.precioUnitario,
                         quantity: row.quantity,
                         variant: row.variant || null,
                         unitType: row.unitType
@@ -952,9 +981,16 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                                 cart.map(row => (
                                     <div className="caja-venta-row" key={row.key}>
                                         <span>{row.unitType === 'weight' ? `${Math.round(row.quantity * 1000)}g` : row.quantity}</span>
-                                        <span>{row.nombre}{row.variant ? ` (${row.variant})` : ''}</span>
+                                        <span>
+                                            {row.nombre}{row.variant ? ` (${row.variant})` : ''}
+                                            {!row.manualPriceOverride && row.unitType !== 'weight' && (row.priceTiers || []).some(t => t.quantity > 0 && row.quantity >= t.quantity) && (
+                                                <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                                    Precio x cantidad
+                                                </span>
+                                            )}
+                                        </span>
                                         <span>${round2(row.precioUnitario).toLocaleString('es-AR')}</span>
-                                        <span>${round2(row.precioUnitario * row.quantity).toLocaleString('es-AR')}</span>
+                                        <span>${getRowLineTotal(row).toLocaleString('es-AR')}</span>
                                         <span className="caja-venta-row-actions">
                                             <button className="caja-venta-row-edit" onClick={() => openEditRowModal(row)} title="Editar">
                                                 <FaEdit />
@@ -1109,7 +1145,14 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                                         onClick={() => handleProductPicked(item.product, item.variant)}
                                     >
                                         <span className="caja-venta-search-result-code">{item.code || '—'}</span>
-                                        <span className="caja-venta-search-result-name">{item.label}</span>
+                                        <span className="caja-venta-search-result-name">
+                                            {item.label}
+                                            {(item.priceTiers || []).filter(t => t.quantity > 0).length > 0 && (
+                                                <span style={{ display: 'block', fontSize: '0.7rem', color: '#059669' }}>
+                                                    {item.priceTiers!.filter(t => t.quantity > 0).sort((a, b) => a.quantity - b.quantity).map(t => `${t.quantity}u: $${t.price}`).join(' · ')}
+                                                </span>
+                                            )}
+                                        </span>
                                         <span className={`caja-venta-search-result-stock ${item.stock <= 0 ? 'out' : item.stock < 5 ? 'low' : ''}`}>
                                             Stock: {Number(item.stock.toFixed(3))}{item.product.unitType === 'weight' ? 'kg' : ''}
                                         </span>
