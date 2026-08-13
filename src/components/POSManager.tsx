@@ -849,7 +849,10 @@ export default function POSManager() {
             });
 
             if (updates.updates && updates.updates.length > 0) {
-                await Promise.all(updates.updates.map(u => syncChildProducts(u.id, u.newStock)));
+                // No bloquea el ticket: el stock del producto vendido ya quedó consistente
+                // en la transacción de arriba, esto solo propaga a productos derivados (ej. porciones).
+                Promise.all(updates.updates.map(u => syncChildProducts(u.id, u.newStock)))
+                    .catch(err => console.error('Error sincronizando productos derivados:', err));
             }
 
             if (hasEnvio) {

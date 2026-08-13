@@ -21,7 +21,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  // Evita que conexiones lentas/con proxy (wifi del local, datos móviles) se queden
+  // colgadas varios segundos esperando el canal de streaming por defecto.
+  experimentalAutoDetectLongPolling: true
 });
 const auth = getAuth(app);
 const storage = getStorage(app);

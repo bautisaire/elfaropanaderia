@@ -2,7 +2,6 @@ const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https")
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const cors = require("cors")({ origin: true });
-const { MercadoPagoConfig, Preference } = require("mercadopago");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -11,7 +10,19 @@ require('dotenv').config();
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 
-const client = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
+/**
+ * El SDK de Mercado Pago se carga de forma diferida: es una dependencia pesada y
+ * cargarla en el arranque encarecía el "cold start" de TODAS las funciones, incluso
+ * en pedidos en efectivo / retiro que nunca la usan.
+ */
+let mpClient = null;
+const getMpClient = () => {
+    if (!mpClient) {
+        const { MercadoPagoConfig } = require("mercadopago");
+        mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
+    }
+    return mpClient;
+};
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
@@ -89,7 +100,8 @@ exports.createPreference = onRequest((req, res) => {
                 external_reference: orderId
             };
 
-            const preference = new Preference(client);
+            const { Preference } = require("mercadopago");
+            const preference = new Preference(getMpClient());
             const result = await preference.create({ body });
 
             res.json({
@@ -118,7 +130,7 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
             console.log("Payment notification received for:", paymentId);
 
             const { Payment } = require("mercadopago");
-            const payment = await new Payment(client).get({ id: paymentId });
+            const payment = await new Payment(getMpClient()).get({ id: paymentId });
 
             if (payment && payment.status === 'approved') {
                 const orderId = payment.external_reference;
@@ -140,7 +152,13 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
     }
 });
 
-exports.processOrder = onCall(async (request) => {
+/**
+ * minInstances: 1 mantiene una instancia siempre "caliente". Sin esto, el primer pedido
+ * después de un rato de inactividad paga el arranque en frío (cargar Node + firebase-admin),
+ * que es lo que hacía que el cliente esperara ~10 segundos en el checkout.
+ * memory 512MiB da además más CPU, con lo que la transacción resuelve más rápido.
+ */
+exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (request) => {
     try {
         const { cart, formData, shippingCost, discountAmount, discountText, finalTotal, userId, isTestOrder: clientWantsTestOrder } = request.data;
 
@@ -567,7 +585,8 @@ exports.processOrder = onCall(async (request) => {
                     external_reference: result.orderId
                 };
 
-                const preference = new Preference(client);
+                const { Preference } = require("mercadopago");
+                const preference = new Preference(getMpClient());
                 const mpResult = await preference.create({ body });
                 init_point = mpResult.init_point;
             } catch (mpError) {

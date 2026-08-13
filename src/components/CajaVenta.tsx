@@ -846,7 +846,10 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             });
 
             if (result.updates.length > 0) {
-                await Promise.all(result.updates.map(u => syncChildProducts(u.id, u.newStock)));
+                // No bloquea el cobro: el stock del producto vendido ya quedó consistente
+                // en la transacción de arriba, esto solo propaga a productos derivados (ej. porciones).
+                Promise.all(result.updates.map(u => syncChildProducts(u.id, u.newStock)))
+                    .catch(err => console.error('Error sincronizando productos derivados:', err));
             }
 
             onSaleComplete({ amount: total, payments: paymentBreakdown, orderId: result.orderId, itemCount: cart.length });

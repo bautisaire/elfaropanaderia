@@ -22,11 +22,13 @@ export const syncChildProducts = async (parentId: string, newParentStock: number
             where("stockDependency.productId", "==", parentId)
         );
 
-        const querySnapshot = await getDocs(q);
+        const [querySnapshot, parentSnap] = await Promise.all([
+            getDocs(q),
+            getDoc(doc(db, "products", parentId))
+        ]);
 
         if (querySnapshot.empty) return;
 
-        const parentSnap = await getDoc(doc(db, "products", parentId));
         const parentData = parentSnap.exists() ? parentSnap.data() : undefined;
         const parentUnitType = (parentData?.unitType as Product['unitType']) || 'unit';
         const parentVariants = parentData?.variants as { name: string; stockQuantity?: number }[] | undefined;

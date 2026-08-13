@@ -24,7 +24,25 @@ export default function Checkout() {
 
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState('');
   const [activeRaffle, setActiveRaffle] = useState<any>(null);
+
+  // Mientras se confirma el pedido, ir contando qué está pasando: una espera con
+  // avance visible se percibe bastante más corta que un "Procesando..." congelado.
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSubmitStatus('');
+      return;
+    }
+
+    setSubmitStatus('Confirmando tu pedido...');
+    const timers = [
+      setTimeout(() => setSubmitStatus('Reservando tus productos...'), 1500),
+      setTimeout(() => setSubmitStatus('Casi listo, un momento...'), 4000),
+      setTimeout(() => setSubmitStatus('Gracias por esperar, ya casi terminamos...'), 8000)
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [isSubmitting]);
 
   useEffect(() => {
     const q = query(collection(db, "raffles"), where("isActive", "==", true), limit(1));
@@ -412,6 +430,7 @@ export default function Checkout() {
     if (!isAdmin && minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
       setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
       setShowCheckout(false);
+      setIsSubmitting(false);
       return;
     }
 
@@ -419,6 +438,7 @@ export default function Checkout() {
     const validationResult = await validateCartStock(cart);
     if (!validationResult.isValid) {
       setStockError({ isOpen: true, items: validationResult.outOfStockItems });
+      setIsSubmitting(false);
       return;
     }
 
@@ -1085,8 +1105,13 @@ export default function Checkout() {
                       return null;
                     })()}
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
-                      {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
+                      {isSubmitting ? (submitStatus || 'Procesando...') : 'Confirmar pedido'}
                     </button>
+                    {isSubmitting && (
+                      <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#6b7280', marginTop: '10px' }}>
+                        No cierres esta ventana.
+                      </p>
+                    )}
 
                   </div>
                 </form>
