@@ -7,6 +7,7 @@ import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
 import { getDerivedStockFromParent } from '../utils/cartStock';
+import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
@@ -35,12 +36,21 @@ interface Product {
     stockDependency?: any;
     isHiddenInPOS?: boolean;
     discount?: number;
+    priceTiers?: PriceTier[];
 }
 
 interface CartItem extends Product {
     quantity: number;
     selectedVariant?: string;
+    manualPriceOverride?: boolean;
 }
+
+const getCartItemLineTotal = (item: CartItem): number => {
+    if (item.manualPriceOverride || item.unitType === 'weight') {
+        return item.precio * item.quantity;
+    }
+    return calculateTieredTotal(item.quantity, item.precio, item.priceTiers);
+};
 
 interface ModalState {
     isOpen: boolean;
@@ -555,7 +565,7 @@ export default function POSManager() {
     };
 
     const total = useMemo(() => {
-        const sum = cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
+        const sum = cart.reduce((acc, item) => acc + getCartItemLineTotal(item), 0);
         return Math.round(sum * 100) / 100;
     }, [cart]);
 
@@ -573,7 +583,8 @@ export default function POSManager() {
                 ...item,
                 precio: newPrice,
                 stockQuantity: original.stockQuantity,
-                variants: original.variants
+                variants: original.variants,
+                priceTiers: original.priceTiers
             };
         }));
     }, [priceMode, products]);
@@ -759,10 +770,12 @@ export default function POSManager() {
                     ...(shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
                     items: cart.map(item => {
                         const originalDoc = productDataMap[item.id] || {};
+                        const lineTotal = getCartItemLineTotal(item);
+                        const effectivePrice = item.quantity > 0 ? lineTotal / item.quantity : item.precio;
                         return {
                             id: item.id,
                             name: item.nombre,
-                            price: item.precio,
+                            price: effectivePrice,
                             quantity: item.quantity,
                             variant: item.selectedVariant || null,
                             unitType: item.unitType,
@@ -850,7 +863,7 @@ export default function POSManager() {
 
                 const ticketItems = cart.map(item => ({
                     name: `${item.nombre}`,
-                    price: item.precio,
+                    price: item.quantity > 0 ? getCartItemLineTotal(item) / item.quantity : item.precio,
                     quantity: item.quantity,
                     variant: item.selectedVariant || null,
                     unitType: item.unitType
@@ -1069,6 +1082,11 @@ export default function POSManager() {
                                                 return `$${Math.round(basePrice * 100) / 100}`;
                                             })()}
                                         </div>
+                                        {(product.priceTiers || []).filter(t => t.quantity > 0).length > 0 && (
+                                            <div style={{ fontSize: '0.7rem', color: '#059669', marginTop: '-2px', marginBottom: '2px' }}>
+                                                {product.priceTiers!.filter(t => t.quantity > 0).sort((a, b) => a.quantity - b.quantity).map(t => `${t.quantity}u: $${t.price}`).join(' · ')}
+                                            </div>
+                                        )}
                                         <div className={`pos-product-stock ${(v.stockQuantity || 0) < 5 ? "low" : ""}`}>
                                             Stock: {Number((v.stockQuantity || 0).toFixed(3))}
                                             <button
@@ -1129,6 +1147,11 @@ export default function POSManager() {
                                                 return `$${Math.round(basePrice * 100) / 100}`;
                                             })()}
                                         </div>
+                                        {(product.priceTiers || []).filter(t => t.quantity > 0).length > 0 && (
+                                            <div style={{ fontSize: '0.7rem', color: '#059669', marginTop: '-2px', marginBottom: '2px' }}>
+                                                {product.priceTiers!.filter(t => t.quantity > 0).sort((a, b) => a.quantity - b.quantity).map(t => `${t.quantity}u: $${t.price}`).join(' · ')}
+                                            </div>
+                                        )}
                                         <div className={`pos-product-stock ${(product.stockQuantity || 0) < 5 ? "low" : ""}`}>
                                             Stock: {Number((product.stockQuantity || 0).toFixed(3))}
                                             <button
@@ -1186,9 +1209,20 @@ export default function POSManager() {
                     {cart.map((item, index) => (
                         <div key={`${item.id}-${item.selectedVariant || 'base'}-${index}`} className="pos-cart-item">
                             <div className="pos-item-details">
-                                <span className="pos-item-name">{item.nombre} {item.selectedVariant ? `(${item.selectedVariant})` : ''}</span>
+                                <span className="pos-item-name">
+                                    {item.nombre} {item.selectedVariant ? `(${item.selectedVariant})` : ''}
+                                    {!item.manualPriceOverride && item.unitType !== 'weight' && (item.priceTiers || []).some(t => t.quantity > 0 && item.quantity >= t.quantity) && (
+                                        <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                            Precio x cantidad
+                                        </span>
+                                    )}
+                                </span>
                                 <span className="pos-item-price" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    ${Math.round(item.precio * 100) / 100} x {item.unitType === 'weight' ? `${Math.round(item.quantity * 1000)}g` : item.quantity} = ${Math.round(item.precio * item.quantity * 100) / 100}
+                                    {(() => {
+                                        const lineTotal = getCartItemLineTotal(item);
+                                        const qtyLabel = item.unitType === 'weight' ? `${Math.round(item.quantity * 1000)}g` : `${item.quantity}`;
+                                        return `${qtyLabel} x $${Math.round(item.precio * 100) / 100} = $${Math.round(lineTotal * 100) / 100}`;
+                                    })()}
                                     {(isSuperAdmin || adminPermissions?.orders_can_edit_prices) && (
                                         <button
                                             style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
@@ -1554,7 +1588,11 @@ export default function POSManager() {
                 onSave={(newPrice) => {
                     if (priceEditModal.itemIndex >= 0) {
                         const newCart = [...cart];
-                        newCart[priceEditModal.itemIndex].precio = newPrice;
+                        newCart[priceEditModal.itemIndex] = {
+                            ...newCart[priceEditModal.itemIndex],
+                            precio: newPrice,
+                            manualPriceOverride: true
+                        };
                         setCart(newCart);
                     }
                 }}

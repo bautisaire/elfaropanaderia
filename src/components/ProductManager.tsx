@@ -17,6 +17,7 @@ export interface FirestoreProduct {
     precio: number;
     wholesalePrice?: number;
     webPrice?: number;
+    priceTiers?: { quantity: number; price: number }[]; // Precios por cantidad (ej. media docena, docena)
     categoria: string;
     descripcion: string;
     img: string;
@@ -64,6 +65,7 @@ const INITIAL_STATE: FirestoreProduct = {
     precio: 0,
     wholesalePrice: 0,
     webPrice: 0,
+    priceTiers: [],
     categoria: "General",
     descripcion: "",
     img: "https://via.placeholder.com/150",
@@ -530,6 +532,28 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         });
     };
 
+    const addPriceTier = () => {
+        setFormData(prev => ({
+            ...prev,
+            priceTiers: [...(prev.priceTiers || []), { quantity: 0, price: 0 }]
+        }));
+    };
+
+    const removePriceTier = (idx: number) => {
+        setFormData(prev => ({
+            ...prev,
+            priceTiers: prev.priceTiers?.filter((_, i) => i !== idx)
+        }));
+    };
+
+    const handlePriceTierChange = (idx: number, field: 'quantity' | 'price', value: string) => {
+        setFormData(prev => {
+            const newTiers = [...(prev.priceTiers || [])];
+            newTiers[idx] = { ...newTiers[idx], [field]: Number(value) };
+            return { ...prev, priceTiers: newTiers };
+        });
+    };
+
     const addVariant = () => {
         setFormData(prev => ({
             ...prev,
@@ -776,6 +800,49 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 title="Opcional. Si es distinto de 0, este precio reemplaza al Precio normal en el Home."
                                             />
                                         </div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>Precios por Cantidad (ej. media docena, docena)</label>
+                                        <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 8px 0' }}>
+                                            Define un precio total fijo al comprar X unidades. Se aplica automáticamente en el POS (ej. 6 unidades = $5800, 12 unidades = $11500).
+                                        </p>
+                                        {(formData.priceTiers || []).map((tier, idx) => (
+                                            <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Cantidad"
+                                                    value={tier.quantity || ""}
+                                                    onChange={(e) => handlePriceTierChange(idx, 'quantity', e.target.value)}
+                                                    onWheel={handleWheel}
+                                                    min="1"
+                                                    className="input-sm"
+                                                    style={{ flex: 1 }}
+                                                />
+                                                <div className="price-input-container" style={{ flex: 1 }}>
+                                                    <span className="currency-symbol">$</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Precio total"
+                                                        value={tier.price || ""}
+                                                        onChange={(e) => handlePriceTierChange(idx, 'price', e.target.value)}
+                                                        onWheel={handleWheel}
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="btn-icon-secondary"
+                                                    onClick={() => removePriceTier(idx)}
+                                                    title="Eliminar"
+                                                >
+                                                    <FaTimes />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button type="button" className="btn-secondary" onClick={addPriceTier}>
+                                            <FaPlus /> Agregar Precio por Cantidad
+                                        </button>
                                     </div>
 
                                     <div className="form-row">
