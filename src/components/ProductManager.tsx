@@ -1179,25 +1179,28 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         <div className="variants-list">
                                             {formData.variants?.map((v, idx) => (
                                                 <div key={idx} className="variant-row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                                                    <div style={{ display: 'flex', gap: '5px', flex: 1, minWidth: '200px' }}>
-                                                        <input
-                                                            placeholder="Ej. Frutilla"
-                                                            value={v.name}
-                                                            onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
-                                                        />
-                                                        <input
-                                                            placeholder="Cód. Rápido"
-                                                            value={v.shortId || ""}
-                                                            onChange={(e) => handleVariantChange(idx, 'shortId', e.target.value)}
-                                                            className="input-stock"
-                                                            style={{ width: '80px', fontFamily: 'monospace' }}
-                                                            title="Código Rápido (POS)"
-                                                        />
-                                                        <div className="price-input-container" style={{ width: '110px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minWidth: '200px' }}>
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            <input
+                                                                placeholder="Ej. Frutilla"
+                                                                value={v.name}
+                                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                                                style={{ flex: 1 }}
+                                                            />
+                                                            <input
+                                                                placeholder="Cód. Rápido"
+                                                                value={v.shortId || ""}
+                                                                onChange={(e) => handleVariantChange(idx, 'shortId', e.target.value)}
+                                                                className="input-stock"
+                                                                style={{ width: '80px', fontFamily: 'monospace' }}
+                                                                title="Código Rápido (POS)"
+                                                            />
+                                                        </div>
+                                                        <div className="price-input-container">
                                                             <span className="currency-symbol">$</span>
                                                             <input
                                                                 type="number"
-                                                                placeholder={String(formData.precio || 0)}
+                                                                placeholder={`Precio propio (def. ${formData.precio || 0})`}
                                                                 value={v.priceOverride || ""}
                                                                 onChange={(e) => handleVariantChange(idx, 'priceOverride', Number(e.target.value))}
                                                                 onWheel={handleWheel}
