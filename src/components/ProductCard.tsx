@@ -1,5 +1,6 @@
 import { useContext, useState, useEffect } from "react";
 import { CartContext, Product } from "../context/CartContext";
+import { getVariantPrice } from "../utils/cartStock";
 import "./ProductCard.css";
 import ComboSelectionModal from "./ComboSelectionModal";
 
@@ -106,10 +107,12 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
   };
 
   // Calculate Discount
+  const selectedVariantObj = liveProduct.variants?.find((v) => v.name === selectedVariant);
+  const variantPrice = getVariantPrice(liveProduct.price, selectedVariantObj);
   const hasDiscount = (liveProduct.discount || 0) > 0;
   const finalPrice = hasDiscount
-    ? liveProduct.price * (1 - (liveProduct.discount! / 100))
-    : liveProduct.price;
+    ? variantPrice * (1 - (liveProduct.discount! / 100))
+    : variantPrice;
 
   const maxStock = getStockForProduct(liveProduct.id, selectedVariant);
   const atMaxQuantity = quantity > 0 && quantity >= maxStock;
@@ -247,7 +250,7 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
         <div className="card-footer">
           <div className="price-container">
             {hasDiscount && (
-              <span className="original-price">${Math.floor(liveProduct.price)}</span>
+              <span className="original-price">${Math.floor(variantPrice)}</span>
             )}
             <span className={`product-price ${hasDiscount ? "discounted" : ""}`}>
               ${Math.floor(finalPrice)}

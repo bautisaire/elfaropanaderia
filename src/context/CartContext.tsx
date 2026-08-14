@@ -23,6 +23,7 @@ export interface Product {
     stock: boolean;
     stockQuantity?: number;
     image?: string;
+    priceOverride?: number;
   }[];
   quantity?: number;
   stock?: boolean;

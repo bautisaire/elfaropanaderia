@@ -6,7 +6,7 @@ import { FaTrash, FaPlus, FaMinus, FaMoneyBillWave, FaCreditCard, FaExchangeAlt,
 import POSModal from "./POSModal";
 import "./POSManager.css";
 import { syncChildProducts } from '../utils/stockUtils';
-import { getDerivedStockFromParent } from '../utils/cartStock';
+import { getDerivedStockFromParent, getVariantPrice } from '../utils/cartStock';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import StockAdjustmentModal from './StockAdjustmentModal';
@@ -30,6 +30,7 @@ interface Product {
         stock?: boolean;
         image?: string;
         shortId?: string;
+        priceOverride?: number;
     }[];
     unitType?: 'unit' | 'weight';
     wholesalePrice?: number;
@@ -44,6 +45,12 @@ interface CartItem extends Product {
     selectedVariant?: string;
     manualPriceOverride?: boolean;
 }
+
+const getBasePrice = (product: Product, variantName: string | undefined, priceMode: 'public' | 'wholesale'): number => {
+    const modeBasePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+    const variantObj = variantName && product.variants ? product.variants.find(v => v.name === variantName) : undefined;
+    return getVariantPrice(modeBasePrice, variantObj);
+};
 
 const getCartItemLineTotal = (item: CartItem): number => {
     if (item.manualPriceOverride || item.unitType === 'weight') {
@@ -421,9 +428,7 @@ export default function POSManager() {
                 return prev;
             }
 
-            const basePrice = priceMode === 'wholesale'
-                ? (product.wholesalePrice || product.precio)
-                : product.precio;
+            const basePrice = getBasePrice(product, variant, priceMode);
             const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
             if (existing) {
@@ -446,9 +451,7 @@ export default function POSManager() {
     };
 
     const addWeightToCart = (product: Product, variant: string | undefined, qty: number, checkStock = true) => {
-        const basePrice = priceMode === 'wholesale'
-            ? (product.wholesalePrice || product.precio)
-            : product.precio;
+        const basePrice = getBasePrice(product, variant, priceMode);
         const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
         if (checkStock) {
@@ -495,9 +498,7 @@ export default function POSManager() {
     };
 
     const addToCart = (product: Product, variantName?: string, checkStock = true) => {
-        const basePrice = priceMode === 'wholesale'
-            ? (product.wholesalePrice || product.precio)
-            : product.precio;
+        const basePrice = getBasePrice(product, variantName, priceMode);
         const priceToUse = (product.discount || 0) > 0 ? basePrice * (1 - (product.discount! / 100)) : basePrice;
 
         if (product.unitType === 'weight') {
@@ -574,9 +575,7 @@ export default function POSManager() {
             const original = products.find(p => p.id === item.id);
             if (!original) return item;
 
-            const basePrice = priceMode === 'wholesale'
-                ? (original.wholesalePrice || original.precio)
-                : original.precio;
+            const basePrice = getBasePrice(original, item.selectedVariant, priceMode);
             const newPrice = (original.discount || 0) > 0 ? basePrice * (1 - (original.discount! / 100)) : basePrice;
 
             return {
@@ -1067,7 +1066,7 @@ export default function POSManager() {
                                         <div className="pos-product-name">{product.nombre} ({v.name})</div>
                                         <div className="pos-product-price">
                                             {(() => {
-                                                const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                                                const basePrice = getBasePrice(product, v.name, priceMode);
                                                 const hasDiscount = (product.discount || 0) > 0;
                                                 if (hasDiscount) {
                                                     const finalPrice = basePrice * (1 - product.discount! / 100);
@@ -1132,7 +1131,7 @@ export default function POSManager() {
                                         <div className="pos-product-name">{product.nombre}</div>
                                         <div className="pos-product-price">
                                             {(() => {
-                                                const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                                                const basePrice = getBasePrice(product, undefined, priceMode);
                                                 const hasDiscount = (product.discount || 0) > 0;
                                                 if (hasDiscount) {
                                                     const finalPrice = basePrice * (1 - product.discount! / 100);
@@ -1426,8 +1425,8 @@ export default function POSManager() {
                 })()}
                 unitPrice={(() => {
                     if (!pendingProduct) return 0;
-                    const { product } = pendingProduct;
-                    const basePrice = priceMode === 'wholesale' ? (product.wholesalePrice || product.precio) : product.precio;
+                    const { product, variant } = pendingProduct;
+                    const basePrice = getBasePrice(product, variant, priceMode);
                     return (product.discount || 0) > 0 ? basePrice * (1 - product.discount! / 100) : basePrice;
                 })()}
                 onConfirm={confirmWeight}
@@ -1509,7 +1508,7 @@ export default function POSManager() {
                                 if (pendingRetry.type === 'unit') {
                                     addToCart(freshProduct, pendingRetry.variant, false);
                                 } else if (pendingRetry.type === 'unit_exact' && pendingRetry.quantity) {
-                                    const basePrice = priceMode === 'wholesale' ? (freshProduct.wholesalePrice || freshProduct.precio) : freshProduct.precio;
+                                    const basePrice = getBasePrice(freshProduct, pendingRetry.variant, priceMode);
                                     const pToUse = (freshProduct.discount || 0) > 0 ? basePrice * (1 - (freshProduct.discount! / 100)) : basePrice;
                                     setCart(prev => {
                                         const ex = prev.find(item => item.id === freshProduct.id && item.selectedVariant === pendingRetry.variant);

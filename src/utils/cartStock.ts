@@ -21,6 +21,17 @@ export function getRawStockQuantity(product: Product | undefined, variantName?: 
     return product.stock !== false ? 999 : 0;
 }
 
+/** Precio efectivo de una variante: usa su priceOverride si tiene uno > 0, si no el precio base del producto. */
+export function getVariantPrice(
+    basePrice: number,
+    variant?: { priceOverride?: number } | null
+): number {
+    if (variant?.priceOverride && variant.priceOverride > 0) {
+        return variant.priceOverride;
+    }
+    return basePrice;
+}
+
 /** Nombre de variante de un item vendido (carrito, pedido o línea de POS). */
 export function getItemVariantName(item: {
     variant?: string | null;

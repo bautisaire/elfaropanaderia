@@ -5,6 +5,7 @@ import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCre
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
+import { getVariantPrice } from '../utils/cartStock';
 import { useCart } from '../context/CartContext';
 import POSModal from './POSModal';
 import WeightEntryModal from './WeightEntryModal';
@@ -22,6 +23,7 @@ interface Product {
         name: string;
         stockQuantity?: number;
         shortId?: string;
+        priceOverride?: number;
     }[];
     unitType?: 'unit' | 'weight';
     stockDependency?: { productId: string; unitsToDeduct?: number };
@@ -261,8 +263,10 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAddModalOpen, codeBuffer, quantityModalOpen, weightModalOpen, products, addModalStockMode]);
 
-    const getEffectivePrice = (product: Product) => {
-        return (product.discount || 0) > 0 ? product.precio * (1 - product.discount! / 100) : product.precio;
+    const getEffectivePrice = (product: Product, variantName?: string) => {
+        const variantObj = variantName && product.variants ? product.variants.find(v => v.name === variantName) : undefined;
+        const basePrice = getVariantPrice(product.precio, variantObj);
+        return (product.discount || 0) > 0 ? basePrice * (1 - product.discount! / 100) : basePrice;
     };
 
     const getMaxStock = (product: Product, variant?: string) => {
@@ -279,7 +283,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     };
 
     const addRowToCart = (product: Product, variant: string | undefined, qty: number) => {
-        const precioUnitario = getEffectivePrice(product);
+        const precioUnitario = getEffectivePrice(product, variant);
         const key = `${product.id}-${variant || 'base'}`;
 
         setCart(prev => {
@@ -600,7 +604,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     const code = v.shortId || '';
                     const matches = !term || label.toLowerCase().includes(term) || code.toLowerCase().includes(term);
                     if (matches) {
-                        items.push({ product: p, variant: v.name, label, price: getEffectivePrice(p), code: v.shortId, stock: v.stockQuantity || 0, priceTiers: p.priceTiers });
+                        items.push({ product: p, variant: v.name, label, price: getEffectivePrice(p, v.name), code: v.shortId, stock: v.stockQuantity || 0, priceTiers: p.priceTiers });
                     }
                 });
             } else {

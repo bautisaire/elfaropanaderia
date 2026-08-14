@@ -36,6 +36,7 @@ export interface FirestoreProduct {
         stock: boolean;
         stockQuantity?: number;
         image?: string;
+        priceOverride?: number; // Precio propio de la variante (si no se define, usa el Precio del producto)
     }[];
     isVisible?: boolean;
     isHiddenInPOS?: boolean;
@@ -474,7 +475,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         });
     };
 
-    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity' | 'image' | 'shortId', value: string | number) => {
+    const handleVariantChange = (idx: number, field: 'name' | 'stockQuantity' | 'image' | 'shortId' | 'priceOverride', value: string | number) => {
         setFormData(prev => {
             const newVariants = [...(prev.variants || [])];
             // @ts-ignore
@@ -1192,6 +1193,18 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                             style={{ width: '80px', fontFamily: 'monospace' }}
                                                             title="Código Rápido (POS)"
                                                         />
+                                                        <div className="price-input-container" style={{ width: '110px' }}>
+                                                            <span className="currency-symbol">$</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder={String(formData.precio || 0)}
+                                                                value={v.priceOverride || ""}
+                                                                onChange={(e) => handleVariantChange(idx, 'priceOverride', Number(e.target.value))}
+                                                                onWheel={handleWheel}
+                                                                title="Precio propio de esta variante. Si se deja vacío, usa el Precio del producto."
+                                                                min="0"
+                                                            />
+                                                        </div>
                                                     </div>
 
                                                     {/* Variant Image Control */}

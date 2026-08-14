@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FaTimes } from "react-icons/fa";
 import { Product, useCart } from "../context/CartContext";
+import { getVariantPrice } from "../utils/cartStock";
 import ReviewsSection from "./ReviewsSection";
 import "./ProductCard.css"; // Reuse some styles for variants/buttons
 import "./ProductDetailsModal.css";
@@ -74,10 +75,12 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const images = liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images : [liveProduct.image];
     const currentImage = overrideImage || images[currentImageIndex];
 
+    const selectedVariantObj = liveProduct.variants?.find((v) => v.name === selectedVariant);
+    const variantPrice = getVariantPrice(liveProduct.price, selectedVariantObj);
     const hasDiscount = (liveProduct.discount || 0) > 0;
     const finalPrice = hasDiscount
-        ? liveProduct.price * (1 - (liveProduct.discount! / 100))
-        : liveProduct.price;
+        ? variantPrice * (1 - (liveProduct.discount! / 100))
+        : variantPrice;
 
     const maxStock = getStockForProduct(liveProduct.id, selectedVariant);
     const atMaxQuantity = quantity > 0 && quantity >= maxStock;
@@ -234,7 +237,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                             </span>
                             {hasDiscount && (
                                 <span style={{ fontSize: "1.1rem", textDecoration: "line-through", color: "#888" }}>
-                                    ${Math.floor(liveProduct.price)}
+                                    ${Math.floor(variantPrice)}
                                 </span>
                             )}
                         </div>
