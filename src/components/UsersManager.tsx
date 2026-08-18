@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { FaUser, FaChevronDown } from 'react-icons/fa';
+import { normalizeForSearch } from '../utils/textSearch';
 import './StoreEditor.css';
 
 export default function UsersManager() {
@@ -22,7 +23,7 @@ export default function UsersManager() {
     }, []);
 
     const filteredUsers = usersList.filter(u =>
-        (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        normalizeForSearch(u.email || '').includes(normalizeForSearch(searchQuery)) ||
         (u.phone || '').includes(searchQuery)
     );
 

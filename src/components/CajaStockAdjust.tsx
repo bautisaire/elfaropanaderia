@@ -3,6 +3,7 @@ import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { FaArrowLeft, FaSearch, FaBoxOpen } from 'react-icons/fa';
 import StockAdjustmentModal from './StockAdjustmentModal';
+import { normalizeForSearch } from '../utils/textSearch';
 import './CajaVenta.css';
 
 interface Product {
@@ -100,7 +101,7 @@ export default function CajaStockAdjust({ onBack }: CajaStockAdjustProps) {
     }, [codeBuffer, isStockModalOpen, products]);
 
     const filteredResults = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+        const term = normalizeForSearch(searchTerm.trim());
         const items: { product: Product; variant?: string; label: string; code?: string; stock: number }[] = [];
 
         products.forEach(p => {
@@ -108,14 +109,14 @@ export default function CajaStockAdjust({ onBack }: CajaStockAdjustProps) {
                 p.variants.forEach(v => {
                     const label = `${p.nombre} (${v.name})`;
                     const code = v.shortId || '';
-                    const matches = !term || label.toLowerCase().includes(term) || code.toLowerCase().includes(term);
+                    const matches = !term || normalizeForSearch(label).includes(term) || code.toLowerCase().includes(term);
                     if (matches) {
                         items.push({ product: p, variant: v.name, label, code: v.shortId, stock: v.stockQuantity || 0 });
                     }
                 });
             } else {
                 const code = p.shortId || '';
-                const matches = !term || p.nombre.toLowerCase().includes(term) || code.toLowerCase().includes(term);
+                const matches = !term || normalizeForSearch(p.nombre).includes(term) || code.toLowerCase().includes(term);
                 if (matches) {
                     items.push({ product: p, label: p.nombre, code: p.shortId, stock: p.stockQuantity || 0 });
                 }

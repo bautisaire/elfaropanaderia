@@ -9,6 +9,7 @@ import { syncChildProducts } from '../utils/stockUtils';
 import { getDerivedStockFromParent, getVariantPrice } from '../utils/cartStock';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
+import { normalizeForSearch } from '../utils/textSearch';
 import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
 import { useCart } from '../context/CartContext';
@@ -919,15 +920,15 @@ export default function POSManager() {
         const items: { type: 'product' | 'variant', data: Product, variant?: any }[] = [];
 
         products.forEach(p => {
-            const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm));
             const matchesCategory = selectedCategory === "Todas" || p.categoria === selectedCategory;
             const visibleInPos = !p.isHiddenInPOS;
 
             if (matchesCategory && visibleInPos) {
                 if (p.variants && p.variants.length > 0) {
                     p.variants.forEach(v => {
-                        const fullName = `${p.nombre} ${v.name}`.toLowerCase();
-                        if (fullName.includes(searchTerm.toLowerCase())) {
+                        const fullName = normalizeForSearch(`${p.nombre} ${v.name}`);
+                        if (fullName.includes(normalizeForSearch(searchTerm))) {
                             items.push({ type: 'variant', data: p, variant: v });
                         }
                     });

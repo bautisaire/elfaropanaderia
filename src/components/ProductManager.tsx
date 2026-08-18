@@ -4,6 +4,7 @@ import { db, storage } from "../firebase/firebaseConfig";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { syncChildProducts } from "../utils/stockUtils";
+import { normalizeForSearch } from "../utils/textSearch";
 import ProductImageEditor from "./ProductImageEditor";
 import StockAdjustmentModal from "./StockAdjustmentModal";
 import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash, FaCheckCircle, FaFileSignature } from 'react-icons/fa';
@@ -666,8 +667,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
 
     const filteredProducts = products.filter(p => {
         const matchesSearch =
-            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.categoria.toLowerCase().includes(searchTerm.toLowerCase());
+            normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
+            normalizeForSearch(p.categoria).includes(normalizeForSearch(searchTerm));
         if (!matchesSearch) return false;
 
         if (stockFilter !== 'all') {

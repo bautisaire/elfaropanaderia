@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, updateDoc, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { syncChildProducts } from "../utils/stockUtils";
+import { normalizeForSearch } from "../utils/textSearch";
 import {
     FaBoxes, FaHistory, FaEdit, FaPlus, FaFileExport, FaExchangeAlt,
     FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt, FaBolt, FaTimes, FaSave, FaCheckCircle
@@ -172,8 +173,8 @@ export default function StockManager() {
         if (historyTypeFilter !== 'all' && m.type !== historyTypeFilter) return false;
         if (historyReasonFilter !== 'all' && m.reason !== historyReasonFilter) return false;
         if (historySearch) {
-            const term = historySearch.toLowerCase();
-            const matches = m.productName?.toLowerCase().includes(term) || m.observation?.toLowerCase().includes(term);
+            const term = normalizeForSearch(historySearch);
+            const matches = (m.productName && normalizeForSearch(m.productName).includes(term)) || (m.observation && normalizeForSearch(m.observation).includes(term));
             if (!matches) return false;
         }
         if (historyDateFilter !== 'all' && m.date?.seconds) {
@@ -234,8 +235,8 @@ export default function StockManager() {
     const quickProducts = useMemo(() => {
         return products.filter(p => (p.isQuickStock || p.quickStock) && (
             !searchTerm ||
-            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.variants && p.variants.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())))
+            normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
+            (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(normalizeForSearch(searchTerm))))
         ));
     }, [products, searchTerm]);
 
@@ -243,9 +244,9 @@ export default function StockManager() {
         return products.filter(p => {
             if (p.isQuickStock || p.quickStock) return false;
             if (!addQuickSearch) return true;
-            const term = addQuickSearch.toLowerCase();
-            return p.nombre.toLowerCase().includes(term) ||
-                (p.variants && p.variants.some(v => v.name.toLowerCase().includes(term)));
+            const term = normalizeForSearch(addQuickSearch);
+            return normalizeForSearch(p.nombre).includes(term) ||
+                (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(term)));
         });
     }, [products, addQuickSearch]);
 
@@ -506,8 +507,8 @@ export default function StockManager() {
 
     // Filter Logic
     const filteredProducts = products.filter(p =>
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.variants && p.variants.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase())))
+        normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
+        (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(normalizeForSearch(searchTerm))))
     );
 
     return (

@@ -7,6 +7,7 @@ import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, F
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
+import { normalizeForSearch } from "../utils/textSearch";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
 import GlobalDeliveriesMapModal from "./GlobalDeliveriesMapModal";
 import { useCart } from "../context/CartContext";
@@ -566,10 +567,10 @@ export default function OrdersManager() {
                 const snapshot = await getDocs(q);
                 const allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                const lowerTerm = editSearchTerm.toLowerCase();
+                const lowerTerm = normalizeForSearch(editSearchTerm);
                 const filtered = allProducts.filter((p: any) =>
-                    p.nombre.toLowerCase().includes(lowerTerm) ||
-                    (p.variants && p.variants.some((v: any) => v.name.toLowerCase().includes(lowerTerm)))
+                    normalizeForSearch(p.nombre).includes(lowerTerm) ||
+                    (p.variants && p.variants.some((v: any) => normalizeForSearch(v.name).includes(lowerTerm)))
                 );
                 setSearchResults(filtered);
             };

@@ -3,6 +3,7 @@ import { db } from '../firebase/firebaseConfig';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { FaStickyNote, FaPlus, FaTrash, FaTimes, FaSearch, FaRegClock, FaSave, FaEdit } from 'react-icons/fa';
 import './NotesManager.css';
+import { normalizeForSearch } from '../utils/textSearch';
 
 export interface Note {
   id: string;
@@ -161,10 +162,10 @@ export default function NotesManager() {
   };
 
   const filteredNotes = notes.filter(note => {
-    const term = searchTerm.toLowerCase();
+    const term = normalizeForSearch(searchTerm);
     return (
-      (note.title || '').toLowerCase().includes(term) ||
-      (note.content || '').toLowerCase().includes(term)
+      normalizeForSearch(note.title || '').includes(term) ||
+      normalizeForSearch(note.content || '').includes(term)
     );
   });
 

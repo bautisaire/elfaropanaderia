@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product } from '../context/CartContext';
 import { FaSearch, FaTimes } from 'react-icons/fa';
+import { normalizeForSearch } from '../utils/textSearch';
 
 interface SearchBarProps {
     products: Product[];
@@ -20,9 +21,9 @@ export default function SearchBar({ products, onProductSelect }: SearchBarProps)
             return;
         }
 
-        const lowerTerm = searchTerm.toLowerCase();
+        const lowerTerm = normalizeForSearch(searchTerm);
         const results = products.filter(p =>
-            p.name.toLowerCase().includes(lowerTerm) && p.isVisible !== false
+            normalizeForSearch(p.name).includes(lowerTerm) && p.isVisible !== false
         ).slice(0, 5); // Limit to 5 results for cleaner UI
 
         setFilteredProducts(results);

@@ -6,6 +6,7 @@ import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaT
 import './CostManager.css';
 import ProductManager from './ProductManager';
 import CifManager from './CifManager';
+import { normalizeForSearch } from '../utils/textSearch';
 
 export interface RawMaterial {
     id: string;
@@ -558,7 +559,7 @@ export default function CostManager() {
 
     // --- RENDER ---
     const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
-    const displayedProductsForSim = validProductsForSim.filter(p => p.nombre?.toLowerCase().includes(simulatorSearchTerm.toLowerCase()));
+    const displayedProductsForSim = validProductsForSim.filter(p => p.nombre && normalizeForSearch(p.nombre).includes(normalizeForSearch(simulatorSearchTerm)));
     const marginsArray = validProductsForSim.map(p => {
         const cost = calculateRealProductCost(p);
         const currentRetail = Number(p.precio) || 0;
@@ -855,9 +856,9 @@ export default function CostManager() {
                                 <tbody>
                                     {loadingMaterials ? (
                                         <tr><td colSpan={6} style={{ textAlign: 'center' }}>Cargando...</td></tr>
-                                    ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).length === 0 ? (
+                                    ) : sortedMaterials.filter(mat => normalizeForSearch(mat.name).includes(normalizeForSearch(matSearchTerm))).length === 0 ? (
                                         <tr><td colSpan={6} style={{ textAlign: 'center', color: '#94a3b8' }}>No se encontraron materias primas.</td></tr>
-                                    ) : sortedMaterials.filter(mat => mat.name.toLowerCase().includes(matSearchTerm.toLowerCase())).map(mat => (
+                                    ) : sortedMaterials.filter(mat => normalizeForSearch(mat.name).includes(normalizeForSearch(matSearchTerm))).map(mat => (
                                         <tr key={mat.id}>
                                             <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <strong style={{ background: isEditingMaterial === mat.id ? '#f0f9ff' : 'transparent', padding: isEditingMaterial === mat.id ? '4px 8px' : '0', borderRadius: '4px' }}>{mat.name}</strong>
@@ -1029,7 +1030,7 @@ export default function CostManager() {
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter') {
                                                         e.preventDefault();
-                                                        const results = rawMaterials.filter(m => m.name.toLowerCase().includes(ingredientSearch.toLowerCase()));
+                                                        const results = rawMaterials.filter(m => normalizeForSearch(m.name).includes(normalizeForSearch(ingredientSearch)));
                                                         if (results.length > 0) {
                                                             setNewIngredient({ ...newIngredient, rawMaterialId: results[0].id });
                                                             setIngredientSearch(results[0].name);
@@ -1058,7 +1059,7 @@ export default function CostManager() {
                                                     }}
                                                 >
                                                     {rawMaterials
-                                                        .filter(m => m.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
+                                                        .filter(m => normalizeForSearch(m.name).includes(normalizeForSearch(ingredientSearch)))
                                                         .map(m => (
                                                             <div
                                                                 key={m.id}
@@ -1080,7 +1081,7 @@ export default function CostManager() {
                                                                 <strong>{m.name}</strong> <span style={{ color: '#64748b', fontSize: '0.85em' }}>(${m.price} / {formatQuantity(m.baseQuantity, m.unit)})</span>
                                                             </div>
                                                         ))}
-                                                    {rawMaterials.filter(m => m.name.toLowerCase().includes(ingredientSearch.toLowerCase())).length === 0 && (
+                                                    {rawMaterials.filter(m => normalizeForSearch(m.name).includes(normalizeForSearch(ingredientSearch))).length === 0 && (
                                                         <div style={{ padding: '8px 12px', color: '#94a3b8', fontStyle: 'italic' }}>No hay resultados</div>
                                                     )}
                                                 </div>

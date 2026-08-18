@@ -6,6 +6,7 @@ import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { getVariantPrice } from '../utils/cartStock';
+import { normalizeForSearch } from '../utils/textSearch';
 import { useCart } from '../context/CartContext';
 import POSModal from './POSModal';
 import WeightEntryModal from './WeightEntryModal';
@@ -594,7 +595,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     }, [enabledMethods, paymentAmounts, total]);
 
     const filteredResults = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+        const term = normalizeForSearch(searchTerm.trim());
         const items: { product: Product; variant?: string; label: string; price: number; code?: string; stock: number; priceTiers?: PriceTier[] }[] = [];
 
         products.forEach(p => {
@@ -603,14 +604,14 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 p.variants.forEach(v => {
                     const label = `${p.nombre} (${v.name})`;
                     const code = v.shortId || '';
-                    const matches = !term || label.toLowerCase().includes(term) || code.toLowerCase().includes(term);
+                    const matches = !term || normalizeForSearch(label).includes(term) || code.toLowerCase().includes(term);
                     if (matches) {
                         items.push({ product: p, variant: v.name, label, price: getEffectivePrice(p, v.name), code: v.shortId, stock: v.stockQuantity || 0, priceTiers: p.priceTiers });
                     }
                 });
             } else {
                 const code = p.shortId || '';
-                const matches = !term || p.nombre.toLowerCase().includes(term) || code.toLowerCase().includes(term);
+                const matches = !term || normalizeForSearch(p.nombre).includes(term) || code.toLowerCase().includes(term);
                 if (matches) {
                     items.push({ product: p, label: p.nombre, price: getEffectivePrice(p), code: p.shortId, stock: p.stockQuantity || 0, priceTiers: p.priceTiers });
                 }

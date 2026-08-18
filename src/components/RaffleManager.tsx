@@ -3,6 +3,7 @@ import { db, storage } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy, where, getDocs, limit } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import ProductImageEditor from "./ProductImageEditor";
+import { normalizeForSearch } from "../utils/textSearch";
 import "./RaffleManager.css";
 import { FaGift, FaSearch, FaTrash, FaPlus, FaTrophy, FaCalendarAlt, FaChevronDown, FaChevronUp, FaStopCircle, FaPlayCircle, FaEdit, FaSave, FaTimes, FaCopy, FaCheckCircle } from "react-icons/fa";
 
@@ -429,9 +430,9 @@ export default function RaffleManager() {
     setExpandedHistory(prev => ({ ...prev, [raffleId]: !isExpanded }));
   };
 
-  const filteredParticipants = participants.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    p.phoneOrEmail.toLowerCase().includes(search.toLowerCase())
+  const filteredParticipants = participants.filter(p =>
+    normalizeForSearch(p.name).includes(normalizeForSearch(search)) ||
+    normalizeForSearch(p.phoneOrEmail).includes(normalizeForSearch(search))
   );
 
   const copyParticipantNames = async (list: Participant[]) => {
@@ -453,8 +454,8 @@ export default function RaffleManager() {
   const pastRaffles = raffles.filter(r => !activeRaffle || r.id !== activeRaffle.id);
 
   const endModalParticipants = participants.filter(p =>
-    p.name.toLowerCase().includes(endModalSearch.toLowerCase()) ||
-    p.phoneOrEmail.toLowerCase().includes(endModalSearch.toLowerCase())
+    normalizeForSearch(p.name).includes(normalizeForSearch(endModalSearch)) ||
+    normalizeForSearch(p.phoneOrEmail).includes(normalizeForSearch(endModalSearch))
   );
 
   return (
