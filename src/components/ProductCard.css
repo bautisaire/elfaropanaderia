@@ -72,6 +72,10 @@
   }
 }
 
+html.low-power .favorite-btn.fav-bump {
+  animation: none;
+}
+
 .product-image {
   position: absolute;
   top: 0;

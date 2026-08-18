@@ -9,6 +9,7 @@ import { FaSearch, FaTimes, FaWhatsapp, FaShoppingCart, FaUser, FaClipboardList 
 import SearchBar from "./SearchBar";
 import ProductModal from "./ProductModal";
 import { Product } from "../context/CartContext";
+import { isLowPowerDevice } from "../utils/deviceCapability";
 
 const BanderinSVG = ({ className }: { className?: string }) => (
   <svg 
@@ -40,6 +41,12 @@ export default function Header() {
   const lastScrollY = useRef(0);
 
   useEffect(() => {
+    // On low-power devices / reduced-motion, skip the hide-on-scroll behavior
+    // entirely rather than just disabling the CSS transition — this avoids
+    // running a scroll listener + transform update on every scroll frame.
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (isLowPowerDevice() || prefersReducedMotion) return;
+
     lastScrollY.current = window.scrollY;
 
     const handleScroll = () => {

@@ -36,6 +36,22 @@
   box-shadow: var(--shadow-md);
 }
 
+/* backdrop-filter is expensive to keep recompositing on scroll — drop it
+   for low-power devices / reduced-motion and fall back to a solid header. */
+html.low-power .header-container {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-container {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: #ffffff;
+  }
+}
+
 .header-container.with-topbar {
   top: 30px;
 }

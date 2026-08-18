@@ -122,6 +122,12 @@
     }
 }
 
+html.low-power .floating-cart-btn,
+html.low-power .floating-cart-btn.cart-bump,
+html.low-power .animate-pop {
+    animation: none;
+}
+
 @keyframes floatingCartBump {
     0%, 100% { transform: translateX(0) rotate(0) scale(1); }
     22% { transform: translateX(-5px) rotate(-7deg) scale(1.1); }

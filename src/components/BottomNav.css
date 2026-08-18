@@ -160,4 +160,10 @@
             animation: none;
         }
     }
+
+    html.low-power .bottom-nav-cart-btn,
+    html.low-power .bottom-nav-cart-btn.cart-bump,
+    html.low-power .bottom-nav-cart-btn::before {
+        animation: none;
+    }
 }

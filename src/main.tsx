@@ -5,6 +5,9 @@ import "./index.css";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { applyLowPowerClass } from "./utils/deviceCapability";
+
+applyLowPowerClass();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
