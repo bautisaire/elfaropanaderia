@@ -40,6 +40,10 @@
   top: 30px;
 }
 
+.header-container.nav-hidden {
+  transform: translateY(-100%);
+}
+
 .header-content {
   width: 100%;
   max-width: 1200px;
@@ -76,6 +80,11 @@
   letter-spacing: 1px;
   z-index: 1001;
   /* Above header */
+  transition: transform var(--transition-speed) ease;
+}
+
+.topbar-cerrado.nav-hidden {
+  transform: translateY(-100%);
 }
 
 .burger-menu-btn {
@@ -88,6 +97,10 @@
   align-items: center;
   padding: 0;
   outline: none;
+}
+
+.header-whatsapp-btn {
+  color: #25d366;
 }
 
 /* Logo Section */

@@ -73,22 +73,10 @@
 
 /* Adjust position if on mobile to avoid covering content or bottom bars, optional */
 @media (max-width: 768px) {
-    .floating-cart-btn {
-        bottom: 40px;
-        right: 15px;
-        width: 55px;
-        height: 55px;
-    }
-
-    .floating-cart-icon {
-        font-size: 1.3rem;
-    }
-
+    /* Replaced by the centered cart button in BottomNav on mobile */
+    .floating-cart-btn,
     .floating-cart-reminder {
-        bottom: 50px;
-        right: 80px;
-        font-size: 0.9rem;
-        padding: 8px 12px;
+        display: none;
     }
 }
 

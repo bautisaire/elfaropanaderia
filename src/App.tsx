@@ -8,7 +8,7 @@ import Footer from "./components/Footer";
 import Proximamente from "./pages/Proximamente";
 import DebugConsole from "./components/DebugConsole";
 import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
-import FloatingOrderTracker from "./components/FloatingOrderTracker";
+import BottomNav from "./components/BottomNav";
 
 import CartSidebar from "./components/CartSidebar";
 
@@ -49,8 +49,8 @@ function Layout() {
       {/* Cart Sidebar rendered globally */}
       {!isEditor && !isRuleta && <CartSidebar />}
 
-      {/* Floating Order Tracker for non-admins to track local orders */}
-      {!isEditor && !isRuleta && !isAdmin && <FloatingOrderTracker />}
+      {/* Mobile Bottom Navigation (storefront only, not the admin panel itself) */}
+      {!isEditor && !isRuleta && <BottomNav />}
 
       <div style={{ flex: 1 }}>
         <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>

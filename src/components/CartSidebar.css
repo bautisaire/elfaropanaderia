@@ -21,21 +21,22 @@
 .cart-sidebar {
     position: fixed;
     top: 0;
-    right: -100%;
+    right: 0;
     width: 400px;
     max-width: 100vw;
     height: 100%;
     height: 100dvh;
     background-color: #ffffff;
-    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.15);
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .cart-sidebar.open {
-    right: 0;
+    transform: translateY(0);
 }
 
 /* Header */

@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingBag, FaEdit } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingCart, FaEdit } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import "./CartSidebar.css";
@@ -73,7 +73,7 @@ export default function CartSidebar() {
 
                 <div className="cart-sidebar-header">
                     <h2>
-                        <FaShoppingBag />
+                        <FaShoppingCart />
                         Mi Carrito
                     </h2>
                     <button className="close-sidebar-btn" onClick={handleClose}>
@@ -84,7 +84,7 @@ export default function CartSidebar() {
                 <div className="cart-sidebar-body">
                     {cart.length === 0 ? (
                         <div className="cart-sidebar-empty">
-                            <FaShoppingBag size={50} color="#ddd" />
+                            <FaShoppingCart size={50} color="#ddd" />
                             <p>Tu carrito está vacío</p>
                             <button className="start-shopping-btn" onClick={handleClose}>
                                 Ver Menú

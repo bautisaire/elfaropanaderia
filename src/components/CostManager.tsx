@@ -443,6 +443,16 @@ export default function CostManager() {
         }
     };
 
+    const handleManualPriceChange = async (productId: string, field: 'precio' | 'wholesalePrice', value: number) => {
+        if (isNaN(value) || value < 0) return;
+        try {
+            await updateDoc(doc(db, "products", productId), { [field]: value });
+        } catch (error) {
+            console.error(error);
+            alert("Error al actualizar el precio.");
+        }
+    };
+
     const handleCloneRecipe = () => {
         if (!cloneFromId) return;
         const sourceProduct = products.find(p => p.id === cloneFromId);
@@ -1420,11 +1430,43 @@ export default function CostManager() {
                                                 <td style={{ color: '#0891b2' }}>${sugRetail.toFixed(2)}</td>
 
                                                 <td className={currentWholesale < sugWholesale ? 'price-warning' : 'price-ok'}>
-                                                    ${currentWholesale.toFixed(2)}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                        <span className="currency-symbol">$</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            key={`wholesale-${p.id}-${currentWholesale}`}
+                                                            defaultValue={currentWholesale || ''}
+                                                            style={{ width: '90px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                                                            onBlur={e => {
+                                                                const val = Number(e.target.value);
+                                                                if (!isNaN(val) && val !== currentWholesale) {
+                                                                    handleManualPriceChange(p.id, 'wholesalePrice', val);
+                                                                }
+                                                            }}
+                                                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                        />
+                                                    </div>
                                                 </td>
                                                 <td className={currentRetail < sugRetail ? 'price-warning' : 'price-ok'}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <span>${currentRetail.toFixed(2)}</span>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            <span className="currency-symbol">$</span>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                key={`retail-${p.id}-${currentRetail}`}
+                                                                defaultValue={currentRetail || ''}
+                                                                style={{ width: '90px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
+                                                                onBlur={e => {
+                                                                    const val = Number(e.target.value);
+                                                                    if (!isNaN(val) && val !== currentRetail) {
+                                                                        handleManualPriceChange(p.id, 'precio', val);
+                                                                    }
+                                                                }}
+                                                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                            />
+                                                        </div>
                                                         {cost > 0 && currentRetail > 0 && (
                                                             <span style={{ 
                                                                 fontSize: '0.75rem', 

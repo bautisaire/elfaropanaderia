@@ -13,7 +13,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
-import { FaStoreSlash, FaWhatsapp, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
+import { FaStoreSlash, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
 export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
@@ -585,16 +585,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      <a
-        href="https://wa.me/5492995206821"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="floating-whatsapp-btn"
-        aria-label="Chat en WhatsApp"
-      >
-        <FaWhatsapp size={32} />
-      </a>
     </div>
   );
 }

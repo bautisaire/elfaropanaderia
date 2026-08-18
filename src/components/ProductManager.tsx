@@ -109,6 +109,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     const [isEditing, setIsEditing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState<'a-z' | 'price_desc' | 'price_asc' | 'newest'>('a-z');
+    const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'out_of_stock'>('all');
+    const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'visible' | 'hidden'>('all');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
@@ -656,10 +659,33 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         }
     };
 
-    const filteredProducts = products.filter(p =>
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => {
+    const getTotalStock = (p: FirestoreProduct): number =>
+        (p.variants && p.variants.length > 0)
+            ? p.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
+            : (p.stockQuantity || 0);
+
+    const filteredProducts = products.filter(p => {
+        const matchesSearch =
+            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.categoria.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!matchesSearch) return false;
+
+        if (stockFilter !== 'all') {
+            const hasStock = getTotalStock(p) > 0;
+            if (stockFilter === 'in_stock' && !hasStock) return false;
+            if (stockFilter === 'out_of_stock' && hasStock) return false;
+        }
+
+        if (visibilityFilter !== 'all') {
+            const isVisible = p.isVisible !== false;
+            if (visibilityFilter === 'visible' && !isVisible) return false;
+            if (visibilityFilter === 'hidden' && isVisible) return false;
+        }
+
+        if (categoryFilter !== 'all' && p.categoria !== categoryFilter) return false;
+
+        return true;
+    }).sort((a, b) => {
         if (sortBy === 'a-z') {
             const codeA = a.shortId || "";
             const codeB = b.shortId || "";
@@ -1289,9 +1315,77 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                             <option value="newest">Última Actual. / Agregado</option>
                         </select>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Stock:</label>
+                        <select
+                            value={stockFilter}
+                            onChange={(e) => setStockFilter(e.target.value as any)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                minWidth: '150px'
+                            }}
+                        >
+                            <option value="all">Todos</option>
+                            <option value="in_stock">Con Stock</option>
+                            <option value="out_of_stock">Sin Stock</option>
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Home:</label>
+                        <select
+                            value={visibilityFilter}
+                            onChange={(e) => setVisibilityFilter(e.target.value as any)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                minWidth: '150px'
+                            }}
+                        >
+                            <option value="all">Todos</option>
+                            <option value="visible">Visibles</option>
+                            <option value="hidden">Ocultos</option>
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Categoría:</label>
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                fontSize: '0.9rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                minWidth: '150px'
+                            }}
+                        >
+                            <option value="all">Todas</option>
+                            <option value="General">General</option>
+                            {categories.filter(c => c !== "General").map((cat, index) => (
+                                <option key={index} value={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div className="inventory-stats">
-                    <span className="stat-pill">Total: <strong>{products.length}</strong></span>
+                    <span className="stat-pill">Mostrando: <strong>{filteredProducts.length}</strong> / {products.length}</span>
                     <button className="btn-secondary btn-sm" onClick={reloadProducts}>
                         <FaSync /> Actualizar
                     </button>
@@ -1308,9 +1402,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 ) : (
                     <div className="pm-inventory-list">
                         {filteredProducts.map(product => {
-                            const totalStock = (product.variants && product.variants.length > 0)
-                                ? product.variants.reduce((acc, v) => acc + (v.stockQuantity || 0), 0)
-                                : (product.stockQuantity || 0);
+                            const totalStock = getTotalStock(product);
 
                             return (
                                 <div key={product.id} className="inventory-list-item">
