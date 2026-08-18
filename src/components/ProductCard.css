@@ -322,25 +322,27 @@ html.low-power .favorite-btn.fav-bump {
   max-width: 140px;
 }
 
+/* Default (roomier cards: desktop/tablet) — only the narrow mobile grid
+   needs the compact version below, since that's where it can actually cut off. */
 .quantity-controls.card-qty-controls {
   flex-grow: 0;
-  max-width: 76px;
+  max-width: 96px;
   border-radius: 20px;
-  padding: 3px 4px;
-  gap: 2px;
+  padding: 4px 6px;
+  gap: 6px;
 }
 
 .quantity-controls.card-qty-controls .btn-qty {
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border-radius: 50%;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 .quantity-controls.card-qty-controls .quantity-display {
-  min-width: 14px;
-  font-size: 0.85rem;
+  min-width: 16px;
+  font-size: 0.9rem;
 }
 
 .btn-qty {
@@ -461,8 +463,24 @@ html.low-power .favorite-btn.fav-bump {
     padding: 0;
   }
 
+  /* Narrow 2-column cards: this is the size actually proven to fit without
+     cutting off "Stock: NN" — keep it compact only here. */
   .quantity-controls.card-qty-controls {
     width: auto;
-    max-width: 108px;
+    max-width: 76px;
+    padding: 3px 4px;
+    gap: 2px;
+  }
+
+  .quantity-controls.card-qty-controls .btn-qty {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    font-size: 1rem;
+  }
+
+  .quantity-controls.card-qty-controls .quantity-display {
+    min-width: 14px;
+    font-size: 0.85rem;
   }
 }
