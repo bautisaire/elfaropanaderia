@@ -49,12 +49,26 @@ function measureFps(sampleMs = 800): Promise<number> {
     });
 }
 
+// A single busy 800ms window (page still loading images, Firestore
+// listeners spinning up, GC pause, etc.) will dip well under 60fps on any
+// device, flagship phones included — that's page-load noise, not a hardware
+// signal. 45fps sustained across two separate samples is a much safer bar
+// for "this device is actually struggling."
+const FPS_LOW_POWER_THRESHOLD = 45;
+
+async function sampleFpsOnce(): Promise<number | null> {
+    if (document.hidden) return null;
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+    return Promise.race([measureFps(), timeout]);
+}
+
 /**
- * Measures actual frame rate and upgrades <html> to low-power if it comes in
- * under 60fps — catches devices that pass the RAM/core checks on paper but
- * are still slow in practice (throttled, old GPU, background load, etc).
- * Runs once, asynchronously, scheduled for whenever the main thread is idle
- * so it doesn't compete with initial page load/render.
+ * Measures actual frame rate and upgrades <html> to low-power if it's
+ * consistently below FPS_LOW_POWER_THRESHOLD — catches devices that pass the
+ * RAM/core checks on paper but are still slow in practice (throttled, old
+ * GPU, etc). Waits for the page to fully load, then takes two samples a
+ * second apart and only flags the device if BOTH come in low, so a single
+ * busy moment can't misclassify a capable phone.
  *
  * Skips the measurement while the tab is hidden/backgrounded: browsers
  * throttle or pause requestAnimationFrame for background tabs, which would
@@ -65,19 +79,32 @@ export function scheduleFpsLowPowerCheck(): void {
 
     const run = async () => {
         if (document.documentElement.classList.contains("low-power")) return;
-        if (document.hidden) return;
 
-        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
-        const fps = await Promise.race([measureFps(), timeout]);
+        const first = await sampleFpsOnce();
+        if (first === null || first >= FPS_LOW_POWER_THRESHOLD) return;
 
-        if (fps !== null && fps < 60 && !document.hidden) {
+        // Confirm with a second sample before committing to the classification.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const second = await sampleFpsOnce();
+        if (second !== null && second < FPS_LOW_POWER_THRESHOLD) {
             document.documentElement.classList.add("low-power");
         }
     };
 
-    if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(run, { timeout: 3000 });
+    const schedule = () => {
+        if ("requestIdleCallback" in window) {
+            (window as any).requestIdleCallback(run, { timeout: 3000 });
+        } else {
+            setTimeout(run, 1500);
+        }
+    };
+
+    // Wait for the page to actually finish loading first — sampling while
+    // images/data are still streaming in is exactly what caused the false
+    // positive in the first place.
+    if (document.readyState === "complete") {
+        setTimeout(schedule, 1000);
     } else {
-        setTimeout(run, 1500);
+        window.addEventListener("load", () => setTimeout(schedule, 1000), { once: true });
     }
 }
