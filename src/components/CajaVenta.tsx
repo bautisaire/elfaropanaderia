@@ -172,6 +172,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     const findByCode = (code: string): { product: Product; variant?: string } | null => {
         for (const p of products) {
+            if (p.isHiddenInPOS) continue;
             if (p.variants) {
                 const v = p.variants.find(v => v.shortId === code);
                 if (v) return { product: p, variant: v.name };

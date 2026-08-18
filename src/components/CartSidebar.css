@@ -32,11 +32,20 @@
     display: flex;
     flex-direction: column;
     transform: translateY(100%);
-    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* Belt-and-braces on top of the transform: translateY(100%) is computed
+       against 100dvh, which recalculates as the mobile browser's toolbar
+       shows/hides during scroll — if that races with a fast scroll, the
+       transform can momentarily be wrong and let the panel peek into view.
+       visibility:hidden guarantees it never paints while "closed", no
+       matter what the transform is doing at that instant. */
+    visibility: hidden;
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0.35s;
 }
 
 .cart-sidebar.open {
     transform: translateY(0);
+    visibility: visible;
+    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0s;
 }
 
 /* Header */
