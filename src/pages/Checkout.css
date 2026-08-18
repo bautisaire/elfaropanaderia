@@ -613,7 +613,7 @@
   max-width: 500px;
   margin: 40px auto;
   animation: fadeIn 0.5s ease-out;
-  border: 1px solid #dcfce7;
+  border: 1px solid #ccfbf1;
 }
 
 .success-icon-wrapper {
@@ -622,14 +622,14 @@
   justify-content: center;
   width: 60px;
   height: 60px;
-  background: #dcfce7;
+  background: #ccfbf1;
   border-radius: 50%;
   margin-bottom: 20px;
 }
 
 .success-icon {
   font-size: 30px;
-  color: #22c55e;
+  color: #0d9488;
 }
 
 .checkout-success-container h2 {

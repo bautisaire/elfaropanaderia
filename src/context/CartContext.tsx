@@ -83,6 +83,9 @@ interface CartContextType {
   getStockForProduct: (baseId: string | number, variantName?: string | null) => number;
   getMaxQuantityForCartItem: (item: Product) => number;
   canAddMore: (item: Product) => boolean;
+  favorites: string[];
+  isFavorite: (productId: string | number) => boolean;
+  toggleFavorite: (productId: string | number) => void;
 }
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -120,6 +123,9 @@ export const CartContext = createContext<CartContextType>({
   getStockForProduct: () => 0,
   getMaxQuantityForCartItem: () => 0,
   canAddMore: () => false,
+  favorites: [],
+  isFavorite: () => false,
+  toggleFavorite: () => { },
 });
 
 interface Props {
@@ -145,6 +151,7 @@ export const CartProvider = ({ children }: Props) => {
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const productsCatalogRef = useRef<Record<string, Product>>({});
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
   const dismissPickupOnly = () => setIsPickupOnlyDismissed(true);
@@ -394,6 +401,35 @@ export const CartProvider = ({ children }: Props) => {
     };
   }, []);
 
+  // Favoritos en vivo (por usuario)
+  useEffect(() => {
+    if (!user?.uid) {
+      setFavorites([]);
+      return;
+    }
+    const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
+      setFavorites(snap.exists() ? (snap.data().favorites || []) : []);
+    }, (error) => {
+      console.error("Error fetching favorites:", error);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  const isFavorite = useCallback(
+    (productId: string | number) => favorites.includes(String(productId)),
+    [favorites]
+  );
+
+  const toggleFavorite = useCallback((productId: string | number) => {
+    if (!user?.uid) return;
+    const id = String(productId);
+    const next = favorites.includes(id) ? favorites.filter((f) => f !== id) : [...favorites, id];
+    setFavorites(next);
+    setDoc(doc(db, "users", user.uid), { favorites: next }, { merge: true }).catch((e) => {
+      console.error("Error updating favorites:", e);
+    });
+  }, [user?.uid, favorites]);
+
   const addToCart = (product: any) => {
     if (!isStoreOpen && !isAdmin) {
       setShowClosedModal(true);
@@ -517,6 +553,9 @@ export const CartProvider = ({ children }: Props) => {
         getStockForProduct,
         getMaxQuantityForCartItem,
         canAddMore,
+        favorites,
+        isFavorite,
+        toggleFavorite,
       }}
     >
       {children}

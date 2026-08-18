@@ -27,6 +27,10 @@
     transform: scale(0.95);
 }
 
+.floating-cart-btn.cart-bump {
+    animation: floatingCartBump 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .floating-cart-icon-wrapper {
     display: flex;
     align-items: center;
@@ -44,12 +48,12 @@
     background-color: #e53e3e;
     /* Red badge */
     color: white;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: bold;
-    height: 22px;
-    min-width: 22px;
-    padding: 0 6px;
-    border-radius: 11px;
+    height: 28px;
+    min-width: 28px;
+    padding: 0 7px;
+    border-radius: 14px;
     /* Pill shape */
     display: flex;
     align-items: center;
@@ -108,4 +112,19 @@
 
 .animate-pop {
     animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .floating-cart-btn,
+    .floating-cart-btn.cart-bump,
+    .animate-pop {
+        animation: none;
+    }
+}
+
+@keyframes floatingCartBump {
+    0%, 100% { transform: translateX(0) rotate(0) scale(1); }
+    22% { transform: translateX(-5px) rotate(-7deg) scale(1.1); }
+    48% { transform: translateX(4px) rotate(6deg) scale(1.06); }
+    72% { transform: translateX(-2px) rotate(-3deg) scale(1.03); }
 }

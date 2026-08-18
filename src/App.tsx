@@ -16,6 +16,7 @@ import CartSidebar from "./components/CartSidebar";
 const Editor = lazy(() => import("./pages/Editor"));
 const MyAccount = lazy(() => import("./pages/MyAccount"));
 const MisPedidos = lazy(() => import("./pages/MisPedidos"));
+const Favoritos = lazy(() => import("./pages/Favoritos"));
 const RuletaPage = lazy(() => import("./pages/RuletaPage"));
 
 function Layout() {
@@ -60,6 +61,7 @@ function Layout() {
             <Route path="/editor/*" element={<Editor />} />
             <Route path="/mi-cuenta/*" element={<MyAccount />} />
             <Route path="/mis-pedidos" element={<MisPedidos />} />
+            <Route path="/favoritos" element={<Favoritos />} />
             <Route path="/Proximamente" element={<Proximamente />} />
             <Route path="/ruleta" element={<RuletaPage />} />
           </Routes>

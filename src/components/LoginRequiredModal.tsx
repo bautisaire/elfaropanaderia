@@ -1,18 +1,20 @@
+import { createPortal } from "react-dom";
 import { FaTimes } from "react-icons/fa";
 import AuthForm from "./AuthForm";
 
 interface LoginRequiredModalProps {
     isOpen: boolean;
     onClose: () => void;
+    message?: string;
 }
 
-export default function LoginRequiredModal({ isOpen, onClose }: LoginRequiredModalProps) {
+export default function LoginRequiredModal({ isOpen, onClose, message }: LoginRequiredModalProps) {
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div
             className="login-required-modal-overlay"
-            onClick={onClose}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
             style={{
                 position: "fixed",
                 top: 0,
@@ -63,7 +65,7 @@ export default function LoginRequiredModal({ isOpen, onClose }: LoginRequiredMod
 
                 <div style={{ textAlign: "left" }}>
                     <p style={{ color: "#666", marginBottom: "16px", textAlign: "center", fontSize: "0.95rem" }}>
-                        Necesitas iniciar sesión para poder dejar una reseña.
+                        {message || "Necesitas iniciar sesión para poder dejar una reseña."}
                     </p>
                     <AuthForm onSuccess={onClose} />
                 </div>
@@ -75,6 +77,7 @@ export default function LoginRequiredModal({ isOpen, onClose }: LoginRequiredMod
                     to { transform: scale(1); opacity: 1; }
                 }
             `}</style>
-        </div>
+        </div>,
+        document.body
     );
 }

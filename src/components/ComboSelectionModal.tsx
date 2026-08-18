@@ -89,9 +89,9 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
             Seleccionadas: <strong>{totalSelected}</strong> / {totalRequired}
           </p>
           <div className="combo-progress-bar">
-            <div 
-              className="combo-progress-fill" 
-              style={{ width: `${(totalSelected / totalRequired) * 100}%`, background: isComplete ? '#10b981' : '#f59e0b' }}
+            <div
+              className="combo-progress-fill"
+              style={{ width: `${(totalSelected / totalRequired) * 100}%`, background: isComplete ? '#3EE8CB' : '#f59e0b' }}
             ></div>
           </div>
         </div>

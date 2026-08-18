@@ -1,0 +1,48 @@
+.favoritos-header {
+    padding: 0 14px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.favoritos-header h1 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin: 0 0 4px 0;
+}
+
+.favoritos-header p {
+    color: #666;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.favoritos-empty-state,
+.favoritos-login-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+    gap: 6px;
+}
+
+.favoritos-empty-state h3,
+.favoritos-login-prompt h2 {
+    color: #1a1a1a;
+    margin: 12px 0 4px 0;
+}
+
+.favoritos-empty-state p,
+.favoritos-login-prompt p {
+    max-width: 340px;
+    margin: 0;
+}
+
+.favoritos-login-form {
+    width: 100%;
+    max-width: 380px;
+    margin-top: 20px;
+    text-align: left;
+}

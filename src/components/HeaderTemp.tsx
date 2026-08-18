@@ -1,11 +1,11 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useContext, useState, useEffect, useRef } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png";
 import { db } from "../firebase/firebaseConfig";
 import { onSnapshot, doc, getDocs, collection } from "firebase/firestore";
-import { FaSearch, FaTimes, FaWhatsapp } from "react-icons/fa";
+import { FaSearch, FaTimes, FaWhatsapp, FaShoppingCart, FaUser, FaClipboardList } from "react-icons/fa";
 import SearchBar from "./SearchBar";
 import ProductModal from "./ProductModal";
 import { Product } from "../context/CartContext";
@@ -26,8 +26,10 @@ const BanderinSVG = ({ className }: { className?: string }) => (
 
 export default function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const { isStoreOpen, allowPickup, allowDelivery } = useContext(CartContext);
+  const { cart, isStoreOpen, allowPickup, allowDelivery, setIsSidebarOpen } = useContext(CartContext);
+  const totalItems = cart.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -91,10 +93,9 @@ export default function Header() {
     fetchProducts();
   }, []);
 
-  // Calculate active orders count if needed elsewhere, otherwise we just maintain statuses.
-  useEffect(() => {
-    // We only keep this useEffect to run some cleanup or nothing
-  }, [orderStatuses]);
+  const activeOrdersCount = Object.values(orderStatuses).filter(
+    (o: any) => o.status !== 'entregado' && o.status !== 'cancelado'
+  ).length;
 
   useEffect(() => {
     let unsubscribers: (() => void)[] = [];
@@ -144,6 +145,9 @@ export default function Header() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const isCuentaActive = location.pathname.startsWith("/mi-cuenta");
+  const isPedidosActive = location.pathname.startsWith("/mis-pedidos");
+
   return (
     <>
       {!isStoreOpen && (
@@ -182,11 +186,44 @@ export default function Header() {
           <div className="header-right">
             <nav className="nav-menu">
               <button
-                className="burger-menu-btn"
+                className="header-icon-btn"
                 onClick={() => setIsSearchOpen(true)}
+                aria-label="Buscar"
+                title="Buscar"
               >
                 <FaSearch />
               </button>
+
+              <div className="header-desktop-actions">
+                <button
+                  className="header-icon-btn"
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Carrito"
+                  title="Carrito"
+                >
+                  <FaShoppingCart />
+                  {totalItems > 0 && <span className="header-icon-badge">{totalItems}</span>}
+                </button>
+
+                <button
+                  className={`header-icon-btn ${isPedidosActive ? "active" : ""}`}
+                  onClick={() => navigate("/mis-pedidos")}
+                  aria-label="Mis Pedidos"
+                  title="Mis Pedidos"
+                >
+                  <FaClipboardList />
+                  {activeOrdersCount > 0 && <span className="header-icon-badge">{activeOrdersCount}</span>}
+                </button>
+
+                <button
+                  className={`header-icon-btn ${isCuentaActive ? "active" : ""}`}
+                  onClick={() => navigate("/mi-cuenta")}
+                  aria-label="Mi Cuenta"
+                  title="Mi Cuenta"
+                >
+                  <FaUser />
+                </button>
+              </div>
             </nav>
           </div>
         </div>

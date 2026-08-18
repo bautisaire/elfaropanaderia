@@ -20,7 +20,7 @@ const statusMap: Record<string, { label: string, color: string }> = {
     pendiente: { label: "Pendiente", color: "#f59e0b" },
     preparando: { label: "Preparando", color: "#3b82f6" },
     enviado: { label: "En Camino", color: "#8b5cf6" },
-    entregado: { label: "Entregado", color: "#10b981" },
+    entregado: { label: "Entregado", color: "#0d9488" },
     cancelado: { label: "Cancelado", color: "#ef4444" },
     pending_payment: { label: "Verificando Pago", color: "#3b82f6" },
 };

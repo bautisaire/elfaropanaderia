@@ -219,14 +219,14 @@
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 600;
-  color: white;
-  background: #10b981;
+  color: #0f172a;
+  background: #3EE8CB;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .combo-add-btn:hover:not(:disabled) {
-  background: #059669;
+  background: #2ED9BC;
   transform: translateY(-2px);
 }
 

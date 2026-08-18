@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebaseConfig";
@@ -12,21 +12,46 @@ export default function BottomNav() {
     const { cart, setIsSidebarOpen } = useContext(CartContext);
 
     const [activeOrdersCount, setActiveOrdersCount] = useState(0);
+    const [isCartBumping, setIsCartBumping] = useState(false);
+    const previousTotalRef = useRef(0);
+    const bumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const bumpFrameRef = useRef<number | null>(null);
 
     const totalItems = cart.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
 
+    useEffect(() => {
+        if (totalItems > previousTotalRef.current) {
+            setIsCartBumping(false);
+            if (bumpFrameRef.current !== null) cancelAnimationFrame(bumpFrameRef.current);
+            if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+
+            bumpFrameRef.current = requestAnimationFrame(() => {
+                setIsCartBumping(true);
+                bumpTimerRef.current = setTimeout(() => setIsCartBumping(false), 550);
+            });
+        }
+
+        previousTotalRef.current = totalItems;
+
+        return () => {
+            if (bumpFrameRef.current !== null) cancelAnimationFrame(bumpFrameRef.current);
+            if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+        };
+    }, [totalItems]);
+
     const isHome = location.pathname === "/";
-    const isFavoritos = location.pathname.startsWith("/mi-cuenta/favoritos");
-    const isCuenta = location.pathname.startsWith("/mi-cuenta") && !isFavoritos;
+    const isFavoritos = location.pathname.startsWith("/favoritos");
+    const isCuenta = location.pathname.startsWith("/mi-cuenta");
     const isPedidos = location.pathname.startsWith("/mis-pedidos");
 
-    const goHome = () => {
-        if (location.pathname === "/") {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        } else {
-            navigate("/");
-        }
+    const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+    const navigateAndScroll = (path: string) => {
+        if (location.pathname !== path) navigate(path);
+        scrollToTop();
     };
+
+    const goHome = () => navigateAndScroll("/");
 
     // Watch the most recent locally-tracked order for an active status badge
     useEffect(() => {
@@ -98,7 +123,7 @@ export default function BottomNav() {
 
             <button
                 className={`bottom-nav-item ${isFavoritos ? "active" : ""}`}
-                onClick={() => navigate("/mi-cuenta/favoritos")}
+                onClick={() => navigateAndScroll("/favoritos")}
                 aria-label="Favoritos"
             >
                 <FaHeart />
@@ -107,7 +132,7 @@ export default function BottomNav() {
 
             <div className="bottom-nav-cart-slot">
                 <button
-                    className="bottom-nav-cart-btn"
+                    className={`bottom-nav-cart-btn ${isCartBumping ? 'cart-bump' : ''}`}
                     onClick={() => setIsSidebarOpen(true)}
                     aria-label="Abrir carrito"
                 >
@@ -118,7 +143,7 @@ export default function BottomNav() {
 
             <button
                 className={`bottom-nav-item ${isPedidos ? "active" : ""}`}
-                onClick={() => navigate("/mis-pedidos")}
+                onClick={() => navigateAndScroll("/mis-pedidos")}
                 aria-label="Mis Pedidos"
                 style={{ position: 'relative' }}
             >
@@ -129,7 +154,7 @@ export default function BottomNav() {
 
             <button
                 className={`bottom-nav-item ${isCuenta ? "active" : ""}`}
-                onClick={() => navigate("/mi-cuenta")}
+                onClick={() => navigateAndScroll("/mi-cuenta")}
                 aria-label="Mi Cuenta"
             >
                 <FaUser />

@@ -17,7 +17,7 @@ const statusMap: Record<string, { label: string, color: string }> = {
     pendiente: { label: "Pendiente", color: "#f59e0b" },
     preparando: { label: "Preparando", color: "#3b82f6" },
     enviado: { label: "En Camino", color: "#8b5cf6" },
-    entregado: { label: "Entregado", color: "#10b981" },
+    entregado: { label: "Entregado", color: "#0d9488" },
     cancelado: { label: "Cancelado", color: "#ef4444" },
     pending_payment: { label: "Verificando Pago", color: "#3b82f6" },
 };
@@ -42,7 +42,7 @@ export default function MyAccount() {
     const location = useLocation();
     let currentPath = location.pathname.split('/')[2];
     let activeTab = currentPath || 'personal';
-    if (!['personal', 'direcciones', 'compras', 'favoritos'].includes(activeTab)) {
+    if (!['personal', 'direcciones', 'compras'].includes(activeTab)) {
         activeTab = 'personal';
     }
 
@@ -85,7 +85,7 @@ export default function MyAccount() {
                             <span>Compras</span>
                         </span>
                     </button>
-                    <button className={`dashboard-item ${activeTab === 'favoritos' ? 'active' : ''}`} onClick={() => navigate('/mi-cuenta/favoritos')}>
+                    <button className="dashboard-item" onClick={() => navigate('/favoritos')}>
                         <span className="item-inner-wrapper">
                             <FaHeart className="item-icon" />
                             <span>Favoritos</span>
@@ -115,7 +115,6 @@ export default function MyAccount() {
                     {activeTab === 'personal' && <PersonalData userId={user.uid} userEmail={user.email!} isGoogle={user.providerData.some((p: any) => p.providerId === 'google.com')} emailVerified={user.emailVerified} userObj={user} />}
                     {activeTab === 'direcciones' && <AddressManager userId={user.uid} />}
                     {activeTab === 'compras' && <OrdersTab />}
-                    {activeTab === 'favoritos' && <FavoritesTab />}
                 </div>
             </div>
         </div>
@@ -376,20 +375,6 @@ function AddressManager({ userId }: { userId: string }) {
                     </form>
                 </div>
             )}
-        </div>
-    );
-}
-
-function FavoritesTab() {
-    return (
-        <div className="dashboard-section">
-            <h2 className="section-title">Mis Favoritos</h2>
-            <div className="placeholder-card empty-state-card">
-                <FaHeart size={50} color="#ffdecc" style={{ marginBottom: '15px' }} />
-                <h3>Aún no tienes favoritos</h3>
-                <p>Navegá por la tienda y guarda tus productos preferidos.</p>
-                <Link to="/" className="btn-primary-dashboard" style={{ marginTop: '15px', display: 'inline-block', textDecoration: 'none' }}>Ir a la tienda</Link>
-            </div>
         </div>
     );
 }

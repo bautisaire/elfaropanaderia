@@ -6,9 +6,33 @@ import './FloatingCartButton.css';
 export default function FloatingCartButton() {
     const { cart, isSidebarOpen, setIsSidebarOpen } = useContext(CartContext);
     const [showReminder, setShowReminder] = useState(false);
+    const [isCartBumping, setIsCartBumping] = useState(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const previousTotalRef = useRef(0);
+    const bumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const bumpFrameRef = useRef<number | null>(null);
 
     const totalItems = cart.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
+
+    useEffect(() => {
+        if (totalItems > previousTotalRef.current) {
+            setIsCartBumping(false);
+            if (bumpFrameRef.current !== null) cancelAnimationFrame(bumpFrameRef.current);
+            if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+
+            bumpFrameRef.current = requestAnimationFrame(() => {
+                setIsCartBumping(true);
+                bumpTimerRef.current = setTimeout(() => setIsCartBumping(false), 550);
+            });
+        }
+
+        previousTotalRef.current = totalItems;
+
+        return () => {
+            if (bumpFrameRef.current !== null) cancelAnimationFrame(bumpFrameRef.current);
+            if (bumpTimerRef.current) clearTimeout(bumpTimerRef.current);
+        };
+    }, [totalItems]);
 
     useEffect(() => {
         if (isSidebarOpen || totalItems === 0) {
@@ -39,7 +63,7 @@ export default function FloatingCartButton() {
                 </div>
             )}
             <button
-                className="floating-cart-btn"
+                className={`floating-cart-btn ${isCartBumping ? 'cart-bump' : ''}`}
                 onClick={() => setIsSidebarOpen(true)}
                 aria-label="Abrir carrito"
             >

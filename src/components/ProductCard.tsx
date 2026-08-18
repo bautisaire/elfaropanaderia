@@ -1,8 +1,10 @@
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
+import { FaHeart, FaRegHeart, FaPlus } from "react-icons/fa";
 import { CartContext, Product } from "../context/CartContext";
 import { getVariantPrice } from "../utils/cartStock";
 import "./ProductCard.css";
 import ComboSelectionModal from "./ComboSelectionModal";
+import LoginRequiredModal from "./LoginRequiredModal";
 
 interface Props {
   product: Product;
@@ -16,7 +18,36 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
     cart,
     getCatalogProduct,
     getStockForProduct,
+    user,
+    isFavorite: checkIsFavorite,
+    toggleFavorite: toggleFavoriteInContext,
   } = useContext(CartContext);
+
+  const isFavorite = checkIsFavorite(product.id);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isFavBumping, setIsFavBumping] = useState(false);
+  const favBumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    const wasFavorite = isFavorite;
+    toggleFavoriteInContext(product.id);
+    if (!wasFavorite) {
+      if (favBumpTimerRef.current) clearTimeout(favBumpTimerRef.current);
+      setIsFavBumping(true);
+      favBumpTimerRef.current = setTimeout(() => setIsFavBumping(false), 550);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (favBumpTimerRef.current) clearTimeout(favBumpTimerRef.current);
+    };
+  }, []);
 
   const liveProduct = getCatalogProduct(String(product.id)) ?? product;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -169,6 +200,14 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
           decoding="async"
         />
 
+        <button
+          className={`favorite-btn ${isFavorite ? "active" : ""} ${isFavBumping ? "fav-bump" : ""}`}
+          onClick={handleToggleFavorite}
+          aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+        >
+          {isFavorite ? <FaHeart /> : <FaRegHeart />}
+        </button>
+
 
         {/* Preparation Notice Badge */}
         {(() => {
@@ -260,18 +299,16 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
 
           {quantity === 0 || liveProduct.isCombo ? (
             <button
-              className="btn-add"
+              className="btn-add card-add-btn"
               onClick={(e) => { e.stopPropagation(); handleAddToCart(); }}
               disabled={isOutOfStock || quantity >= maxStock}
+              title={isOutOfStock ? "Sin Stock" : quantity >= maxStock ? "Stock Máximo" : "Agregar al carrito"}
+              aria-label={isOutOfStock ? "Sin Stock" : quantity >= maxStock ? "Stock Máximo" : "Agregar al carrito"}
             >
-              {isOutOfStock ? "Sin Stock" : quantity >= maxStock ? "Stock Máximo" : (
-                <>
-                  Agregar <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px' }}><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-                </>
-              )}
+              <FaPlus />
             </button>
           ) : (
-            <div className="quantity-controls">
+            <div className="quantity-controls card-qty-controls">
               <button className="btn-qty minus" onClick={(e) => { e.stopPropagation(); handleRemoveOne(); }}>−</button>
               <span className="quantity-display">{quantity}</span>
               <button
@@ -311,6 +348,12 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
           }}
         />
       )}
+
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="Necesitas iniciar sesión para guardar favoritos."
+      />
     </div>
   );
 }
