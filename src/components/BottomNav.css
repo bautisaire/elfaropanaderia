@@ -16,6 +16,10 @@
         box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
         z-index: 1050;
         padding-bottom: env(safe-area-inset-bottom, 0);
+        /* Keep this on its own stable compositor layer so it doesn't
+           get momentarily mis-placed by Android Chrome during scroll. */
+        transform: translateZ(0);
+        will-change: transform;
     }
 
     .bottom-nav-item {
@@ -64,7 +68,22 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
         transition: transform 0.2s ease, background-color 0.2s ease;
+        z-index: 1;
+    }
+
+    /* Glow lives on a separate layer animating opacity/transform only (GPU-composited,
+       no repaint) instead of animating box-shadow directly on a fixed-position button —
+       animating box-shadow there caused intermittent scroll glitches on some Android phones. */
+    .bottom-nav-cart-btn::before {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(214, 51, 54, 0.55) 0%, rgba(214, 51, 54, 0) 72%);
+        z-index: -1;
+        pointer-events: none;
         animation: bottomNavCartGlow 2.4s ease-in-out infinite;
     }
 
@@ -77,15 +96,17 @@
     }
 
     .bottom-nav-cart-btn.cart-bump {
-        animation: bottomNavCartGlow 2.4s ease-in-out infinite, bottomNavCartBump 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        animation: bottomNavCartBump 0.5s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     @keyframes bottomNavCartGlow {
         0%, 100% {
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), 0 0 10px 2px rgba(214, 51, 54, 0.45);
+            opacity: 0.6;
+            transform: scale(1);
         }
         50% {
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25), 0 0 22px 7px rgba(214, 51, 54, 0.8);
+            opacity: 1;
+            transform: scale(1.2);
         }
     }
 
@@ -134,7 +155,8 @@
 
     @media (prefers-reduced-motion: reduce) {
         .bottom-nav-cart-btn,
-        .bottom-nav-cart-btn.cart-bump {
+        .bottom-nav-cart-btn.cart-bump,
+        .bottom-nav-cart-btn::before {
             animation: none;
         }
     }
