@@ -7,7 +7,7 @@ export function isLowPowerDevice(): boolean {
     if (typeof navigator === "undefined") return false;
 
     const memory = (navigator as any).deviceMemory;
-    if (typeof memory === "number" && memory <= 4) return true;
+    if (typeof memory === "number" && memory <= 2) return true;
 
     const cores = navigator.hardwareConcurrency;
     if (typeof cores === "number" && cores <= 4) return true;

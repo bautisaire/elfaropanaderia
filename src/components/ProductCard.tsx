@@ -186,11 +186,7 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
   const displayStock = maxStock;
 
   return (
-    <div 
-      className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}
-      onClick={() => onOpenDetails && onOpenDetails(liveProduct)}
-      style={{ cursor: onOpenDetails ? 'pointer' : 'default' }}
-    >
+    <div className={`product-card ${isOutOfStock ? "out-of-stock" : ""}`}>
       <div className="image-wrapper">
         <img
           src={currentImage}
@@ -198,6 +194,8 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
           className={`product-image ${isOutOfStock ? "grayscale" : ""}`}
           loading="lazy"
           decoding="async"
+          onClick={() => onOpenDetails && onOpenDetails(liveProduct)}
+          style={{ cursor: onOpenDetails ? 'pointer' : 'default' }}
         />
 
         <button
@@ -264,7 +262,13 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
       </div>
 
       <div className="card-body">
-        <h3 className="product-title">{liveProduct.name}</h3>
+        <h3
+          className="product-title"
+          onClick={() => onOpenDetails && onOpenDetails(liveProduct)}
+          style={{ cursor: onOpenDetails ? 'pointer' : 'default' }}
+        >
+          {liveProduct.name}
+        </h3>
 
         {liveProduct.variants && liveProduct.variants.length > 0 && (
           <div className="variants-section">

@@ -227,7 +227,7 @@ html.low-power .favorite-btn.fav-bump {
 
 .card-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   margin-top: auto;
   gap: 12px;
@@ -324,13 +324,23 @@ html.low-power .favorite-btn.fav-bump {
 
 .quantity-controls.card-qty-controls {
   flex-grow: 0;
-  max-width: 108px;
+  max-width: 76px;
   border-radius: 20px;
-  padding: 4px 6px;
+  padding: 3px 4px;
+  gap: 2px;
 }
 
 .quantity-controls.card-qty-controls .btn-qty {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
   border-radius: 50%;
+  font-size: 1rem;
+}
+
+.quantity-controls.card-qty-controls .quantity-display {
+  min-width: 14px;
+  font-size: 0.85rem;
 }
 
 .btn-qty {
@@ -428,13 +438,19 @@ html.low-power .favorite-btn.fav-bump {
   /* Keep the compact card format (price left, round button right) on mobile too */
   .card-footer {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-end;
+    gap: 6px;
   }
 
   .price-container {
     width: auto;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .stock-display {
+    white-space: nowrap;
   }
 
   .btn-add.card-add-btn {
