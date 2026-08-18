@@ -221,6 +221,33 @@
     transform: translateY(-2px);
 }
 
+.caja-big-btn-venta {
+    background: #6d28d9;
+    box-shadow: 0 4px 14px rgba(109, 40, 217, 0.3);
+}
+
+.caja-big-btn-venta:hover {
+    background: #5b21b6;
+}
+
+.caja-big-btn-egreso {
+    background: #7a1f2b;
+    box-shadow: 0 4px 14px rgba(122, 31, 43, 0.3);
+}
+
+.caja-big-btn-egreso:hover {
+    background: #641822;
+}
+
+.caja-big-btn-stock {
+    background: #ca8a04;
+    box-shadow: 0 4px 14px rgba(202, 138, 4, 0.3);
+}
+
+.caja-big-btn-stock:hover {
+    background: #a16207;
+}
+
 .caja-movements-list {
     background: #fff;
     border: 1px solid #e2e8f0;

@@ -433,16 +433,16 @@ export default function CajaManager() {
             </div>
 
             <div className="caja-actions">
-                <button className="caja-big-btn" onClick={() => setView('venta')}>
+                <button className="caja-big-btn caja-big-btn-venta" onClick={() => setView('venta')}>
                     <FaCashRegister /> Registrar venta
                 </button>
                 <button className="caja-big-btn" onClick={() => openMovementModal('ingreso')}>
                     <FaArrowDown /> Registrar ingreso
                 </button>
-                <button className="caja-big-btn" onClick={() => openMovementModal('egreso')}>
+                <button className="caja-big-btn caja-big-btn-egreso" onClick={() => openMovementModal('egreso')}>
                     <FaArrowUp /> Registrar egreso
                 </button>
-                <button className="caja-big-btn" onClick={() => setView('stock')}>
+                <button className="caja-big-btn caja-big-btn-stock" onClick={() => setView('stock')}>
                     <FaBoxOpen /> Ajustar Stock
                 </button>
             </div>
