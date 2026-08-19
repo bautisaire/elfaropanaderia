@@ -26,6 +26,10 @@ export default function Checkout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
   const [activeRaffle, setActiveRaffle] = useState<any>(null);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  // Solo para probar el modal de timeout en localhost sin tocar el backend real.
+  // import.meta.env.DEV es false en el build de producción, así que esto no llega a Vercel.
+  const [simulateTimeout, setSimulateTimeout] = useState(false);
 
   // Mientras se confirma el pedido, ir contando qué está pasando: una espera con
   // avance visible se percibe bastante más corta que un "Procesando..." congelado.
@@ -314,6 +318,32 @@ export default function Checkout() {
     setTimeout(() => setToastMessage(null), 2000);
   };
 
+  const getPaymentMethodLabel = (method: string) => {
+    if (method === 'transferencia') return 'Transferencia';
+    if (method === 'mercadopago') return 'Mercado Pago';
+    return 'Efectivo';
+  };
+
+  const buildTimeoutWhatsAppLink = () => {
+    const itemsText = cart.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n');
+    const lines = [
+      `Hola Panadería El Faro! 👋`,
+      `Intenté hacer un pedido en la web pero hubo problemas. Te paso el detalle:`,
+      ``,
+      `Resumen:`,
+      itemsText,
+      ``,
+      `Total: $${Math.floor(finalTotal)}`,
+      `Método de Pago: ${getPaymentMethodLabel(formData.metodoPago)}`,
+      `Entrega: ${deliveryMethod === 'delivery' ? 'Envío a domicilio' : 'Retiro en el local'}`,
+    ];
+    if (deliveryMethod === 'delivery' && formData.direccion) lines.push(`Dirección: ${formData.direccion}`);
+    if (formData.indicaciones) lines.push(`Indicaciones: ${formData.indicaciones}`);
+    lines.push(`Nombre: ${formData.nombre}`, `Teléfono: ${formData.telefono}`);
+
+    return `https://wa.me/5492995206821?text=${encodeURIComponent(lines.join('\n'))}`;
+  };
+
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     showToast(`${label} copiado!`);
@@ -443,8 +473,18 @@ export default function Checkout() {
     }
 
     try {
+      // Modo de prueba local: simula el timeout sin llamar al backend real,
+      // para poder ver el modal en localhost sin crear pedidos de verdad.
+      if (import.meta.env.DEV && simulateTimeout) {
+        await new Promise((_, reject) => {
+          setTimeout(() => reject({ code: 'functions/deadline-exceeded', message: 'deadline-exceeded (simulado)' }), 10000);
+        });
+      }
+
       // LLAMADA AL BACKEND
-      const processOrderFn = httpsCallable(functions, 'processOrder');
+      // Timeout de 10s: si el backend no responde a tiempo, cortamos el intento
+      // y mostramos el modal de WhatsApp en vez de dejar al cliente esperando indefinidamente.
+      const processOrderFn = httpsCallable(functions, 'processOrder', { timeout: 10000 });
 
       const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
       const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
@@ -562,6 +602,12 @@ export default function Checkout() {
       if (msg === 'AbortError' || msg.includes('aborted') || error.name === 'AbortError') {
         // Ignorar el error si el request fue abortado por navegación
         console.warn("Petición abortada por el usuario o navegador.");
+        return;
+      }
+
+      const isTimeout = error.code === 'functions/deadline-exceeded' || msg.toLowerCase().includes('deadline-exceeded') || msg.toLowerCase().includes('timeout');
+      if (isTimeout) {
+        setShowTimeoutModal(true);
         return;
       }
 
@@ -1104,6 +1150,16 @@ export default function Checkout() {
                       }
                       return null;
                     })()}
+                    {import.meta.env.DEV && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#b45309', background: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={simulateTimeout}
+                          onChange={(e) => setSimulateTimeout(e.target.checked)}
+                        />
+                        🧪 [Solo dev] Simular fallo de confirmación (no llama al backend real)
+                      </label>
+                    )}
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
                       {isSubmitting ? (submitStatus || 'Procesando...') : 'Confirmar pedido'}
                     </button>
@@ -1344,6 +1400,42 @@ export default function Checkout() {
                 onClick={() => setDisabledMethodModal({ isOpen: false, message: "" })}
               >
                 Entendido
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Timeout Modal: el backend tardó más de 10s en confirmar el pedido */}
+      {
+        showTimeoutModal && (
+          <div className="order-modal error" role="dialog" aria-modal="true" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="order-modal-content">
+              <div style={{ color: '#ef4444', marginBottom: '15px' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h3>Problemas para finalizar tu pedido</h3>
+              <p style={{ margin: '15px 0' }}>
+                Tu pedido está tardando más de lo normal y no pudimos confirmarlo. Puede que ya se haya registrado o puede que no — para asegurarnos, envianos el detalle por WhatsApp.
+              </p>
+              <a
+                href={buildTimeoutWhatsAppLink()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-whatsapp-action"
+              >
+                <FaWhatsapp /> Enviar pedido por WhatsApp
+              </a>
+              <button
+                className="btn-text"
+                style={{ marginTop: '12px', display: 'block', marginInline: 'auto' }}
+                onClick={() => setShowTimeoutModal(false)}
+              >
+                Reintentar
               </button>
             </div>
           </div>
