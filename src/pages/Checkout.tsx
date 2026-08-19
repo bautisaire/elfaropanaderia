@@ -8,6 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import { validateCartStock } from "../utils/stockValidation";
 import { shouldMarkOrderAsTest } from "../utils/testMode";
 import StockErrorModal from "../components/StockErrorModal";
+import OrderProcessingOverlay from "../components/OrderProcessingOverlay";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
@@ -30,6 +31,7 @@ export default function Checkout() {
   // Solo para probar el modal de timeout en localhost sin tocar el backend real.
   // import.meta.env.DEV es false en el build de producción, así que esto no llega a Vercel.
   const [simulateTimeout, setSimulateTimeout] = useState(false);
+  const [simulateSuccess, setSimulateSuccess] = useState(false);
 
   // Mientras se confirma el pedido, ir contando qué está pasando: una espera con
   // avance visible se percibe bastante más corta que un "Procesando..." congelado.
@@ -62,7 +64,6 @@ export default function Checkout() {
 
   const [stockError, setStockError] = useState<{ isOpen: boolean, items: any[] }>({ isOpen: false, items: [] });
   const [showCheckout, setShowCheckout] = useState(true);
-  const [showConfirmation, setShowConfirmation] = useState(false);
   const [showStickyCheckout, setShowStickyCheckout] = useState(false);
   const checkoutBtnRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -102,12 +103,8 @@ export default function Checkout() {
       return;
     }
     setFormData(prev => ({ ...prev, nombre: "", direccion: "", telefono: "", indicaciones: "", metodoPago: "efectivo" }));
-    setShowConfirmation(true);
-    setTimeout(() => {
-      setShowConfirmation(false);
-      setConfirmedOrder(ticket);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 3000);
+    setConfirmedOrder(ticket);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSaveNewAddress = async () => {
@@ -473,19 +470,6 @@ export default function Checkout() {
     }
 
     try {
-      // Modo de prueba local: simula el timeout sin llamar al backend real,
-      // para poder ver el modal en localhost sin crear pedidos de verdad.
-      if (import.meta.env.DEV && simulateTimeout) {
-        await new Promise((_, reject) => {
-          setTimeout(() => reject({ code: 'functions/deadline-exceeded', message: 'deadline-exceeded (simulado)' }), 10000);
-        });
-      }
-
-      // LLAMADA AL BACKEND
-      // Timeout de 10s: si el backend no responde a tiempo, cortamos el intento
-      // y mostramos el modal de WhatsApp en vez de dejar al cliente esperando indefinidamente.
-      const processOrderFn = httpsCallable(functions, 'processOrder', { timeout: 10000 });
-
       const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
       const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
 
@@ -494,6 +478,39 @@ export default function Checkout() {
         metodoEntrega: deliveryMethod,
         direccion: deliveryMethod === 'pickup' ? 'Retiro en local' : formData.direccion
       };
+
+      // Modo de prueba local: simula el timeout sin llamar al backend real,
+      // para poder ver el modal en localhost sin crear pedidos de verdad.
+      if (import.meta.env.DEV && simulateTimeout) {
+        await new Promise((_, reject) => {
+          setTimeout(() => reject({ code: 'functions/deadline-exceeded', message: 'deadline-exceeded (simulado)' }), 10000);
+        });
+      }
+
+      // Modo de prueba local: simula una confirmación rápida (sin llamar al backend real)
+      // para ver que el overlay se cierra al toque cuando la respuesta llega rápido.
+      if (import.meta.env.DEV && simulateSuccess) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const fakeTicket = {
+          id: 'TEST-' + Date.now(),
+          items: cart,
+          itemsWithShipping: cart,
+          total: finalTotal,
+          paymentMethod: orderFormData.metodoPago,
+          cliente: orderFormData,
+          deliveryMethod,
+        };
+        clearCart();
+        setIsSubmitting(false);
+        setShowCheckout(false);
+        proceedToSuccess(fakeTicket);
+        return;
+      }
+
+      // LLAMADA AL BACKEND
+      // Timeout de 10s: si el backend no responde a tiempo, cortamos el intento
+      // y mostramos el modal de WhatsApp en vez de dejar al cliente esperando indefinidamente.
+      const processOrderFn = httpsCallable(functions, 'processOrder', { timeout: 10000 });
 
       const requestData = {
         cart,
@@ -621,6 +638,8 @@ export default function Checkout() {
 
   return (
     <div className="carrito-container">
+      <OrderProcessingOverlay isOpen={isSubmitting} statusText={submitStatus} />
+
       {showSaveAddressModal && (
         <div className="stock-modal-overlay">
           <div className="stock-modal" style={{ maxWidth: '400px' }}>
@@ -1151,23 +1170,28 @@ export default function Checkout() {
                       return null;
                     })()}
                     {import.meta.env.DEV && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#b45309', background: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={simulateTimeout}
-                          onChange={(e) => setSimulateTimeout(e.target.checked)}
-                        />
-                        🧪 [Solo dev] Simular fallo de confirmación (no llama al backend real)
-                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#b45309', background: '#fef3c7', border: '1px dashed #f59e0b', borderRadius: '8px', padding: '10px 12px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={simulateTimeout}
+                            onChange={(e) => { setSimulateTimeout(e.target.checked); if (e.target.checked) setSimulateSuccess(false); }}
+                          />
+                          🧪 [Solo dev] Simular fallo de confirmación (no llama al backend real)
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#166534', background: '#dcfce7', border: '1px dashed #16a34a', borderRadius: '8px', padding: '10px 12px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={simulateSuccess}
+                            onChange={(e) => { setSimulateSuccess(e.target.checked); if (e.target.checked) setSimulateTimeout(false); }}
+                          />
+                          🧪 [Solo dev] Simular confirmación rápida (no llama al backend real)
+                        </label>
+                      </div>
                     )}
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
-                      {isSubmitting ? (submitStatus || 'Procesando...') : 'Confirmar pedido'}
+                      {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
                     </button>
-                    {isSubmitting && (
-                      <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#6b7280', marginTop: '10px' }}>
-                        No cierres esta ventana.
-                      </p>
-                    )}
 
                   </div>
                 </form>
@@ -1258,19 +1282,6 @@ export default function Checkout() {
         </>
       )}
 
-
-      {
-        showConfirmation && (
-          <div className="order-modal" role="dialog" aria-modal="true">
-            <div className="order-modal-content">
-              <FaMotorcycle className="order-icon-large" />
-              <h3>Pedido realizado!</h3>
-              <p>En breves nos comunicaremos con usted</p>
-              <p>¡Gracias por su compra!</p>
-            </div>
-          </div>
-        )
-      }
 
       {/* Minimum Purchase Error Modal */}
       {
