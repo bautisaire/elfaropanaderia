@@ -327,7 +327,7 @@ export default function Checkout() {
   const buildTimeoutWhatsAppLink = () => {
     const itemsText = cart.map((i: any) => `- ${i.name} x${i.quantity}`).join('\n');
     const lines = [
-      `Hola Panadería El Faro! 👋`,
+      `Hola Panadería El Faro!`,
       `Intenté hacer un pedido en la web pero hubo problemas. Te paso el detalle:`,
       ``,
       `Resumen:`,
