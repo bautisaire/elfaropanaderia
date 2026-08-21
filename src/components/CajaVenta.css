@@ -637,6 +637,13 @@
     font-weight: 600;
 }
 
+.caja-venta-entry-step {
+    margin: -5px 0 0;
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
 .caja-venta-entry-stock {
     color: #64748b;
     font-size: 0.9rem;
@@ -657,6 +664,12 @@
     color: #dc2626;
     font-size: 0.85rem;
     font-weight: 600;
+}
+
+.caja-venta-entry-hint {
+    margin: -5px 0 0;
+    color: #64748b;
+    font-size: 0.8rem;
 }
 
 .caja-venta-entry-actions {

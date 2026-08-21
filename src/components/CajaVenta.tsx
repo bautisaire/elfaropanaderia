@@ -78,10 +78,14 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     const [processing, setProcessing] = useState(false);
     const [lastSale, setLastSale] = useState<{ time: Date; itemCount: number; amount: number } | null>(null);
 
-    // Envío Modal State: si el carrito tiene un producto "Envío", pedimos el nombre del
-    // cliente antes de cobrar y el pedido se registra como delivery pendiente (igual que el POS anterior).
+    // Envío Modal State: si el carrito tiene un producto "Envío", pedimos los datos del
+    // cliente antes de cobrar. Calle y teléfono son opcionales y conservan los valores
+    // históricos por defecto ("Envío" y vacío, respectivamente) si se omiten.
     const [envioModalOpen, setEnvioModalOpen] = useState(false);
+    const [envioModalStep, setEnvioModalStep] = useState<'name' | 'address' | 'phone'>('name');
     const [envioClientName, setEnvioClientName] = useState('');
+    const [envioClientAddress, setEnvioClientAddress] = useState('');
+    const [envioClientPhone, setEnvioClientPhone] = useState('');
     const envioInputRef = useRef<HTMLInputElement>(null);
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -169,7 +173,28 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     useEffect(() => {
         if (envioModalOpen && envioInputRef.current) envioInputRef.current.focus();
-    }, [envioModalOpen]);
+    }, [envioModalOpen, envioModalStep]);
+
+    const resetEnvioData = () => {
+        setEnvioModalOpen(false);
+        setEnvioModalStep('name');
+        setEnvioClientName('');
+        setEnvioClientAddress('');
+        setEnvioClientPhone('');
+    };
+
+    const advanceEnvioModal = () => {
+        if (envioModalStep === 'name') {
+            if (!envioClientName.trim()) return;
+            setEnvioModalStep('address');
+            return;
+        }
+        if (envioModalStep === 'address') {
+            setEnvioModalStep('phone');
+            return;
+        }
+        handleConfirmSale();
+    };
 
     const findByCode = (code: string): { product: Product; variant?: string } | null => {
         for (const p of products) {
@@ -643,6 +668,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         const hasEnvio = cart.some(row => row.nombre.toLowerCase().includes('envío') || row.nombre.toLowerCase().includes('envio'));
 
         if (hasEnvio && !envioClientName && !envioModalOpen) {
+            setEnvioModalStep('name');
             setEnvioModalOpen(true);
             return;
         }
@@ -807,8 +833,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     payments: paymentBreakdown,
                     cliente: {
                         nombre: isDeliveryOrder ? (envioClientName.trim() || 'Cliente') : 'Cliente Local',
-                        direccion: isDeliveryOrder ? 'Envío' : 'Local Físico',
-                        telefono: '',
+                        direccion: isDeliveryOrder ? (envioClientAddress.trim() || 'Envío') : 'Local Físico',
+                        telefono: isDeliveryOrder ? envioClientPhone.trim() : '',
                         metodoPago
                     },
                     date: new Date(),
@@ -879,7 +905,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                             total,
                             cliente: {
                                 nombre: envioClientName.trim(),
-                                direccion: 'Envío',
+                                direccion: envioClientAddress.trim() || 'Envío',
+                                telefono: envioClientPhone.trim(),
                                 metodoPago
                             },
                             date: new Date()
@@ -897,8 +924,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false });
             setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '' });
             setCombinePayments(false);
-            setEnvioModalOpen(false);
-            setEnvioClientName('');
+            resetEnvioData();
         } catch (error) {
             console.error('Checkout error:', error);
             const errMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -1223,33 +1249,57 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                 <div className="caja-venta-modal-overlay">
                     <div className="caja-venta-entry-modal">
                         <h3>Pedido con Envío</h3>
-                        <p style={{ margin: '0 0 15px 0', color: '#475569' }}>Ingresá el nombre del cliente para registrar el pedido:</p>
+                        <p className="caja-venta-entry-step">
+                            {envioModalStep === 'name' ? '1 de 3' : envioModalStep === 'address' ? '2 de 3' : '3 de 3'}
+                        </p>
+                        <p style={{ margin: '0 0 15px 0', color: '#475569' }}>
+                            {envioModalStep === 'name' && 'Ingresá el nombre del cliente para registrar el pedido:'}
+                            {envioModalStep === 'address' && 'Ingresá la calle del envío (opcional):'}
+                            {envioModalStep === 'phone' && 'Ingresá el número de teléfono (opcional):'}
+                        </p>
                         <input
+                            key={envioModalStep}
                             ref={envioInputRef}
-                            type="text"
-                            placeholder="Nombre del cliente"
-                            value={envioClientName}
-                            onChange={(e) => setEnvioClientName(e.target.value)}
+                            type={envioModalStep === 'phone' ? 'tel' : 'text'}
+                            inputMode={envioModalStep === 'phone' ? 'tel' : 'text'}
+                            placeholder={envioModalStep === 'name'
+                                ? 'Nombre del cliente'
+                                : envioModalStep === 'address'
+                                    ? 'Calle (opcional)'
+                                    : 'Número de teléfono (opcional)'}
+                            value={envioModalStep === 'name'
+                                ? envioClientName
+                                : envioModalStep === 'address'
+                                    ? envioClientAddress
+                                    : envioClientPhone}
+                            onChange={(e) => {
+                                if (envioModalStep === 'name') setEnvioClientName(e.target.value);
+                                else if (envioModalStep === 'address') setEnvioClientAddress(e.target.value);
+                                else setEnvioClientPhone(e.target.value);
+                            }}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && envioClientName.trim() !== '') {
+                                if (e.key === 'Enter') {
                                     e.stopPropagation();
                                     e.preventDefault();
-                                    handleConfirmSale();
+                                    advanceEnvioModal();
                                 }
-                                if (e.key === 'Escape') { setEnvioModalOpen(false); setEnvioClientName(''); }
+                                if (e.key === 'Escape') resetEnvioData();
                             }}
                         />
+                        {envioModalStep !== 'name' && (
+                            <p className="caja-venta-entry-hint">Presioná Enter sin escribir para dejar el valor por defecto.</p>
+                        )}
                         <div className="caja-venta-entry-actions">
                             <button
                                 className="caja-venta-entry-confirm"
-                                disabled={envioClientName.trim() === '' || processing}
-                                onClick={handleConfirmSale}
+                                disabled={(envioModalStep === 'name' && envioClientName.trim() === '') || processing}
+                                onClick={advanceEnvioModal}
                             >
-                                Confirmar
+                                {envioModalStep === 'phone' ? 'Confirmar pedido' : 'Continuar'}
                             </button>
                             <button
                                 className="caja-venta-entry-cancel"
-                                onClick={() => { setEnvioModalOpen(false); setEnvioClientName(''); setProcessing(false); }}
+                                onClick={() => { resetEnvioData(); setProcessing(false); }}
                             >
                                 Cancelar
                             </button>
