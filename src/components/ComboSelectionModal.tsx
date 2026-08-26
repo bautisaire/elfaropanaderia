@@ -14,11 +14,12 @@ interface ComboSelectionModalProps {
 export default function ComboSelectionModal({ product, isOpen, onClose, onAddToCart }: ComboSelectionModalProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const totalRequired = product.comboItemsCount || 0;
+  const isSingleChoice = totalRequired === 1;
 
   useEffect(() => {
     if (isOpen) {
       let initialQuantities: Record<string, number> = {};
-      if (product.comboOptions && product.comboOptions.length > 0 && totalRequired > 0) {
+      if (product.comboOptions && product.comboOptions.length > 0 && totalRequired > 0 && !isSingleChoice) {
         const availableOptions = product.comboOptions.filter(opt => !(opt as any).disabled);
         const optionsCount = availableOptions.length;
         
@@ -34,7 +35,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
       }
       setQuantities(initialQuantities);
     }
-  }, [isOpen, product.comboOptions, totalRequired]);
+  }, [isOpen, product.comboOptions, totalRequired, isSingleChoice]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -65,6 +66,10 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
     }
   };
 
+  const handleSingleChoice = (optionName: string) => {
+    setQuantities(prev => prev[optionName] ? {} : { [optionName]: 1 });
+  };
+
   const handleAdd = () => {
     if (isComplete) {
       const selectedItems = Object.entries(quantities)
@@ -84,7 +89,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         </button>
 
         <div className="combo-modal-header">
-          <h2>Armá tu {product.name}</h2>
+          <h2>{isSingleChoice ? 'Seleccioná' : 'Armá'} tu {product.name}</h2>
           <p className="combo-progress">
             Seleccionadas: <strong>{totalSelected}</strong> / {totalRequired}
           </p>
@@ -99,8 +104,14 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         <div className="combo-options-list">
           {product.comboOptions?.map((opt, idx) => {
             const isOptionDisabled = (opt as any).disabled;
+            const isSelected = isSingleChoice && quantities[opt.name] === 1;
+            const isBlockedBySelection = isSingleChoice && totalSelected === 1 && !isSelected;
             return (
-              <div key={idx} className="combo-option-item" style={{ opacity: isOptionDisabled ? 0.5 : 1 }}>
+              <div
+                key={idx}
+                className={`combo-option-item${isBlockedBySelection ? ' combo-option-item-blocked' : ''}`}
+                style={{ opacity: isOptionDisabled ? 0.5 : 1 }}
+              >
                 <div className="combo-option-img-wrapper">
                   {opt.image ? (
                     <img src={opt.image} alt={opt.name} />
@@ -113,25 +124,36 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
                     {opt.name} {isOptionDisabled && <span style={{ fontSize: '0.8em', color: '#ef4444', fontWeight: 'bold', marginLeft: '5px' }}>(Agotado)</span>}
                   </h3>
                 </div>
-                <div className="combo-option-controls">
+                {isSingleChoice ? (
                   <button 
                     type="button"
-                    className="combo-ctrl-btn" 
-                    onClick={() => handleDecrement(opt.name)}
-                    disabled={!quantities[opt.name] || isOptionDisabled}
+                    className={`combo-choose-btn${isSelected ? ' combo-choose-btn-selected' : ''}`}
+                    onClick={() => handleSingleChoice(opt.name)}
+                    disabled={isOptionDisabled || isBlockedBySelection}
                   >
-                    <FaMinus />
+                    {isSelected ? 'Quitar' : 'Elegir'}
                   </button>
-                  <span className="combo-qty">{quantities[opt.name] || 0}</span>
-                  <button 
-                    type="button"
-                    className="combo-ctrl-btn" 
-                    onClick={() => handleIncrement(opt.name)}
-                    disabled={totalSelected >= totalRequired || isOptionDisabled}
-                  >
-                    <FaPlus />
-                  </button>
-                </div>
+                ) : (
+                  <div className="combo-option-controls">
+                    <button 
+                      type="button"
+                      className="combo-ctrl-btn" 
+                      onClick={() => handleDecrement(opt.name)}
+                      disabled={!quantities[opt.name] || isOptionDisabled}
+                    >
+                      <FaMinus />
+                    </button>
+                    <span className="combo-qty">{quantities[opt.name] || 0}</span>
+                    <button 
+                      type="button"
+                      className="combo-ctrl-btn" 
+                      onClick={() => handleIncrement(opt.name)}
+                      disabled={totalSelected >= totalRequired || isOptionDisabled}
+                    >
+                      <FaPlus />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
