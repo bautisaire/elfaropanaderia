@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useMemo, useEffect, useCall
 import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 import ClosedModal from "../components/ClosedModal";
 import PickupOnlyModal from "../components/PickupOnlyModal";
 import {
@@ -162,7 +163,7 @@ export const CartProvider = ({ children }: Props) => {
       setCatalogLoading(false);
     }, 15000);
 
-    const unsub = onSnapshot(
+    const unsub = onFreshSnapshot(
       collection(db, "products"),
       (snapshot) => {
         clearTimeout(fallbackTimeout);
@@ -289,7 +290,7 @@ export const CartProvider = ({ children }: Props) => {
   // Fetch Store Status
   useEffect(() => {
     const docRef = doc(db, "config", "store_settings");
-    const unsub = onSnapshot(docRef, (docSnap) => {
+    const unsub = onFreshSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);

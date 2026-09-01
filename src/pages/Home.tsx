@@ -11,6 +11,7 @@ import { db, auth } from "../firebase/firebaseConfig";
 import { collection, doc, getDoc, increment, setDoc, updateDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { Product, useCart } from "../context/CartContext";
+import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 import { FaStoreSlash, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
@@ -209,7 +210,7 @@ export default function Home() {
 
   // Categorías (productos vienen en vivo desde CartContext)
   useEffect(() => {
-    const unsub = onSnapshot(
+    const unsub = onFreshSnapshot(
       collection(db, "categories"),
       (categoriesSnapshot) => {
         const orders: Record<string, number> = {};
