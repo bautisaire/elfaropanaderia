@@ -104,6 +104,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
     const [categories, setCategories] = useState<string[]>([]);
     const [formData, setFormData] = useState<FirestoreProduct>(INITIAL_STATE);
+    const [finalPriceDraft, setFinalPriceDraft] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -308,6 +309,29 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
         // Prevent value change on scroll
         e.currentTarget.blur();
+    };
+
+    // Lets the admin type the desired final (discounted) price directly —
+    // e.g. entering 6% off then correcting the result to a round $1400 —
+    // and back-computes the discount % needed to hit that price.
+    const handleFinalPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFinalPriceDraft(e.target.value);
+    };
+
+    const handleFinalPriceBlur = () => {
+        const value = finalPriceDraft;
+        setFinalPriceDraft(null);
+        if (value === null || value === "") return;
+
+        const precioNum = parseFloat(String(formData.precio));
+        const targetPrice = parseFloat(value);
+        if (isNaN(precioNum) || precioNum <= 0 || isNaN(targetPrice)) return;
+
+        const newDiscount = Math.max(0, Math.min(100, (1 - targetPrice / precioNum) * 100));
+        setFormData(prev => ({
+            ...prev,
+            discount: Math.round(newDiscount * 10000) / 10000
+        }));
     };
 
     const handleDependencyChange = (field: 'productId' | 'unitsToDeduct', value: any) => {
@@ -902,7 +926,30 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                         <div className="form-group quarter">
                                             <label>Descuento (%)</label>
-                                            <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" />
+                                            <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" step="0.01" />
+                                        </div>
+                                        <div className="form-group quarter">
+                                            <label>Precio con Descuento</label>
+                                            <div className="price-input-container">
+                                                <span className="currency-symbol">$</span>
+                                                <input
+                                                    type="number"
+                                                    name="finalPrice"
+                                                    placeholder="0"
+                                                    value={
+                                                        finalPriceDraft !== null
+                                                            ? finalPriceDraft
+                                                            : (formData.precio
+                                                                ? Math.round((parseFloat(String(formData.precio)) * (1 - (parseFloat(String(formData.discount)) || 0) / 100)) * 100) / 100
+                                                                : "")
+                                                    }
+                                                    onChange={handleFinalPriceChange}
+                                                    onBlur={handleFinalPriceBlur}
+                                                    onWheel={handleWheel}
+                                                    min="0"
+                                                    title="Escribí el precio final redondo (ej. 1400) y el % de descuento se ajusta solo."
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1409,7 +1456,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                 <div key={product.id} className="inventory-list-item">
                                     <div className="list-item-image">
                                         <img src={product.img || product.images?.[0]} alt={product.nombre} className={product.isVisible === false ? "opacity-50" : ""} />
-                                        {product.discount ? <span className="badge-discount">-{product.discount}%</span> : null}
+                                        {product.discount ? <span className="badge-discount">-{Math.round(product.discount * 100) / 100}%</span> : null}
                                         <div style={{ position: 'absolute', top: '2px', left: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                             {product.isVisible === false && <span className="badge-hidden"><FaEyeSlash /></span>}
                                             {product.isHiddenInPOS && <span className="badge-hidden" style={{ background: '#d97706' }}><FaEyeSlash /></span>}

@@ -71,16 +71,20 @@ export default function Dashboard() {
         totalEfectivo: 0,
         totalTransferencia: 0,
         totalDebito: 0,
+        totalQr: 0,
         // Category Breakdown
         despensaEfectivo: 0,
         despensaTransferencia: 0,
         despensaDebito: 0,
+        despensaQr: 0,
         publicoEfectivo: 0,
         publicoTransferencia: 0,
         publicoDebito: 0,
+        publicoQr: 0,
         deliveryEfectivo: 0,
         deliveryTransferencia: 0,
         deliveryDebito: 0,
+        deliveryQr: 0,
         visitsBySource: {} as Record<string, number>,
     });
 
@@ -368,15 +372,19 @@ export default function Dashboard() {
         let totalEfectivo = 0;
         let totalTransferencia = 0;
         let totalDebito = 0;
+        let totalQr = 0;
         let despensaEfectivo = 0;
         let despensaTransferencia = 0;
         let despensaDebito = 0;
+        let despensaQr = 0;
         let publicoEfectivo = 0;
         let publicoTransferencia = 0;
         let publicoDebito = 0;
+        let publicoQr = 0;
         let deliveryEfectivo = 0;
         let deliveryTransferencia = 0;
         let deliveryDebito = 0;
+        let deliveryQr = 0;
 
         const productMap = new Map<string, ProductSale>();
 
@@ -418,6 +426,8 @@ export default function Dashboard() {
                 totalEfectivo += amount;
             } else if (pm.includes('transferencia')) {
                 totalTransferencia += amount;
+            } else if (pm.includes('qr')) {
+                totalQr += amount;
             } else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) {
                 totalDebito += amount;
             }
@@ -428,18 +438,21 @@ export default function Dashboard() {
                 despensaCount++;
                 if (pm.includes('efectivo')) despensaEfectivo += amount;
                 else if (pm.includes('transferencia')) despensaTransferencia += amount;
+                else if (pm.includes('qr')) despensaQr += amount;
                 else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) despensaDebito += amount;
             } else if (order.source === 'pos_public' || order.source === 'pos') {
                 publico += amount;
                 publicoCount++;
                 if (pm.includes('efectivo')) publicoEfectivo += amount;
                 else if (pm.includes('transferencia')) publicoTransferencia += amount;
+                else if (pm.includes('qr')) publicoQr += amount;
                 else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) publicoDebito += amount;
             } else {
                 delivery += amount;
                 deliveryCount++;
                 if (pm.includes('efectivo')) deliveryEfectivo += amount;
                 else if (pm.includes('transferencia')) deliveryTransferencia += amount;
+                else if (pm.includes('qr')) deliveryQr += amount;
                 else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) deliveryDebito += amount;
             }
 
@@ -662,15 +675,19 @@ export default function Dashboard() {
             totalEfectivo,
             totalTransferencia,
             totalDebito,
+            totalQr,
             despensaEfectivo,
             despensaTransferencia,
             despensaDebito,
+            despensaQr,
             publicoEfectivo,
             publicoTransferencia,
             publicoDebito,
+            publicoQr,
             deliveryEfectivo,
             deliveryTransferencia,
             deliveryDebito,
+            deliveryQr,
             totalSueldosPendientes: pendientes
         }));
 
@@ -961,6 +978,10 @@ export default function Dashboard() {
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
                                             <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.totalDebito)}</strong>
                                         </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#6d28d9', fontWeight: 500 }}>QR:</span>
+                                            <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>{renderAmount(stats.totalQr)}</strong>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1055,6 +1076,10 @@ export default function Dashboard() {
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
                                             <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.despensaDebito)}</strong>
                                         </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#6d28d9', fontWeight: 500 }}>QR:</span>
+                                            <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>{renderAmount(stats.despensaQr)}</strong>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1099,6 +1124,10 @@ export default function Dashboard() {
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
                                             <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.publicoDebito)}</strong>
                                         </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#6d28d9', fontWeight: 500 }}>QR:</span>
+                                            <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>{renderAmount(stats.publicoQr)}</strong>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1142,6 +1171,10 @@ export default function Dashboard() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#b91c1c', fontWeight: 500 }}>Débito:</span>
                                             <strong style={{ color: '#7f1d1d', fontSize: '1rem' }}>{renderAmount(stats.deliveryDebito)}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '6px 10px', borderRadius: '6px' }}>
+                                            <span style={{ color: '#6d28d9', fontWeight: 500 }}>QR:</span>
+                                            <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>{renderAmount(stats.deliveryQr)}</strong>
                                         </div>
                                     </div>
                                 )}

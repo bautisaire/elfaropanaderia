@@ -232,7 +232,7 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
           if (hasDiscount && !isOutOfStock) {
             return (
               <div className="discount-badge">
-                -{product.discount}% OFF
+                -{Math.round(product.discount || 0)}% OFF
               </div>
             );
           }

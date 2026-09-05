@@ -278,6 +278,15 @@
     margin-top: 2px;
 }
 
+.caja-venta-adjustments-row {
+    display: flex;
+    gap: 12px;
+}
+
+.caja-venta-adjustments-row .caja-venta-discount-box {
+    flex: 1 1 0;
+}
+
 .caja-venta-discount-box {
     background: #fff;
     border: 1px solid #e2e8f0;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, runTransaction, onSnapshot } from 'firebase/firestore';
-import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen, FaQrcode } from 'react-icons/fa';
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
@@ -57,9 +57,9 @@ interface CajaVentaProps {
     onSaleComplete: (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string; itemCount: number }) => void;
 }
 
-type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia';
+type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia' | 'QR';
 
-const PAYMENT_METHODS_ORDER: PaymentMethod[] = ['Efectivo', 'Débito', 'Transferencia'];
+const PAYMENT_METHODS_ORDER: PaymentMethod[] = ['Efectivo', 'Débito', 'Transferencia', 'QR'];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -69,11 +69,12 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartRow[]>([]);
-    const [enabledMethods, setEnabledMethods] = useState<Record<PaymentMethod, boolean>>({ Efectivo: true, 'Débito': false, Transferencia: false });
-    const [paymentAmounts, setPaymentAmounts] = useState<Record<PaymentMethod, string>>({ Efectivo: '', 'Débito': '', Transferencia: '' });
+    const [enabledMethods, setEnabledMethods] = useState<Record<PaymentMethod, boolean>>({ Efectivo: true, 'Débito': false, Transferencia: false, QR: false });
+    const [paymentAmounts, setPaymentAmounts] = useState<Record<PaymentMethod, string>>({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '' });
     const [combinePayments, setCombinePayments] = useState(false);
-    const paymentInputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>({ Efectivo: null, 'Débito': null, Transferencia: null });
+    const paymentInputRefs = useRef<Record<PaymentMethod, HTMLInputElement | null>>({ Efectivo: null, 'Débito': null, Transferencia: null, QR: null });
     const [discountPercentInput, setDiscountPercentInput] = useState('');
+    const [surchargePercentInput, setSurchargePercentInput] = useState('');
     const [totalInput, setTotalInput] = useState('');
     const [processing, setProcessing] = useState(false);
     const [lastSale, setLastSale] = useState<{ time: Date; itemCount: number; amount: number } | null>(null);
@@ -511,31 +512,66 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         return isNaN(t) ? 0 : round2(Math.max(0, t));
     }, [totalInput]);
 
-    const discountAmount = useMemo(() => round2(subtotal - total), [subtotal, total]);
+    // % Descuento y % Recargo son independientes pero se combinan sobre el mismo subtotal:
+    // total = subtotal * (1 - descuento% + recargo%). Los montos/porcentajes efectivos que se
+    // muestran y guardan se derivan del total resultante (nunca negativos, mutuamente excluyentes).
+    const discountAmount = useMemo(() => round2(Math.max(0, subtotal - total)), [subtotal, total]);
 
     const discountPct = useMemo(() => {
         if (subtotal <= 0) return 0;
         return round2((discountAmount / subtotal) * 100);
     }, [subtotal, discountAmount]);
 
+    const surchargeAmount = useMemo(() => round2(Math.max(0, total - subtotal)), [subtotal, total]);
+
+    const surchargePct = useMemo(() => {
+        if (subtotal <= 0) return 0;
+        return round2((surchargeAmount / subtotal) * 100);
+    }, [subtotal, surchargeAmount]);
+
+    const recalcTotalFromPercents = (discountValue: string, surchargeValue: string) => {
+        const discPct = Math.min(100, Math.max(0, parseFloat(discountValue) || 0));
+        const surPct = Math.max(0, parseFloat(surchargeValue) || 0);
+        setTotalInput(subtotal > 0 ? String(round2(subtotal * (1 - discPct / 100 + surPct / 100))) : '');
+    };
+
     const handleDiscountPercentChange = (value: string) => {
         setDiscountPercentInput(value);
-        const pct = Math.min(100, Math.max(0, parseFloat(value) || 0));
-        setTotalInput(subtotal > 0 ? String(round2(subtotal * (1 - pct / 100))) : '');
+        recalcTotalFromPercents(value, surchargePercentInput);
+    };
+
+    const handleSurchargePercentChange = (value: string) => {
+        setSurchargePercentInput(value);
+        recalcTotalFromPercents(discountPercentInput, value);
     };
 
     const handleTotalInputChange = (value: string) => {
         setTotalInput(value);
         const newTotal = parseFloat(value) || 0;
-        const pct = subtotal > 0 ? round2(Math.min(100, Math.max(0, ((subtotal - newTotal) / subtotal) * 100))) : 0;
-        setDiscountPercentInput(pct > 0 ? String(pct) : '');
+        if (subtotal <= 0) {
+            setDiscountPercentInput('');
+            setSurchargePercentInput('');
+            return;
+        }
+        const diff = newTotal - subtotal;
+        if (diff < 0) {
+            const pct = round2(Math.min(100, (-diff / subtotal) * 100));
+            setDiscountPercentInput(pct > 0 ? String(pct) : '');
+            setSurchargePercentInput('');
+        } else if (diff > 0) {
+            const pct = round2((diff / subtotal) * 100);
+            setSurchargePercentInput(pct > 0 ? String(pct) : '');
+            setDiscountPercentInput('');
+        } else {
+            setDiscountPercentInput('');
+            setSurchargePercentInput('');
+        }
     };
 
-    // Keep the total synced to the cart's subtotal (via the current discount %) whenever
+    // Keep the total synced to the cart's subtotal (via the current discount/recargo %) whenever
     // the cart itself changes, so adding/removing products doesn't leave a stale total.
     useEffect(() => {
-        const pct = Math.min(100, Math.max(0, parseFloat(discountPercentInput) || 0));
-        setTotalInput(subtotal > 0 ? String(round2(subtotal * (1 - pct / 100))) : '');
+        recalcTotalFromPercents(discountPercentInput, surchargePercentInput);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [subtotal]);
 
@@ -556,8 +592,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             const enabledList = PAYMENT_METHODS_ORDER.filter(m => prev[m]);
             if (enabledList.length <= 1) return prev;
             const keep = enabledList[0];
-            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', [keep]: total > 0 ? String(total) : '' });
-            return { Efectivo: false, 'Débito': false, Transferencia: false, [keep]: true };
+            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [keep]: total > 0 ? String(total) : '' });
+            return { Efectivo: false, 'Débito': false, Transferencia: false, QR: false, [keep]: true };
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [combinePayments]);
@@ -575,8 +611,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             // Turning it on, single-select mode (default): switch away from whatever was
             // active and hand the full amount to the newly selected method.
             if (!combinePayments) {
-                setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', [method]: total > 0 ? String(total) : '' });
-                return { Efectivo: false, 'Débito': false, Transferencia: false, [method]: true };
+                setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [method]: total > 0 ? String(total) : '' });
+                return { Efectivo: false, 'Débito': false, Transferencia: false, QR: false, [method]: true };
             }
 
             // Turning it on, combine mode: add alongside whatever's already enabled,
@@ -830,6 +866,8 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     subtotal,
                     discountPercent: discountPct,
                     discountAmount,
+                    surchargePercent: surchargePct,
+                    surchargeAmount,
                     payments: paymentBreakdown,
                     cliente: {
                         nombre: isDeliveryOrder ? (envioClientName.trim() || 'Cliente') : 'Cliente Local',
@@ -920,9 +958,10 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             setLastSale({ time: new Date(), itemCount: cart.length, amount: total });
             setCart([]);
             setDiscountPercentInput('');
+            setSurchargePercentInput('');
             setTotalInput('');
-            setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false });
-            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '' });
+            setEnabledMethods({ Efectivo: true, 'Débito': false, Transferencia: false, QR: false });
+            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '' });
             setCombinePayments(false);
             resetEnvioData();
         } catch (error) {
@@ -979,6 +1018,9 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             } else if (e.key === 'd' || e.key === 'D') {
                 e.preventDefault();
                 activatePaymentMethod('Débito');
+            } else if (e.key === 'q' || e.key === 'Q') {
+                e.preventDefault();
+                activatePaymentMethod('QR');
             } else if (e.key === ' ') {
                 e.preventDefault();
                 setIsAddModalOpen(true);
@@ -1064,26 +1106,41 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                             </div>
                             <span className="caja-venta-total-label">Importe</span>
                         </div>
-                        {discountPct > 0 && (
+                        {(discountPct > 0 || surchargePct > 0) && (
                             <div className="caja-venta-total-sub">
                                 <span className="caja-venta-total-sub-value">${subtotal.toLocaleString('es-AR')}</span>
-                                <span className="caja-venta-total-sub-label">Importe sin descuento</span>
+                                <span className="caja-venta-total-sub-label">{surchargePct > 0 ? 'Importe sin recargo' : 'Importe sin descuento'}</span>
                             </div>
                         )}
                     </div>
 
-                    <div className="caja-venta-discount-box">
-                        <label htmlFor="caja-venta-discount-input">% Descuento</label>
-                        <input
-                            id="caja-venta-discount-input"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                            placeholder="0"
-                            value={discountPercentInput}
-                            onChange={(e) => handleDiscountPercentChange(e.target.value)}
-                        />
+                    <div className="caja-venta-adjustments-row">
+                        <div className="caja-venta-discount-box">
+                            <label htmlFor="caja-venta-discount-input">% Descuento</label>
+                            <input
+                                id="caja-venta-discount-input"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                placeholder="0"
+                                value={discountPercentInput}
+                                onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="caja-venta-discount-box">
+                            <label htmlFor="caja-venta-surcharge-input">% Recargo</label>
+                            <input
+                                id="caja-venta-surcharge-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                                value={surchargePercentInput}
+                                onChange={(e) => handleSurchargePercentChange(e.target.value)}
+                            />
+                        </div>
                     </div>
 
                     <label className="caja-venta-combine-toggle">
@@ -1096,7 +1153,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     </label>
 
                     <div className="caja-venta-payment-methods">
-                        {(['Efectivo', 'Débito', 'Transferencia'] as PaymentMethod[]).map(pm => (
+                        {(['Efectivo', 'Débito', 'Transferencia', 'QR'] as PaymentMethod[]).map(pm => (
                             <div key={pm} className={`caja-venta-payment-row ${enabledMethods[pm] ? 'active' : ''}`}>
                                 <button
                                     type="button"
@@ -1106,6 +1163,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                                     {pm === 'Efectivo' && <FaMoneyBillWave />}
                                     {pm === 'Débito' && <FaCreditCard />}
                                     {pm === 'Transferencia' && <FaExchangeAlt />}
+                                    {pm === 'QR' && <FaQrcode />}
                                     {pm}
                                 </button>
                                 {enabledMethods[pm] && (

@@ -145,7 +145,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                 />
 
                 {hasDiscount && !isOutOfStock && (
-                    <div className="pd-discount-badge">-{liveProduct.discount}% OFF</div>
+                    <div className="pd-discount-badge">-{Math.round(liveProduct.discount || 0)}% OFF</div>
                 )}
 
                 <button className="pd-back-btn" onClick={onClose} aria-label="Volver">

@@ -171,7 +171,7 @@ export default function ProductImageEditor({
 
                     {hasDiscount && (
                       <div className="discount-badge">
-                        -{productDiscount}% OFF
+                        -{Math.round(productDiscount || 0)}% OFF
                       </div>
                     )}
                   </div>
