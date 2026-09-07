@@ -5,11 +5,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
 import NotesManager from "./NotesManager";
+import { normalizeForSearch } from "../utils/textSearch";
 
 registerLocale('es', es);
 
@@ -25,8 +26,9 @@ interface ProductSale {
 }
 
 export default function Dashboard() {
-    const { adminPermissions } = useCart();
+    const { adminPermissions, catalogProducts } = useCart();
     const [showNotes, setShowNotes] = useState(false);
+    const [stockListCopied, setStockListCopied] = useState(false);
     const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
     const [customRange, setCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
@@ -791,6 +793,45 @@ export default function Dashboard() {
         }
     };
 
+    const isProductInStock = (p: typeof catalogProducts[number]) => {
+        if (p.variants && p.variants.length > 0) {
+            return p.variants.some(v => v.stockQuantity !== undefined ? v.stockQuantity > 0 : v.stock);
+        }
+        return p.stockQuantity !== undefined ? p.stockQuantity > 0 : p.stock !== false;
+    };
+
+    const handleCopyStockList = () => {
+        const visibleIds = new Set(catalogProducts.map(p => String(p.id)));
+
+        const isDrink = (p: typeof catalogProducts[number]) =>
+            normalizeForSearch(p.categoria || '').trim() === 'heladera';
+
+        // Un producto "hijo" (con stockDependency) se omite porque ya lo representa su padre en la lista,
+        // salvo que el padre no esté visible en el home (ahí el hijo es la única forma de mostrarlo).
+        const isChildOfVisibleParent = (p: typeof catalogProducts[number]) => {
+            const parentId = p.stockDependency?.productId;
+            if (!parentId) return false;
+            return visibleIds.has(String(parentId));
+        };
+
+        const lines = catalogProducts
+            .filter(p => isProductInStock(p) && !isDrink(p) && !isChildOfVisibleParent(p))
+            .map(p => {
+                const hasDiscount = (p.discount || 0) > 0;
+                const finalPrice = hasDiscount ? p.price * (1 - (p.discount! / 100)) : p.price;
+                return { name: p.name, price: Math.round(finalPrice) };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+            .map(p => `${p.name} - $${p.price.toLocaleString('es-AR')}`);
+
+        const text = lines.join('\n');
+
+        navigator.clipboard.writeText(text).then(() => {
+            setStockListCopied(true);
+            setTimeout(() => setStockListCopied(false), 2000);
+        });
+    };
+
 
     if (loading) return <div className="dashboard-loading">Cargando estadísticas...</div>;
 
@@ -1459,6 +1500,29 @@ export default function Dashboard() {
                         </table>
                     )}
                 </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                <button
+                    onClick={handleCopyStockList}
+                    style={{
+                        background: stockListCopied ? '#10b981' : '#374151',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        fontSize: '0.95rem'
+                    }}
+                    title="Copia una lista de los productos visibles y con stock, para enviar a clientes"
+                >
+                    {stockListCopied ? <FaCheck size={16} /> : <FaClipboardList size={16} />}
+                    {stockListCopied ? 'Copiado' : 'Copiar productos en stock'}
+                </button>
             </div>
 
         </div >
