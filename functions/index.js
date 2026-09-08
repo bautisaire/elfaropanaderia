@@ -195,6 +195,7 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             // 1. Gather product docs
             const productIdsToRead = new Set();
             cart.forEach(item => {
+                if (item.isRaffleTicket) return;
                 productIdsToRead.add(getBaseId(item));
             });
 
@@ -227,6 +228,12 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             });
 
             const activeRaffleId = !rafflesSnap.empty ? rafflesSnap.docs[0].id : null;
+            const activeRaffleData = !rafflesSnap.empty ? rafflesSnap.docs[0].data() : null;
+            const raffleIsPaid = activeRaffleData?.isPaid === true;
+            // Sorteo pago: solo suman chance los boletos comprados en este pedido, no cualquier compra.
+            const raffleTicketQuantity = cart
+                .filter(item => item.isRaffleTicket && (!activeRaffleId || item.raffleId === activeRaffleId))
+                .reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
             const parentIdsArr = Array.from(parentIdsToFetch);
 
             // Round 2: fetch parent products & the raffle participant (both now known), in parallel
@@ -248,25 +255,49 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             let raffleParticipantWrite = null;
             let raffleParticipantUpdate = null;
             if (activeRaffleId) {
-                if (partsSnap.empty) {
-                    raffleParticipantWrite = {
-                        ref: db.collection(`raffles/${activeRaffleId}/participants`).doc(),
-                        data: {
-                            name: formData.nombre || 'Cliente Web',
-                            phoneOrEmail: identifier,
-                            date: new Date(),
-                            chances: 1
-                        }
-                    };
-                } else {
-                    const existingPartDoc = partsSnap.docs[0];
-                    const existingChances = existingPartDoc.data().chances || 1;
-                    raffleParticipantUpdate = {
-                        ref: existingPartDoc.ref,
-                        data: {
-                            chances: existingChances + 1,
-                            date: new Date()
-                        }
+                // Sorteo gratuito (comportamiento histórico): cualquier pedido suma 1 chance.
+                // Sorteo pago: solo suma si el pedido incluye boletos comprados.
+                const chancesToAdd = raffleIsPaid ? raffleTicketQuantity : 1;
+                if (chancesToAdd > 0) {
+                    if (partsSnap.empty) {
+                        raffleParticipantWrite = {
+                            ref: db.collection(`raffles/${activeRaffleId}/participants`).doc(),
+                            data: {
+                                name: formData.nombre || 'Cliente Web',
+                                phoneOrEmail: identifier,
+                                date: new Date(),
+                                chances: chancesToAdd
+                            }
+                        };
+                    } else {
+                        const existingPartDoc = partsSnap.docs[0];
+                        const existingChances = existingPartDoc.data().chances || 1;
+                        raffleParticipantUpdate = {
+                            ref: existingPartDoc.ref,
+                            data: {
+                                chances: existingChances + chancesToAdd,
+                                date: new Date()
+                            }
+                        };
+                    }
+                }
+            }
+
+            // Info para el resumen que se le manda al cliente: si ya es participante del
+            // sorteo activo (con chances de antes, de este pedido, o de ambos), se guarda
+            // en el pedido para poder avisarle aunque este pedido en particular no haya
+            // incluido la compra de un boleto.
+            let raffleParticipationInfo = null;
+            if (activeRaffleId) {
+                const chancesToAdd = raffleIsPaid ? raffleTicketQuantity : 1;
+                const existingChances = !partsSnap.empty ? (partsSnap.docs[0].data().chances || 0) : 0;
+                const totalChances = existingChances + chancesToAdd;
+                if (totalChances > 0) {
+                    raffleParticipationInfo = {
+                        raffleId: activeRaffleId,
+                        raffleTitle: activeRaffleData?.title || 'Sorteo',
+                        chancesAddedThisOrder: chancesToAdd,
+                        totalChances
                     };
                 }
             }
@@ -277,6 +308,8 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
 
             // 2. Validate & Deduct Stock
             for (const item of cart) {
+                if (item.isRaffleTicket) continue;
+
                 const baseId = getBaseId(item);
                 const productData = productDocsMap[baseId];
                 if (!productData) throw new HttpsError("failed-precondition", `Producto no encontrado: ${item.name}`);
@@ -528,7 +561,8 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
                 status: formData.metodoPago === 'mercadopago' ? "pending_payment" : "pending",
                 paymentMethod: formData.metodoPago,
                 userId: userId || null,
-                ...(isTestOrder ? { isTestOrder: true } : {})
+                ...(isTestOrder ? { isTestOrder: true } : {}),
+                ...(raffleParticipationInfo ? { raffleParticipation: raffleParticipationInfo } : {})
             };
             transaction.set(orderRef, newOrderData);
 

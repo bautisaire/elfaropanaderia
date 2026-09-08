@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingCart, FaEdit } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingCart, FaEdit, FaTicketAlt } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import "./CartSidebar.css";
@@ -18,6 +18,8 @@ export default function CartSidebar() {
         isSuperAdmin,
         adminPermissions,
         updateCartItemPrice,
+        cartHasOnlyRaffleTickets,
+        requireProductWithTicket,
     } = useContext(CartContext);
     const navigate = useNavigate();
 
@@ -44,6 +46,10 @@ export default function CartSidebar() {
     };
 
     const handleCheckout = () => {
+        if (cartHasOnlyRaffleTickets) {
+            requireProductWithTicket();
+            return;
+        }
         setIsSidebarOpen(false);
         navigate("/checkout");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -93,7 +99,13 @@ export default function CartSidebar() {
                     ) : (
                         cart.map((item) => (
                             <div key={`${item.id}-${item.selectedVariant || 'base'}`} className="sidebar-item">
-                                <img src={getImage(item)} alt={item.name} className="sidebar-item-img" />
+                                {item.isRaffleTicket ? (
+                                    <div className="sidebar-item-img sidebar-item-ticket-icon">
+                                        <FaTicketAlt size={28} />
+                                    </div>
+                                ) : (
+                                    <img src={getImage(item)} alt={item.name} className="sidebar-item-img" />
+                                )}
 
                                 <div className="sidebar-item-details">
                                     <h4 className="sidebar-item-title">

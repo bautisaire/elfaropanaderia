@@ -6,6 +6,11 @@ import "./ProductCard.css";
 import "./ProductImageEditor.css";
 
 
+// Zoom mínimo por debajo de 1 para poder alejar y ver la foto completa (a costa de
+// dejar ver el fondo del editor en los bordes si no llega a cubrir el recuadro).
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 3;
+
 interface ProductImageEditorProps {
   imageFile: File;
   productName?: string;
@@ -124,13 +129,28 @@ export default function ProductImageEditor({
 
         <div className="pie-content">
           <div className="pie-editor-panel">
-            <div className="pie-crop-container">
+            {/* El contenedor necesita la misma proporción que aspectRatio para que el
+                cuadro de recorte llene todo el panel (si no, queda chico y centrado
+                con espacio muerto alrededor). objectFit="cover" hace que la imagen
+                tape ese cuadro al abrir el editor (en vez de "contain", que la
+                mostraba completa pero chica, con franjas negras). El zoom mínimo baja
+                de 1 a 0.3 y restrictPosition=false para poder alejar y ver la foto
+                completa cuando hace falta (ej: fotos verticales en un banner ancho
+                2:1) — sin restrictPosition=false, react-easy-crop recorta el pedido
+                de zoom<1 al tamaño de la imagen real y el resultado final no
+                coincidía con lo que se veía en pantalla. getCroppedImageBlob rellena
+                de blanco el sobrante que quede fuera de la foto. */}
+            <div className="pie-crop-container" style={{ aspectRatio }}>
               {imageSrc && (
                 <Cropper
                   image={imageSrc}
                   crop={crop}
                   zoom={zoom}
+                  minZoom={MIN_ZOOM}
+                  maxZoom={MAX_ZOOM}
                   aspect={aspectRatio}
+                  objectFit="cover"
+                  restrictPosition={false}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onCropComplete={onCropComplete}
@@ -143,8 +163,8 @@ export default function ProductImageEditor({
               <input
                 id="pie-zoom"
                 type="range"
-                min={1}
-                max={3}
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
                 step={0.05}
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}

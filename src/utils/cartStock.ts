@@ -256,6 +256,9 @@ export function getCartItemMaxQuantity(
     item: Product,
     catalog: Record<string, Product>
 ): number {
+    // Los boletos de sorteo pago no son productos del catálogo (no tienen stock real).
+    if (item.isRaffleTicket) return 20;
+
     const catalogIds = Object.keys(catalog);
     const { baseId, variant } = resolveCartItemBaseAndVariant(item, catalogIds);
     return getAvailableStock(catalog[baseId], variant, catalog);

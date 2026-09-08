@@ -12,7 +12,7 @@ import OrderProcessingOverlay from "../components/OrderProcessingOverlay";
 import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function Checkout() {
-  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, getCatalogProduct } = useContext(CartContext);
+  const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, getCatalogProduct, cartHasOnlyRaffleTickets, requireProductWithTicket } = useContext(CartContext);
 
   useEffect(() => {
     document.body.classList.add('svg-background');
@@ -421,6 +421,12 @@ export default function Checkout() {
   }, [cartTotal, shippingCost, deliveryMethod, pickupDiscountPercentage]);
 
   const handleProcederAlPago = async () => {
+    // 0. El boleto del sorteo no se puede comprar solo, necesita ir con algún producto.
+    if (cartHasOnlyRaffleTickets) {
+      requireProductWithTicket();
+      return;
+    }
+
     // 0. Validar Compra Mínima
     // 0. Validar Compra Mínima (Admins Bypass)
     if (!isAdmin && minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
@@ -449,6 +455,13 @@ export default function Checkout() {
     e.preventDefault();
     if (!validateForm()) return;
     if (isSubmitting) return;
+
+    // 0. El boleto del sorteo no se puede comprar solo, necesita ir con algún producto.
+    if (cartHasOnlyRaffleTickets) {
+      requireProductWithTicket();
+      setShowCheckout(false);
+      return;
+    }
 
     setIsSubmitting(true);
 

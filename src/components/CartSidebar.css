@@ -140,6 +140,14 @@
     flex-shrink: 0;
 }
 
+.sidebar-item-ticket-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #b45309;
+    background-color: #fef3c7;
+}
+
 .sidebar-item-details {
     flex: 1;
     display: flex;

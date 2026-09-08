@@ -72,6 +72,13 @@ export async function getCroppedImageBlob(
     canvas.width = Math.round(pixelCrop.width * scale);
     canvas.height = Math.round(pixelCrop.height * scale);
 
+    // Si el recorte pedido (con zoom alejado, restrictPosition=false) queda más
+    // grande que la foto real, drawImage solo pinta la parte que se superpone con
+    // la imagen y deja el resto del canvas tal cual — por eso lo rellenamos antes,
+    // para que ese borde salga blanco en vez de transparente/negro.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.drawImage(
         image,
         pixelCrop.x,

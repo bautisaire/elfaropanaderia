@@ -63,6 +63,8 @@ export default function Home() {
     catalogLoading: loading,
     getCatalogProduct,
     user,
+    addToCart,
+    setIsSidebarOpen,
   } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
@@ -194,8 +196,16 @@ export default function Home() {
     }
   };
 
+  const isPaidRaffle = !!activeRaffle?.isPaid;
+
   const handleOpenRaffleModal = () => {
     if (!activeRaffle) return;
+    if (isPaidRaffle) {
+      // Sorteo pago: siempre se puede comprar otro boleto, no hay estado "desbloqueado".
+      setRaffleModalStep(1);
+      setShowRaffleModal(true);
+      return;
+    }
     const isUnlocked = localStorage.getItem(`raffle_unlocked_${activeRaffle.id}`) || dbParticipated;
     if (isUnlocked) {
       setShowRaffleInfoModal(true);
@@ -406,6 +416,19 @@ export default function Home() {
 
                   <button
                     onClick={() => {
+                      if (isPaidRaffle) {
+                        addToCart({
+                          id: `raffle-ticket-${activeRaffle.id}`,
+                          name: `Boleto - ${activeRaffle.title || 'Sorteo'}`,
+                          price: Number(activeRaffle.ticketPrice) || 0,
+                          image: '',
+                          isRaffleTicket: true,
+                          raffleId: activeRaffle.id,
+                        });
+                        setShowRaffleModal(false);
+                        setIsSidebarOpen(true);
+                        return;
+                      }
                       sessionStorage.setItem(`raffle_step1_done_${activeRaffle.id}`, 'true');
                       localStorage.setItem(`raffle_intent_${activeRaffle.id}`, 'true');
                       setRaffleModalStep(2);
@@ -424,7 +447,7 @@ export default function Home() {
                       boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
                     }}
                   >
-                    Participar!
+                    {isPaidRaffle ? `Participar ($${Number(activeRaffle.ticketPrice) || 0})` : 'Participar!'}
                   </button>
                 </>
               ) : (

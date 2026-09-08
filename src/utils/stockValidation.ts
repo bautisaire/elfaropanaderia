@@ -54,7 +54,7 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
     }
 
     // 1. Fetch all base product docs in parallel (instead of one-by-one per cart item)
-    const uniqueBaseIds = Array.from(new Set(cart.map(getBaseId)));
+    const uniqueBaseIds = Array.from(new Set(cart.filter(item => !item.isRaffleTicket).map(getBaseId)));
     const baseSnaps = await Promise.allSettled(
         uniqueBaseIds.map(id => getDoc(doc(db, "products", id)))
     );
@@ -82,6 +82,8 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
     });
 
     for (const item of cart) {
+        if (item.isRaffleTicket) continue;
+
         const baseId = getBaseId(item);
         const isVariant = item.variant || (item.name && item.name.includes('('));
         const data = baseDataMap.get(baseId);

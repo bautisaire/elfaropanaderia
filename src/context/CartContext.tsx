@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore"
 import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 import ClosedModal from "../components/ClosedModal";
 import PickupOnlyModal from "../components/PickupOnlyModal";
+import TicketOnlyModal from "../components/TicketOnlyModal";
 import {
   mapFirestoreProduct,
   applyDerivedStockToCatalog,
@@ -49,6 +50,8 @@ export interface Product {
   comboOptions?: { name: string; image?: string }[];
   selectedComboItems?: { name: string; quantity: number }[];
   createdAt?: string;
+  isRaffleTicket?: boolean;
+  raffleId?: string;
 }
 
 interface CartContextType {
@@ -87,6 +90,8 @@ interface CartContextType {
   favorites: string[];
   isFavorite: (productId: string | number) => boolean;
   toggleFavorite: (productId: string | number) => void;
+  cartHasOnlyRaffleTickets: boolean;
+  requireProductWithTicket: () => void;
 }
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
@@ -127,6 +132,8 @@ export const CartContext = createContext<CartContextType>({
   favorites: [],
   isFavorite: () => false,
   toggleFavorite: () => { },
+  cartHasOnlyRaffleTickets: false,
+  requireProductWithTicket: () => { },
 });
 
 interface Props {
@@ -153,6 +160,7 @@ export const CartProvider = ({ children }: Props) => {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const productsCatalogRef = useRef<Record<string, Product>>({});
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [showTicketOnlyModal, setShowTicketOnlyModal] = useState(false);
 
   const dismissStoreClosed = () => setIsStoreClosedDismissed(true);
   const dismissPickupOnly = () => setIsPickupOnlyDismissed(true);
@@ -286,6 +294,19 @@ export const CartProvider = ({ children }: Props) => {
     () => Math.round(cartItems.reduce((acc, it) => acc + (it.quantity ?? 1) * (it.price ?? 0), 0) * 100) / 100,
     [cartItems]
   );
+  // Los boletos de sorteo no se pueden comprar solos: siempre tienen que ir
+  // acompañados de al menos un producto real (el pedido de delivery/retiro).
+  const cartHasOnlyRaffleTickets = useMemo(
+    () => cartItems.length > 0 && cartItems.every((it) => it.isRaffleTicket),
+    [cartItems]
+  );
+
+  const requireProductWithTicket = useCallback(() => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(200);
+    }
+    setShowTicketOnlyModal(true);
+  }, []);
 
   // Fetch Store Status
   useEffect(() => {
@@ -437,6 +458,26 @@ export const CartProvider = ({ children }: Props) => {
       return;
     }
 
+    // Boletos de sorteo pago: no existen en el catálogo de productos, así que
+    // se agregan directo sin pasar por las validaciones de stock.
+    if (product.isRaffleTicket) {
+      const MAX_TICKETS = 20;
+      const exists = cartItems.find((item) => item.id === product.id);
+      if (exists) {
+        const currentQty = exists.quantity || 1;
+        if (currentQty >= MAX_TICKETS) return;
+        setCartItems(
+          cartItems.map((item) =>
+            item.id === product.id ? { ...item, quantity: currentQty + 1 } : item
+          )
+        );
+      } else {
+        setCartItems([...cartItems, { ...product, quantity: 1 }]);
+      }
+      setShowBottomModal(true);
+      return;
+    }
+
     const catalog = productsCatalogRef.current;
     const catalogIds = Object.keys(catalog);
     const { baseId, variant } = product.baseProductId != null
@@ -557,6 +598,8 @@ export const CartProvider = ({ children }: Props) => {
         favorites,
         isFavorite,
         toggleFavorite,
+        cartHasOnlyRaffleTickets,
+        requireProductWithTicket,
       }}
     >
       {children}
@@ -572,6 +615,11 @@ export const CartProvider = ({ children }: Props) => {
         isOpen={!isPickupOnlyDismissed && allowPickup && !allowDelivery && isStoreOpen}
         onClose={dismissPickupOnly}
         message={pickupOnlyMessage}
+      />
+
+      <TicketOnlyModal
+        isOpen={showTicketOnlyModal}
+        onClose={() => setShowTicketOnlyModal(false)}
       />
 
     </CartContext.Provider>

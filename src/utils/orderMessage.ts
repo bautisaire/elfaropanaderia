@@ -31,10 +31,28 @@ export const generateOrderMessage = (order: any): string => {
         message += `A NOMBRE DE: MARIA ELISABETH CORONEL\n`;
         message += `Enviar comprobante\n\n`;
     }
-    
+
+    message += getRaffleParticipationLine(order);
+
     message += `    elfaropanificacion.com \n`;
-    
+
     return message;
+};
+
+interface OrderRaffleParticipation {
+    raffleParticipation?: {
+        raffleTitle?: string;
+        totalChances?: number;
+    };
+}
+
+// Si el cliente (identificado por su teléfono) ya tiene chances en el sorteo activo
+// -sea porque compró un boleto en este pedido, o porque ya había comprado antes-
+// se lo recordamos, aunque este pedido puntual no haya sumado un boleto nuevo.
+const getRaffleParticipationLine = (order: OrderRaffleParticipation): string => {
+    const participation = order.raffleParticipation;
+    if (!participation || !participation.totalChances) return '';
+    return `🎟️ ¡Ya estás participando del ${participation.raffleTitle || 'sorteo'}! Chances de ganar: ${participation.totalChances}\n\n`;
 };
 
 export const generateOrderMessageShort = (order: any): string => {
@@ -50,7 +68,8 @@ export const generateOrderMessageShort = (order: any): string => {
     }
 
     message += ` ¡Ya lo estamos preparando! \n\n`;
+    message += getRaffleParticipationLine(order);
     message += `    elfaropanificacion.com \n`;
-    
+
     return message;
 };

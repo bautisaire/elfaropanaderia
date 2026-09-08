@@ -30,6 +30,8 @@ interface Raffle {
   linkClicks?: number;
   abandonedParticipations?: number;
   imageLink?: string;
+  isPaid?: boolean;
+  ticketPrice?: number;
 }
 
 interface Participant {
@@ -82,6 +84,8 @@ export default function RaffleManager() {
   const [messageInput, setMessageInput] = useState("¡Realizando tu pedido sumas chances de ganar!");
   const [drawDateInput, setDrawDateInput] = useState("");
   const [isStarting, setIsStarting] = useState(false);
+  const [isPaidInput, setIsPaidInput] = useState(false);
+  const [ticketPriceInput, setTicketPriceInput] = useState("");
 
   // Participants of active raffle
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -110,6 +114,8 @@ export default function RaffleManager() {
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImageLink, setEditImageLink] = useState("");
   const [isSavingRaffle, setIsSavingRaffle] = useState(false);
+  const [editIsPaid, setEditIsPaid] = useState(false);
+  const [editTicketPrice, setEditTicketPrice] = useState("");
 
   // Image Editor State
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
@@ -191,7 +197,9 @@ export default function RaffleManager() {
         drawDate: drawDateInput,
         startDate: Timestamp.now(),
         endDate: null,
-        isActive: true
+        isActive: true,
+        isPaid: isPaidInput,
+        ticketPrice: isPaidInput ? (Number(ticketPriceInput) || 0) : 0
       });
       setTitleInput("");
       setDescriptionInput("");
@@ -201,6 +209,8 @@ export default function RaffleManager() {
       setPrizesInput([""]);
       setMessageInput("");
       setDrawDateInput("");
+      setIsPaidInput(false);
+      setTicketPriceInput("");
     } catch (error) {
       console.error("Error starting raffle:", error);
     } finally {
@@ -273,6 +283,8 @@ export default function RaffleManager() {
     setEditIsModalMode(activeRaffle.isModalMode || false);
     setEditImageFile(null);
     setEditImageLink(activeRaffle.imageLink || "");
+    setEditIsPaid(activeRaffle.isPaid || false);
+    setEditTicketPrice(activeRaffle.ticketPrice ? String(activeRaffle.ticketPrice) : "");
     setShowEditModal(true);
   };
 
@@ -299,7 +311,9 @@ export default function RaffleManager() {
         prize: validPrizes.join(" - "),
         prizes: validPrizes,
         customMessage: editMessage,
-        drawDate: editDrawDate
+        drawDate: editDrawDate,
+        isPaid: editIsPaid,
+        ticketPrice: editIsPaid ? (Number(editTicketPrice) || 0) : 0
       });
 
       setShowEditModal(false);
@@ -595,6 +609,35 @@ export default function RaffleManager() {
                   />
                   <label htmlFor="modalModeCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#0f172a' }}>Habilitar modalidad de modal automático al iniciar</label>
                 </div>
+                <div className="raffle-form-group" style={{ background: '#fef3c7', padding: '15px', borderRadius: '8px', border: '1px dashed #f59e0b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="isPaidCheckbox"
+                      checked={isPaidInput}
+                      onChange={(e) => setIsPaidInput(e.target.checked)}
+                      style={{ width: '20px', height: '20px', margin: 0, cursor: 'pointer' }}
+                    />
+                    <label htmlFor="isPaidCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#92400e' }}>🎟️ Sorteo pago</label>
+                  </div>
+                  <small style={{ color: '#92400e', display: 'block', marginTop: '5px' }}>
+                    En vez de sumar chance con cualquier pedido, el cliente compra un boleto que se agrega al carrito.
+                  </small>
+                  {isPaidInput && (
+                    <div style={{ marginTop: '10px' }}>
+                      <label>Valor del boleto ($) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Ej: 500"
+                        value={ticketPriceInput}
+                        onChange={(e) => setTicketPriceInput(e.target.value)}
+                        required={isPaidInput}
+                      />
+                    </div>
+                  )}
+                </div>
                 <button type="submit" className="btn-start-raffle" disabled={isStarting}>
                   <FaPlayCircle /> {isStarting ? 'Iniciando...' : 'Comenzar Sorteo'}
                 </button>
@@ -610,6 +653,7 @@ export default function RaffleManager() {
                   {activeRaffle.drawDate && <p style={{ color: '#0f172a', marginTop: '5px', fontWeight: 'bold' }}>Se sortea el: {new Date(activeRaffle.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}</p>}
                   <p style={{ fontSize: '0.9rem', marginTop: '5px' }}>Iniciado el: {activeRaffle.startDate?.toDate().toLocaleDateString('es-AR')} a las {activeRaffle.startDate?.toDate().toLocaleTimeString('es-AR')}</p>
                   {activeRaffle.isModalMode && <span style={{ display: 'inline-block', background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', marginTop: '8px', fontWeight: 'bold' }}>Modal Automático Activado</span>}
+                  {activeRaffle.isPaid && <span style={{ display: 'inline-block', background: '#eab308', color: '#78350f', padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', marginTop: '8px', marginLeft: '8px', fontWeight: 'bold' }}>🎟️ Sorteo Pago - Boleto ${activeRaffle.ticketPrice || 0}</span>}
                   <p style={{ marginTop: '10px', fontSize: '0.95rem', color: '#047857', fontWeight: 'bold' }}>
                     🔗 Clics en enlaces: {activeRaffle.linkClicks || 0}
                   </p>
@@ -1064,7 +1108,36 @@ export default function RaffleManager() {
                   />
                   <label htmlFor="editModalModeCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#0f172a' }}>Habilitar modalidad de modal automático al iniciar</label>
                 </div>
-                
+                <div className="raffle-form-group" style={{ background: '#fef3c7', padding: '15px', borderRadius: '8px', border: '1px dashed #f59e0b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="editIsPaidCheckbox"
+                      checked={editIsPaid}
+                      onChange={(e) => setEditIsPaid(e.target.checked)}
+                      style={{ width: '20px', height: '20px', margin: 0, cursor: 'pointer' }}
+                    />
+                    <label htmlFor="editIsPaidCheckbox" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#92400e' }}>🎟️ Sorteo pago</label>
+                  </div>
+                  <small style={{ color: '#92400e', display: 'block', marginTop: '5px' }}>
+                    En vez de sumar chance con cualquier pedido, el cliente compra un boleto que se agrega al carrito.
+                  </small>
+                  {editIsPaid && (
+                    <div style={{ marginTop: '10px' }}>
+                      <label>Valor del boleto ($) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Ej: 500"
+                        value={editTicketPrice}
+                        onChange={(e) => setEditTicketPrice(e.target.value)}
+                        required={editIsPaid}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="raffle-modal-actions" style={{ padding: '20px 0 0 0', marginTop: '20px', borderTop: '1px solid #e2e8f0' }}>
                   <button type="button" className="btn-cancel-end" onClick={() => setShowEditModal(false)} disabled={isSavingRaffle}>
                     Cancelar
