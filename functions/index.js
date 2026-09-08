@@ -590,7 +590,11 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
                  transaction.set(aRef, alert);
             });
 
-            return { orderId: orderIdString, productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })) };
+            return {
+                orderId: orderIdString,
+                productsToUpdate: Array.from(productsToUpdate).map(id => ({ id, newStock: productDocsMap[id].stockQuantity })),
+                raffleParticipation: raffleParticipationInfo
+            };
         });
 
         // Los productos derivados (ej. "Pan 500g" cuando baja el kg del padre) ya se
@@ -626,7 +630,7 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             } catch (mpError) {
                 console.error("Error generating MP preference after order saved:", mpError);
                 // Order created but MP payment failed to start
-                return { success: true, orderId: result.orderId, error_mp: true };
+                return { success: true, orderId: result.orderId, error_mp: true, raffleParticipation: result.raffleParticipation };
             }
         }
 
@@ -636,11 +640,12 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             cliente: { nombre: formData.nombre || 'Cliente Web' } 
         }).catch(e => console.error("Error sending Telegram:", e));
 
-        return { 
-            success: true, 
-            orderId: result.orderId, 
+        return {
+            success: true,
+            orderId: result.orderId,
             init_point: init_point,
-            productsToUpdate: result.productsToUpdate // Send this back in case frontend logic needs syncing
+            productsToUpdate: result.productsToUpdate, // Send this back in case frontend logic needs syncing
+            raffleParticipation: result.raffleParticipation
         };
 
     } catch (error) {

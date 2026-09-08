@@ -563,13 +563,17 @@ export default function Checkout() {
         }
         localStorage.setItem('customer_info', JSON.stringify(infoToSave));
         
-        if (activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true') {
-          localStorage.setItem(`raffle_unlocked_${activeRaffle.id}`, 'true');
+        // Señal autoritativa del backend: el pedido tiene chances (nuevas y/o de antes)
+        // en el sorteo activo. Reemplaza al viejo flag de sessionStorage, que solo se
+        // seteaba al tocar "Participar!" en el flujo gratuito y nunca en el pago.
+        const raffleParticipation = data.raffleParticipation;
+        if (raffleParticipation?.raffleId) {
+          localStorage.setItem(`raffle_unlocked_${raffleParticipation.raffleId}`, 'true');
           if (user?.uid) {
             try {
               await setDoc(doc(db, "users", user.uid), {
                 participatedRaffles: {
-                  [activeRaffle.id]: true
+                  [raffleParticipation.raffleId]: true
                 }
               }, { merge: true });
             } catch (err) {
@@ -598,7 +602,8 @@ export default function Checkout() {
         paymentMethod: orderFormData.metodoPago,
         cliente: orderFormData,
         deliveryMethod: deliveryMethod,
-        init_point: init_point
+        init_point: init_point,
+        raffleParticipation: data.raffleParticipation
       };
 
       const submittedAddress = formData.direccion;
@@ -698,7 +703,7 @@ export default function Checkout() {
         </div>
       )}
 
-      {!confirmedOrder && activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
+      {!confirmedOrder && activeRaffle && (sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' || cart.some(item => item.isRaffleTicket)) && (
         <div className="raffle-banner" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', padding: '15px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px' }}>🎁 {activeRaffle.title || 'Sorteo Especial'}</div>
           <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
@@ -814,7 +819,7 @@ export default function Checkout() {
               <FaShoppingBag /> Ver Seguimiento
             </Link>
 
-            {activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
+            {activeRaffle && confirmedOrder?.raffleParticipation && (
               <div style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', margin: '10px 0', border: '1px solid #6ee7b7', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '8px' }}>🎉 ¡Ya estás participando en: {activeRaffle.title || 'el sorteo'}!</div>
                 <div style={{ fontSize: '0.9rem', marginBottom: '10px', textAlign: 'left', display: 'inline-block', maxWidth: '100%' }}>
@@ -826,6 +831,11 @@ export default function Checkout() {
                     <div>Premios: {activeRaffle.prize}</div>
                   )}
                 </div>
+                {activeRaffle.isPaid && (
+                  <div style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '10px' }}>
+                    🎟️ Chances de ganar: {confirmedOrder.raffleParticipation.totalChances}
+                  </div>
+                )}
                 {activeRaffle.customMessage && <div style={{ fontSize: '0.95rem', fontWeight: 'bold', marginTop: '10px', padding: '8px', background: '#d1fae5', borderRadius: '8px', color: '#065f46' }}>{activeRaffle.customMessage}</div>}
               </div>
             )}
@@ -1264,7 +1274,12 @@ export default function Checkout() {
                       <span>Total</span>
                       <span className="total-amount-display">${Math.floor(finalTotal)}</span>
                     </div>
-                    {activeRaffle && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
+                    {activeRaffle && cart.some(item => item.isRaffleTicket) && (
+                      <div style={{ marginTop: '15px', color: '#16a34a', fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold' }}>
+                        🎟️ Este pedido incluye tu boleto para el sorteo
+                      </div>
+                    )}
+                    {activeRaffle && !activeRaffle.isPaid && sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`) === 'true' && (
                       <div style={{ marginTop: '15px', color: '#16a34a', fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold' }}>
                         Realizando esta compra participas del sorteo automáticamente
                       </div>

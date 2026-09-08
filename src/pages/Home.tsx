@@ -200,20 +200,21 @@ export default function Home() {
 
   const handleOpenRaffleModal = () => {
     if (!activeRaffle) return;
+    const isUnlocked = localStorage.getItem(`raffle_unlocked_${activeRaffle.id}`) || dbParticipated;
+    if (isUnlocked) {
+      // Ya compró (o ya le sumó chance) antes: mostramos el estado de participación,
+      // no el flujo de "Participar" de nuevo.
+      setShowRaffleInfoModal(true);
+      return;
+    }
     if (isPaidRaffle) {
-      // Sorteo pago: siempre se puede comprar otro boleto, no hay estado "desbloqueado".
       setRaffleModalStep(1);
       setShowRaffleModal(true);
       return;
     }
-    const isUnlocked = localStorage.getItem(`raffle_unlocked_${activeRaffle.id}`) || dbParticipated;
-    if (isUnlocked) {
-      setShowRaffleInfoModal(true);
-    } else {
-      const step1Done = sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`);
-      setRaffleModalStep(step1Done ? 2 : 1);
-      setShowRaffleModal(true);
-    }
+    const step1Done = sessionStorage.getItem(`raffle_step1_done_${activeRaffle.id}`);
+    setRaffleModalStep(step1Done ? 2 : 1);
+    setShowRaffleModal(true);
   };
 
   // Removed redundant fetchStoreStatus useEffect since Context handles it
@@ -560,6 +561,38 @@ export default function Home() {
                 <div style={{ fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '5px' }}>🎉 ¡Ya estás participando!🎉</div>
                 {activeRaffle.customMessage && <div style={{ fontSize: '1.05rem', fontWeight: 'bold', marginTop: '5px' }} dangerouslySetInnerHTML={{ __html: activeRaffle.customMessage }} onClick={handleDescriptionLinkClick}></div>}
               </div>
+
+              {isPaidRaffle && (
+                <button
+                  onClick={() => {
+                    addToCart({
+                      id: `raffle-ticket-${activeRaffle.id}`,
+                      name: `Boleto - ${activeRaffle.title || 'Sorteo'}`,
+                      price: Number(activeRaffle.ticketPrice) || 0,
+                      image: '',
+                      isRaffleTicket: true,
+                      raffleId: activeRaffle.id,
+                    });
+                    setShowRaffleInfoModal(false);
+                    setIsSidebarOpen(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    marginBottom: '10px',
+                    background: '#b45309',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '1.05rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  🎟️ Comprar otro boleto (${Number(activeRaffle.ticketPrice) || 0})
+                </button>
+              )}
 
               {activeRaffle.drawDate && (
                 <p style={{ color: '#b91c1c', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '20px', textAlign: 'center' }}>
