@@ -89,6 +89,7 @@ export default function Dashboard() {
         delivery: 0,     // Online
         deliveryHomeCount: 0,   // Online: envío a domicilio
         deliveryPickupCount: 0, // Online: retiro en el local
+        deliveryShippingTotal: 0, // Suma de los costos de envío cobrados (línea "Envío" de cada pedido)
         newVisitsToday: 0,
         totalEgresos: 0,
         egresosCount: 0,
@@ -396,6 +397,7 @@ export default function Dashboard() {
         let delivery = 0;
         let deliveryHomeCount = 0;
         let deliveryPickupCount = 0;
+        let deliveryShippingTotal = 0;
         let totalEfectivo = 0;
         let totalTransferencia = 0;
         let totalDebito = 0;
@@ -482,6 +484,19 @@ export default function Dashboard() {
                 else if (pm.includes('transferencia')) deliveryTransferencia += amount;
                 else if (pm.includes('qr')) deliveryQr += amount;
                 else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) deliveryDebito += amount;
+
+                // Costo de envío realmente cobrado en este pedido (línea "Envío" en items),
+                // así refleja ediciones manuales por pedido (ej. envíos a $3000) en vez de un valor fijo.
+                if (Array.isArray(order.items)) {
+                    order.items.forEach((item: { id?: string; name?: string; price?: number; quantity?: number }) => {
+                        const isShippingItem = item.id === 'shipping-cost'
+                            || String(item.name || '').toLowerCase().includes('envío')
+                            || String(item.name || '').toLowerCase().includes('envio');
+                        if (isShippingItem) {
+                            deliveryShippingTotal += (Number(item.price) || 0) * (Number(item.quantity) || 1);
+                        }
+                    });
+                }
             }
 
             // Products Aggregation with Dependency Logic
@@ -701,6 +716,7 @@ export default function Dashboard() {
             delivery,
             deliveryHomeCount,
             deliveryPickupCount,
+            deliveryShippingTotal,
             totalEfectivo,
             totalTransferencia,
             totalDebito,
@@ -1243,6 +1259,10 @@ export default function Dashboard() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f3ff', padding: '6px 10px', borderRadius: '6px' }}>
                                             <span style={{ color: '#6d28d9', fontWeight: 500 }}>QR:</span>
                                             <strong style={{ color: '#4c1d95', fontSize: '1rem' }}>{renderAmount(stats.deliveryQr)}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fffbeb', padding: '6px 10px', borderRadius: '6px', marginTop: '4px', borderTop: '1px solid #f3f4f6', paddingTop: '10px' }}>
+                                            <span style={{ color: '#b45309', fontWeight: 500 }}>Recolección delivery:</span>
+                                            <strong style={{ color: '#78350f', fontSize: '1rem' }}>{renderAmount(stats.deliveryShippingTotal)}</strong>
                                         </div>
                                     </div>
                                 )}
