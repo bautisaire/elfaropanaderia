@@ -349,7 +349,9 @@ export default function RuletaPage() {
       <div className="ruleta-container">
         <div className="ruleta-header">
           <h1>{activeRaffleData?.name || "Sorteo de la semana"}</h1>
-          <h1>{activeRaffleData?.name || "01-08"}</h1>
+          {activeRaffleData?.drawDate && (
+            <p>Se sortea el {new Date(activeRaffleData.drawDate + 'T00:00:00').toLocaleDateString('es-AR')}</p>
+          )}
         </div>
 
         <div className="ruleta-wheel-wrapper">
