@@ -234,6 +234,29 @@ html.low-power .favorite-btn.fav-bump {
   gap: 8px 12px;
 }
 
+.variant-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.variant-tag {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: none;
+  background-color: #a35a2f;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.variant-tag:hover {
+  background-color: #8a4b26;
+}
+
 .price-container {
   display: flex;
   flex-direction: column;

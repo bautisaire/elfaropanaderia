@@ -14,6 +14,29 @@ import { normalizeForSearch } from "../utils/textSearch";
 
 registerLocale('es', es);
 
+// Misma lógica que functions/index.js (orderIsPickup) y OrdersManager.tsx, para que el
+// desglose delivery/retiro del dashboard coincida con el resto del panel de admin.
+const normalizeOrderText = (v: unknown) =>
+    String(v ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "");
+
+const orderIsPickup = (order: { source?: string; cliente?: { metodoEntrega?: string; direccion?: string; indicaciones?: string } }): boolean => {
+    const source = order.source;
+    if (source === "pos_public" || source === "pos_wholesale" || source === "pos") return true;
+    if (source === "pos_delivery") return false;
+
+    const metodoEntrega = order.cliente?.metodoEntrega;
+    if (metodoEntrega === "pickup") return true;
+    if (metodoEntrega === "delivery") return false;
+
+    const direccion = normalizeOrderText(order.cliente?.direccion);
+    const indicaciones = normalizeOrderText(order.cliente?.indicaciones);
+    return direccion.includes("retiro") || indicaciones.includes("retiro");
+};
+
 // Interface for aggregated product data
 interface ProductSale {
     id: string;
@@ -64,7 +87,8 @@ export default function Dashboard() {
         publico: 0,     // Local POS
         publicoCount: 0,
         delivery: 0,     // Online
-        deliveryCount: 0,
+        deliveryHomeCount: 0,   // Online: envío a domicilio
+        deliveryPickupCount: 0, // Online: retiro en el local
         newVisitsToday: 0,
         totalEgresos: 0,
         egresosCount: 0,
@@ -370,7 +394,8 @@ export default function Dashboard() {
         let publico = 0;
         let publicoCount = 0;
         let delivery = 0;
-        let deliveryCount = 0;
+        let deliveryHomeCount = 0;
+        let deliveryPickupCount = 0;
         let totalEfectivo = 0;
         let totalTransferencia = 0;
         let totalDebito = 0;
@@ -451,7 +476,8 @@ export default function Dashboard() {
                 else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito')) publicoDebito += amount;
             } else {
                 delivery += amount;
-                deliveryCount++;
+                if (orderIsPickup(order)) deliveryPickupCount++;
+                else deliveryHomeCount++;
                 if (pm.includes('efectivo')) deliveryEfectivo += amount;
                 else if (pm.includes('transferencia')) deliveryTransferencia += amount;
                 else if (pm.includes('qr')) deliveryQr += amount;
@@ -673,7 +699,8 @@ export default function Dashboard() {
             publico,
             publicoCount,
             delivery,
-            deliveryCount,
+            deliveryHomeCount,
+            deliveryPickupCount,
             totalEfectivo,
             totalTransferencia,
             totalDebito,
@@ -1222,7 +1249,7 @@ export default function Dashboard() {
                             </div>
                         </h3>
                         <p>{renderAmount(stats.delivery)}</p>
-                        <span className="stat-sub">{stats.deliveryCount} pedidos</span>
+                        <span className="stat-sub">{stats.deliveryHomeCount} delivery, {stats.deliveryPickupCount} takeaway</span>
                     </div>
                 </div>
 

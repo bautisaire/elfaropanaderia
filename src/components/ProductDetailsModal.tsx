@@ -6,6 +6,7 @@ import ReviewsSection from "./ReviewsSection";
 import "./ProductCard.css"; // Reuse some styles for variants/buttons
 import "./ProductDetailsModal.css";
 import ComboSelectionModal from "./ComboSelectionModal";
+import VariantSelectionModal from "./VariantSelectionModal";
 
 interface ProductDetailsModalProps {
     product: Product;
@@ -25,6 +26,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [overrideImage, setOverrideImage] = useState<string | null>(null);
     const [showComboModal, setShowComboModal] = useState(false);
+    const [showVariantModal, setShowVariantModal] = useState(false);
     const [descExpanded, setDescExpanded] = useState(false);
 
     const variantHasStock = (v: { stock?: boolean; stockQuantity?: number }) =>
@@ -37,6 +39,10 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
         }
         return null;
     });
+
+    // Con variantes (y no combo), la elección de sabor/tipo y la cantidad se hacen
+    // en el modal (VariantSelectionModal), igual que con los combos.
+    const hasSelectableVariants = !!(liveProduct.variants && liveProduct.variants.length > 0 && !liveProduct.isCombo);
 
     useEffect(() => {
         if (!liveProduct.variants?.length || !selectedVariant) return;
@@ -51,7 +57,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
         : String(product.id);
 
     let quantity = 0;
-    if (liveProduct.isCombo) {
+    if (liveProduct.isCombo || hasSelectableVariants) {
         quantity = cart
             .filter((item) => item.baseProductId === liveProduct.id)
             .reduce((sum, item) => sum + (item.quantity ?? 1), 0);
@@ -76,14 +82,16 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const images = liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images : [liveProduct.image];
     const currentImage = overrideImage || images[currentImageIndex];
 
-    const selectedVariantObj = liveProduct.variants?.find((v) => v.name === selectedVariant);
+    const selectedVariantObj = hasSelectableVariants ? undefined : liveProduct.variants?.find((v) => v.name === selectedVariant);
     const variantPrice = getVariantPrice(liveProduct.price, selectedVariantObj);
     const hasDiscount = (liveProduct.discount || 0) > 0;
     const finalPrice = hasDiscount
         ? variantPrice * (1 - (liveProduct.discount! / 100))
         : variantPrice;
 
-    const maxStock = getStockForProduct(liveProduct.id, selectedVariant);
+    const maxStock = hasSelectableVariants
+        ? (liveProduct.variants || []).reduce((sum, v) => sum + (v.stockQuantity !== undefined ? Math.max(0, v.stockQuantity) : (v.stock ? 999 : 0)), 0)
+        : getStockForProduct(liveProduct.id, selectedVariant);
     const atMaxQuantity = quantity > 0 && quantity >= maxStock;
 
     const isOutOfStock =
@@ -94,15 +102,16 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const isLongDescription = (liveProduct.description || "").length > 140;
 
     const handleAddToCart = () => {
-        if (liveProduct.variants && liveProduct.variants.length > 0 && !selectedVariant) {
-            alert("Por favor selecciona una opción");
-            return;
-        }
         if (maxStock <= 0) return;
         if (quantity >= maxStock) return;
 
         if (product.isCombo) {
             setShowComboModal(true);
+            return;
+        }
+
+        if (hasSelectableVariants) {
+            setShowVariantModal(true);
             return;
         }
 
@@ -173,25 +182,6 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                 <div className="pd-sheet-scroll">
                     <h1 className="pd-title">{liveProduct.name}</h1>
 
-                    {liveProduct.variants && liveProduct.variants.length > 0 && (
-                        <div className="pd-variants">
-                            <div className="variants-bubbles">
-                                {liveProduct.variants.map((variant, idx) => (
-                                    <button
-                                        key={idx}
-                                        className={`variant-bubble ${selectedVariant === variant.name ? "selected" : ""}`}
-                                        onClick={() => {
-                                            if (variantHasStock(variant)) setSelectedVariant(variant.name);
-                                        }}
-                                        disabled={!variantHasStock(variant)}
-                                    >
-                                        {variant.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
                     <div className="pd-stats-row">
                         <div className="pd-stat">
                             <strong>
@@ -211,6 +201,21 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                             </div>
                         )}
                     </div>
+
+                    {hasSelectableVariants && (
+                        <div className="variant-tags">
+                            {liveProduct.variants!.map((variant, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    className="variant-tag"
+                                    onClick={() => setShowVariantModal(true)}
+                                >
+                                    {variant.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {liveProduct.description && (
                         <div className="pd-description-block">
@@ -238,7 +243,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                     {quantity > 0 && <span className="pd-bag-badge">{quantity}</span>}
                 </div>
 
-                {quantity === 0 || liveProduct.isCombo ? (
+                {quantity === 0 || liveProduct.isCombo || hasSelectableVariants ? (
                     <button
                         className="btn-add pd-buy-btn"
                         onClick={handleAddToCart}
@@ -284,6 +289,30 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                         };
                         addToCart(productToAdd, totalQty);
                         onClose(); // Optional: close details modal too
+                    }}
+                />
+            )}
+
+            {showVariantModal && (
+                <VariantSelectionModal
+                    product={liveProduct}
+                    isOpen={showVariantModal}
+                    onClose={() => setShowVariantModal(false)}
+                    onAddToCart={(selections) => {
+                        selections.forEach(({ variantName, quantity: qty }) => {
+                            const variantObj = liveProduct.variants?.find((v) => v.name === variantName);
+                            const price = getVariantPrice(liveProduct.price, variantObj);
+                            const priceWithDiscount = hasDiscount ? price * (1 - (liveProduct.discount! / 100)) : price;
+
+                            addToCart({
+                                ...liveProduct,
+                                id: `${liveProduct.id}-${variantName}`,
+                                baseProductId: liveProduct.id,
+                                selectedVariant: variantName,
+                                price: priceWithDiscount,
+                                name: `${liveProduct.name} (${variantName})`,
+                            }, qty);
+                        });
                     }}
                 />
             )}
