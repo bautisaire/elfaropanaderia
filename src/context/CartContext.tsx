@@ -56,7 +56,7 @@ export interface Product {
 
 interface CartContextType {
   cart: Product[];
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (id: string | number) => void;
   clearCart: () => void;
   total: number;
@@ -452,7 +452,7 @@ export const CartProvider = ({ children }: Props) => {
     });
   }, [user?.uid, favorites]);
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, quantity: number = 1) => {
     if (!isStoreOpen && !isAdmin) {
       setShowClosedModal(true);
       return;
@@ -506,7 +506,7 @@ export const CartProvider = ({ children }: Props) => {
       setCartItems(
         cartItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: Math.min(currentQty + 1, maxStock) }
+            ? { ...item, quantity: Math.min(currentQty + quantity, maxStock) }
             : item
         )
       );
@@ -522,7 +522,7 @@ export const CartProvider = ({ children }: Props) => {
           ...product,
           baseProductId: baseId,
           selectedVariant: variant || product.selectedVariant,
-          quantity: 1,
+          quantity: Math.min(quantity, maxStock - totalInCart),
         },
       ]);
     }

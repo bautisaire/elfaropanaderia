@@ -265,9 +265,14 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                 <ComboSelectionModal
                     product={product}
                     isOpen={showComboModal}
+                    maxQuantity={maxStock}
                     onClose={() => setShowComboModal(false)}
                     onAddToCart={(_, comboItems) => {
                         const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
+                        const isSingleChoiceCombo = (product.comboItemsCount || 0) === 1;
+                        const totalQty = isSingleChoiceCombo
+                            ? comboItems.reduce((sum, item) => sum + item.quantity, 0)
+                            : 1;
                         const productToAdd = {
                             ...product,
                             id: uniqueCartItemId,
@@ -277,7 +282,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                             name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name,
                             selectedComboItems: comboItems
                         };
-                        addToCart(productToAdd);
+                        addToCart(productToAdd, totalQty);
                         onClose(); // Optional: close details modal too
                     }}
                 />

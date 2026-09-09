@@ -332,13 +332,18 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
         <ComboSelectionModal
           product={liveProduct}
           isOpen={showComboModal}
+          maxQuantity={maxStock}
           onClose={() => setShowComboModal(false)}
           onAddToCart={(_, comboItems) => {
-             // For combos, we generate a unique ID so different selections don't merge, 
+             // For combos, we generate a unique ID so different selections don't merge,
              // unless you want them to merge if selections are identical.
              // Using a timestamp + random for simplicity.
              const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
-             
+             const isSingleChoiceCombo = (liveProduct.comboItemsCount || 0) === 1;
+             const totalQty = isSingleChoiceCombo
+               ? comboItems.reduce((sum, item) => sum + item.quantity, 0)
+               : 1;
+
              const productToAdd = {
                ...liveProduct,
                id: uniqueCartItemId,
@@ -348,7 +353,7 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
                name: selectedVariant ? `${liveProduct.name} (${selectedVariant})` : liveProduct.name,
                selectedComboItems: comboItems
              };
-             addToCart(productToAdd);
+             addToCart(productToAdd, totalQty);
           }}
         />
       )}

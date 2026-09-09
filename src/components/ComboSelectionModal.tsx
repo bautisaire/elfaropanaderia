@@ -9,12 +9,14 @@ interface ComboSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddToCart: (product: Product, comboItems: { name: string; quantity: number }[]) => void;
+  maxQuantity?: number;
 }
 
-export default function ComboSelectionModal({ product, isOpen, onClose, onAddToCart }: ComboSelectionModalProps) {
+export default function ComboSelectionModal({ product, isOpen, onClose, onAddToCart, maxQuantity }: ComboSelectionModalProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const totalRequired = product.comboItemsCount || 0;
   const isSingleChoice = totalRequired === 1;
+  const singleChoiceMax = Math.max(1, maxQuantity ?? totalRequired);
 
   useEffect(() => {
     if (isOpen) {
@@ -46,7 +48,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
   if (!isOpen || !product.isCombo) return null;
 
   const totalSelected = Object.values(quantities).reduce((sum, q) => sum + q, 0);
-  const isComplete = totalSelected === totalRequired;
+  const isComplete = isSingleChoice ? totalSelected > 0 : totalSelected === totalRequired;
 
   const handleIncrement = (optionName: string) => {
     if (totalSelected < totalRequired) {
@@ -70,6 +72,24 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
     setQuantities(prev => prev[optionName] ? {} : { [optionName]: 1 });
   };
 
+  const handleSingleChoiceIncrement = (optionName: string) => {
+    setQuantities(prev => {
+      const current = prev[optionName] || 0;
+      if (current >= singleChoiceMax) return prev;
+      return { ...prev, [optionName]: current + 1 };
+    });
+  };
+
+  const handleSingleChoiceDecrement = (optionName: string) => {
+    setQuantities(prev => {
+      const current = prev[optionName] || 0;
+      if (current <= 1) {
+        return Object.fromEntries(Object.entries(prev).filter(([name]) => name !== optionName));
+      }
+      return { ...prev, [optionName]: current - 1 };
+    });
+  };
+
   const handleAdd = () => {
     if (isComplete) {
       const selectedItems = Object.entries(quantities)
@@ -91,12 +111,16 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         <div className="combo-modal-header">
           <h2>{isSingleChoice ? 'Seleccioná' : 'Armá'} tu {product.name}</h2>
           <p className="combo-progress">
-            Seleccionadas: <strong>{totalSelected}</strong> / {totalRequired}
+            {isSingleChoice ? (
+              <>Cantidad: <strong>{totalSelected}</strong> / {singleChoiceMax} disponibles</>
+            ) : (
+              <>Seleccionadas: <strong>{totalSelected}</strong> / {totalRequired}</>
+            )}
           </p>
           <div className="combo-progress-bar">
             <div
               className="combo-progress-fill"
-              style={{ width: `${(totalSelected / totalRequired) * 100}%`, background: isComplete ? '#3EE8CB' : '#f59e0b' }}
+              style={{ width: `${(totalSelected / (isSingleChoice ? singleChoiceMax : totalRequired)) * 100}%`, background: isComplete ? '#3EE8CB' : '#f59e0b' }}
             ></div>
           </div>
         </div>
@@ -104,8 +128,8 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         <div className="combo-options-list">
           {product.comboOptions?.map((opt, idx) => {
             const isOptionDisabled = (opt as any).disabled;
-            const isSelected = isSingleChoice && quantities[opt.name] === 1;
-            const isBlockedBySelection = isSingleChoice && totalSelected === 1 && !isSelected;
+            const isSelected = isSingleChoice && (quantities[opt.name] || 0) > 0;
+            const isBlockedBySelection = isSingleChoice && totalSelected > 0 && !isSelected;
             return (
               <div
                 key={idx}
@@ -125,14 +149,35 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
                   </h3>
                 </div>
                 {isSingleChoice ? (
-                  <button 
-                    type="button"
-                    className={`combo-choose-btn${isSelected ? ' combo-choose-btn-selected' : ''}`}
-                    onClick={() => handleSingleChoice(opt.name)}
-                    disabled={isOptionDisabled || isBlockedBySelection}
-                  >
-                    {isSelected ? 'Quitar' : 'Elegir'}
-                  </button>
+                  isSelected ? (
+                    <div className="combo-option-controls">
+                      <button
+                        type="button"
+                        className="combo-ctrl-btn"
+                        onClick={() => handleSingleChoiceDecrement(opt.name)}
+                      >
+                        <FaMinus />
+                      </button>
+                      <span className="combo-qty">{quantities[opt.name]}</span>
+                      <button
+                        type="button"
+                        className="combo-ctrl-btn"
+                        onClick={() => handleSingleChoiceIncrement(opt.name)}
+                        disabled={(quantities[opt.name] || 0) >= singleChoiceMax}
+                      >
+                        <FaPlus />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="combo-choose-btn"
+                      onClick={() => handleSingleChoice(opt.name)}
+                      disabled={isOptionDisabled || isBlockedBySelection}
+                    >
+                      Elegir
+                    </button>
+                  )
                 ) : (
                   <div className="combo-option-controls">
                     <button 
@@ -169,7 +214,9 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
             disabled={!isComplete}
             onClick={handleAdd}
           >
-            {isComplete ? 'Agregar al Carrito' : `Faltan elegir ${totalRequired - totalSelected}`}
+            {isComplete
+              ? (isSingleChoice && totalSelected > 1 ? `Agregar ${totalSelected} al Carrito` : 'Agregar al Carrito')
+              : (isSingleChoice ? 'Seleccioná una opción' : `Faltan elegir ${totalRequired - totalSelected}`)}
           </button>
         </div>
       </div>
