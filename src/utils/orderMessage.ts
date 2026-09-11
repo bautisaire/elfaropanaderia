@@ -34,7 +34,7 @@ export const generateOrderMessage = (order: any): string => {
 
     message += getRaffleParticipationLine(order);
 
-    message += `    elfaropanificacion.com \n`;
+    message += getWebsiteLine(order);
 
     return message;
 };
@@ -55,6 +55,14 @@ const getRaffleParticipationLine = (order: OrderRaffleParticipation): string => 
     return `🎟️ ¡Ya estás participando del ${participation.raffleTitle || 'sorteo'}! Chances de ganar: ${participation.totalChances}\n\n`;
 };
 
+const getWebsiteLine = (order: OrderRaffleParticipation): string => {
+    const participation = order.raffleParticipation;
+    if (participation && participation.totalChances) {
+        return `    🎡 Ver ruleta: elfaropanificacion.com/ruleta \n`;
+    }
+    return `    elfaropanificacion.com \n`;
+};
+
 export const generateOrderMessageShort = (order: any): string => {
     let message = `¡Hola ${order.cliente?.nombre || ''}! Recibimos tu pedido en El Faro Panadería.\n\n`;
     message += `💵 Total: $${order.total}\n\n`;
@@ -69,7 +77,7 @@ export const generateOrderMessageShort = (order: any): string => {
 
     message += ` ¡Ya lo estamos preparando! \n\n`;
     message += getRaffleParticipationLine(order);
-    message += `    elfaropanificacion.com \n`;
+    message += getWebsiteLine(order);
 
     return message;
 };

@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
@@ -52,6 +52,11 @@ export default function Dashboard() {
     const { adminPermissions, catalogProducts } = useCart();
     const [showNotes, setShowNotes] = useState(false);
     const [stockListCopied, setStockListCopied] = useState(false);
+    const [showCopyStockModal, setShowCopyStockModal] = useState(false);
+    const [copyStockSearch, setCopyStockSearch] = useState('');
+    const [copyStockPriceMode, setCopyStockPriceMode] = useState<'publico' | 'despensa'>('publico');
+    const [selectedCopyStockIds, setSelectedCopyStockIds] = useState<Set<string>>(new Set());
+    const [copyStockCopied, setCopyStockCopied] = useState(false);
     const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
     const [customRange, setCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
@@ -875,6 +880,54 @@ export default function Dashboard() {
         });
     };
 
+    // Lista completa de productos (visibles u ocultos, con o sin stock) para el modal
+    // de selección manual, tomada del snapshot crudo de Firestore (productData).
+    const allProductsForCopyStock = Array.from(productData.values()) as any[];
+
+    const filteredCopyStockProducts = allProductsForCopyStock
+        .filter(p => normalizeForSearch(p.nombre || '').includes(normalizeForSearch(copyStockSearch)))
+        .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }));
+
+    const getCopyStockPrice = (p: any): number => {
+        const basePrice = copyStockPriceMode === 'despensa'
+            ? (Number(p.wholesalePrice) || Number(p.precio) || 0)
+            : (Number(p.precio) || 0);
+        const discount = Number(p.discount) || 0;
+        return discount > 0 ? basePrice * (1 - discount / 100) : basePrice;
+    };
+
+    const toggleCopyStockSelection = (id: string) => {
+        setSelectedCopyStockIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const selectAllFilteredCopyStock = () => {
+        setSelectedCopyStockIds(prev => {
+            const next = new Set(prev);
+            filteredCopyStockProducts.forEach(p => next.add(p.id));
+            return next;
+        });
+    };
+
+    const clearCopyStockSelection = () => setSelectedCopyStockIds(new Set());
+
+    const handleCopySelectedStock = () => {
+        const lines = allProductsForCopyStock
+            .filter(p => selectedCopyStockIds.has(p.id))
+            .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }))
+            .map(p => `${p.nombre} - $${Math.round(getCopyStockPrice(p)).toLocaleString('es-AR')}`);
+
+        if (lines.length === 0) return;
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            setCopyStockCopied(true);
+            setTimeout(() => setCopyStockCopied(false), 2000);
+        });
+    };
+
 
     if (loading) return <div className="dashboard-loading">Cargando estadísticas...</div>;
 
@@ -1565,12 +1618,123 @@ export default function Dashboard() {
                         fontWeight: 600,
                         fontSize: '0.95rem'
                     }}
-                    title="Copia una lista de los productos visibles y con stock, para enviar a clientes"
+                    title="Copia rápido la lista de productos visibles en el home y con stock, para enviar a clientes"
                 >
                     {stockListCopied ? <FaCheck size={16} /> : <FaClipboardList size={16} />}
-                    {stockListCopied ? 'Copiado' : 'Copiar productos en stock'}
+                    {stockListCopied ? 'Copiado' : 'Copiar Stock Home - Rápida'}
                 </button>
             </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '10px' }}>
+                <button
+                    onClick={() => {
+                        setSelectedCopyStockIds(new Set());
+                        setCopyStockSearch('');
+                        setShowCopyStockModal(true);
+                    }}
+                    style={{
+                        background: '#7c3aed',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        fontSize: '0.95rem'
+                    }}
+                    title="Elegí manualmente qué productos copiar y con qué precios"
+                >
+                    <FaCopy size={16} />
+                    Copiar Stock
+                </button>
+            </div>
+
+            {showCopyStockModal && (
+                <div className="copy-stock-modal-overlay" onClick={() => setShowCopyStockModal(false)}>
+                    <div className="copy-stock-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="copy-stock-modal-header">
+                            <h3>Copiar Stock</h3>
+                            <button className="copy-stock-close-btn" onClick={() => setShowCopyStockModal(false)}>
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="copy-stock-modal-controls">
+                            <div className="copy-stock-search">
+                                <FaSearch />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar producto..."
+                                    value={copyStockSearch}
+                                    onChange={(e) => setCopyStockSearch(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="copy-stock-price-toggle">
+                                <button
+                                    type="button"
+                                    className={copyStockPriceMode === 'publico' ? 'active' : ''}
+                                    onClick={() => setCopyStockPriceMode('publico')}
+                                >
+                                    Precio Público
+                                </button>
+                                <button
+                                    type="button"
+                                    className={copyStockPriceMode === 'despensa' ? 'active' : ''}
+                                    onClick={() => setCopyStockPriceMode('despensa')}
+                                >
+                                    Precio Despensa
+                                </button>
+                            </div>
+
+                            <div className="copy-stock-select-actions">
+                                <button type="button" onClick={selectAllFilteredCopyStock}>Seleccionar todos</button>
+                                <button type="button" onClick={clearCopyStockSelection}>Limpiar selección</button>
+                            </div>
+                        </div>
+
+                        <div className="copy-stock-list">
+                            {filteredCopyStockProducts.length === 0 ? (
+                                <p className="copy-stock-empty">No se encontraron productos.</p>
+                            ) : (
+                                filteredCopyStockProducts.map((p) => {
+                                    const checked = selectedCopyStockIds.has(p.id);
+                                    return (
+                                        <label key={p.id} className={`copy-stock-item ${checked ? 'checked' : ''}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => toggleCopyStockSelection(p.id)}
+                                            />
+                                            <span className="copy-stock-item-name">{p.nombre}</span>
+                                            <span className="copy-stock-item-price">
+                                                ${Math.round(getCopyStockPrice(p)).toLocaleString('es-AR')}
+                                            </span>
+                                        </label>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="copy-stock-modal-footer">
+                            <span className="copy-stock-count">{selectedCopyStockIds.size} seleccionados</span>
+                            <button
+                                type="button"
+                                className="copy-stock-copy-btn"
+                                disabled={selectedCopyStockIds.size === 0}
+                                onClick={handleCopySelectedStock}
+                            >
+                                {copyStockCopied ? <FaCheck size={14} /> : <FaClipboardList size={14} />}
+                                {copyStockCopied ? 'Copiado' : 'Copiar seleccionados'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div >
     );

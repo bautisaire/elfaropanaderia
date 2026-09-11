@@ -469,6 +469,230 @@
     border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+.copy-stock-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20001;
+    padding: 20px;
+}
+
+.copy-stock-modal {
+    background: white;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.copy-stock-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.copy-stock-modal-header h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 1.1rem;
+}
+
+.copy-stock-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+}
+
+.copy-stock-close-btn:hover {
+    color: #111827;
+}
+
+.copy-stock-modal-controls {
+    padding: 14px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.copy-stock-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #6b7280;
+}
+
+.copy-stock-search input {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 0.95rem;
+    color: #111827;
+}
+
+.copy-stock-price-toggle {
+    display: flex;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.copy-stock-price-toggle button {
+    flex: 1;
+    border: none;
+    background: white;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.copy-stock-price-toggle button + button {
+    border-left: 1px solid #d1d5db;
+}
+
+.copy-stock-price-toggle button.active {
+    background: #7c3aed;
+    color: white;
+}
+
+.copy-stock-select-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.copy-stock-select-actions button {
+    flex: 1;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.copy-stock-select-actions button:hover {
+    background: #f3f4f6;
+}
+
+.copy-stock-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px;
+}
+
+.copy-stock-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 30px 0;
+}
+
+.copy-stock-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.copy-stock-item:hover {
+    background: #f9fafb;
+}
+
+.copy-stock-item.checked {
+    background: #f5f3ff;
+}
+
+.copy-stock-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: #7c3aed;
+}
+
+.copy-stock-item-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.copy-stock-item-price {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #059669;
+    white-space: nowrap;
+}
+
+.copy-stock-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-top: 1px solid #e5e7eb;
+    gap: 12px;
+}
+
+.copy-stock-count {
+    font-size: 0.85rem;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.copy-stock-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #7c3aed;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.copy-stock-copy-btn:hover:not(:disabled) {
+    background: #6d28d9;
+}
+
+.copy-stock-copy-btn:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+}
+
 @media (max-width: 1024px) {
     .charts-section {
         grid-template-columns: 1fr !important;
