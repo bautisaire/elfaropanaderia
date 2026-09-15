@@ -255,6 +255,17 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
             }
 
             const isSearchFocused = document.activeElement === searchInputRef.current;
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                if (isSearchFocused) {
+                    searchInputRef.current?.blur();
+                } else {
+                    searchInputRef.current?.focus();
+                }
+                return;
+            }
+
             if (isSearchFocused) return;
 
             if (/^[0-9]$/.test(e.key)) {
