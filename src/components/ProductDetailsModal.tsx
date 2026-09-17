@@ -45,12 +45,13 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const hasSelectableVariants = !!(liveProduct.variants && liveProduct.variants.length > 0 && !liveProduct.isCombo);
 
     useEffect(() => {
+        if (hasSelectableVariants) return;
         if (!liveProduct.variants?.length || !selectedVariant) return;
         const current = liveProduct.variants.find((v) => v.name === selectedVariant);
         if (current && variantHasStock(current)) return;
         const fallback = liveProduct.variants.find(variantHasStock);
         if (fallback) setSelectedVariant(fallback.name);
-    }, [liveProduct.variants, selectedVariant]);
+    }, [liveProduct.variants, selectedVariant, hasSelectableVariants]);
 
     const cartItemId = selectedVariant
         ? `${product.id}-${selectedVariant}`
@@ -204,16 +205,20 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
 
                     {hasSelectableVariants && (
                         <div className="variant-tags">
-                            {liveProduct.variants!.map((variant, idx) => (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    className="variant-tag"
-                                    onClick={() => setShowVariantModal(true)}
-                                >
-                                    {variant.name}
-                                </button>
-                            ))}
+                            {liveProduct.variants!.map((variant, idx) => {
+                                const outOfStock = !variantHasStock(variant);
+                                return (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        className={`variant-tag ${outOfStock ? "variant-tag-out-of-stock" : ""} ${selectedVariant === variant.name ? "variant-tag-active" : ""}`}
+                                        onClick={() => setSelectedVariant(variant.name)}
+                                        title={outOfStock ? `${variant.name} (Sin stock)` : variant.name}
+                                    >
+                                        {variant.name}
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 

@@ -71,14 +71,17 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
   // en el modal (VariantSelectionModal), igual que con los combos.
   const hasSelectableVariants = !!(liveProduct.variants && liveProduct.variants.length > 0 && !liveProduct.isCombo);
 
-  // Si el stock en vivo cambia, pasar a una variante con stock si la actual se agotó
+  // Si el stock en vivo cambia, pasar a una variante con stock si la actual se agotó.
+  // No aplica cuando hay variantes seleccionables: ahí el tag solo controla la
+  // imagen de vista previa y el usuario puede mirar una variante sin stock.
   useEffect(() => {
+    if (hasSelectableVariants) return;
     if (!liveProduct.variants?.length || !selectedVariant) return;
     const current = liveProduct.variants.find((v) => v.name === selectedVariant);
     if (current && variantHasStock(current)) return;
     const fallback = liveProduct.variants.find(variantHasStock);
     if (fallback) setSelectedVariant(fallback.name);
-  }, [liveProduct.variants, selectedVariant]);
+  }, [liveProduct.variants, selectedVariant, hasSelectableVariants]);
 
   // Determine the effective ID for the cart (base ID or variant ID)
   const cartItemId = selectedVariant
@@ -318,16 +321,20 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
 
         {hasSelectableVariants && (
           <div className="variant-tags">
-            {liveProduct.variants!.map((variant, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="variant-tag"
-                onClick={(e) => { e.stopPropagation(); setShowVariantModal(true); }}
-              >
-                {variant.name}
-              </button>
-            ))}
+            {liveProduct.variants!.map((variant, idx) => {
+              const outOfStock = !variantHasStock(variant);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`variant-tag ${outOfStock ? "variant-tag-out-of-stock" : ""} ${selectedVariant === variant.name ? "variant-tag-active" : ""}`}
+                  onClick={(e) => { e.stopPropagation(); setSelectedVariant(variant.name); }}
+                  title={outOfStock ? `${variant.name} (Sin stock)` : variant.name}
+                >
+                  {variant.name}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

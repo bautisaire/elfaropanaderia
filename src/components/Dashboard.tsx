@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
@@ -57,6 +57,10 @@ export default function Dashboard() {
     const [copyStockPriceMode, setCopyStockPriceMode] = useState<'publico' | 'despensa'>('publico');
     const [selectedCopyStockIds, setSelectedCopyStockIds] = useState<Set<string>>(new Set());
     const [copyStockCopied, setCopyStockCopied] = useState(false);
+    const [showCostListModal, setShowCostListModal] = useState(false);
+    const [costListSearch, setCostListSearch] = useState('');
+    const [costListCopied, setCostListCopied] = useState(false);
+    const [topProductsCopied, setTopProductsCopied] = useState(false);
     const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month' | 'custom'>('day');
     const [customRange, setCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
     const [tempCustomRange, setTempCustomRange] = useState<{ start: Date | null; end: Date | null }>({ start: new Date(), end: new Date() });
@@ -914,6 +918,48 @@ export default function Dashboard() {
 
     const clearCopyStockSelection = () => setSelectedCopyStockIds(new Set());
 
+    // Lista en texto llano de nombre / precio / costo por unidad, para el modal de Lista de Costos.
+    const filteredCostListProducts = allProductsForCopyStock
+        .filter(p => normalizeForSearch(p.nombre || '').includes(normalizeForSearch(costListSearch)))
+        .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }));
+
+    const handleCopyCostList = () => {
+        const lines = filteredCostListProducts.map(p => {
+            const price = Number(p.precio) || 0;
+            const cost = Number(p.recipe?.costPerUnit) || 0;
+            return `${p.nombre} - Precio: $${Math.round(price).toLocaleString('es-AR')} - Costo: $${Math.round(cost).toLocaleString('es-AR')}`;
+        });
+
+        if (lines.length === 0) return;
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            setCostListCopied(true);
+            setTimeout(() => setCostListCopied(false), 2000);
+        });
+    };
+
+    // Copia rápido, por producto vendido en el periodo seleccionado, el nombre, la cantidad
+    // vendida, el precio por unidad y el costo por unidad (Total / Cantidad de ese producto).
+    // Nota: "units" (p.units) es una unidad normalizada para el cálculo de CIF, no la cantidad
+    // vendida real, así que acá siempre se usa "quantity".
+    const handleCopyTopProductsList = () => {
+        const lines = topProducts.map(p => {
+            const quantity = Number(p.quantity) || 0;
+            const pricePerUnit = quantity > 0 ? p.total / quantity : 0;
+            const costPerUnit = quantity > 0 ? p.totalCost / quantity : 0;
+            const quantityLabel = quantity.toFixed(3).replace(/\.?0+$/, "");
+            const nameLabel = `${p.name}${p.variant ? ` (${p.variant})` : ''}`;
+            return `${nameLabel} - Cantidad: ${quantityLabel} - Precio x unidad: $${Math.round(pricePerUnit).toLocaleString('es-AR')} - Costo x unidad: $${Math.round(costPerUnit).toLocaleString('es-AR')}`;
+        });
+
+        if (lines.length === 0) return;
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+            setTopProductsCopied(true);
+            setTimeout(() => setTopProductsCopied(false), 2000);
+        });
+    };
+
     const handleCopySelectedStock = () => {
         const lines = allProductsForCopyStock
             .filter(p => selectedCopyStockIds.has(p.id))
@@ -1556,7 +1602,31 @@ export default function Dashboard() {
 
             {/* Product List Section */}
             <div className="products-stats-section">
-                <h3>Productos Vendidos ({getTimeframeLabel()})</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                    <h3 style={{ margin: 0 }}>Productos Vendidos ({getTimeframeLabel()})</h3>
+                    {topProducts.length > 0 && (
+                        <button
+                            onClick={handleCopyTopProductsList}
+                            style={{
+                                background: topProductsCopied ? '#10b981' : '#374151',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontWeight: 600,
+                                fontSize: '0.85rem'
+                            }}
+                            title="Copia nombre, unidades vendidas y costo por unidad de cada producto vendido en este periodo"
+                        >
+                            {topProductsCopied ? <FaCheck size={14} /> : <FaClipboardList size={14} />}
+                            {topProductsCopied ? 'Copiado' : 'Copiar lista'}
+                        </button>
+                    )}
+                </div>
                 <div className="products-table-container">
                     {topProducts.length === 0 ? (
                         <p className="no-data">No hay ventas en este periodo.</p>
@@ -1652,6 +1722,34 @@ export default function Dashboard() {
                 </button>
             </div>
 
+            {adminPermissions?.costs === true && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '10px' }}>
+                    <button
+                        onClick={() => {
+                            setCostListSearch('');
+                            setShowCostListModal(true);
+                        }}
+                        style={{
+                            background: '#0f766e',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '12px 24px',
+                            borderRadius: '10px',
+                            fontWeight: 600,
+                            fontSize: '0.95rem'
+                        }}
+                        title="Lista en texto llano de nombre, precio y costo por unidad de cada producto"
+                    >
+                        <FaCalculator size={16} />
+                        Lista de Costos
+                    </button>
+                </div>
+            )}
+
             {showCopyStockModal && (
                 <div className="copy-stock-modal-overlay" onClick={() => setShowCopyStockModal(false)}>
                     <div className="copy-stock-modal" onClick={(e) => e.stopPropagation()}>
@@ -1730,6 +1828,67 @@ export default function Dashboard() {
                             >
                                 {copyStockCopied ? <FaCheck size={14} /> : <FaClipboardList size={14} />}
                                 {copyStockCopied ? 'Copiado' : 'Copiar seleccionados'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showCostListModal && (
+                <div className="copy-stock-modal-overlay" onClick={() => setShowCostListModal(false)}>
+                    <div className="copy-stock-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="copy-stock-modal-header">
+                            <h3>Lista de Costos</h3>
+                            <button className="copy-stock-close-btn" onClick={() => setShowCostListModal(false)}>
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="copy-stock-modal-controls">
+                            <div className="copy-stock-search">
+                                <FaSearch />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar producto..."
+                                    value={costListSearch}
+                                    onChange={(e) => setCostListSearch(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        <div className="copy-stock-list">
+                            {filteredCostListProducts.length === 0 ? (
+                                <p className="copy-stock-empty">No se encontraron productos.</p>
+                            ) : (
+                                filteredCostListProducts.map((p) => {
+                                    const price = Number(p.precio) || 0;
+                                    const cost = Number(p.recipe?.costPerUnit) || 0;
+                                    return (
+                                        <div key={p.id} className="copy-stock-item" style={{ cursor: 'default' }}>
+                                            <span className="copy-stock-item-name">{p.nombre}</span>
+                                            <span className="copy-stock-item-price">
+                                                Precio: ${Math.round(price).toLocaleString('es-AR')}
+                                            </span>
+                                            <span className="copy-stock-item-price" style={{ color: '#ef4444' }}>
+                                                Costo: ${Math.round(cost).toLocaleString('es-AR')}
+                                            </span>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        <div className="copy-stock-modal-footer">
+                            <span className="copy-stock-count">{filteredCostListProducts.length} productos</span>
+                            <button
+                                type="button"
+                                className="copy-stock-copy-btn"
+                                disabled={filteredCostListProducts.length === 0}
+                                onClick={handleCopyCostList}
+                            >
+                                {costListCopied ? <FaCheck size={14} /> : <FaClipboardList size={14} />}
+                                {costListCopied ? 'Copiado' : 'Copiar lista'}
                             </button>
                         </div>
                     </div>

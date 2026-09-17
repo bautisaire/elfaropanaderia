@@ -257,6 +257,20 @@ html.low-power .favorite-btn.fav-bump {
   background-color: #8a4b26;
 }
 
+.variant-tag-active {
+  outline: 2px solid #4338ca;
+  outline-offset: 1px;
+}
+
+.variant-tag-out-of-stock {
+  background-color: #b0b0b0;
+  text-decoration: line-through;
+}
+
+.variant-tag-out-of-stock:hover {
+  background-color: #9a9a9a;
+}
+
 .price-container {
   display: flex;
   flex-direction: column;
