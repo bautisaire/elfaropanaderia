@@ -160,7 +160,29 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
  */
 exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (request) => {
     try {
-        const { cart, formData, shippingCost, discountAmount, discountText, finalTotal, userId, isTestOrder: clientWantsTestOrder } = request.data;
+        const { cart, formData } = request.data;
+        let { shippingCost, finalTotal } = request.data;
+        const { discountAmount, discountText, userId, isTestOrder: clientWantsTestOrder } = request.data;
+
+        // Red de seguridad: el front calcula el costo de envío con un listener de
+        // Firestore (config/store_settings) que a veces todavía no resolvió cuando el
+        // cliente confirma el pedido (ej. checkout ultrarrápido con datos guardados).
+        // Eso hacía llegar pedidos de delivery con shippingCost 0, sin cobrarse el envío
+        // y sin que quedara registrado en el ticket. Si detectamos ese caso, lo
+        // recalculamos acá contra la config real antes de guardar el pedido.
+        if (formData?.metodoEntrega === 'delivery' && (!shippingCost || shippingCost <= 0)) {
+            try {
+                const settingsSnap = await db.collection("config").doc("store_settings").get();
+                const configShippingCost = Number(settingsSnap.data()?.shippingCost) || 0;
+                if (configShippingCost > 0) {
+                    const diff = configShippingCost - (Number(shippingCost) || 0);
+                    shippingCost = configShippingCost;
+                    finalTotal = (Number(finalTotal) || 0) + diff;
+                }
+            } catch (e) {
+                console.error("No se pudo verificar el costo de envío contra config/store_settings:", e);
+            }
+        }
 
         const ADMIN_EMAILS = (process.env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
             .split(",")

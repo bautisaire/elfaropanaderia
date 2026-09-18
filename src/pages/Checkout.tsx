@@ -293,14 +293,38 @@ export default function Checkout() {
     return phoneRegex.test(phoneDigits) && phoneDigits.length >= 10;
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): { [key: string]: string } => {
     const newErrors: { [key: string]: string } = {};
     if (!formData.nombre.trim()) newErrors.nombre = "El nombre es requerido";
     if (deliveryMethod === 'delivery' && !formData.direccion.trim()) newErrors.direccion = "La dirección es requerida";
     if (!formData.telefono.trim()) newErrors.telefono = "El teléfono es requerido";
     else if (!validatePhone(formData.telefono)) newErrors.telefono = "El teléfono debe tener al menos 10 dígitos";
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
+  };
+
+  // Lleva el foco/scroll al primer campo con error, en el orden en que aparecen en el form.
+  const focusField = (name: string) => {
+    const el = formRef.current?.querySelector<HTMLElement>(`[name="${name}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus?.();
+    }
+  };
+
+  const scrollToFirstError = (formErrors: { [key: string]: string }) => {
+    const order = ["nombre", "telefono", "direccion"];
+    const firstErrorField = order.find((f) => formErrors[f]);
+    if (!firstErrorField) return;
+
+    // Si la dirección está en modo "direcciones guardadas", el input manual no
+    // está montado todavía: hay que revelarlo antes de poder enfocarlo.
+    if (firstErrorField === "direccion" && userAddresses.length > 0 && !isManualAddress) {
+      setIsManualAddress(true);
+      setTimeout(() => focusField("direccion"), 100);
+      return;
+    }
+    setTimeout(() => focusField(firstErrorField), 50);
   };
 
   // State for config
@@ -453,7 +477,11 @@ export default function Checkout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    const formErrors = validateForm();
+    if (Object.keys(formErrors).length > 0) {
+      scrollToFirstError(formErrors);
+      return;
+    }
     if (isSubmitting) return;
 
     // 0. El boleto del sorteo no se puede comprar solo, necesita ir con algún producto.
@@ -483,8 +511,36 @@ export default function Checkout() {
     }
 
     try {
-      const effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
-      const discountAmount = deliveryMethod === 'pickup' && pickupDiscountPercentage > 0 ? (cartTotal * pickupDiscountPercentage) / 100 : 0;
+      // Releemos la config de envío justo antes de confirmar: `shippingCost` viene de un
+      // listener de Firestore que puede no haber resuelto todavía (ej. cliente con datos
+      // guardados que confirma en un toque), y eso mandaba pedidos de delivery con el
+      // envío en $0 sin que se note en el ticket ni en el pedido.
+      let effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
+      let effectivePickupDiscountPercentage = pickupDiscountPercentage;
+      let effectivePickupDiscountText = pickupDiscountText;
+      if (deliveryMethod === 'delivery') {
+        try {
+          const settingsSnap = await getDoc(doc(db, "config", "store_settings"));
+          if (settingsSnap.exists()) {
+            const freshShippingCost = Number(settingsSnap.data().shippingCost) || 0;
+            if (freshShippingCost > 0) effectiveShipping = freshShippingCost;
+          }
+        } catch (e) {
+          console.error("Error revalidando costo de envío antes de confirmar:", e);
+        }
+      } else {
+        try {
+          const settingsSnap = await getDoc(doc(db, "config", "store_settings"));
+          if (settingsSnap.exists()) {
+            effectivePickupDiscountPercentage = Number(settingsSnap.data().pickupDiscountPercentage) || 0;
+            effectivePickupDiscountText = settingsSnap.data().pickupDiscountText || "";
+          }
+        } catch (e) {
+          console.error("Error revalidando descuento por retiro antes de confirmar:", e);
+        }
+      }
+      const discountAmount = deliveryMethod === 'pickup' && effectivePickupDiscountPercentage > 0 ? (cartTotal * effectivePickupDiscountPercentage) / 100 : 0;
+      const finalTotalToSend = cartTotal + effectiveShipping - discountAmount;
 
       const orderFormData = {
         ...formData,
@@ -530,8 +586,8 @@ export default function Checkout() {
         formData: orderFormData,
         shippingCost: effectiveShipping,
         discountAmount: discountAmount,
-        discountText: pickupDiscountText,
-        finalTotal,
+        discountText: effectivePickupDiscountText,
+        finalTotal: finalTotalToSend,
         userId: user?.uid || null,
         ...(isAdmin && shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
       };
@@ -591,14 +647,14 @@ export default function Checkout() {
         itemsWithModifiers.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 } as any);
       }
       if (discountAmount > 0) {
-        itemsWithModifiers.push({ id: 'pickup-discount', name: pickupDiscountText || `Descuento Retiro Local (-${pickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 } as any);
+        itemsWithModifiers.push({ id: 'pickup-discount', name: effectivePickupDiscountText || `Descuento Retiro Local (-${effectivePickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 } as any);
       }
 
       const ticketData = {
         id: orderId,
         items: cart, // Needed for ticket render and whatsapp link
         itemsWithShipping: itemsWithModifiers,
-        total: finalTotal,
+        total: finalTotalToSend,
         paymentMethod: orderFormData.metodoPago,
         cliente: orderFormData,
         deliveryMethod: deliveryMethod,
