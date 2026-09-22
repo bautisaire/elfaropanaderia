@@ -10,6 +10,7 @@ import { getDerivedStockFromParent, getVariantPrice } from '../utils/cartStock';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import { normalizeForSearch } from '../utils/textSearch';
+import { getDeviceId } from '../utils/deviceId';
 import StockAdjustmentModal from './StockAdjustmentModal';
 import ProductManager from './ProductManager';
 import { useCart } from '../context/CartContext';
@@ -797,6 +798,7 @@ export default function POSManager() {
                     status: isDeliveryOrder ? "pendiente" : "entregado",
                     source: isDeliveryOrder ? 'pos_delivery' : (priceMode === 'public' ? 'pos_public' : 'pos_wholesale'),
                     createdByEmail: user?.email || 'admin',
+                    createdByDeviceId: getDeviceId(),
                     id: orderIdString
                 };
                 transaction.set(orderRef, orderData);

@@ -4,6 +4,7 @@ import { collection, doc, runTransaction, onSnapshot } from 'firebase/firestore'
 import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen, FaQrcode } from 'react-icons/fa';
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
+import { getDeviceId } from '../utils/deviceId';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { getVariantPrice } from '../utils/cartStock';
 import { normalizeForSearch } from '../utils/textSearch';
@@ -890,6 +891,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                     status: isDeliveryOrder ? 'pendiente' : 'entregado',
                     source: isDeliveryOrder ? 'pos_delivery' : 'pos_public',
                     createdByEmail: user?.email || 'admin',
+                    createdByDeviceId: getDeviceId(),
                     id: orderIdString
                 };
                 transaction.set(orderRef, orderData);
@@ -1234,6 +1236,13 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
                                 ref={searchInputRef}
                                 value={searchTerm}
                                 onChange={(e) => { setSearchTerm(e.target.value); setAddModalError(''); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && filteredResults.length > 0) {
+                                        e.preventDefault();
+                                        const first = filteredResults[0];
+                                        handleProductPicked(first.product, first.variant);
+                                    }
+                                }}
                                 placeholder="Buscar producto por nombre... (o escaneá/ingresá un código sin hacer clic acá)"
                             />
                         </div>

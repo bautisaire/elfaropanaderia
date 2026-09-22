@@ -4,6 +4,7 @@ import { db } from "../firebase/firebaseConfig";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaTimes } from "react-icons/fa";
 import { printTicket } from "../utils/printTicket";
+import { getDeviceId } from "../utils/deviceId";
 import newOrderSound from "../sounds/neworder.mp3";
 import pickupStoreSound from "../sounds/pickupstore.mp3";
 import noStockSound from "../sounds/nostock.mp3";
@@ -65,9 +66,15 @@ export default function GlobalAdminNotifications() {
                     const alertsEnabled = localStorage.getItem('admin_order_alerts_enabled') === 'true';
                     const autoPrintEnabled = localStorage.getItem('admin_auto_print_enabled') === 'true';
 
-                    // Los pedidos POS con envío ya imprimen el ticket localmente desde POSManager
-                    // al confirmar la venta. Evitamos el doble print aquí.
-                    if (autoPrintEnabled && newOrder.source !== 'pos_delivery') {
+                    // Los pedidos POS con envío ya imprimen el ticket localmente (en el dispositivo
+                    // que hizo la venta) desde CajaVenta/POSManager al confirmar la venta. Evitamos
+                    // el doble print ahí, pero SÍ dejamos que otros dispositivos con auto-impresión
+                    // activada (ej. la PC con la impresora Nictom) impriman el ticket igual, aunque
+                    // el pedido se haya originado en una PC sin impresora conectada.
+                    const printedOnThisDeviceAlready = newOrder.source === 'pos_delivery'
+                        && newOrder.createdByDeviceId
+                        && newOrder.createdByDeviceId === getDeviceId();
+                    if (autoPrintEnabled && !printedOnThisDeviceAlready) {
                         printTicket({ ...newOrder, id: change.doc.id });
                     }
 
