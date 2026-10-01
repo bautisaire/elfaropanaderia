@@ -11,6 +11,7 @@ import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
 import NotesManager from "./NotesManager";
 import { normalizeForSearch } from "../utils/textSearch";
+import { getArgentinaDateKey } from "../utils/visitTracker";
 
 registerLocale('es', es);
 
@@ -71,6 +72,11 @@ export default function Dashboard() {
     const [rawExpenses, setRawExpenses] = useState<any[]>([]);
     const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [visitsData, setVisitsData] = useState<{
+        total: number;
+        daily: Record<string, number>;
+        dailyBySource: Record<string, Record<string, number>>;
+    }>({ total: 0, daily: {}, dailyBySource: {} });
 
     // Sensitive Data Toggle
     const [showSensitiveData, setShowSensitiveData] = useState(() => {
@@ -86,7 +92,6 @@ export default function Dashboard() {
     };
 
     const [stats, setStats] = useState({
-        visits: 0,
         // Current Timeframe Stats
         totalSales: 0,
         totalOrders: 0,
@@ -99,7 +104,6 @@ export default function Dashboard() {
         deliveryHomeCount: 0,   // Online: envío a domicilio
         deliveryPickupCount: 0, // Online: retiro en el local
         deliveryShippingTotal: 0, // Suma de los costos de envío cobrados (línea "Envío" de cada pedido)
-        newVisitsToday: 0,
         totalEgresos: 0,
         egresosCount: 0,
         totalSueldosPendientes: 0,
@@ -121,7 +125,6 @@ export default function Dashboard() {
         deliveryTransferencia: 0,
         deliveryDebito: 0,
         deliveryQr: 0,
-        visitsBySource: {} as Record<string, number>,
     });
 
     const [topProducts, setTopProducts] = useState<ProductSale[]>([]);
@@ -197,6 +200,25 @@ export default function Dashboard() {
         }
         return false;
     };
+
+    // Visitas del período: las claves de dailyVisits ya están en fecha Argentina (YYYY-MM-DD)
+    const visitsInTimeframe = (() => {
+        const todayKey = getArgentinaDateKey();
+        let count = 0;
+        const bySource: Record<string, number> = {};
+        Object.entries(visitsData.daily).forEach(([key, value]) => {
+            const [y, m, d] = key.split('-').map(Number);
+            if (!y || !m || !d) return;
+            // Mediodía, para que getArgentinaDate no corra el día en otros husos horarios
+            const keyDate = new Date(Date.UTC(y, m - 1, d, 15));
+            if (!isInTimeframe(keyDate, timeframe)) return;
+            count += Number(value) || 0;
+            Object.entries(visitsData.dailyBySource[key] || {}).forEach(([source, n]) => {
+                bySource[source] = (bySource[source] || 0) + (Number(n) || 0);
+            });
+        });
+        return { count, bySource, today: Number(visitsData.daily[todayKey]) || 0 };
+    })();
 
 
     useEffect(() => {
@@ -275,23 +297,11 @@ export default function Dashboard() {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
 
-                        let newVisitsToday = 0;
-                        let todayVisitsSource = {};
-                        if (data.dailyVisits) {
-                            const todayDateString = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-                            newVisitsToday = data.dailyVisits[todayDateString] || 0;
-                            
-                            if (data.dailyVisitsBySource && data.dailyVisitsBySource[todayDateString]) {
-                                todayVisitsSource = data.dailyVisitsBySource[todayDateString];
-                            }
-                        }
-
-                        setStats(prev => ({ 
-                            ...prev, 
-                            visits: data.visits || 0, 
-                            newVisitsToday,
-                            visitsBySource: todayVisitsSource 
-                        }));
+                        setVisitsData({
+                            total: data.visits || 0,
+                            daily: data.dailyVisits || {},
+                            dailyBySource: data.dailyVisitsBySource || {},
+                        });
                     }
                 });
 
@@ -1422,12 +1432,12 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Visitas (Always Global or maybe tied to timeframe in future, keeping global for now) */}
+                {/* Visitas del período seleccionado (1 por dispositivo por día, sin contar staff) */}
                 <div className="stat-card visits" style={{ position: 'relative' }}>
                     <div className="stat-icon"><FaEye /></div>
                     <div className="stat-info">
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Visitas Web
+                            Visitas Web ({getTimeframeLabel()})
                             <div
                                 className="bubble-trigger-container"
                                 style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '4px' }}
@@ -1445,7 +1455,7 @@ export default function Dashboard() {
                                         <div className="bubble-pointer" />
                                         <h4 style={{ margin: '0 0 4px 0', color: '#374151', fontSize: '0.85rem', textAlign: 'center', fontWeight: 600 }}>Orígenes</h4>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {Object.entries(stats.visitsBySource)
+                                            {Object.entries(visitsInTimeframe.bySource)
                                                 .sort(([,a], [,b]) => b - a)
                                                 .map(([source, count], idx) => (
                                                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px' }}>
@@ -1453,7 +1463,7 @@ export default function Dashboard() {
                                                     <strong style={{ color: '#064e3b', fontSize: '1rem' }}>{count}</strong>
                                                 </div>
                                             ))}
-                                            {Object.keys(stats.visitsBySource).length === 0 && (
+                                            {Object.keys(visitsInTimeframe.bySource).length === 0 && (
                                                 <span style={{ fontSize: '0.8rem', color: '#6b7280', textAlign: 'center' }}>No hay datos</span>
                                             )}
                                         </div>
@@ -1461,8 +1471,17 @@ export default function Dashboard() {
                                 )}
                             </div>
                         </h3>
-                        <p>{stats.visits.toLocaleString('es-AR')}</p>
-                        <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>+{stats.newVisitsToday} hoy</span>
+                        <p>{visitsInTimeframe.count.toLocaleString('es-AR')}</p>
+                        <span className="stat-sub" style={{ color: '#10b981', fontWeight: 'bold' }}>
+                            {timeframe === 'day'
+                                ? `${visitsData.total.toLocaleString('es-AR')} en total`
+                                : `+${visitsInTimeframe.today} hoy · ${visitsData.total.toLocaleString('es-AR')} en total`}
+                        </span>
+                        {visitsInTimeframe.count > 0 && (
+                            <span className="stat-sub" style={{ display: 'block', color: '#6b7280' }}>
+                                Conversión web: {((((stats.deliveryHomeCount || 0) + (stats.deliveryPickupCount || 0)) / visitsInTimeframe.count) * 100).toFixed(1)}%
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

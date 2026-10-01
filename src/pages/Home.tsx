@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
@@ -7,13 +7,11 @@ import Hero from "../components/Hero"; // Import Hero
 import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
-import { db, auth } from "../firebase/firebaseConfig";
-import { collection, doc, getDoc, increment, setDoc, updateDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { db } from "../firebase/firebaseConfig";
+import { collection, doc, getDoc, increment, updateDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
 import { Product, useCart } from "../context/CartContext";
 import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 
-const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 import { FaStoreSlash, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
 export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -66,50 +64,12 @@ export default function Home() {
     addToCart,
     setIsSidebarOpen,
   } = useCart();
-  const location = useLocation();
   const navigate = useNavigate();
 
-  // Registro de visitas (no cuenta si es admin)
   useEffect(() => {
     document.body.classList.add('svg-background');
     return () => document.body.classList.remove('svg-background');
   }, []);
-
-  useEffect(() => {
-    const visited = sessionStorage.getItem('hasVisited');
-    if (visited) return; // Already counted this session, do nothing
-
-    // Wait for Firebase Auth to resolve before deciding
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      unsubscribe(); // We only need the first resolved state
-
-      // No contar visitas de administradores
-      if (currentUser?.email && ADMIN_EMAILS.includes(currentUser.email)) {
-        sessionStorage.setItem('hasVisited', 'true');
-        return;
-      }
-
-      const queryParams = new URLSearchParams(location.search);
-      let source = (queryParams.get('ref') || 'Directo').trim();
-      // Capitalize first letter for better display (e.g. facebook -> Facebook)
-      source = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
-
-      try {
-        const statsRef = doc(db, "stats", "general");
-        const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: "America/Argentina/Buenos_Aires", year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-
-        await setDoc(statsRef, {
-          visits: increment(1),
-          dailyVisits: { [todayDate]: increment(1) },
-          visitsBySource: { [source]: increment(1) },
-          dailyVisitsBySource: { [todayDate]: { [source]: increment(1) } }
-        }, { merge: true });
-      } catch (error: any) {
-        console.error("Error logging visit:", error);
-      }
-      sessionStorage.setItem('hasVisited', 'true');
-    });
-  }, [location.search]);
 
   useEffect(() => {
     if (showRaffleModal || showRaffleInfoModal || (!isStoreOpen && !isStoreClosedDismissed)) {

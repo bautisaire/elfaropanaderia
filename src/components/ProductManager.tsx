@@ -154,7 +154,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     };
 
     const getRecipeCifUnits = (recipe: any, yieldType?: 'units' | 'kg'): number =>
-        getRecipeTotalGrams(recipe, yieldType) / 100;
+        recipe?.excludeCif ? 0 : getRecipeTotalGrams(recipe, yieldType) / 100;
 
     const calculateRecipeTotalCost = (recipe: any, yieldType?: 'units' | 'kg'): number => {
         if (!recipe) return 0;

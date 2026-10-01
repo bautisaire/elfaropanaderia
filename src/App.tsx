@@ -11,6 +11,7 @@ import GlobalAdminNotifications from "./components/GlobalAdminNotifications";
 import BottomNav from "./components/BottomNav";
 
 import CartSidebar from "./components/CartSidebar";
+import { trackVisit, markDeviceAsStaff } from "./utils/visitTracker";
 
 // Rutas que el cliente normal no visita: se descargan solo al entrar en ellas.
 const Editor = lazy(() => import("./pages/Editor"));
@@ -31,6 +32,16 @@ function Layout() {
 
   // Determinamos si es Admin revisando el context o la configuración local
   const isAdmin = cartContext?.isAdmin ?? false;
+
+  // Conteo de visitas: solo en la tienda (no en el panel), 1 por dispositivo por día.
+  useEffect(() => {
+    if (!isEditor) trackVisit();
+  }, [isEditor]);
+
+  // Riders/empleados/admins no suman visitas desde este dispositivo.
+  useEffect(() => {
+    if (isAdmin || cartContext?.adminPermissions?.is_rider) markDeviceAsStaff();
+  }, [isAdmin, cartContext?.adminPermissions?.is_rider]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>

@@ -110,7 +110,11 @@ service cloud.firestore {
 
     match /stats/general {
       allow read: if isAdmin();
-      allow create, update: if true;
+      // Cualquiera puede sumar una visita, pero solo de a 1 y solo en los campos de visitas.
+      allow create: if request.resource.data.keys().hasOnly(['visits', 'dailyVisits', 'visitsBySource', 'dailyVisitsBySource'])
+        && request.resource.data.visits == 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visits', 'dailyVisits', 'visitsBySource', 'dailyVisitsBySource'])
+        && request.resource.data.visits == resource.data.get('visits', 0) + 1;
     }
 
     match /stats/{document=**} {

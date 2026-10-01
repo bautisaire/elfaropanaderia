@@ -33,6 +33,7 @@ export interface ProductRecipe {
     weightPerUnitGrams?: number; 
     costPerUnit?: number;
     merma?: number; // Porcentaje de desperdicio/pérdida
+    excludeCif?: boolean; // Si es true, no se suma el costo CIF a esta receta
 }
 
 export interface Product {
@@ -326,7 +327,7 @@ export default function CostManager() {
     };
 
     const getRecipeCifUnits = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number =>
-        getRecipeTotalGrams(recipe, yieldType) / 100;
+        recipe?.excludeCif ? 0 : getRecipeTotalGrams(recipe, yieldType) / 100;
 
     const calculateIngredientCost = (ing: RecipeIngredient, recipeMermaPercentage: number = 0): number => {
         const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
@@ -1227,7 +1228,14 @@ export default function CostManager() {
                                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                                                 {recipeYieldType === 'kg' ? (
                                                                     <>
-                                                                        <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap' }}>CIF (auto)</span>
+                                                                        <label style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={!editingRecipe.excludeCif}
+                                                                                onChange={e => setEditingRecipe({ ...editingRecipe, excludeCif: !e.target.checked })}
+                                                                            />
+                                                                            Sumar CIF
+                                                                        </label>
                                                                         <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#0369a1', padding: '8px 12px', background: '#f0f9ff', borderRadius: '6px', textAlign: 'center' }}>
                                                                             {editingRecipe.yield > 0
                                                                                 ? `${getRecipeCifUnits(editingRecipe, 'kg')} un`
@@ -1238,9 +1246,15 @@ export default function CostManager() {
                                                                                 ? `${editingRecipe.yield} kg = ${getRecipeTotalGrams(editingRecipe, 'kg')} g`
                                                                                 : 'Ingresá el rendimiento'}
                                                                         </div>
-                                                                        <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
-                                                                            + CIF: ${(getRecipeCifUnits(editingRecipe, 'kg') * globalCifUnitCost).toFixed(2)} total
-                                                                        </div>
+                                                                        {editingRecipe.excludeCif ? (
+                                                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                                Sin CIF
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
+                                                                                + CIF: ${(getRecipeCifUnits(editingRecipe, 'kg') * globalCifUnitCost).toFixed(2)} total
+                                                                            </div>
+                                                                        )}
                                                                     </>
                                                                 ) : (
                                                                     <>
