@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
-import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaBoxOpen, FaQuestionCircle, FaRobot, FaBuilding } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaQuestionCircle, FaRobot } from 'react-icons/fa';
 import './CostManager.css';
-import ProductManager from './ProductManager';
-import CifManager from './CifManager';
 import { normalizeForSearch } from '../utils/textSearch';
+import * as costing from '../utils/costing';
+import type { CostingContext, CostingRecipe, RealProductCostOptions, YieldType } from '../utils/costing';
 
 export interface RawMaterial {
     id: string;
@@ -26,14 +26,10 @@ export interface RecipeIngredient {
     quantity: number;
 }
 
-export interface ProductRecipe {
+export interface ProductRecipe extends CostingRecipe {
     ingredients: RecipeIngredient[];
     yield: number; // Rendimiento
-    yieldType?: 'units' | 'kg'; // Tipo de rendimiento
-    weightPerUnitGrams?: number; 
     costPerUnit?: number;
-    merma?: number; // Porcentaje de desperdicio/pérdida
-    excludeCif?: boolean; // Si es true, no se suma el costo CIF a esta receta
 }
 
 export interface Product {
@@ -56,9 +52,11 @@ export default function CostManager() {
     const navigate = useNavigate();
     
     // Parseo de la ruta actual
-    const cleanTab = tab ? tab.replace(/^\//, '') : 'products';
-    const validTabs = ['products', 'raw_materials', 'recipes', 'simulator', 'cif'];
-    const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'products';
+    const cleanTab = tab ? tab.replace(/^\//, '') : 'recipes';
+    const validTabs = ['raw_materials', 'recipes', 'simulator'];
+    const activeTab = validTabs.includes(cleanTab) ? cleanTab : 'recipes';
+    // Productos y Gastos Fijos se mudaron a sus propias secciones; las rutas viejas redirigen.
+    const movedTabRedirect = cleanTab === 'products' ? '/editor/products' : cleanTab === 'cif' ? '/editor/bills/fijos' : null;
 
     // --- SYSTEM CONFIG (MARGINS) ---
     // En una DB real deberíamos guardar o leer los porcentajes, aquí usamos un estado local.
@@ -72,7 +70,9 @@ export default function CostManager() {
 
     // --- RECIPES (PRODUCTS) STATE ---
     const [products, setProducts] = useState<Product[]>([]);
-    const [selectedProductId, setSelectedProductId] = useState<string>('');
+    // Al venir desde "Productos → Ver receta" llega el producto elegido en el state de la navegación.
+    const location = useLocation();
+    const [selectedProductId, setSelectedProductId] = useState<string>((location.state as { productId?: string } | null)?.productId || '');
     const [editingRecipe, setEditingRecipe] = useState<ProductRecipe | null>(null);
     const loadedRecipeProductId = useRef<string | null>(null);
     const [recipeYieldType, setRecipeYieldType] = useState<'units' | 'kg'>('units');
@@ -274,7 +274,7 @@ export default function CostManager() {
         // con lo que escribe la sincronización global y con lo que después lee el POS.
         const currentProduct = products.find(p => p.id === selectedProductId);
         const unitCost = currentProduct
-            ? calculateRealProductCost(currentProduct, new Set(), editingRecipe, recipeYieldType)
+            ? calculateRealProductCost(currentProduct, { recipeOverride: editingRecipe, yieldTypeOverride: recipeYieldType })
             : calculateRecipeUnitCost(editingRecipe, recipeYieldType);
 
         try {
@@ -311,92 +311,21 @@ export default function CostManager() {
     };
 
     // --- MATH HELPERS ---
-    const getRecipeYieldType = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): 'units' | 'kg' =>
-        yieldType || recipe?.yieldType || 'units';
+    // La fórmula vive en utils/costing.ts; acá sólo se le pasan los datos de esta pantalla.
+    const costingCtx: CostingContext = { rawMaterials, products, cifUnitCost: globalCifUnitCost };
 
-    const getRecipeTotalGrams = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe || !recipe.yield || recipe.yield <= 0) return 0;
-
-        const type = getRecipeYieldType(recipe, yieldType);
-        if (type === 'kg') {
-            return recipe.yield * 1000;
-        }
-
-        if (!recipe.weightPerUnitGrams) return 0;
-        return recipe.yield * recipe.weightPerUnitGrams;
-    };
-
-    const getRecipeCifUnits = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number =>
-        recipe?.excludeCif ? 0 : getRecipeTotalGrams(recipe, yieldType) / 100;
-
-    const calculateIngredientCost = (ing: RecipeIngredient, recipeMermaPercentage: number = 0): number => {
-        const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
-        if (!mat || mat.baseQuantity === 0) return 0;
-        // Regla de 3: (Precio / Base) * CantidadUsada
-        let baseCost = (mat.price / mat.baseQuantity) * ing.quantity;
-        
-        // Aplicar merma SÓLO si es de categoría 'materia prima' y si hay porcentaje de merma definido
-        if ((mat.category === 'materia prima' || !mat.category) && recipeMermaPercentage > 0) {
-           baseCost += baseCost * (recipeMermaPercentage / 100);
-        }
-        
-        return baseCost;
-    };
-
-    const calculateRecipeTotalCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe) return 0;
-        let baseCost = (recipe.ingredients || []).reduce((total, ing) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
-
-        const cifUnits = getRecipeCifUnits(recipe, yieldType);
-        if (cifUnits > 0) {
-            baseCost += cifUnits * globalCifUnitCost;
-        }
-
-        return baseCost;
-    };
-
-    const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
-        const type = getRecipeYieldType(recipe, yieldType);
-        const cost = calculateRecipeTotalCost(recipe, type) / recipe.yield;
-        return isNaN(cost) ? 0 : cost;
-    };
-
-    /**
-     * Costo unitario real: lo que hereda del producto padre (si tiene dependencia de stock)
-     * más el costo de su propia receta.
-     * `recipeOverride` permite calcularlo sobre una receta que todavía no está en Firestore
-     * (el borrador que se está editando, o el resultado de un reemplazo global de ingredientes).
-     */
-    const calculateRealProductCost = (
-        product: Product,
-        visitedIds: Set<string> = new Set(),
-        recipeOverride?: ProductRecipe | null,
-        yieldTypeOverride?: 'units' | 'kg'
-    ): number => {
-        if (!product) return 0;
-        if (visitedIds.has(product.id)) return 0; // Evitar lazos infinitos
-
-        visitedIds.add(product.id);
-        let totalCost = 0;
-
-        // 1. Costo heredado del Padre (si tiene dependencia)
-        if (product.stockDependency && product.stockDependency.productId) {
-            const parent = products.find(p => p.id === product.stockDependency?.productId);
-            if (parent) {
-                const parentUnitCost = calculateRealProductCost(parent, visitedIds);
-                totalCost += parentUnitCost * (Number(product.stockDependency.unitsToDeduct) || 0);
-            }
-        }
-
-        // 2. Costo propio de la receta (ej. empaques o insumos extras)
-        const recipe = recipeOverride !== undefined ? recipeOverride : product.recipe;
-        if (recipe) {
-            totalCost += calculateRecipeUnitCost(recipe, yieldTypeOverride || recipe.yieldType || 'units');
-        }
-
-        return isNaN(totalCost) ? 0 : totalCost;
-    };
+    const getRecipeTotalGrams = (recipe: ProductRecipe | null, yieldType?: YieldType) =>
+        costing.getRecipeTotalGrams(recipe, yieldType);
+    const getRecipeCifUnits = (recipe: ProductRecipe | null, yieldType?: YieldType) =>
+        costing.getRecipeCifUnits(recipe, yieldType);
+    const calculateIngredientCost = (ing: RecipeIngredient, recipeMermaPercentage: number = 0) =>
+        costing.calculateIngredientCost(ing, rawMaterials, recipeMermaPercentage);
+    const calculateRecipeTotalCost = (recipe: ProductRecipe | null, yieldType?: YieldType) =>
+        costing.calculateRecipeTotalCost(recipe, costingCtx, yieldType);
+    const calculateRecipeUnitCost = (recipe: ProductRecipe | null, yieldType?: YieldType) =>
+        costing.calculateRecipeUnitCost(recipe, costingCtx, yieldType);
+    const calculateRealProductCost = (product: Product, options?: RealProductCostOptions) =>
+        costing.calculateRealProductCost(product, costingCtx, options);
 
     // --- SIMULATOR HELPERS ---
     const handleSyncAllCosts = async () => {
@@ -519,7 +448,7 @@ export default function CostManager() {
                         ...prod.recipe,
                         ingredients: newIngredients
                     };
-                    const unitCost = calculateRealProductCost(prod, new Set(), updatedRecipe, prod.recipe.yieldType || 'units');
+                    const unitCost = calculateRealProductCost(prod, { recipeOverride: updatedRecipe, yieldTypeOverride: prod.recipe.yieldType || 'units' });
                     
                     await updateDoc(doc(db, "products", prod.id), {
                         recipe: {
@@ -574,48 +503,37 @@ export default function CostManager() {
     const maxMargin = marginsArray.length > 0 ? Math.max(...marginsArray) : 0;
     const greatestLoss = marginsArray.length > 0 && Math.min(...marginsArray) < 0 ? Math.min(...marginsArray) : 0;
 
+    if (movedTabRedirect) {
+        return <Navigate to={movedTabRedirect} replace />;
+    }
+
     return (
         <div className="cost-manager-container">
             <header className="cm-header">
-                <h2>Productos, Costos y Recetas</h2>
+                <h2>Costos y Recetas</h2>
                 <div className="cm-tabs">
-                    <button
-                        className={`cm-tab ${activeTab === 'products' ? 'active' : ''}`}
-                        onClick={() => navigate('/editor/costs/products')}
-                    >
-                        <FaBoxOpen /> 1. Productos
-                    </button>
                     <button
                         className={`cm-tab ${activeTab === 'raw_materials' ? 'active' : ''}`}
                         onClick={() => navigate('/editor/costs/raw_materials')}
                     >
-                        <FaList /> 2. Materias Primas
+                        <FaList /> 1. Materias Primas
                     </button>
                     <button
                         className={`cm-tab ${activeTab === 'recipes' ? 'active' : ''}`}
                         onClick={() => navigate('/editor/costs/recipes')}
                     >
-                        <FaCalculator /> 3. Fichas de Recetas
+                        <FaCalculator /> 2. Fichas de Recetas
                     </button>
                     <button
                         className={`cm-tab ${activeTab === 'simulator' ? 'active' : ''}`}
                         onClick={() => navigate('/editor/costs/simulator')}
                     >
-                        <FaChartLine /> 4. Precios y Ganancias
-                    </button>
-                    <button
-                        className={`cm-tab ${activeTab === 'cif' ? 'active' : ''}`}
-                        onClick={() => navigate('/editor/costs/cif')}
-                    >
-                        <FaBuilding /> 5. Gtos. Fijos (CIF)
+                        <FaChartLine /> 3. Precios y Ganancias
                     </button>
                 </div>
             </header>
 
             <main className="cm-content">
-                {activeTab === 'products' && (
-                    <ProductManager onGoToRecipe={(id) => { setSelectedProductId(id); navigate('/editor/costs/recipes'); }} />
-                )}
                 {activeTab === 'raw_materials' && (
                     <div className="cm-tab-content">
                         <h3>Gestión de Materias Primas e Insumos</h3>
@@ -1252,7 +1170,7 @@ export default function CostManager() {
                                                                             </div>
                                                                         ) : (
                                                                             <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
-                                                                                + CIF: ${(getRecipeCifUnits(editingRecipe, 'kg') * globalCifUnitCost).toFixed(2)} total
+                                                                                + CIF: ${costing.calculateRecipeCifCost(editingRecipe, globalCifUnitCost, 'kg').toFixed(2)} total
                                                                             </div>
                                                                         )}
                                                                     </>
@@ -1273,7 +1191,7 @@ export default function CostManager() {
                                                                         </div>
                                                                         {editingRecipe.weightPerUnitGrams ? (
                                                                             <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '4px', fontWeight: 'bold' }}>
-                                                                                + CIF: ${(((editingRecipe.weightPerUnitGrams || 0) / 100) * globalCifUnitCost).toFixed(2)} / un
+                                                                                + CIF: ${(((editingRecipe.weightPerUnitGrams || 0) / costing.CIF_GRAMS_PER_UNIT) * globalCifUnitCost).toFixed(2)} / un
                                                                             </div>
                                                                         ) : (
                                                                             <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
@@ -1305,9 +1223,9 @@ export default function CostManager() {
                                                             {editingRecipe.yield > 0 && (
                                                                 <div>Regla de 3: ${calculateRecipeTotalCost(editingRecipe, recipeYieldType).toLocaleString('es-AR', { minimumFractionDigits: 2 })} ÷ {editingRecipe.yield} {recipeYieldType === 'kg' ? 'kg' : 'un'}</div>
                                                             )}
-                                                            {(calculateRecipeTotalCost(editingRecipe, recipeYieldType) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) > 0 && (
+                                                            {costing.calculateRecipeCifCost(editingRecipe, globalCifUnitCost, recipeYieldType) > 0 && (
                                                                 <div style={{ color: '#b91c1c', fontWeight: 'bold' }}>
-                                                                    (Incluye ${((calculateRecipeTotalCost(editingRecipe, recipeYieldType) - editingRecipe.ingredients.reduce((total, ing) => total + calculateIngredientCost(ing, editingRecipe.merma || 0), 0)) / editingRecipe.yield).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de Gastos Fijos CIF)
+                                                                    (Incluye ${(costing.calculateRecipeCifCost(editingRecipe, globalCifUnitCost, recipeYieldType) / editingRecipe.yield).toLocaleString('es-AR', { minimumFractionDigits: 2 })} de gastos de producción CIF)
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1516,9 +1434,6 @@ export default function CostManager() {
                             </table>
                         </div>
                     </div>
-                )}
-                {activeTab === 'cif' && (
-                    <CifManager />
                 )}
             </main>
         </div>

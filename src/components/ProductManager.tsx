@@ -5,6 +5,8 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, ser
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { syncChildProducts } from "../utils/stockUtils";
 import { normalizeForSearch } from "../utils/textSearch";
+import * as costing from "../utils/costing";
+import type { CostingRecipe } from "../utils/costing";
 import ProductImageEditor from "./ProductImageEditor";
 import StockAdjustmentModal from "./StockAdjustmentModal";
 import { FaEdit, FaTrash, FaSync, FaTimes, FaCamera, FaPlus, FaSave, FaEyeSlash, FaCheckCircle, FaFileSignature } from 'react-icons/fa';
@@ -27,7 +29,7 @@ export interface FirestoreProduct {
     stockQuantity?: number;
     discount?: number;
     requiresRecipe?: boolean;
-    recipe?: {
+    recipe?: CostingRecipe & {
         costPerUnit: number;
         [key: string]: any;
     };
@@ -126,76 +128,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
     const [imageEditorTarget, setImageEditorTarget] = useState<ImageEditorTarget | null>(null);
 
-    const calculateIngredientCost = (ing: any, recipeMerma: number = 0): number => {
-        const mat = rawMaterials.find((m: any) => m.id === ing.rawMaterialId);
-        if (!mat || !ing.quantity || !mat.baseQuantity || !mat.price) return 0;
-
-        let matPriceToUse = mat.price;
-        if (recipeMerma > 0 && mat.category && ["Prima", "Prima Mermable"].includes(mat.category)) {
-            matPriceToUse = mat.price * (1 + (recipeMerma / 100));
-        }
-
-        return (ing.quantity / mat.baseQuantity) * matPriceToUse;
-    };
-
-    const getRecipeYieldType = (recipe: any, yieldType?: 'units' | 'kg'): 'units' | 'kg' =>
-        yieldType || recipe?.yieldType || 'units';
-
-    const getRecipeTotalGrams = (recipe: any, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe || !recipe.yield || recipe.yield <= 0) return 0;
-
-        const type = getRecipeYieldType(recipe, yieldType);
-        if (type === 'kg') {
-            return recipe.yield * 1000;
-        }
-
-        if (!recipe.weightPerUnitGrams) return 0;
-        return recipe.yield * recipe.weightPerUnitGrams;
-    };
-
-    const getRecipeCifUnits = (recipe: any, yieldType?: 'units' | 'kg'): number =>
-        recipe?.excludeCif ? 0 : getRecipeTotalGrams(recipe, yieldType) / 100;
-
-    const calculateRecipeTotalCost = (recipe: any, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe) return 0;
-        let baseCost = (recipe.ingredients || []).reduce((total: number, ing: any) => total + calculateIngredientCost(ing, recipe.merma || 0), 0);
-
-        const cifUnits = getRecipeCifUnits(recipe, yieldType);
-        if (cifUnits > 0) {
-            baseCost += cifUnits * globalCifUnitCost;
-        }
-
-        return baseCost;
-    };
-
-    const calculateRecipeUnitCost = (recipe: any, yieldType?: 'units' | 'kg'): number => {
-        if (!recipe || !recipe.yield || isNaN(recipe.yield) || recipe.yield <= 0) return 0;
-        const type = getRecipeYieldType(recipe, yieldType);
-        const cost = calculateRecipeTotalCost(recipe, type) / recipe.yield;
-        return isNaN(cost) ? 0 : cost;
-    };
-
-    const calculateRealProductCost = (product: FirestoreProduct, visitedIds: Set<string> = new Set()): number => {
-        if (!product) return 0;
-        if (visitedIds.has(product.id!)) return 0;
-
-        visitedIds.add(product.id!);
-        let totalCost = 0;
-
-        if (product.stockDependency && product.stockDependency.productId) {
-            const parent = products.find(p => p.id === product.stockDependency?.productId);
-            if (parent) {
-                const parentUnitCost = calculateRealProductCost(parent, visitedIds);
-                totalCost += parentUnitCost * (Number(product.stockDependency.unitsToDeduct) || 0);
-            }
-        }
-
-        if (product.recipe) {
-            totalCost += calculateRecipeUnitCost(product.recipe, product.recipe.yieldType || 'units');
-        }
-
-        return isNaN(totalCost) ? 0 : totalCost;
-    };
+    const calculateRealProductCost = (product: FirestoreProduct): number =>
+        costing.calculateRealProductCost(product, { rawMaterials, products, cifUnitCost: globalCifUnitCost });
 
     useEffect(() => {
         fetchCategories();
@@ -1538,7 +1472,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             <div className="list-item-actions">
                                                 {product.requiresRecipe !== false && (
                                                     <div className="list-item-recipe-group">
-                                                        {product.recipe && product.recipe.ingredients?.length > 0 ? (
+                                                        {product.recipe && (product.recipe.ingredients?.length ?? 0) > 0 ? (
                                                             <FaCheckCircle title="Receta Configurada" className="recipe-check-icon" />
                                                         ) : null}
                                                         <button

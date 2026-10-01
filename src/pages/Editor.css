@@ -154,7 +154,7 @@
 .editor-sidebar nav {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     flex: 1;
     padding: 10px;
     /* Add padding here instead of parent to control visibility */
@@ -202,6 +202,31 @@
     box-shadow: 0 4px 6px rgba(11, 116, 255, 0.2);
 }
 
+/* Grupos del menú (Día a día, Producción, ...) */
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-group-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    padding: 10px 16px 2px;
+    white-space: nowrap;
+}
+
+/* Colapsado: el título se convierte en una línea divisoria */
+.editor-sidebar.collapsed .nav-group-label {
+    font-size: 0;
+    padding: 0;
+    margin: 6px 10px;
+    border-top: 1px solid #374151;
+}
+
 .sidebar-footer {
     margin-top: auto;
     border-top: 1px solid #374151;
@@ -231,14 +256,12 @@
 }
 
 @media (min-width: 850px) {
-    .editor-content {
-        margin-left: 16px;
-        /* Constant margin for the strip */
-    }
-
+    /* El menú colapsado ocupa 50px fijos encima del contenido (al expandirse lo tapa a propósito):
+       se deja ese ancho + aire como padding, sin margin para no desbordar el width: 100%. */
+    .editor-content,
     .editor-content.collapsed-mode {
-        margin-left: 16px;
-        /* Stays same, sidebar expands over content */
+        margin-left: 0;
+        padding-left: 66px;
     }
 
     .editor-content.pos-active-tab {

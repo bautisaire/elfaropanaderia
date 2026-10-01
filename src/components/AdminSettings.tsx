@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { FaBell, FaCheck, FaTimes, FaPrint, FaFlask } from "react-icons/fa";
+import { FaBell, FaCheck, FaTimes, FaPrint, FaFlask, FaLaptop, FaUserShield } from "react-icons/fa";
 import { auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { isSuperAdminEmail, isTestModeEnabled, setTestModeEnabled } from "../utils/testMode";
 import AdminRolesManager from "./AdminRolesManager";
+import "./StoreEditor.css";
 
 export default function AdminSettings() {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -15,6 +16,8 @@ export default function AdminSettings() {
     );
 
     const isSuperAdmin = isSuperAdminEmail(userEmail);
+    // "Este dispositivo" guarda preferencias locales; "Roles" afecta a todo el personal (sólo superadmin).
+    const [activeTab, setActiveTab] = useState<'device' | 'roles'>('device');
 
     useEffect(() => {
         const stored = localStorage.getItem('admin_order_alerts_enabled');
@@ -107,8 +110,28 @@ export default function AdminSettings() {
 
     return (
         <div className="admin-settings-container" style={{ padding: '20px', maxWidth: '800px' }}>
-            <h2 style={{ marginBottom: '30px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Configuración</h2>
+            <h2 style={{ marginBottom: '20px' }}>Configuración</h2>
 
+            {isSuperAdmin && (
+                <div className="store-editor-tabs">
+                    <button
+                        className={`store-tab-btn ${activeTab === 'device' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('device')}
+                    >
+                        <FaLaptop /> Este Dispositivo
+                    </button>
+                    <button
+                        className={`store-tab-btn ${activeTab === 'roles' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('roles')}
+                    >
+                        <FaUserShield /> Roles y Permisos
+                    </button>
+                </div>
+            )}
+
+            {activeTab === 'roles' && isSuperAdmin && <AdminRolesManager />}
+
+            {activeTab === 'device' && (<>
             {isSuperAdmin && (
                 <div className="setting-card" style={{
                     ...settingCardStyle,
@@ -194,8 +217,7 @@ export default function AdminSettings() {
                     )}
                 </button>
             </div>
-
-            <AdminRolesManager />
+            </>)}
         </div>
     );
 }

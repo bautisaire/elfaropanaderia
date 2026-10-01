@@ -1,24 +1,39 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaCashRegister, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaMotorcycle, FaHeadset, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
 import StoreEditor from "../components/StoreEditor";
-import POSManager from "../components/POSManager";
 import CajaManager from "../components/CajaManager";
-import { AiOutlineRead } from "react-icons/ai";
 import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
+import ProductsSection from "../components/ProductsSection";
 import BillsManager from "../components/BillsManager";
 import EmployeesManager from "../components/EmployeesManager";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
 import { useCart } from "../context/CartContext";
+
+interface NavItem {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  color: string;
+  path: string;
+  visible: boolean;
+  active: boolean;
+  badge?: number;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -143,6 +158,42 @@ export default function Editor() {
     setMobileMenuOpen(false);
   };
 
+  const navGroups: NavGroup[] = [
+    {
+      items: [
+        { key: "dashboard", label: "Resumen", icon: <FaChartPie />, color: '#3b82f6', path: "/editor/", visible: adminPermissions?.dashboard !== false, active: currentPath === "dashboard" || currentPath === "" },
+      ]
+    },
+    {
+      label: "Día a día",
+      items: [
+        { key: "stock", label: "Stock", icon: <FaClipboardCheck />, color: '#eab308', path: "/editor/stock", visible: adminPermissions?.stock !== false, active: currentPath === "stock" },
+        { key: "orders", label: "Pedidos", icon: <FaClipboardList />, color: '#a855f7', path: "/editor/orders/pos", visible: adminPermissions?.orders !== false, active: currentPath === "orders", badge: pendingOrdersCount },
+        { key: "caja", label: "Caja", icon: <FaMoneyBillWave />, color: '#8b5cf6', path: "/editor/caja", visible: adminPermissions?.pos_sales !== false, active: currentPath === "caja" },
+      ]
+    },
+    {
+      label: "Producción",
+      items: [
+        { key: "products", label: "Productos", icon: <FaBreadSlice />, color: '#f97316', path: "/editor/products", visible: adminPermissions?.costs !== false, active: currentPath === "products" },
+        { key: "costs", label: "Costos y Recetas", icon: <FaCalculator />, color: '#fb923c', path: "/editor/costs/recipes", visible: adminPermissions?.costs !== false, active: currentPath === "costs" },
+      ]
+    },
+    {
+      label: "Finanzas",
+      items: [
+        { key: "bills", label: "Gastos", icon: <FaFileInvoiceDollar />, color: '#dc2626', path: "/editor/bills/gastos", visible: adminPermissions?.bills === true, active: currentPath === "bills" },
+        { key: "employees", label: "Personal", icon: <FaUserFriends />, color: '#0ea5e9', path: "/editor/employees", visible: adminPermissions?.employees !== false, active: currentPath === "employees" },
+      ]
+    },
+    {
+      label: "Tienda online",
+      items: [
+        { key: "store_editor", label: "Tienda", icon: <FaStore />, color: '#ec4899', path: "/editor/store_editor", visible: adminPermissions?.store_editor !== false, active: currentPath === "store_editor" },
+      ]
+    },
+  ];
+
   if (checkingAuth || adminPermissions === null) {
     return <div style={{ marginTop: '100px', textAlign: 'center', fontSize: '1.2rem' }}>Verificando credenciales...</div>;
   }
@@ -209,114 +260,33 @@ export default function Editor() {
             </div>
 
             <nav>
-              {adminPermissions?.dashboard !== false && (
-                <button
-                  className={currentPath === "dashboard" || currentPath === "" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/")}
-                  title="Dashboard"
-                >
-                  <div className="nav-icon" style={{ color: '#3b82f6' }}><FaChartPie /></div>
-                  <span className="nav-text">Dashboard</span>
-                </button>
-              )}
-              {adminPermissions?.pos_sales !== false && (
-                <button
-                  className={currentPath === "pos" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/pos")}
-                  title="Punto de Venta"
-                >
-                  <div className="nav-icon" style={{ color: '#22c55e' }}><FaCashRegister /></div>
-                  <span className="nav-text">Punto de Venta</span>
-                </button>
-              )}
-              {adminPermissions?.pos_sales !== false && (
-                <button
-                  className={currentPath === "caja" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/caja")}
-                  title="Caja"
-                >
-                  <div className="nav-icon" style={{ color: '#8b5cf6' }}><FaCashRegister /></div>
-                  <span className="nav-text">Caja</span>
-                </button>
-              )}
-
-              {adminPermissions?.costs !== false && (
-                <button
-                  className={currentPath === "costs" || currentPath === "products" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/costs")}
-                  title="Productos, Costos y Recetas"
-                >
-                  <div className="nav-icon" style={{ color: '#f97316' }}><AiOutlineRead /></div>
-                  <span className="nav-text">Productos, Costos y Recetas</span>
-                </button>
-              )}
-              {adminPermissions?.stock !== false && (
-                <button
-                  className={currentPath === "stock" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/stock")}
-                  title="Gestión de Stock"
-                >
-                  <div className="nav-icon" style={{ color: '#eab308' }}><FaClipboardCheck /></div>
-                  <span className="nav-text">Gestión de Stock</span>
-                </button>
-              )}
-              {adminPermissions?.bills === true && (
-                <button
-                  className={currentPath === "bills" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/bills/gastos")}
-                  title="Gastos y Tickets"
-                >
-                  <div className="nav-icon" style={{ color: '#dc2626' }}><FaFileInvoiceDollar /></div>
-                  <span className="nav-text">Gastos</span>
-                </button>
-              )}
-              {adminPermissions?.orders !== false && (
-                <button
-                  className={currentPath === "orders" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/orders/pos")}
-                  title="Pedidos"
-                >
-                  <div className="nav-icon" style={{ color: '#a855f7' }}><FaClipboardList /></div>
-                  <span className="nav-text">Ventas</span>
-                  {pendingOrdersCount > 0 && (
-                    <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{pendingOrdersCount}</span>
-                  )}
-                </button>
-              )}
-              {adminPermissions?.store_editor !== false && (
-                <button
-                  className={currentPath === "store_editor" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/store_editor")}
-                  title="Editor de Tienda"
-                >
-                  <div className="nav-icon" style={{ color: '#ec4899' }}><FaStore /></div>
-                  <span className="nav-text">Editor de Tienda</span>
-                </button>
-              )}
-              {adminPermissions?.settings !== false && (
-                <button
-                  className={currentPath === "settings" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/settings")}
-                  title="Configuración"
-                >
-                  <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
-                  <span className="nav-text">Configuración</span>
-                </button>
-              )}
-
-              {adminPermissions?.employees !== false && (
-                <button
-                  className={currentPath === "employees" ? "active" : ""}
-                  onClick={() => handleNavClick("/editor/employees")}
-                  title="Personal"
-                >
-                  <div className="nav-icon" style={{ color: '#0ea5e9' }}><FaUserFriends /></div>
-                  <span className="nav-text">Personal</span>
-                </button>
-              )}
+              {navGroups.map((group, groupIdx) => {
+                const visibleItems = group.items.filter(item => item.visible);
+                if (visibleItems.length === 0) return null;
+                return (
+                  <div key={group.label || groupIdx} className="nav-group">
+                    {group.label && <div className="nav-group-label">{group.label}</div>}
+                    {visibleItems.map(item => (
+                      <button
+                        key={item.key}
+                        className={item.active ? "active" : ""}
+                        onClick={() => handleNavClick(item.path)}
+                        title={item.label}
+                      >
+                        <div className="nav-icon" style={{ color: item.color }}>{item.icon}</div>
+                        <span className="nav-text">{item.label}</span>
+                        {!!item.badge && (
+                          <span className={`sidebar-badge ${collapsed ? 'badge-mini' : ''}`}>{item.badge}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
 
               {adminPermissions?.is_rider === true && (
-                <>
+                <div className="nav-group">
+                  <div className="nav-group-label">Reparto</div>
                   <button
                     className={currentPath === "rider" && location.pathname === "/editor/rider" ? "active" : ""}
                     onClick={() => handleNavClick("/editor/rider")}
@@ -344,10 +314,20 @@ export default function Editor() {
                     <div className="nav-icon" style={{ color: '#64748b' }}><FaCog /></div>
                     <span className="nav-text">Respuestas Rápidas</span>
                   </button>
-                </>
+                </div>
               )}
 
               <div className="sidebar-footer">
+                {adminPermissions?.settings !== false && (
+                  <button
+                    className={currentPath === "settings" ? "active" : ""}
+                    onClick={() => handleNavClick("/editor/settings")}
+                    title="Configuración"
+                  >
+                    <div className="nav-icon" style={{ color: '#6b7280' }}><FaCog /></div>
+                    <span className="nav-text">Configuración</span>
+                  </button>
+                )}
                 <button onClick={() => navigate("/")} title="Ir al Inicio">
                   <div className="nav-icon" style={{ color: '#84cc16' }}><FaHome /></div>
                   <span className="nav-text">Ir al Inicio</span>
@@ -360,17 +340,18 @@ export default function Editor() {
             </nav>
           </aside>
 
-          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'pos' || currentPath === 'caja' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' ? 'editor-costs-fullbleed' : ''}`}>
+          <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'caja' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' || currentPath === 'products' ? 'editor-costs-fullbleed' : ''}`}>
             <Routes>
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
-              {adminPermissions?.pos_sales !== false && <Route path="/pos" element={<POSManager />} />}
+              {/* El POS de venta se reemplazó por Stock → Productos (Caja es donde se vende) */}
+              <Route path="/pos" element={<Navigate to="/editor/stock" replace />} />
               {adminPermissions?.pos_sales !== false && <Route path="/caja" element={<CajaManager />} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
               {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
-              {adminPermissions?.costs !== false && <Route path="/products" element={<Navigate to="/editor/costs/products" replace />} />}
+              {adminPermissions?.costs !== false && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
               {adminPermissions?.employees !== false && <Route path="/employees" element={<EmployeesManager />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
@@ -379,7 +360,7 @@ export default function Editor() {
                 (() => {
                   if (adminPermissions?.dashboard !== false) return <Navigate to="/editor/" replace />;
                   if (adminPermissions?.orders !== false) return <Navigate to="/editor/orders/deliveries" replace />;
-                  if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/pos" replace />;
+                  if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/caja" replace />;
                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;

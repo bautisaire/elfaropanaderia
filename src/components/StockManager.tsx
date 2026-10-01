@@ -5,10 +5,11 @@ import { syncChildProducts } from "../utils/stockUtils";
 import { normalizeForSearch } from "../utils/textSearch";
 import {
     FaBoxes, FaHistory, FaEdit, FaPlus, FaFileExport, FaExchangeAlt,
-    FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt, FaBolt, FaTimes, FaSave, FaCheckCircle
+    FaCashRegister, FaGlobe, FaTruck, FaIndustry, FaUndo, FaBalanceScale, FaBan, FaRedo, FaTrashAlt, FaBolt, FaTimes, FaSave, FaCheckCircle, FaThLarge
 } from 'react-icons/fa';
 import ProductSearch from './ProductSearch';
 import './StockManager.css';
+import StockCatalog from './StockCatalog';
 import StockAdjustmentModal from './StockAdjustmentModal';
 
 const REASON_META: Record<string, { icon: React.ComponentType }> = {
@@ -76,7 +77,7 @@ interface StockMovement {
 }
 
 export default function StockManager() {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'bulk'>('bulk');
+    const [activeTab, setActiveTab] = useState<'catalog' | 'inventory' | 'history' | 'bulk'>('catalog');
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
@@ -516,6 +517,12 @@ export default function StockManager() {
             <div className="stock-controls-row" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <div className="stock-tabs" style={{ marginBottom: 0 }}>
                     <button
+                        className={`stock-tab-btn ${activeTab === 'catalog' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('catalog')}
+                    >
+                        <FaThLarge /> Productos
+                    </button>
+                    <button
                         className={`stock-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
                         onClick={() => setActiveTab('bulk')}
                     >
@@ -535,18 +542,21 @@ export default function StockManager() {
                     </button>
                 </div>
 
-                {(activeTab === 'inventory' || activeTab === 'bulk') && (
+                {(activeTab === 'catalog' || activeTab === 'inventory' || activeTab === 'bulk') && (
                     <div style={{ flex: 1, minWidth: '200px' }}>
                         <ProductSearch
                             value={searchTerm}
                             onChange={setSearchTerm}
-                            placeholder={activeTab === 'bulk' ? "Buscar en carga rápida..." : "Buscar en inventario..."}
+                            placeholder={activeTab === 'bulk' ? "Buscar en carga rápida..." : activeTab === 'catalog' ? "Buscar por nombre o código..." : "Buscar en inventario..."}
                         />
                     </div>
                 )}
             </div>
 
-            {loading && <p>Cargando...</p>}
+            {loading && activeTab !== 'catalog' && <p>Cargando...</p>}
+
+            {/* TAB PRODUCTOS (tarjetas: tocar para editar stock o producto) */}
+            {activeTab === 'catalog' && <StockCatalog searchTerm={searchTerm} />}
 
             {/* TAB INVENTARIO */}
             {activeTab === 'inventory' && !loading && (

@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, deleteDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
-import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags } from 'react-icons/fa';
+import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags, FaBuilding } from 'react-icons/fa';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import VoiceAIPurchases from './VoiceAIPurchases';
 import ExpenseCategoryManager from './ExpenseCategoryManager';
+import CifManager from './CifManager';
 import { useExpenseCategories, FALLBACK_CATEGORY_KEY } from '../hooks/useExpenseCategories';
 import { RawMaterial } from './CostManager';
 import './CostManager.css';
 import './BillsManager.css';
 
 export default function BillsManager() {
+    const { "*": tab } = useParams();
+    const navigate = useNavigate();
+    const activeTab = tab === 'fijos' ? 'fijos' : 'gastos';
+
     const { isSuperAdmin: contextIsSuperAdmin } = useCart();
     const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
 
@@ -144,9 +150,25 @@ export default function BillsManager() {
         <div className="cost-manager-container">
             <header className="cm-header">
                 <h2>Gastos</h2>
+                <div className="cm-tabs">
+                    <button
+                        className={`cm-tab ${activeTab === 'gastos' ? 'active' : ''}`}
+                        onClick={() => navigate('/editor/bills/gastos')}
+                    >
+                        <FaReceipt /> Tickets y Egresos
+                    </button>
+                    <button
+                        className={`cm-tab ${activeTab === 'fijos' ? 'active' : ''}`}
+                        onClick={() => navigate('/editor/bills/fijos')}
+                    >
+                        <FaBuilding /> Gastos Fijos
+                    </button>
+                </div>
             </header>
 
             <main className="cm-content">
+                {activeTab === 'fijos' && <CifManager />}
+                {activeTab === 'gastos' && (
                 <div className="orders-table-container">
                         <div className="bills-actions">
                             <button className="bills-big-btn bills-big-btn-ticket" onClick={() => setShowTicketModal(true)}>
@@ -299,6 +321,7 @@ export default function BillsManager() {
                             </div>
                         )}
                 </div>
+                )}
             </main>
 
             {showTicketModal && (
