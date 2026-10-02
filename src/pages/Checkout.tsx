@@ -6,6 +6,7 @@ import { db, functions } from "../firebase/firebaseConfig";
 import { doc, getDoc, onSnapshot, DocumentSnapshot, updateDoc, setDoc, query, collection, where, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { validateCartStock } from "../utils/stockValidation";
+import { withTimeout, TimeoutError } from "../utils/withTimeout";
 import { shouldMarkOrderAsTest } from "../utils/testMode";
 import StockErrorModal from "../components/StockErrorModal";
 import OrderProcessingOverlay from "../components/OrderProcessingOverlay";
@@ -115,7 +116,7 @@ export default function Checkout() {
     setIsSavingAddress(true);
     try {
       const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await withTimeout(getDoc(userRef), 4000, "users/getDoc");
       let currentAddresses: any[] = [];
       if (userSnap.exists() && userSnap.data().addresses) {
         currentAddresses = userSnap.data().addresses;
@@ -132,11 +133,12 @@ export default function Checkout() {
       };
 
       const updatedAddresses = [...currentAddresses, newAddrObj];
-      if (!userSnap.exists()) {
-        await setDoc(userRef, { addresses: updatedAddresses });
-      } else {
-        await updateDoc(userRef, { addresses: updatedAddresses });
-      }
+      // Si el servidor tarda en confirmar, la escritura igual queda encolada localmente
+      // y se sincroniza sola: no hace falta tener al cliente esperando.
+      const write = !userSnap.exists()
+        ? setDoc(userRef, { addresses: updatedAddresses })
+        : updateDoc(userRef, { addresses: updatedAddresses });
+      await withTimeout(write, 4000, "users/saveAddress");
     } catch (e) {
       console.error("Error saving new address", e);
     } finally {
@@ -491,52 +493,50 @@ export default function Checkout() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    // 0. Validar Compra Mínima
     // 0. Validar Compra Mínima (Admins Bypass)
     if (!isAdmin && minPurchaseConfig > 0 && cartTotal < minPurchaseConfig) {
       setMinPurchaseError({ isOpen: true, minAmount: minPurchaseConfig });
       setShowCheckout(false);
-      setIsSubmitting(false);
       return;
     }
 
-    // 1. Validar Stock Inicial (Lectura rapida para UX)
-    const validationResult = await validateCartStock(cart);
-    if (!validationResult.isValid) {
-      setStockError({ isOpen: true, items: validationResult.outOfStockItems });
-      setIsSubmitting(false);
-      return;
-    }
+    setIsSubmitting(true);
 
+    // Todo lo que sigue va dentro del try/finally: pase lo que pase (error, timeout,
+    // excepción inesperada) el overlay "Confirmando tu pedido..." se tiene que cerrar.
+    // Antes la validación de stock quedaba afuera del try y ninguna lectura tenía
+    // límite de tiempo, así que con mala señal el cliente veía la pantalla congelada.
     try {
-      // Releemos la config de envío justo antes de confirmar: `shippingCost` viene de un
-      // listener de Firestore que puede no haber resuelto todavía (ej. cliente con datos
-      // guardados que confirma en un toque), y eso mandaba pedidos de delivery con el
-      // envío en $0 sin que se note en el ticket ni en el pedido.
+      // 1. Validar stock (lectura rápida para UX) y releer la config de envío, en paralelo.
+      // La config se relee porque `shippingCost` viene de un listener de Firestore que
+      // puede no haber resuelto todavía (ej. cliente con datos guardados que confirma en
+      // un toque), y eso mandaba pedidos de delivery con el envío en $0. Si no responde
+      // a tiempo seguimos con el valor del listener (el backend igual recalcula el envío).
+      const [validationResult, settingsSnap] = await Promise.all([
+        validateCartStock(cart),
+        withTimeout(getDoc(doc(db, "config", "store_settings")), 4000, "store_settings")
+          .catch((err) => {
+            console.error("Error releyendo config/store_settings antes de confirmar:", err);
+            return null;
+          }),
+      ]);
+
+      if (!validationResult.isValid) {
+        setStockError({ isOpen: true, items: validationResult.outOfStockItems });
+        return;
+      }
+
       let effectiveShipping = deliveryMethod === 'pickup' ? 0 : shippingCost;
       let effectivePickupDiscountPercentage = pickupDiscountPercentage;
       let effectivePickupDiscountText = pickupDiscountText;
-      if (deliveryMethod === 'delivery') {
-        try {
-          const settingsSnap = await getDoc(doc(db, "config", "store_settings"));
-          if (settingsSnap.exists()) {
-            const freshShippingCost = Number(settingsSnap.data().shippingCost) || 0;
-            if (freshShippingCost > 0) effectiveShipping = freshShippingCost;
-          }
-        } catch (e) {
-          console.error("Error revalidando costo de envío antes de confirmar:", e);
-        }
-      } else {
-        try {
-          const settingsSnap = await getDoc(doc(db, "config", "store_settings"));
-          if (settingsSnap.exists()) {
-            effectivePickupDiscountPercentage = Number(settingsSnap.data().pickupDiscountPercentage) || 0;
-            effectivePickupDiscountText = settingsSnap.data().pickupDiscountText || "";
-          }
-        } catch (e) {
-          console.error("Error revalidando descuento por retiro antes de confirmar:", e);
+      if (settingsSnap?.exists()) {
+        const settings = settingsSnap.data();
+        if (deliveryMethod === 'delivery') {
+          const freshShippingCost = Number(settings.shippingCost) || 0;
+          if (freshShippingCost > 0) effectiveShipping = freshShippingCost;
+        } else {
+          effectivePickupDiscountPercentage = Number(settings.pickupDiscountPercentage) || 0;
+          effectivePickupDiscountText = settings.pickupDiscountText || "";
         }
       }
       const discountAmount = deliveryMethod === 'pickup' && effectivePickupDiscountPercentage > 0 ? (cartTotal * effectivePickupDiscountPercentage) / 100 : 0;
@@ -570,7 +570,6 @@ export default function Checkout() {
           deliveryMethod,
         };
         clearCart();
-        setIsSubmitting(false);
         setShowCheckout(false);
         proceedToSuccess(fakeTicket);
         return;
@@ -579,6 +578,9 @@ export default function Checkout() {
       // LLAMADA AL BACKEND
       // Timeout de 10s: si el backend no responde a tiempo, cortamos el intento
       // y mostramos el modal de WhatsApp en vez de dejar al cliente esperando indefinidamente.
+      // Ojo: ese timeout del SDK solo cubre el POST, no lo que hace antes de mandarlo
+      // (pedir el token de auth / FCM), que también puede colgarse. Por eso lo envolvemos
+      // además en withTimeout más abajo.
       const processOrderFn = httpsCallable(functions, 'processOrder', { timeout: 10000 });
 
       const requestData = {
@@ -592,7 +594,7 @@ export default function Checkout() {
         ...(isAdmin && shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
       };
 
-      const { data } = await processOrderFn(requestData) as any;
+      const { data } = await withTimeout(processOrderFn(requestData), 15000, "processOrder") as any;
       const { success, init_point } = data;
       const orderId = data.orderId || data.id;
 
@@ -626,15 +628,15 @@ export default function Checkout() {
         if (raffleParticipation?.raffleId) {
           localStorage.setItem(`raffle_unlocked_${raffleParticipation.raffleId}`, 'true');
           if (user?.uid) {
-            try {
-              await setDoc(doc(db, "users", user.uid), {
-                participatedRaffles: {
-                  [raffleParticipation.raffleId]: true
-                }
-              }, { merge: true });
-            } catch (err) {
+            // Sin await: el pedido ya está hecho, y una escritura de Firestore no resuelve
+            // hasta que el servidor la confirma — con mala señal eso trababa el ticket.
+            setDoc(doc(db, "users", user.uid), {
+              participatedRaffles: {
+                [raffleParticipation.raffleId]: true
+              }
+            }, { merge: true }).catch((err) => {
               console.error("Error saving raffle participation to user doc:", err);
-            }
+            });
           }
         }
       } catch (e) { console.error("Storage error", e); }
@@ -668,7 +670,6 @@ export default function Checkout() {
       );
 
       clearCart();
-      setIsSubmitting(false);
 
       if (user && isManualAddress && deliveryMethod === 'delivery' && !addressAlreadySaved && submittedAddress.trim()) {
         setShowCheckout(false);
@@ -687,7 +688,6 @@ export default function Checkout() {
 
     } catch (error: any) {
       console.error("Error al enviar el pedido:", error);
-      setIsSubmitting(false);
 
       const msg = error.message || error.name || "";
       if (msg === 'AbortError' || msg.includes('aborted') || error.name === 'AbortError') {
@@ -696,7 +696,7 @@ export default function Checkout() {
         return;
       }
 
-      const isTimeout = error.code === 'functions/deadline-exceeded' || msg.toLowerCase().includes('deadline-exceeded') || msg.toLowerCase().includes('timeout');
+      const isTimeout = error instanceof TimeoutError || error.code === 'functions/deadline-exceeded' || msg.toLowerCase().includes('deadline-exceeded') || msg.toLowerCase().includes('timeout');
       if (isTimeout) {
         setShowTimeoutModal(true);
         return;
@@ -707,6 +707,8 @@ export default function Checkout() {
       } else {
         alert(`❌ Error al procesar el pedido: ${msg}\n\nSi el problema persiste, contactanos al WhatsApp.`);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

@@ -1,6 +1,7 @@
 import { db } from "../firebase/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { getDerivedStockFromParent, getRawStockQuantity } from "./cartStock";
+import { withTimeout } from "./withTimeout";
 
 export interface StockValidationResult {
     isValid: boolean;
@@ -37,7 +38,22 @@ const getBaseId = (item: any) => {
     return String(item.id);
 };
 
+// Es solo un chequeo previo para avisarle al cliente antes de mandar el pedido: el stock
+// real se valida y descuenta en el backend (processOrder) dentro de una transacción.
+// Por eso, si Firestore no responde a tiempo, no trabamos el checkout: lo damos por
+// válido y que decida el backend.
+const VALIDATION_TIMEOUT_MS = 4000;
+
 export const validateCartStock = async (cart: any[]): Promise<StockValidationResult> => {
+    try {
+        return await withTimeout(checkCartStock(cart), VALIDATION_TIMEOUT_MS, "validateCartStock");
+    } catch (e) {
+        console.warn("No se pudo verificar el stock antes del pedido, lo valida el backend:", e);
+        return { isValid: true, outOfStockItems: [] };
+    }
+};
+
+const checkCartStock = async (cart: Parameters<typeof validateCartStock>[0]): Promise<StockValidationResult> => {
     const outOfStockItems = [];
 
     // Aggregate quantities by base product and variant
@@ -59,8 +75,13 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
         uniqueBaseIds.map(id => getDoc(doc(db, "products", id)))
     );
     const baseDataMap = new Map<string, any>();
+    // Lecturas que fallaron (ej. "client is offline"): no sabemos el stock, así que no
+    // las marcamos como agotadas — eso le vaciaba el carrito al cliente por un problema de red.
+    const unreadableIds = new Set<string>();
     baseSnaps.forEach((result, i) => {
-        if (result.status === 'fulfilled' && result.value.exists()) {
+        if (result.status === 'rejected') {
+            unreadableIds.add(uniqueBaseIds[i]);
+        } else if (result.value.exists()) {
             baseDataMap.set(uniqueBaseIds[i], result.value.data());
         }
     });
@@ -76,7 +97,9 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
     );
     const parentDataMap = new Map<string, any>();
     parentSnaps.forEach((result, i) => {
-        if (result.status === 'fulfilled' && result.value.exists()) {
+        if (result.status === 'rejected') {
+            unreadableIds.add(uniqueParentIds[i]);
+        } else if (result.value.exists()) {
             parentDataMap.set(uniqueParentIds[i], result.value.data());
         }
     });
@@ -85,6 +108,7 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
         if (item.isRaffleTicket) continue;
 
         const baseId = getBaseId(item);
+        if (unreadableIds.has(baseId)) continue;
         const isVariant = item.variant || (item.name && item.name.includes('('));
         const data = baseDataMap.get(baseId);
 
@@ -98,6 +122,7 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
             let available = 0;
 
             if (data.stockDependency?.productId) {
+                if (unreadableIds.has(data.stockDependency.productId)) continue;
                 const parentData = parentDataMap.get(data.stockDependency.productId) || null;
                 const parentHasVariants = parentData?.variants && parentData.variants.length > 0;
                 const childHasVariants = data.variants && data.variants.length > 0;
@@ -150,7 +175,7 @@ export const validateCartStock = async (cart: any[]): Promise<StockValidationRes
                 });
             }
         } else {
-            // Product deleted, or the read failed: treat as 0 stock (fail safe)
+            // Product deleted: treat as 0 stock
             outOfStockItems.push({
                 id: item.id,
                 name: item.name,
