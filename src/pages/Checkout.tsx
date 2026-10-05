@@ -604,6 +604,12 @@ export default function Checkout() {
 
       console.log("Pedido confirmado por backend ID:", orderId);
 
+      // Si al navegador no le llegó la config de envío a tiempo (mala señal), mandamos
+      // envío $0 y el backend lo corrige contra la config real. El ticket y el WhatsApp
+      // del cliente tienen que mostrar lo que quedó guardado, no lo que calculamos acá.
+      if (typeof data.shippingCost === 'number') effectiveShipping = data.shippingCost;
+      const savedTotal = typeof data.total === 'number' ? data.total : finalTotalToSend;
+
       // Guardar LocalStorage
       try {
         const existingOrders = JSON.parse(localStorage.getItem('mis_pedidos') || '[]');
@@ -656,7 +662,7 @@ export default function Checkout() {
         id: orderId,
         items: cart, // Needed for ticket render and whatsapp link
         itemsWithShipping: itemsWithModifiers,
-        total: finalTotalToSend,
+        total: savedTotal,
         paymentMethod: orderFormData.metodoPago,
         cliente: orderFormData,
         deliveryMethod: deliveryMethod,

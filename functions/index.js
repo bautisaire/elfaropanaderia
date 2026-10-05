@@ -652,7 +652,7 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             } catch (mpError) {
                 console.error("Error generating MP preference after order saved:", mpError);
                 // Order created but MP payment failed to start
-                return { success: true, orderId: result.orderId, error_mp: true, raffleParticipation: result.raffleParticipation };
+                return { success: true, orderId: result.orderId, error_mp: true, raffleParticipation: result.raffleParticipation, shippingCost, total: Number(finalTotal) || 0 };
             }
         }
 
@@ -667,7 +667,12 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             orderId: result.orderId,
             init_point: init_point,
             productsToUpdate: result.productsToUpdate, // Send this back in case frontend logic needs syncing
-            raffleParticipation: result.raffleParticipation
+            raffleParticipation: result.raffleParticipation,
+            // Envío y total con los que quedó guardado el pedido. Pueden diferir de lo que
+            // mandó el front si la red de seguridad de arriba recalculó el envío, y el
+            // ticket/WhatsApp del cliente tiene que mostrar lo mismo que el pedido.
+            shippingCost,
+            total: Number(finalTotal) || 0
         };
 
     } catch (error) {
