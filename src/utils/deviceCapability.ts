@@ -5,6 +5,7 @@
  */
 export function isLowPowerDevice(): boolean {
     if (typeof navigator === "undefined") return false;
+    if (isIOS()) return false;
 
     const memory = (navigator as any).deviceMemory;
     if (typeof memory === "number" && memory <= 2) return true;
@@ -13,6 +14,19 @@ export function isLowPowerDevice(): boolean {
     if (typeof cores === "number" && cores <= 4) return true;
 
     return false;
+}
+
+/**
+ * WebKit on iOS caps navigator.hardwareConcurrency (privacy), so every iPhone
+ * reports few cores, and Low Power Mode throttles rAF to 30fps — both would
+ * misclassify capable iPhones. Any iPhone on a current iOS handles our CSS
+ * animations fine, so iOS is never treated as low-power.
+ */
+function isIOS(): boolean {
+    if (typeof navigator === "undefined") return false;
+    return /iPhone|iPad|iPod/.test(navigator.userAgent)
+        // iPadOS 13+ reports itself as a Mac
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
 /** Marks <html> as low-power as early as possible, before first paint. */
@@ -76,6 +90,7 @@ async function sampleFpsOnce(): Promise<number | null> {
  */
 export function scheduleFpsLowPowerCheck(): void {
     if (typeof window === "undefined") return;
+    if (isIOS()) return;
 
     const run = async () => {
         if (document.documentElement.classList.contains("low-power")) return;
