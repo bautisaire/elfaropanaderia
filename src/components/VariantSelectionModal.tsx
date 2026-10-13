@@ -22,7 +22,7 @@ export default function VariantSelectionModal({ product, isOpen, onClose, onAddT
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = 'auto'; };
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
   if (!isOpen || !product.variants || product.variants.length === 0) return null;

@@ -134,7 +134,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
 
     useEffect(() => {
         document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = "auto"; };
+        return () => { document.body.style.overflow = ''; };
     }, []);
 
     useEffect(() => {
