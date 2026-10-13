@@ -18,11 +18,10 @@ body {
   scroll-behavior: smooth;
 }
 
-/* `overflow-x: hidden` en html Y body convierte al body en su propio contenedor de scroll;
-   en iOS Safari eso impide que la página se extienda bajo la barra de estado (modo inmersivo).
-   `clip` recorta igual sin crear contenedor de scroll. */
-body {
-  overflow-x: clip;
+/* overflow-x solo en html: en body rompe position:fixed en iOS y Safari no puede
+   teñir la barra de estado con el color del header. */
+html {
+  overflow-x: hidden;
 }
 
 a {

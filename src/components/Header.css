@@ -19,9 +19,9 @@
   width: 100%;
   height: var(--header-height);
   z-index: 1000;
-  transition: all var(--transition-speed) ease;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  /* Fondo sólido sin backdrop-filter: Safari (iOS 26) usa el color de este elemento
+     fijo para teñir la barra de estado; con blur/transparencia no lo hace. */
+  transition: background-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
   background-color: var(--header-bg);
   box-shadow: var(--shadow-sm);
   display: flex;
