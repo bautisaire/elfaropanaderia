@@ -122,6 +122,24 @@ export default function Header() {
     };
   }, []);
 
+  // Color de la barra de estado del navegador (iOS/Android): oscuro sobre la portada, blanco con el header sólido.
+  useEffect(() => {
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    const apply = () => {
+      const overHero = !scrolled && !isSearchOpen && document.body.classList.contains('has-cover-hero');
+      meta!.content = overHero ? '#1f1410' : '#ff4c4f';
+    };
+    apply();
+    const mo = new MutationObserver(apply);
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, [scrolled, isSearchOpen]);
+
   const hasTopbar = !isStoreOpen || (allowPickup && !allowDelivery);
   useEffect(() => {
     document.body.classList.toggle('header-topbar', hasTopbar);
@@ -227,7 +245,7 @@ export default function Header() {
             </div>
             <button
               onClick={closeSearch}
-              style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: '#666', cursor: 'pointer', padding: '10px', display: 'flex', alignItems: 'center' }}
+              style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: '#fff', cursor: 'pointer', padding: '10px', display: 'flex', alignItems: 'center' }}
             >
               <FaTimes />
             </button>
