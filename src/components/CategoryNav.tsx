@@ -13,6 +13,9 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
     const scrolled = useScrolled(40);
     const trackRef = useRef<HTMLDivElement>(null);
     const drag = useRef({ down: false, startX: 0, startScroll: 0, moved: false });
+    // Al tocar una categoría el scroll animado pasa por las intermedias: mientras dure, el
+    // selector queda fijo en la elegida. Se libera cuando la persona vuelve a scrollear ella.
+    const lockedRef = useRef(false);
 
     useEffect(() => {
         document.body.classList.add("has-category-nav");
@@ -24,6 +27,7 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
     useEffect(() => {
         if (categories.length === 0) return;
         const update = () => {
+            if (lockedRef.current) return;
             const line = window.innerHeight * 0.4;
             let current = categories[0];
             for (const c of categories) {
@@ -32,12 +36,26 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
             }
             setActive(current);
         };
+        const release = (e?: Event) => {
+            if (!lockedRef.current) return;
+            // deslizar la propia barra de categorías no es scrollear la página
+            if ((e?.target as HTMLElement | null)?.closest?.(".category-nav")) return;
+            lockedRef.current = false;
+            update();
+        };
         update();
         window.addEventListener("scroll", update, { passive: true });
         window.addEventListener("resize", update);
+        // Gestos del usuario sobre la página: recién ahí el selector vuelve a seguir el scroll.
+        window.addEventListener("wheel", release, { passive: true });
+        window.addEventListener("touchmove", release, { passive: true });
+        window.addEventListener("keydown", release);
         return () => {
             window.removeEventListener("scroll", update);
             window.removeEventListener("resize", update);
+            window.removeEventListener("wheel", release);
+            window.removeEventListener("touchmove", release);
+            window.removeEventListener("keydown", release);
         };
     }, [categories]);
 
@@ -53,8 +71,9 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
 
     const goTo = (category: string) => {
         if (drag.current.moved) return;
-        document.getElementById(categoryAnchorId(category))?.scrollIntoView({ behavior: "smooth", block: "start" });
+        lockedRef.current = true;
         setActive(category);
+        document.getElementById(categoryAnchorId(category))?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
     // Arrastrar con el mouse (en touch ya es scroll nativo).
