@@ -3,7 +3,7 @@
     position: relative;
     width: 100%;
     min-height: 78svh;
-    padding: calc(var(--header-height, 70px) + 28px) 0 36px;
+    padding: calc(var(--header-height, 70px) + 28px) 0 52px;
     margin-bottom: 30px;
     overflow: hidden;
     display: flex;
@@ -163,12 +163,14 @@
 
 /* Indicadores */
 .hero-indicators {
-    position: relative;
-    z-index: 1;
+    position: absolute;
+    z-index: 2;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     justify-content: center;
     gap: 10px;
-    margin-top: 18px;
 }
 
 .indicator {

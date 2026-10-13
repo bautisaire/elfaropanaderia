@@ -9,6 +9,7 @@ import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
 import { normalizeForSearch } from "../utils/textSearch";
 import OrderDetailsExpanded from "./OrderDetailsExpanded";
+import { orderIsPickup, adminStatusLabel } from "../utils/orderPickup";
 import GlobalDeliveriesMapModal from "./GlobalDeliveriesMapModal";
 import { useCart } from "../context/CartContext";
 import "./OrdersManager.css";
@@ -33,25 +34,10 @@ interface Order {
     date: any;
     status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado" | "pending_payment";
     source?: string;
-    /** Solo retiros en local: si el cliente ya abonó antes de retirar */
-    retiroPagoEstado?: "pendiente" | "pagado";
     assignedRider?: string;
 }
 
-const normalizeOrderText = (v: unknown) =>
-    String(v ?? "")
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-
-const textIndicatesRetiroLocal = (v: unknown) => {
-    const n = normalizeOrderText(v);
-    return n.length > 0 && n.includes("retiro");
-};
-
-const orderIsRetiroLocal = (o: Order) =>
-    textIndicatesRetiroLocal(o.cliente?.direccion) || textIndicatesRetiroLocal(o.cliente?.indicaciones);
+const orderIsRetiroLocal = (o: Order) => orderIsPickup(o);
 
 const statusOptions = [
     { value: "pendiente", label: "Pendiente", color: "#f59e0b", icon: <FaClock /> },
@@ -270,16 +256,6 @@ export default function OrdersManager() {
         } catch (err) {
             console.error("Error updating payment method:", err);
             alert("Error al actualizar el método de pago");
-        }
-    };
-
-    const updateRetiroPagoEstado = async (id: string, estado: "pendiente" | "pagado") => {
-        try {
-            await updateDoc(doc(db, "orders", id), { retiroPagoEstado: estado });
-            setOrders(prev => prev.map(o => (o.id === id ? { ...o, retiroPagoEstado: estado } : o)));
-        } catch (err) {
-            console.error("Error al actualizar cobro retiro:", err);
-            alert("Error al actualizar el estado de cobro (retiro)");
         }
     };
 
@@ -964,11 +940,6 @@ export default function OrdersManager() {
                                         <th className="col-pago">Pago</th>
                                         <th className="col-estado">Estado</th>
                                         <th className="col-notas">Notas</th>
-                                        {activeTab === 'deliveries' && (
-                                            <th className="col-retiro-cobro" title="Cobro retiro en el local">
-                                                Cobro retiro en el local
-                                            </th>
-                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -976,7 +947,9 @@ export default function OrdersManager() {
                                         const isPos = order.source === 'pos' || order.source === 'pos_public' || order.source === 'pos_wholesale';
                                         return activeTab === 'pos' ? isPos : !isPos;
                                     }).map((order) => {
-                                        const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
+                                        const rowPickup = orderIsPickup(order);
+                                        const rowStatusOptions = statusOptions.map(o => ({ ...o, label: adminStatusLabel(o.value, o.label, rowPickup) }));
+                                        const currentStatus = rowStatusOptions.find(s => s.value === order.status) || rowStatusOptions[0];
 
                                         return (
                                             <React.Fragment key={order.id}>
@@ -1036,7 +1009,7 @@ export default function OrdersManager() {
                                                                     {order.cliente.metodoPago}
                                                                 </div>
                                                             )}
-                                                            {order.cliente.metodoPago.toLowerCase().includes('transferencia') && activeTab === 'deliveries' && (
+                                                            {!order.cliente.metodoPago.toLowerCase().includes('efectivo') && activeTab === 'deliveries' && (
                                                                 <select
                                                                     className={`retiro-pago-select retiro-pago-select-inline${order.transferenciaEstado === 'pagado' ? ' retiro-pago-pagado' : ' retiro-pago-pendiente'}`}
                                                                     value={order.transferenciaEstado === 'pagado' ? 'pagado' : 'pendiente'}
@@ -1062,7 +1035,7 @@ export default function OrdersManager() {
                                                                 className="status-dropdown-table"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
-                                                                {statusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
+                                                                {rowStatusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
                                                                     <option key={opt.value} value={opt.value}>
                                                                         {opt.label}
                                                                     </option>
@@ -1077,30 +1050,10 @@ export default function OrdersManager() {
                                                             <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: '0.8rem' }}>Sin notas</span>
                                                         )}
                                                     </td>
-                                                    {activeTab === 'deliveries' && (
-                                                        <td className="col-retiro-cobro">
-                                                            {orderIsRetiroLocal(order) ? (
-                                                                <select
-                                                                    className={`retiro-pago-select retiro-pago-select-inline${order.retiroPagoEstado === 'pagado' ? ' retiro-pago-pagado' : ' retiro-pago-pendiente'}`}
-                                                                    value={order.retiroPagoEstado === 'pagado' ? 'pagado' : 'pendiente'}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    onChange={(e) => {
-                                                                        e.stopPropagation();
-                                                                        updateRetiroPagoEstado(order.id, e.target.value as 'pagado' | 'pendiente');
-                                                                    }}
-                                                                >
-                                                                    <option value="pendiente">Pendiente</option>
-                                                                    <option value="pagado">Pagado</option>
-                                                                </select>
-                                                            ) : (
-                                                                <span className="retiro-cobro-na">—</span>
-                                                            )}
-                                                        </td>
-                                                    )}
                                                 </tr>
                                                 {expandedOrderId === order.id && (
                                                     <tr className="order-details-row">
-                                                        <td colSpan={activeTab === 'deliveries' ? 7 : 6}>
+                                                        <td colSpan={6}>
                                                             <OrderDetailsExpanded
                                                                 order={order}
                                                                 onClose={() => setExpandedOrderId(null)}

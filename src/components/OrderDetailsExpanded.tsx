@@ -8,6 +8,7 @@ import { useCart } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import TextEditModal from "./TextEditModal";
 import MapLocationPickerModal from "./MapLocationPickerModal";
+import { orderIsPickup, adminStatusLabel } from "../utils/orderPickup";
 
 
 
@@ -336,7 +337,9 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
 
                             {/* Status Selector - visible on mobile in sidebar */}
                             {onStatusChange && (() => {
-                                const currentStatus = statusOptions.find(s => s.value === order.status) || statusOptions[0];
+                                const pickup = orderIsPickup(order);
+                                const rowOptions = statusOptions.map(o => ({ ...o, label: adminStatusLabel(o.value, o.label, pickup) }));
+                                const currentStatus = rowOptions.find(s => s.value === order.status) || rowOptions[0];
                                 return (
                                     <div className="info-row sidebar-status-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                         <div className="status-selector-wrapper-table sidebar-status-selector" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
@@ -346,7 +349,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                                 onClick={(e) => e.stopPropagation()}
                                                 className="status-dropdown-table"
                                             >
-                                                {statusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
+                                                {rowOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
                                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                 ))}
                                             </select>

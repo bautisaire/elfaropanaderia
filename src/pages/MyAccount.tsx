@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { FaUser, FaMapMarkerAlt, FaShoppingBag, FaHeart, FaCogs, FaSignOutAlt, FaTimes, FaCheckCircle, FaStar, FaChevronDown, FaMotorcycle } from 'react-icons/fa';
+import { orderIsPickup, customerStatusLabel } from '../utils/orderPickup';
 import AuthForm from '../components/AuthForm';
 import './MyAccount.css';
 
@@ -475,7 +476,9 @@ function OrdersTab() {
 
 const ComprasCard = ({ order }: { order: Order }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const statusInfo = statusMap[order.status] || { label: order.status, color: '#999' };
+    const pickup = orderIsPickup(order);
+    const baseStatus = statusMap[order.status] || { label: order.status, color: '#999' };
+    const statusInfo = { ...baseStatus, label: customerStatusLabel(order.status, baseStatus.label, pickup) };
 
     const renderTimeline = (currentStatus: string) => {
         if (currentStatus === 'cancelado') return null;
@@ -500,7 +503,7 @@ const ComprasCard = ({ order }: { order: Order }) => {
                             <div className="timeline-circle" style={{ ...circleStyle }}>
                                 {isActiveOrCompleted && index < currentIndex && <FaCheckCircle color={stepInfo.color} size={16} style={{ background: '#fff' }} />}
                             </div>
-                            <div className="timeline-label">{step.label}</div>
+                            <div className="timeline-label">{customerStatusLabel(step.key, step.label, pickup)}</div>
                         </div>
                     );
                 })}
