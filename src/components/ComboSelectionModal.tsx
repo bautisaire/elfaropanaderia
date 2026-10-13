@@ -68,15 +68,21 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
     }
   };
 
+  // Elección simple: se pueden combinar varias opciones; el total entre todas
+  // no puede superar el stock disponible (singleChoiceMax).
   const handleSingleChoice = (optionName: string) => {
-    setQuantities(prev => prev[optionName] ? {} : { [optionName]: 1 });
+    setQuantities(prev => {
+      const total = Object.values(prev).reduce((sum, q) => sum + q, 0);
+      if (prev[optionName] || total >= singleChoiceMax) return prev;
+      return { ...prev, [optionName]: 1 };
+    });
   };
 
   const handleSingleChoiceIncrement = (optionName: string) => {
     setQuantities(prev => {
-      const current = prev[optionName] || 0;
-      if (current >= singleChoiceMax) return prev;
-      return { ...prev, [optionName]: current + 1 };
+      const total = Object.values(prev).reduce((sum, q) => sum + q, 0);
+      if (total >= singleChoiceMax) return prev;
+      return { ...prev, [optionName]: (prev[optionName] || 0) + 1 };
     });
   };
 
@@ -129,7 +135,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
           {product.comboOptions?.map((opt, idx) => {
             const isOptionDisabled = (opt as any).disabled;
             const isSelected = isSingleChoice && (quantities[opt.name] || 0) > 0;
-            const isBlockedBySelection = isSingleChoice && totalSelected > 0 && !isSelected;
+            const isBlockedBySelection = isSingleChoice && totalSelected >= singleChoiceMax && !isSelected;
             return (
               <div
                 key={idx}
@@ -163,7 +169,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
                         type="button"
                         className="combo-ctrl-btn"
                         onClick={() => handleSingleChoiceIncrement(opt.name)}
-                        disabled={(quantities[opt.name] || 0) >= singleChoiceMax}
+                        disabled={totalSelected >= singleChoiceMax}
                       >
                         <FaPlus />
                       </button>
