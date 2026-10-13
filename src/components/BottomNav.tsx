@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 import { db } from "../firebase/firebaseConfig";
 import { doc, onSnapshot } from "firebase/firestore";
-import { FaHome, FaHeart, FaShoppingCart, FaUser, FaClipboardList } from "react-icons/fa";
+import { FaHome, FaSearch, FaShoppingCart, FaUser, FaClipboardList } from "react-icons/fa";
+import { useScrolled } from "../utils/useScrolled";
 import "./BottomNav.css";
 
 export default function BottomNav() {
     const navigate = useNavigate();
     const location = useLocation();
+    const scrolled = useScrolled(120);
     const { cart, setIsSidebarOpen } = useContext(CartContext);
 
     const [activeOrdersCount, setActiveOrdersCount] = useState(0);
@@ -40,7 +42,6 @@ export default function BottomNav() {
     }, [totalItems]);
 
     const isHome = location.pathname === "/";
-    const isFavoritos = location.pathname.startsWith("/favoritos");
     const isCuenta = location.pathname.startsWith("/mi-cuenta");
     const isPedidos = location.pathname.startsWith("/mis-pedidos");
 
@@ -111,7 +112,7 @@ export default function BottomNav() {
     }, []);
 
     return (
-        <nav className="bottom-nav">
+        <nav className={`bottom-nav ${scrolled ? "" : "at-top"}`}>
             <button
                 className={`bottom-nav-item ${isHome ? "active" : ""}`}
                 onClick={goHome}
@@ -122,12 +123,12 @@ export default function BottomNav() {
             </button>
 
             <button
-                className={`bottom-nav-item ${isFavoritos ? "active" : ""}`}
-                onClick={() => navigateAndScroll("/favoritos")}
-                aria-label="Favoritos"
+                className="bottom-nav-item"
+                onClick={() => window.dispatchEvent(new Event("open-search"))}
+                aria-label="Buscar"
             >
-                <FaHeart />
-                <span>Favoritos</span>
+                <FaSearch />
+                <span>Buscar</span>
             </button>
 
             <div className="bottom-nav-cart-slot">

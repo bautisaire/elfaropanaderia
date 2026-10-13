@@ -61,6 +61,29 @@ const roundQty = (n: number) => Math.round((Number(n) || 0) * 1000) / 1000;
 /** Formatea un monto para mostrar, con separador de miles y máximo 2 decimales. */
 const formatMoney = (n: number) => Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
 
+/** "incluido" = ticket con precios finales (factura B/C, súper): no se suma IVA al pie. */
+type IvaOption = '21' | '10.5' | 'incluido';
+const ivaRateOf = (opt: IvaOption) => opt === 'incluido' ? 0 : Number(opt);
+
+type PricedItem = { precioEditado?: number; descuento?: number; multiplicador?: number };
+
+/** Precio neto de UNA presentación, ya con el descuento del proveedor (columna Dto de la factura). */
+const unitNet = (item: PricedItem) => (Number(item.precioEditado) || 0) * (1 - (Number(item.descuento) || 0) / 100);
+
+/** Importe neto de la fila, como la columna IMPORTE de la factura. */
+const lineNet = (item: PricedItem) => unitNet(item) * (item.multiplicador || 1);
+
+const newTicketItem = () => ({
+    id: crypto.randomUUID(),
+    nombre: "",
+    cantidad: 0,
+    unidad: "unidad",
+    rawMaterialId: null,
+    precioEditado: 0,
+    multiplicador: 1,
+    descuento: 0
+});
+
 export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurchasesProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -70,15 +93,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
     // Modal mode (opened directly from Gastos): skip the landing screen and jump straight into ticket entry.
     useEffect(() => {
         if (onClose) {
-            setTicketItems([{
-                id: crypto.randomUUID(),
-                nombre: "",
-                cantidad: 0,
-                unidad: "unidad",
-                rawMaterialId: null,
-                precioEditado: 0,
-                multiplicador: 1
-            }]);
+            setTicketItems([newTicketItem()]);
             setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,6 +105,10 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
         return now.toISOString().split('T')[0];
     });
     const [ticketType, setTicketType] = useState<string>("materia_prima");
+    // IVA y percepciones van al pie, sobre el subtotal neto, igual que en la factura.
+    const [ivaOption, setIvaOption] = useState<IvaOption>('21');
+    const [percepMode, setPercepMode] = useState<'$' | '%'>('$');
+    const [percepValue, setPercepValue] = useState<number>(0);
     const [viewMode, setViewMode] = useState<"completo" | "simple">("completo");
     const [priceConflicts, setPriceConflicts] = useState<any[]>([]);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -101,15 +120,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
         if (e.key === "Enter") {
             e.preventDefault();
             // Añadir fila nueva y hacer foco
-            setTicketItems([...ticketItems, {
-                id: crypto.randomUUID(),
-                nombre: "",
-                cantidad: 0,
-                unidad: "unidad",
-                rawMaterialId: null,
-                precioEditado: 0,
-                multiplicador: 1
-            }]);
+            setTicketItems([...ticketItems, newTicketItem()]);
             setTimeout(() => {
                 const nextId = `${ticketItems.length}_name`;
                 inputRefs.current[nextId]?.focus();
@@ -117,26 +128,30 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
             return;
         }
 
-        const fields = ['name', 'qty', 'unit', 'multiplier', 'price', 'subtotal'];
+        const fields = ['name', 'qty', 'unit', 'multiplier', 'price', 'discount', 'subtotal'];
         const currentFieldIndex = fields.indexOf(field);
+
+        // Salta los campos que no están en pantalla (en Modo Simple faltan cantidad, unidad, etc.).
+        const focusFrom = (start: number, step: number) => {
+            for (let i = start; i >= 0 && i < fields.length; i += step) {
+                const el = inputRefs.current[`${idx}_${fields[i]}`];
+                if (el && el.isConnected) { el.focus(); return; }
+            }
+        };
 
         if (e.key === "ArrowRight") {
             const currentEl = e.target as HTMLInputElement;
             // Only move right if caret is at the end of text
             if (currentEl.selectionEnd === currentEl.value.length || field === 'unit') {
                 e.preventDefault();
-                if (currentFieldIndex < fields.length - 1) {
-                    inputRefs.current[`${idx}_${fields[currentFieldIndex + 1]}`]?.focus();
-                }
+                focusFrom(currentFieldIndex + 1, 1);
             }
         } else if (e.key === "ArrowLeft") {
             const currentEl = e.target as HTMLInputElement;
             // Only move left if caret is at start
             if (currentEl.selectionStart === 0 || field === 'unit') {
                 e.preventDefault();
-                if (currentFieldIndex > 0) {
-                    inputRefs.current[`${idx}_${fields[currentFieldIndex - 1]}`]?.focus();
-                }
+                focusFrom(currentFieldIndex - 1, -1);
             }
         }
     };
@@ -153,7 +168,11 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                 newItems[idx].rawMaterialId = exactMatch.id;
                 newItems[idx].unidad = exactMatch.unit || 'unidad';
                 newItems[idx].cantidad = exactMatch.baseQuantity || 0;
-                newItems[idx].precioEditado = exactMatch.price || 0;
+                // Autocompletamos con el NETO (lo que dice la factura): `price` ya trae IVA y
+                // percepciones, y el pie del ticket los volvería a sumar. Los materiales viejos
+                // sin `netPrice` se cargaron copiando precios de factura, así que los tomamos como neto.
+                newItems[idx].precioEditado = exactMatch.netPrice ?? exactMatch.price ?? 0;
+                newItems[idx].descuento = 0;
             } else {
                 newItems[idx].rawMaterialId = null;
             }
@@ -162,6 +181,27 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
         }
 
         setTicketItems(newItems);
+    };
+
+    /** Totales del pie del ticket, calculados igual que en la factura (IVA sobre el subtotal neto). */
+    const computeTotals = () => {
+        const netTotal = roundMoney(ticketItems.reduce((sum, p) => sum + lineNet(p), 0));
+        const ivaRate = ivaRateOf(ivaOption);
+        const ivaAmount = roundMoney(netTotal * ivaRate / 100);
+        const perceptionsAmount = roundMoney(percepMode === '%' ? netTotal * (percepValue || 0) / 100 : (percepValue || 0));
+        const total = roundMoney(netTotal + ivaAmount + perceptionsAmount);
+        // Las percepciones se reparten entre los ítems en proporción a su neto, o sea como un % del neto.
+        const perceptionRate = netTotal > 0 ? Math.round((perceptionsAmount / netTotal) * 100 * 10000) / 10000 : 0;
+        // Monotributo: IVA y percepciones no se recuperan, así que son parte del costo del insumo.
+        const costFactor = 1 + ivaRate / 100 + perceptionRate / 100;
+        return { netTotal, ivaRate, ivaAmount, perceptionsAmount, total, perceptionRate, costFactor };
+    };
+    const totals = computeTotals();
+
+    const resetTotalsInputs = () => {
+        setIvaOption('21');
+        setPercepMode('$');
+        setPercepValue(0);
     };
 
     const handleConfirmClick = () => {
@@ -188,33 +228,43 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
             const qtyInMatUnit = convertQuantity(Number(item.cantidad) || 0, item.unidad, matData.unit);
             if (qtyInMatUnit === null || qtyInMatUnit <= 0) continue;
 
-            const newPrice = Number(item.precioEditado) || 0;
-            if (newPrice <= 0) continue;
+            const newNet = unitNet(item);
+            if (newNet <= 0) continue;
 
-            const oldUnitPrice = matData.price / matData.baseQuantity;
-            const newUnitPrice = newPrice / qtyInMatUnit;
+            // Comparamos neto contra neto (el IVA se suma recién al pie): si comparáramos contra
+            // `price`, que ya trae IVA, cada ticket parecería una baja/suba del 21%.
+            const oldNet = matData.netPrice ?? matData.price;
+            const oldUnitPrice = oldNet / matData.baseQuantity;
+            const newUnitPrice = newNet / qtyInMatUnit;
 
             // Tolerancia relativa para no disparar el modal por ruido de coma flotante.
             const priceChanged = Math.abs(newUnitPrice - oldUnitPrice) > Math.max(oldUnitPrice * 0.0001, 1e-9);
             const quantityChanged = Math.abs(qtyInMatUnit - matData.baseQuantity) > 1e-9;
+            // Material cargado antes de registrar IVA, o comprado ahora con otra alícuota.
+            const missingIva = matData.netPrice === undefined;
+            const ivaChanged = missingIva || matData.ivaRate !== totals.ivaRate;
 
             // Avisamos si cambió el costo por unidad O si cambió la presentación (aunque el
             // costo por unidad dé igual, ej. 25kg a $25000 vs 12,5kg a $12500): en ambos casos
             // el registro de la materia prima queda desactualizado si no se toca nada.
-            if (!priceChanged && !quantityChanged) continue;
+            if (!priceChanged && !quantityChanged && !ivaChanged) continue;
 
             conflicts.push({
                 id: item.rawMaterialId,
                 name: item.nombre,
                 unit: matData.unit,
-                oldPrice: matData.price,
-                newPrice: roundMoney(newPrice),
+                oldPrice: oldNet,
+                newPrice: roundMoney(newNet),
+                oldFinalPrice: matData.price,
+                newFinalPrice: roundMoney(newNet * totals.costFactor),
                 oldBaseQuantity: matData.baseQuantity,
                 newBaseQuantity: roundQty(qtyInMatUnit),
                 oldUnitPrice,
                 newUnitPrice,
                 priceChanged,
                 quantityChanged,
+                ivaChanged,
+                missingIva,
                 updatePrice: true
             });
         }
@@ -232,22 +282,19 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
 
             // Create ticket
             const ticketRef = doc(collection(db, "expenses"));
-            let totalAmount = 0;
+            const { netTotal, ivaRate, ivaAmount, perceptionsAmount, total, perceptionRate, costFactor } = computeTotals();
 
-            const itemsToSave = ticketItems.map(item => {
-                const mult = item.multiplicador || 1;
-                const subtotal = (item.precioEditado || 0) * mult;
-                totalAmount += subtotal;
-                return {
-                    name: item.nombre,
-                    quantity: item.cantidad,
-                    unit: item.unidad,
-                    price: item.precioEditado,
-                    materialId: item.rawMaterialId,
-                    multiplier: mult,
-                    subtotal: subtotal
-                };
-            });
+            const itemsToSave = ticketItems.map(item => ({
+                name: item.nombre,
+                quantity: item.cantidad,
+                unit: item.unidad,
+                price: item.precioEditado,
+                discount: Number(item.descuento) || 0,
+                materialId: item.rawMaterialId,
+                multiplier: item.multiplicador || 1,
+                // Neto, como la columna IMPORTE de la factura. IVA y percepciones van en el ticket.
+                subtotal: roundMoney(lineNet(item))
+            }));
 
             // Logica auto-incremental de ID de ticket
             const expensesRef = collection(db, "expenses");
@@ -266,7 +313,13 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                 date: Timestamp.fromDate(orderDate),
                 type: ticketType,
                 description: ticketName.trim() ? ticketName.trim() : "Sin titulo",
-                totalAmount: totalAmount,
+                // Lo que efectivamente se pagó (neto + IVA + percepciones).
+                totalAmount: total,
+                netAmount: netTotal,
+                ivaRate,
+                ivaIncluded: ivaOption === 'incluido',
+                ivaAmount,
+                perceptionsAmount,
                 items: itemsToSave,
                 createdByEmail: user?.email || "admin",
                 ticketNumber: nextTicketNumber,
@@ -284,7 +337,8 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                     // toda receta que cargue este material en gramos calcularía mal el costo.
                     const normalized = toBaseUnit(Number(item.cantidad) || 0, item.unidad);
                     const baseQuantity = normalized.quantity > 0 ? roundQty(normalized.quantity) : 1000;
-                    const newMatPrice = roundMoney(item.precioEditado);
+                    const newNetPrice = roundMoney(unitNet(item));
+                    const newMatPrice = roundMoney(unitNet(item) * costFactor);
 
                     const newMatRef = doc(collection(db, "raw_materials"));
                     batch.set(newMatRef, {
@@ -293,12 +347,17 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                         baseQuantity,
                         price: newMatPrice,
                         currentPrice: newMatPrice,
+                        netPrice: newNetPrice,
+                        ivaRate,
+                        perceptionRate,
                         stockQuantity: roundQty(normalized.quantity * (item.multiplicador || 1)),
                         category: "materia prima",
                         lastUpdated: Timestamp.now(),
                         priceHistory: [{
                             date: new Date().toISOString(),
                             price: newMatPrice,
+                            netPrice: newNetPrice,
+                            ivaRate,
                             baseQuantity,
                             unit: normalized.unit
                         }]
@@ -326,10 +385,14 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                         const conflict = resolvedConflicts.find(c => c.id === item.rawMaterialId);
 
                         if (conflict && conflict.updatePrice) {
-                            // Usamos los valores ya redondeados que se mostraron en el modal
-                            // (conflict.newPrice), no el float crudo de precioEditado.
-                            updates.currentPrice = conflict.newPrice;
-                            updates.price = conflict.newPrice;
+                            // Usamos los valores ya redondeados que se mostraron en el modal,
+                            // no el float crudo de precioEditado. `price` es el costo final
+                            // (con IVA y percepciones) y `netPrice` el neto de la factura.
+                            updates.currentPrice = conflict.newFinalPrice;
+                            updates.price = conflict.newFinalPrice;
+                            updates.netPrice = conflict.newPrice;
+                            updates.ivaRate = ivaRate;
+                            updates.perceptionRate = perceptionRate;
 
                             // Si el ticket trae otra presentación (ej. bolsa de 12,5 kg en vez de
                             // 25 kg), movemos también la cantidad base; si no, el costo por unidad
@@ -351,7 +414,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
 
                             // El historial se guarda en la unidad del material para que las
                             // entradas sean comparables entre sí.
-                            history = [ ...history, { date: new Date().toISOString(), price: conflict.newPrice, baseQuantity: conflict.newBaseQuantity, unit: matData.unit } ];
+                            history = [ ...history, { date: new Date().toISOString(), price: conflict.newFinalPrice, netPrice: conflict.newPrice, ivaRate, baseQuantity: conflict.newBaseQuantity, unit: matData.unit } ];
                             if(history.length > 10) history.shift();
                             updates.priceHistory = history;
                         }
@@ -372,6 +435,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             setTicketDate(now.toISOString().split('T')[0]);
             setTicketType("materia_prima");
+            resetTotalsInputs();
 
         } catch (error) {
             console.error(error);
@@ -407,15 +471,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                             className="cm-btn-primary"
                             style={{ background: '#3b82f6', padding: '15px 30px', fontSize: '1.2rem', marginBottom: '20px', width: 'fit-content' }}
                             onClick={() => {
-                                setTicketItems([{
-                                    id: crypto.randomUUID(),
-                                    nombre: "",
-                                    cantidad: 0,
-                                    unidad: "unidad",
-                                    rawMaterialId: null,
-                                    precioEditado: 0,
-                                    multiplicador: 1
-                                }]);
+                                setTicketItems([newTicketItem()]);
                                 setTimeout(() => inputRefs.current['0_name']?.focus(), 50);
                             }}
                         >
@@ -518,8 +574,11 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                 <th style={{ padding: '12px', width: '12%' }}>Multipl.</th>
                                             </>
                                         )}
-                                        <th style={{ padding: '12px', width: '15%' }}>Precio Costo</th>
-                                        <th style={{ padding: '12px', width: '15%' }}>Subtotal</th>
+                                        <th style={{ padding: '12px', width: '15%' }}>Precio (neto)</th>
+                                        {viewMode === 'completo' && (
+                                            <th style={{ padding: '12px', width: '9%' }}>Dto %</th>
+                                        )}
+                                        <th style={{ padding: '12px', width: '15%' }}>Importe (neto)</th>
                                         <th style={{ padding: '12px', width: '5%' }}></th>
                                     </tr>
                                 </thead>
@@ -610,17 +669,38 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                     />
                                                 </div>
                                             </td>
+                                            {viewMode === 'completo' && (
+                                                <td style={{ padding: '12px' }}>
+                                                    <input
+                                                        type="number"
+                                                        value={prod.descuento || 0}
+                                                        onChange={e => {
+                                                            const newItems = [...ticketItems];
+                                                            newItems[idx].descuento = Math.min(99, Math.max(0, Number(e.target.value)));
+                                                            setTicketItems(newItems);
+                                                        }}
+                                                        onKeyDown={e => handleKeyDown(e, idx, 'discount')}
+                                                        ref={el => { if (el) inputRefs.current[`${idx}_discount`] = el }}
+                                                        style={bigInputStyle}
+                                                        min="0"
+                                                        max="99"
+                                                    />
+                                                </td>
+                                            )}
                                             <td style={{ padding: '12px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     <span style={{ marginRight: '8px', fontSize: '1.2rem', fontWeight: 'bold' }}>$</span>
                                                     <input
                                                         type="number"
-                                                        value={(prod.precioEditado || 0) * (prod.multiplicador || 1)}
+                                                        value={roundMoney(lineNet(prod))}
                                                         onChange={e => {
+                                                            // Editar el importe recalcula el precio unitario de lista
+                                                            // (antes del descuento) para que la fila siga cerrando.
                                                             const newSubtotal = Number(e.target.value);
                                                             const newItems = [...ticketItems];
                                                             const multiplier = newItems[idx].multiplicador || 1;
-                                                            newItems[idx].precioEditado = newSubtotal / multiplier;
+                                                            const dtoFactor = 1 - (Number(newItems[idx].descuento) || 0) / 100;
+                                                            newItems[idx].precioEditado = newSubtotal / multiplier / dtoFactor;
                                                             setTicketItems(newItems);
                                                         }}
                                                         onKeyDown={e => handleKeyDown(e, idx, 'subtotal')}
@@ -652,15 +732,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
                                 <button
                                     onClick={() => {
-                                        setTicketItems([...ticketItems, {
-                                            id: crypto.randomUUID(),
-                                            nombre: "",
-                                            cantidad: 0,
-                                            unidad: "unidad",
-                                            rawMaterialId: null,
-                                            precioEditado: 0,
-                                            multiplicador: 1
-                                        }]);
+                                        setTicketItems([...ticketItems, newTicketItem()]);
                                         setTimeout(() => inputRefs.current[`${ticketItems.length}_name`]?.focus(), 50);
                                     }}
                                     style={{
@@ -673,16 +745,61 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                 </button>
                             </div>
 
-                            {/* TOTAL TICKET */}
-                            <div style={{ borderTop: '2px dashed #94a3b8', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                                <span style={{ fontWeight: 'bold', fontSize: '1.8rem', color: '#0f172a' }}>TOTAL TICKET:</span>
-                                <span style={{ fontWeight: 'bold', fontSize: '2.5rem', color: '#166534' }}>
-                                    ${ticketItems.reduce((sum, p) => sum + ((p.precioEditado || 0) * (p.multiplicador || 1)), 0)}
-                                </span>
+                            {/* PIE DEL TICKET: igual que la factura (subtotal neto + IVA + percepciones) */}
+                            <div style={{ borderTop: '2px dashed #94a3b8', paddingTop: '20px', marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '1.2rem', color: '#334155' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 'bold' }}>{ivaOption === 'incluido' ? 'SUBTOTAL (IVA incluido):' : 'SUBTOTAL NETO:'}</span>
+                                    <span style={{ fontWeight: 'bold' }}>${formatMoney(totals.netTotal)}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontWeight: 'bold' }}>IVA:</span>
+                                        <select
+                                            value={ivaOption}
+                                            onChange={e => setIvaOption(e.target.value as IvaOption)}
+                                            style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit', background: '#fff' }}
+                                        >
+                                            <option value="21">21%</option>
+                                            <option value="10.5">10,5%</option>
+                                            <option value="incluido">Ya incluido (precios finales)</option>
+                                        </select>
+                                    </div>
+                                    <span style={{ fontWeight: 'bold' }}>{ivaOption === 'incluido' ? '—' : `$${formatMoney(totals.ivaAmount)}`}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontWeight: 'bold' }}>PERCEPCIONES:</span>
+                                        <input
+                                            type="number"
+                                            value={percepValue || ''}
+                                            placeholder="0"
+                                            onChange={e => setPercepValue(Math.max(0, Number(e.target.value)))}
+                                            style={{ width: '140px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit' }}
+                                        />
+                                        <select
+                                            value={percepMode}
+                                            onChange={e => setPercepMode(e.target.value as '$' | '%')}
+                                            style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '1rem', fontFamily: 'inherit', background: '#fff' }}
+                                        >
+                                            <option value="$">$</option>
+                                            <option value="%">% del neto</option>
+                                        </select>
+                                    </div>
+                                    <span style={{ fontWeight: 'bold' }}>${formatMoney(totals.perceptionsAmount)}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.8rem', color: '#0f172a' }}>TOTAL A PAGAR:</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '2.5rem', color: '#166534' }}>${formatMoney(totals.total)}</span>
+                                </div>
+                                {ticketType === 'materia_prima' && totals.costFactor > 1 && (
+                                    <div style={{ fontSize: '0.95rem', color: '#64748b', textAlign: 'right' }}>
+                                        El IVA y las percepciones se suman al costo de cada materia prima (+{formatMoney((totals.costFactor - 1) * 100)}% sobre su neto).
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                <button onClick={() => { setTicketItems([]); setTicketName(""); if (onClose) onClose(); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
+                                <button onClick={() => { setTicketItems([]); setTicketName(""); resetTotalsInputs(); if (onClose) onClose(); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '15px 30px', fontSize: '1.2rem', fontWeight: 'bold', color: '#475569', borderRadius: '6px', cursor: 'pointer' }}>
                                     <FaTimes style={{ marginRight: '8px' }} /> Descartar
                                 </button>
                                 <button onClick={handleConfirmClick} style={{ background: '#0f172a', padding: '15px 40px', fontSize: '1.4rem', fontWeight: 'bold', borderRadius: '6px', border: 'none', color: 'white', cursor: 'pointer' }}>
@@ -711,7 +828,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                             <FaList /> ¡Actualizaciones de Precio Detectadas!
                         </h3>
                         <p style={{ color: '#4b5563', marginBottom: '20px' }}>
-                            Algunos productos del ticket tienen un costo por unidad y/o una cantidad diferente a la guardada.
+                            Algunos productos del ticket tienen un precio neto, una presentación o un IVA diferente al guardado.
                             ¿Deseas actualizar el precio y la presentación de estos productos en tu inventario general?
                         </p>
                         <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '20px' }}>
@@ -737,9 +854,23 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                         <div style={{ flex: 1 }}>
                                             <strong style={{ display: 'block', fontSize: '1.1rem' }}>{c.name}</strong>
                                             <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                                                Anterior: <span style={{ textDecoration: 'line-through' }}>${formatMoney(c.oldPrice)} / {formatQty(c.oldBaseQuantity)} {c.unit}</span>
+                                                Neto anterior: <span style={{ textDecoration: 'line-through' }}>${formatMoney(c.oldPrice)} / {formatQty(c.oldBaseQuantity)} {c.unit}</span>
                                                 {' '}👉 Nuevo: <strong>${formatMoney(c.newPrice)} / {formatQty(c.newBaseQuantity)} {c.unit}</strong>
                                             </div>
+                                            <div style={{ color: '#0f172a', fontSize: '0.9rem', marginTop: '4px' }}>
+                                                Costo final (con IVA y percep.): <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>${formatMoney(c.oldFinalPrice)}</span>
+                                                {' '}👉 <strong>${formatMoney(c.newFinalPrice)}</strong>
+                                            </div>
+                                            {c.missingIva && (
+                                                <div style={{ color: '#1d4ed8', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                    No tenía IVA registrado: a partir de ahora su costo incluye IVA y percepciones.
+                                                </div>
+                                            )}
+                                            {!c.missingIva && c.ivaChanged && (
+                                                <div style={{ color: '#1d4ed8', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                    Cambia el IVA con el que se registra.
+                                                </div>
+                                            )}
                                             {c.quantityChanged && (
                                                 <div style={{ color: '#b45309', fontSize: '0.85rem', marginTop: '4px' }}>
                                                     Cambia la presentación: {formatQty(c.oldBaseQuantity)} {c.unit} → {formatQty(c.newBaseQuantity)} {c.unit}
@@ -747,7 +878,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                             )}
                                             {!c.priceChanged && (
                                                 <div style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '4px' }}>
-                                                    Costo por unidad sin cambios.
+                                                    Precio neto por unidad sin cambios.
                                                 </div>
                                             )}
                                         </div>

@@ -7,6 +7,18 @@
 
 
 
+/* Con portada de fondo el hero pasa por debajo del header y ocupa todo el ancho */
+body.has-cover-hero .home-container {
+  max-width: none;
+  padding-top: 0;
+}
+
+body.has-cover-hero .home {
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
 .home-title {
   text-align: center;
   font-size: 1.8rem;
@@ -182,4 +194,20 @@
 .raffle-home-modal {
   position: relative;
   background-color: #ffffff;
+}
+/* Aparición al hacer scroll (ver useRevealOnScroll) */
+.reveal:not(.in-view) {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.reveal.in-view {
+  animation: revealUp 0.6s ease-out backwards;
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
 }

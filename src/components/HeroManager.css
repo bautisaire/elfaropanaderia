@@ -145,3 +145,16 @@
 .hero-list-section {
     margin-top: 20px;
 }
+/* Editor de textos / botones */
+.hero-section-label { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 10px; }
+.hero-edit-row { display: flex; flex-direction: column; gap: 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.hero-edit-row-top { display: flex; gap: 8px; align-items: center; }
+.hero-edit-row-top > :first-child { flex: 1; }
+.hero-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.hero-inline-check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: #047857; }
+.hero-color-pair { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #4b5563; }
+.hero-color-pair > span { width: 44px; }
+.hero-color-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hero-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #d1d5db; cursor: pointer; padding: 0; }
+.hero-swatch.selected { border-color: #111827; box-shadow: 0 0 0 2px #fff inset; }
+.hero-color-picker input[type="color"] { width: 30px; height: 30px; padding: 0; border: none; background: none; cursor: pointer; }

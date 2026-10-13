@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useContext, useState, useEffect, useRef } from "react";
+import { useContext, useState, useEffect } from "react";
 import { CartContext } from "../context/CartContext";
 import "./Header.css";
 import logo from "../assets/logo.png";
@@ -9,62 +9,37 @@ import { FaSearch, FaTimes, FaWhatsapp, FaShoppingCart, FaUser, FaClipboardList 
 import SearchBar from "./SearchBar";
 import ProductModal from "./ProductModal";
 import { Product } from "../context/CartContext";
-import { isLowPowerDevice } from "../utils/deviceCapability";
-
-const BanderinSVG = ({ className }: { className?: string }) => (
-  <svg 
-    className={className} 
-    viewBox="0 0 60 30" 
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ filter: 'drop-shadow(0px 2px 3px rgba(0,0,0,0.15))' }}
-  >
-    <polygon points="0,0 60,0 50,10 0,10" fill="#74ACDF" />
-    <polygon points="0,10 50,10 45,15 50,20 0,20" fill="#FFFFFF" />
-    <polygon points="0,20 50,20 60,30 0,30" fill="#74ACDF" />
-    <circle cx="22" cy="15" r="3.5" fill="#F6B40E" />
-  </svg>
-);
+import { useScrolled } from "../utils/useScrolled";
 
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
+  const scrolled = useScrolled(40);
 
   const { cart, isStoreOpen, allowPickup, allowDelivery, setIsSidebarOpen } = useContext(CartContext);
   const totalItems = cart.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchClosing, setIsSearchClosing] = useState(false);
+
+  const closeSearch = () => {
+    setIsSearchClosing(true);
+    setTimeout(() => {
+      setIsSearchOpen(false);
+      setIsSearchClosing(false);
+    }, 180);
+  };
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
 
   const [orderStatuses, setOrderStatuses] = useState<Record<string, any>>({});
 
-  const [isNavHidden, setIsNavHidden] = useState(false);
-  const lastScrollY = useRef(0);
-
+  // El buscador del menú inferior (mobile) abre la búsqueda de este header.
   useEffect(() => {
-    // On low-power devices / reduced-motion, skip the hide-on-scroll behavior
-    // entirely rather than just disabling the CSS transition — this avoids
-    // running a scroll listener + transform update on every scroll frame.
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (isLowPowerDevice() || prefersReducedMotion) return;
-
-    lastScrollY.current = window.scrollY;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY < 80) {
-        setIsNavHidden(false);
-      } else if (currentScrollY > lastScrollY.current) {
-        setIsNavHidden(true);
-      } else if (currentScrollY < lastScrollY.current) {
-        setIsNavHidden(false);
-      }
-
-      lastScrollY.current = currentScrollY;
+    const open = () => {
+      setIsSearchOpen(true);
     };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("open-search", open);
+    return () => window.removeEventListener("open-search", open);
   }, []);
 
   useEffect(() => {
@@ -147,6 +122,12 @@ export default function Header() {
     };
   }, []);
 
+  const hasTopbar = !isStoreOpen || (allowPickup && !allowDelivery);
+  useEffect(() => {
+    document.body.classList.toggle('header-topbar', hasTopbar);
+    return () => document.body.classList.remove('header-topbar');
+  }, [hasTopbar]);
+
   const handleLogoClick = () => {
     navigate("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -158,18 +139,18 @@ export default function Header() {
   return (
     <>
       {!isStoreOpen && (
-        <div className={`topbar-cerrado ${isNavHidden && !isSearchOpen ? 'nav-hidden' : ''}`}>
+        <div className={`topbar-cerrado `}>
           CERRADO
         </div>
       )}
 
       {isStoreOpen && allowPickup && !allowDelivery && (
-        <div className={`topbar-cerrado ${isNavHidden && !isSearchOpen ? 'nav-hidden' : ''}`} style={{ backgroundColor: '#16a34a' }}>
+        <div className={`topbar-cerrado `} style={{ backgroundColor: '#16a34a' }}>
           SOLO RETIRO EN LOCAL
         </div>
       )}
 
-      <header className={`header-container scrolled ${(!isStoreOpen || (isStoreOpen && allowPickup && !allowDelivery)) ? 'with-topbar' : ''} ${isNavHidden && !isSearchOpen ? 'nav-hidden' : ''}`}>
+      <header className={`header-container scrolled ${isSearchOpen ? 'search-open' : ''} ${!scrolled && !isSearchOpen ? 'at-top' : ''} ${(!isStoreOpen || (isStoreOpen && allowPickup && !allowDelivery)) ? 'with-topbar' : ''} `}>
         <div className="header-content" style={{ display: isSearchOpen ? 'none' : 'grid' }}>
           <div className="header-left">
             <a
@@ -184,16 +165,14 @@ export default function Header() {
           </div>
 
           <div className="logo-section" onClick={handleLogoClick}>
-            <BanderinSVG className="banderin-left" />
             <img src={logo} alt="El Faro Panadería" className="logo-img" />
             <span className="brand-name">EL FARO <span className="brand-suffix">PANADERIA</span></span>
-            <BanderinSVG className="banderin-right" />
           </div>
 
           <div className="header-right">
             <nav className="nav-menu">
               <button
-                className="header-icon-btn"
+                className="header-icon-btn header-search-btn"
                 onClick={() => setIsSearchOpen(true)}
                 aria-label="Buscar"
                 title="Buscar"
@@ -236,18 +215,18 @@ export default function Header() {
         </div>
 
         {isSearchOpen && (
-          <div className="global-search-container" style={{ width: '100%', display: 'flex', alignItems: 'center' }}>
+          <div className={`global-search-container ${isSearchClosing ? 'closing' : ''}`} style={{ width: '100%', display: 'flex', alignItems: 'center' }}>
             <div style={{ flex: 1 }}>
               <SearchBar
                 products={products}
                 onProductSelect={(prod) => {
                   setSelectedProduct(prod);
-                  setIsSearchOpen(false); // Optionally close search or keep it open
+                  closeSearch();
                 }}
               />
             </div>
             <button
-              onClick={() => setIsSearchOpen(false)}
+              onClick={closeSearch}
               style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: '#666', cursor: 'pointer', padding: '10px', display: 'flex', alignItems: 'center' }}
             >
               <FaTimes />

@@ -8,7 +8,7 @@
   --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 30px rgba(0, 0, 0, 0.1);
   --transition-speed: 0.3s;
-  --header-height: 70px;
+  --header-height: 60px;
   /* Define header height for spacing */
 }
 
@@ -167,10 +167,32 @@ html.low-power .header-container {
 }
 
 @media (max-width: 768px) {
-  /* Covered by BottomNav on mobile */
-  .header-desktop-actions {
+  /* Covered by BottomNav on mobile (incl. search) */
+  .header-desktop-actions,
+  .header-search-btn {
     display: none;
   }
+}
+
+/* Portada con fondo: header transparente arriba, sólido al bajar */
+body.has-cover-hero .header-container.at-top {
+  background-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.has-cover-hero .header-container.at-top .brand-name,
+body.has-cover-hero .header-container.at-top .header-icon-btn {
+  color: #fff;
+}
+
+body.has-cover-hero .header-container.at-top .logo-img {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45));
+}
+
+body.has-cover-hero .header-container.at-top .brand-name {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
 /* Logo Section */
@@ -185,31 +207,13 @@ html.low-power .header-container {
 }
 
 .logo-img {
-  height: 60px;
-  /* Increased from 40px */
+  height: 46px;
   width: auto;
   transition: transform var(--transition-speed) ease, height var(--transition-speed) ease;
-}
-
-.banderin-left, .banderin-right {
-  height: 45px;
-  width: auto;
-  transition: transform var(--transition-speed) ease, height var(--transition-speed) ease;
-  object-fit: contain;
-}
-
-.banderin-left {
-  transform: scaleX(-1);
 }
 
 .header-container.scrolled .logo-img {
-  height: 45px;
-  /* Slightly smaller when scrolled */
-}
-
-.header-container.scrolled .banderin-left, 
-.header-container.scrolled .banderin-right {
-  height: 35px;
+  height: 38px;
 }
 
 .brand-name {
@@ -300,12 +304,20 @@ html.low-power .header-container {
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  :root {
+    --header-height: 52px;
+  }
+
   .header-container {
-    padding: 0 1rem;
+    padding: 0 0.9rem;
   }
 
   .brand-name {
-    font-size: 1.2rem;
+    font-size: 1.05rem;
+  }
+
+  .burger-menu-btn {
+    font-size: 1.3rem;
   }
 
   .nav-menu {
@@ -328,20 +340,40 @@ html.low-power .header-container {
   }
 
   .logo-img {
-    height: 40px;
-    /* Adjustable for mobile */
-  }
-
-  .banderin-left, .banderin-right {
-    height: 35px; /* Optimize for mobile view */
+    height: 32px;
   }
 
   .header-container.scrolled .logo-img {
-    height: 35px;
+    height: 30px;
   }
 
-  .header-container.scrolled .banderin-left,
-  .header-container.scrolled .banderin-right {
-    height: 30px;
+}
+/* Buscador: entra deslizando desde arriba, sale hacia arriba, con sombra debajo */
+.header-container.search-open {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+.global-search-container {
+  animation: searchSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.global-search-container.closing {
+  animation: searchSlideOut 0.18s ease-in forwards;
+}
+
+@keyframes searchSlideIn {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes searchSlideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-search-container,
+  .global-search-container.closing {
+    animation: none;
   }
 }

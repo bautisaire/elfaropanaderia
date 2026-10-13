@@ -13,9 +13,16 @@ export interface RawMaterial {
     name: string;
     baseQuantity: number;
     unit: string;
+    /** Costo final de la presentación (neto + IVA + percepciones). Es el que usan las recetas. */
     price: number;
+    /** Precio neto de la presentación tal como figura en la factura (ya con descuento). Los tickets autocompletan con este, nunca con `price`, para no sumar el IVA dos veces. */
+    netPrice?: number;
+    /** Alícuota de IVA con la que se compró (0 = precio final con IVA incluido). */
+    ivaRate?: number;
+    /** Percepciones del ticket, como % del neto, que se sumaron al costo. */
+    perceptionRate?: number;
     lastUpdated?: any;
-    priceHistory?: { price: number; date: string; baseQuantity?: number; unit?: string }[];
+    priceHistory?: { price: number; date: string; baseQuantity?: number; unit?: string; netPrice?: number; ivaRate?: number }[];
     description?: string;
     trackInDashboard?: boolean;
     category?: 'materia prima' | 'mano de obra' | 'gasto por ventas' | 'impuestos' | 'cif';
@@ -188,8 +195,17 @@ export default function CostManager() {
                 if (updatedHistory.length > 10) updatedHistory.shift();
             }
 
+            // Si se edita el costo a mano, el neto tiene que acompañarlo: si no, el próximo ticket
+            // autocompletaría con un neto viejo.
+            const netUpdate: Partial<RawMaterial> = {};
+            if (currentMat && currentMat.ivaRate !== undefined && editMaterialForm.price !== currentMat.price) {
+                const factor = 1 + (currentMat.ivaRate + (currentMat.perceptionRate || 0)) / 100;
+                netUpdate.netPrice = Math.round(((editMaterialForm.price || 0) / factor) * 100) / 100;
+            }
+
             await updateDoc(doc(db, "raw_materials", isEditingMaterial), {
                 ...editMaterialForm,
+                ...netUpdate,
                 priceHistory: updatedHistory,
                 lastUpdated: Timestamp.now()
             });
@@ -800,7 +816,21 @@ export default function CostManager() {
                                             </td>
                                             <td>
                                                 <div className="cm-price-container">
-                                                    <span style={{ color: '#059669', fontWeight: 'bold' }}>${mat.price.toLocaleString('es-AR')}</span>
+                                                    <div>
+                                                        <span style={{ color: '#059669', fontWeight: 'bold' }}>${mat.price.toLocaleString('es-AR')}</span>
+                                                        {mat.netPrice !== undefined ? (
+                                                            <small style={{ display: 'block', color: '#64748b', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                                                                {mat.ivaRate
+                                                                    ? `sin IVA $${mat.netPrice.toLocaleString('es-AR', { maximumFractionDigits: 2 })} · IVA ${mat.ivaRate.toLocaleString('es-AR')}%`
+                                                                    : 'IVA incluido'}
+                                                                {mat.perceptionRate ? ` · percep. ${mat.perceptionRate.toLocaleString('es-AR', { maximumFractionDigits: 2 })}%` : ''}
+                                                            </small>
+                                                        ) : (!mat.category || mat.category === 'materia prima') && (
+                                                            <small style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic' }} title="Se completa solo la próxima vez que entre en un ticket de compra">
+                                                                IVA sin definir
+                                                            </small>
+                                                        )}
+                                                    </div>
                                                     {(() => {
                                                         if (!mat.priceHistory || mat.priceHistory.length < 2) return null;
                                                         const current = mat.priceHistory[mat.priceHistory.length - 1];

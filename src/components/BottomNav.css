@@ -20,6 +20,13 @@
            get momentarily mis-placed by Android Chrome during scroll. */
         transform: translateZ(0);
         will-change: transform;
+        transition: transform 0.3s ease;
+    }
+
+    /* Con portada de fondo, el menú aparece recién al bajar */
+    body.has-cover-hero .bottom-nav.at-top {
+        transform: translateY(calc(100% + 50px));
+        pointer-events: none;
     }
 
     .bottom-nav-item {

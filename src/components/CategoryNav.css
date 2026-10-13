@@ -1,0 +1,72 @@
+.category-nav {
+    position: fixed;
+    top: var(--header-height, 60px);
+    left: 0;
+    width: 100%;
+    height: 44px;
+    z-index: 990;
+    background: #ffffff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+body.header-topbar .category-nav {
+    top: calc(var(--header-height, 60px) + 30px);
+}
+
+/* Con portada de fondo, aparece recién al bajar */
+body.has-cover-hero .category-nav.at-top {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.category-nav-track {
+    display: flex;
+    height: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    cursor: grab;
+    user-select: none;
+}
+
+.category-nav-track:active {
+    cursor: grabbing;
+}
+
+.category-nav-track::-webkit-scrollbar {
+    display: none;
+}
+
+.category-nav-chip {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 0 16px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #475569;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.category-nav-chip.active {
+    color: var(--primary-color, #d35400);
+    border-bottom-color: var(--primary-color, #d35400);
+}
+
+/* Sin portada de fondo el nav está siempre visible: dejar lugar arriba del contenido */
+body.has-category-nav:not(.has-cover-hero) .home-container {
+    padding-top: calc(var(--header-height, 60px) + 44px + 12px);
+}
+
+body.has-category-nav .category-section {
+    scroll-margin-top: calc(var(--header-height, 60px) + 44px + 12px);
+}

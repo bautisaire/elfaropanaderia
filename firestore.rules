@@ -72,6 +72,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /hero_cards/{cardId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /raffles/{raffleId} {
       allow read: if true;
       allow write: if isAdmin();

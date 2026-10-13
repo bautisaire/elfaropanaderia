@@ -283,11 +283,39 @@ export default function BillsManager() {
                                                                                 <td style={{ padding: '8px 0', fontWeight: 'bold' }}>{item.quantity} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>{item.unit}</span></td>
                                                                                 <td style={{ padding: '8px 0', fontWeight: 'bold', color: '#3b82f6' }}>x{item.multiplier || 1}</td>
                                                                                 <td style={{ padding: '8px 0' }}>{item.name}</td>
-                                                                                <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>${Number(item.price || 0).toLocaleString('es-AR')}</td>
+                                                                                <td style={{ padding: '8px 0', textAlign: 'right', color: '#94a3b8' }}>
+                                                                                    ${Number(item.price || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                                                                                    {item.discount > 0 && <span style={{ color: '#16a34a', marginLeft: '4px' }}>-{item.discount}%</span>}
+                                                                                </td>
                                                                                 <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${Number(item.subtotal || item.price || 0).toLocaleString('es-AR')}</td>
                                                                             </tr>
                                                                         ))}
                                                                     </tbody>
+                                                                    {/* Tickets con IVA/percepciones al pie (los viejos no tienen netAmount) */}
+                                                                    {exp.netAmount !== undefined && (
+                                                                        <tfoot style={{ color: '#64748b' }}>
+                                                                            <tr style={{ borderTop: '1px solid #e2e8f0' }}>
+                                                                                <td colSpan={4} style={{ padding: '6px 0', textAlign: 'right' }}>{exp.ivaIncluded ? 'Subtotal (IVA incluido)' : 'Subtotal neto'}</td>
+                                                                                <td style={{ padding: '6px 0', textAlign: 'right' }}>${Number(exp.netAmount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}</td>
+                                                                            </tr>
+                                                                            {!exp.ivaIncluded && exp.ivaAmount > 0 && (
+                                                                                <tr>
+                                                                                    <td colSpan={4} style={{ padding: '2px 0', textAlign: 'right' }}>IVA {Number(exp.ivaRate).toLocaleString('es-AR')}%</td>
+                                                                                    <td style={{ padding: '2px 0', textAlign: 'right' }}>${Number(exp.ivaAmount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}</td>
+                                                                                </tr>
+                                                                            )}
+                                                                            {exp.perceptionsAmount > 0 && (
+                                                                                <tr>
+                                                                                    <td colSpan={4} style={{ padding: '2px 0', textAlign: 'right' }}>Percepciones</td>
+                                                                                    <td style={{ padding: '2px 0', textAlign: 'right' }}>${Number(exp.perceptionsAmount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}</td>
+                                                                                </tr>
+                                                                            )}
+                                                                            <tr>
+                                                                                <td colSpan={4} style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold', color: '#0f172a' }}>Total pagado</td>
+                                                                                <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 'bold', color: '#0f172a' }}>${Number(exp.totalAmount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}</td>
+                                                                            </tr>
+                                                                        </tfoot>
+                                                                    )}
                                                                 </table>
                                                             ) : (
                                                                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '15px' }}>Sin ítems detallados.</p>

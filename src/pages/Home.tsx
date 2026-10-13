@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import ProductSkeleton from "../components/ProductSkeleton";
 import CategorySlider from "../components/CategorySlider";
 import Hero from "../components/Hero"; // Import Hero
+import CategoryNav from "../components/CategoryNav";
+import { useRevealOnScroll } from "../utils/useRevealOnScroll";
 import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
@@ -17,6 +19,9 @@ export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
   const [categoryVisibility, setCategoryVisibility] = useState<Record<string, boolean>>({});
+
+  const homeRef = useRef<HTMLDivElement>(null);
+  useRevealOnScroll(homeRef);
 
   const [activeRaffle, setActiveRaffle] = useState<any>(null);
   const [raffleParticipants, setRaffleParticipants] = useState<any[]>([]);
@@ -206,10 +211,44 @@ export default function Home() {
     if (live) setSelectedProduct(live);
   }, [products, selectedProduct?.id, getCatalogProduct]);
 
+  const isOutOfStock = (p: Product) => {
+    if (p.variants && p.variants.length > 0) {
+      return p.variants.every((v) => (v.stockQuantity !== undefined ? v.stockQuantity <= 0 : !v.stock));
+    }
+    return p.stockQuantity !== undefined ? p.stockQuantity <= 0 : p.stock === false;
+  };
+
+  // Categorías visibles, ordenadas, con sus productos
+  const sortedCategories = useMemo(() => {
+    const groups = products.reduce((acc, product) => {
+      const category = product.categoria || "Otros";
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(product);
+      return acc;
+    }, {} as Record<string, Product[]>);
+    return Object.entries(groups)
+      .filter(([category]) => categoryVisibility[category] !== false)
+      .sort(([a], [b]) => {
+        const orderA = categoryOrder[a] ?? 9999;
+        const orderB = categoryOrder[b] ?? 9999;
+        if (orderA !== orderB) return orderA - orderB;
+        if (a === 'Otros') return 1;
+        if (b === 'Otros') return -1;
+        return a.localeCompare(b);
+      });
+  }, [products, categoryOrder, categoryVisibility]);
+
+  // El nav solo lista categorías con al menos un producto en stock
+  const navCategories = useMemo(
+    () => sortedCategories.filter(([, ps]) => ps.some(p => !isOutOfStock(p))).map(([c]) => c),
+    [sortedCategories]
+  );
+
   return (
     <div className="home-container">
       <Hero onRaffleClick={handleOpenRaffleModal} activeRaffle={activeRaffle} />
-      <div className="home">
+      {!loading && <CategoryNav categories={navCategories} />}
+      <div className="home" ref={homeRef}>
         {loading ? (
           // Mostrar 6 esqueletos mientras carga
           Array.from({ length: 6 }).map((_, index) => (
@@ -222,25 +261,7 @@ export default function Home() {
             <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', marginTop: '15px', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Reintentar</button>
           </div>
         ) : (
-          Object.entries(
-            products.reduce((acc, product) => {
-              const category = product.categoria || "Otros";
-              if (!acc[category]) acc[category] = [];
-              acc[category].push(product);
-              return acc;
-            }, {} as Record<string, Product[]>)
-          )
-            .filter(([category]) => categoryVisibility[category] !== false)
-            .sort(([a], [b]) => {
-              const orderA = categoryOrder[a] ?? 9999;
-              const orderB = categoryOrder[b] ?? 9999;
-
-              if (orderA !== orderB) return orderA - orderB;
-
-              if (a === 'Otros') return 1;
-              if (b === 'Otros') return -1;
-              return a.localeCompare(b);
-            })
+          sortedCategories
             .map(([category, categoryProducts]) => (
               <CategorySlider key={category} category={category} products={categoryProducts} onOpenDetails={setSelectedProduct} />
             ))

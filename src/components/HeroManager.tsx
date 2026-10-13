@@ -3,35 +3,37 @@ import { db, storage } from '../firebase/firebaseConfig';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { compressImage } from '../utils/imageUtils';
-import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaLink, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSave, FaSync, FaCamera, FaLink, FaEye, FaEyeSlash, FaFont } from 'react-icons/fa';
+import { HERO_PALETTE, HeroButton, HeroSlide, HeroTextKind, HeroTextLine, makeButton, makeText, normalizeSlide } from '../utils/heroSlides';
 import './HeroManager.css';
 
-interface HeroSlide {
-    id: string;
-    title: string;
-    subtitle: string;
-    imageUrl: string;
-    showButton: boolean;
-    buttonText: string;
-    buttonLink: string;
-    animation: "zoom-in" | "zoom-out";
-    active?: boolean;
-    order?: number;
-    isRaffleButton?: boolean;
-}
-
 const INITIAL_STATE = {
-    title: "",
-    subtitle: "",
     imageUrl: "",
-    showButton: true,
-    buttonText: "Ver Productos",
-    buttonLink: "",
+    texts: [makeText("title")] as HeroTextLine[],
+    buttons: [] as HeroButton[],
+    overlay: 40,
     animation: "zoom-in" as "zoom-in" | "zoom-out",
     active: true,
     order: 0,
-    isRaffleButton: false
 };
+
+export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+    return (
+        <div className="hero-color-picker">
+            {HERO_PALETTE.map(c => (
+                <button
+                    key={c}
+                    type="button"
+                    className={`hero-swatch ${value.toLowerCase() === c ? 'selected' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => onChange(c)}
+                    aria-label={c}
+                />
+            ))}
+            <input type="color" value={value} onChange={e => onChange(e.target.value)} title="Color personalizado" />
+        </div>
+    );
+}
 
 export default function HeroManager() {
     const [slides, setSlides] = useState<HeroSlide[]>([]);
@@ -54,12 +56,7 @@ export default function HeroManager() {
         setLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, "hero_slides"));
-            let data = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as HeroSlide[];
-
-            // Sort by order initially
+            const data = querySnapshot.docs.map(d => normalizeSlide({ id: d.id, ...d.data() }));
             data.sort((a, b) => (a.order || 0) - (b.order || 0));
             setSlides(data);
         } catch (error: any) {
@@ -74,15 +71,19 @@ export default function HeroManager() {
         }
     };
 
-    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        // @ts-ignore
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    const updateText = (id: string, patch: Partial<HeroTextLine>) =>
+        setFormData(prev => ({ ...prev, texts: prev.texts.map(t => t.id === id ? { ...t, ...patch } : t) }));
+    const removeText = (id: string) =>
+        setFormData(prev => ({ ...prev, texts: prev.texts.filter(t => t.id !== id) }));
+    const addText = (kind: HeroTextKind) =>
+        setFormData(prev => ({ ...prev, texts: [...prev.texts, makeText(kind)] }));
 
-    const handleCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setFormData(prev => ({ ...prev, showButton: e.target.checked }));
-    };
+    const updateButton = (id: string, patch: Partial<HeroButton>) =>
+        setFormData(prev => ({ ...prev, buttons: prev.buttons.map(b => b.id === id ? { ...b, ...patch } : b) }));
+    const removeButton = (id: string) =>
+        setFormData(prev => ({ ...prev, buttons: prev.buttons.filter(b => b.id !== id) }));
+    const addButton = () =>
+        setFormData(prev => ({ ...prev, buttons: [...prev.buttons, makeButton()] }));
 
     const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -92,7 +93,6 @@ export default function HeroManager() {
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!formData.title) return setMsg("El título es obligatorio");
         if (!editingId && !imageFile && !formData.imageUrl) return setMsg("La imagen es obligatoria");
 
         setLoading(true);
@@ -108,13 +108,15 @@ export default function HeroManager() {
                 setUploading(false);
             }
 
-            // Assign an order if it's a new slide
             const newOrder = editingId ? formData.order : slides.length;
+            const texts = formData.texts.filter(t => t.text.trim());
 
             const dataToSave = {
                 ...formData,
+                texts,
                 imageUrl: url,
-                order: newOrder
+                order: newOrder,
+                title: texts.find(t => t.kind === 'title')?.text || '',
             };
 
             if (editingId) {
@@ -152,7 +154,6 @@ export default function HeroManager() {
         try {
             const newStatus = slide.active === false ? true : false;
             await updateDoc(doc(db, "hero_slides", slide.id), { active: newStatus });
-            // Optimistic update
             setSlides(prev => prev.map(s => s.id === slide.id ? { ...s, active: newStatus } : s));
         } catch (error) {
             console.error("Error toggle visibility:", error);
@@ -161,13 +162,8 @@ export default function HeroManager() {
     };
 
     // DRAG AND DROP HANDLERS
-    const handleDragStart = (index: number) => {
-        setDraggedItemIndex(index);
-    };
-
-    const handleDragEnter = (index: number) => {
-        setDragOverItemIndex(index);
-    };
+    const handleDragStart = (index: number) => setDraggedItemIndex(index);
+    const handleDragEnter = (index: number) => setDragOverItemIndex(index);
 
     const handleDragEnd = async () => {
         if (draggedItemIndex === null || dragOverItemIndex === null || draggedItemIndex === dragOverItemIndex) {
@@ -176,25 +172,21 @@ export default function HeroManager() {
             return;
         }
 
-        // Reorder array in memory
         const newSlides = [...slides];
         const draggedItem = newSlides[draggedItemIndex];
         newSlides.splice(draggedItemIndex, 1);
         newSlides.splice(dragOverItemIndex, 0, draggedItem);
 
-        // Update order property
         const updatedSlides = newSlides.map((s, index) => ({ ...s, order: index }));
         setSlides(updatedSlides);
 
         setDraggedItemIndex(null);
         setDragOverItemIndex(null);
 
-        // Save order to Firebase
         try {
-            const updatePromises = updatedSlides.map(slide =>
+            await Promise.all(updatedSlides.map(slide =>
                 updateDoc(doc(db, "hero_slides", slide.id), { order: slide.order })
-            );
-            await Promise.all(updatePromises);
+            ));
         } catch (error) {
             console.error("Error updating slide order:", error);
             setMsg("Error al guardar el nuevo orden.");
@@ -204,40 +196,38 @@ export default function HeroManager() {
     const startEdit = (slide: HeroSlide) => {
         setEditingId(slide.id);
         setFormData({
-            title: slide.title,
-            subtitle: slide.subtitle,
             imageUrl: slide.imageUrl,
-            showButton: slide.showButton,
-            buttonText: slide.buttonText || "Ver Productos",
-            buttonLink: slide.buttonLink || "",
+            texts: slide.texts.length ? slide.texts : [makeText("title")],
+            buttons: slide.buttons,
+            overlay: slide.overlay,
             animation: slide.animation,
             active: slide.active !== false,
             order: slide.order || 0,
-            isRaffleButton: slide.isRaffleButton || false
         });
         setImageFile(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const resetForm = () => {
-        setFormData(INITIAL_STATE);
+        setFormData({ ...INITIAL_STATE, texts: [makeText("title")] });
         setEditingId(null);
         setImageFile(null);
         setMsg(null);
     };
 
+    const previewSrc = imageFile ? URL.createObjectURL(imageFile) : formData.imageUrl;
+
     return (
-        <div className="product-manager-container"> {/* Reusing Main Container */}
+        <div className="product-manager-container">
             <div className="pm-header">
                 <div>
-                    <h2>Gestor de Portada (Hero)</h2>
-                    <p>Configura los slides principales que aparecen en el inicio.</p>
+                    <h2>Portada (Hero)</h2>
+                    <p>Imagen de fondo con textos y botones. Las cartas flotantes se arman en la pestaña "Cartas".</p>
                 </div>
             </div>
 
             {msg && <div className="pm-alert">{msg}</div>}
 
-            {/* FORM CARD */}
             <div className="pm-card form-section">
                 <div className="pm-card-header">
                     <h3>{editingId ? "Editar Slide" : "Nuevo Slide"}</h3>
@@ -246,75 +236,69 @@ export default function HeroManager() {
 
                 <form onSubmit={handleSubmit} className="pm-form">
                     <div className="pm-grid">
-                        {/* LEFT COLUMN: Main Info */}
+                        {/* LEFT COLUMN: textos y botones */}
                         <div className="pm-col-main">
-                            <div className="form-group">
-                                <label>Título Principal</label>
-                                <input
-                                    name="title"
-                                    value={formData.title}
-                                    onChange={handleInputChange}
-                                    placeholder="Ej. Bienvenidos a El Faro"
-                                    className="input-lg"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Subtítulo</label>
-                                <input
-                                    name="subtitle"
-                                    value={formData.subtitle}
-                                    onChange={handleInputChange}
-                                    placeholder="Ej. Panadería Artesanal"
-                                />
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group half">
-                                    <label>Animación</label>
-                                    <select name="animation" value={formData.animation} onChange={handleInputChange}>
-                                        <option value="zoom-in">Zoom In (Acercar)</option>
-                                        <option value="zoom-out">Zoom Out (Alejar)</option>
-                                    </select>
-                                </div>
-                                <div className="form-group half checkbox-group-styled" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <label>
-                                        <input type="checkbox" checked={formData.showButton} onChange={handleCheckboxChange} />
-                                        Mostrar Botón de Acción
-                                    </label>
-                                    {formData.showButton && (
-                                        <label style={{ color: '#047857' }}>
-                                            <input type="checkbox" checked={formData.isRaffleButton} onChange={(e) => setFormData(prev => ({ ...prev, isRaffleButton: e.target.checked }))} />
-                                            Abrir Sorteo (En vez de link)
-                                        </label>
-                                    )}
-                                </div>
-                            </div>
-
-                            {formData.showButton && (
-                                <div className="form-group" style={{ background: '#f9fafb', padding: '15px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                                        <FaLink /> Configuración del Botón {formData.isRaffleButton && '(Sorteo)'}
-                                    </label>
-                                    <div className="form-row">
-                                        <div className={`form-group ${formData.isRaffleButton ? 'full' : 'half'}`} style={{ marginBottom: 0 }}>
-                                            <input name="buttonText" value={formData.buttonText} onChange={handleInputChange} placeholder={formData.isRaffleButton ? "Texto (ej. Ver Sorteo)" : "Texto (ej. Ver Menú)"} />
-                                        </div>
-                                        {!formData.isRaffleButton && (
-                                            <div className="form-group half" style={{ marginBottom: 0 }}>
-                                                <input name="buttonLink" value={formData.buttonLink} onChange={handleInputChange} placeholder="Enlace (ej. #Productos)" />
-                                            </div>
-                                        )}
+                            <label className="hero-section-label"><FaFont /> Textos</label>
+                            {formData.texts.map(t => (
+                                <div className="hero-edit-row" key={t.id}>
+                                    <div className="hero-edit-row-top">
+                                        <select value={t.kind} onChange={e => updateText(t.id, { kind: e.target.value as HeroTextKind })}>
+                                            <option value="eyebrow">Etiqueta (letras chicas)</option>
+                                            <option value="title">Título</option>
+                                            <option value="subtitle">Subtítulo / párrafo</option>
+                                        </select>
+                                        <button type="button" className="btn-action delete" onClick={() => removeText(t.id)} title="Quitar"><FaTrash /></button>
                                     </div>
-                                    {!formData.isRaffleButton && (
-                                        <small style={{ color: '#6b7280', marginTop: '8px', display: 'block' }}>
-                                            Usa <b>#Categoria</b> para secciones internas o URLs completas.
-                                        </small>
-                                    )}
+                                    <input
+                                        value={t.text}
+                                        onChange={e => updateText(t.id, { text: e.target.value })}
+                                        placeholder={t.kind === 'title' ? 'Ej. Pan fresco todos los días' : t.kind === 'eyebrow' ? 'Ej. Envíos gratis a Neuquén' : 'Ej. Pedí desde casa y recibilo en la puerta'}
+                                    />
+                                    <ColorPicker value={t.color} onChange={c => updateText(t.id, { color: c })} />
                                 </div>
+                            ))}
+                            <div className="hero-add-row">
+                                <button type="button" className="btn-secondary btn-sm" onClick={() => addText('eyebrow')}><FaPlus /> Etiqueta</button>
+                                <button type="button" className="btn-secondary btn-sm" onClick={() => addText('title')}><FaPlus /> Título</button>
+                                <button type="button" className="btn-secondary btn-sm" onClick={() => addText('subtitle')}><FaPlus /> Subtítulo</button>
+                            </div>
+
+                            <label className="hero-section-label" style={{ marginTop: 22 }}><FaLink /> Botones (opcionales)</label>
+                            {formData.buttons.length === 0 && (
+                                <small style={{ color: '#6b7280', display: 'block', marginBottom: 8 }}>Sin botones: la portada solo muestra los textos.</small>
                             )}
+                            {formData.buttons.map(b => (
+                                <div className="hero-edit-row" key={b.id}>
+                                    <div className="hero-edit-row-top">
+                                        <input value={b.text} onChange={e => updateButton(b.id, { text: e.target.value })} placeholder="Texto del botón" />
+                                        <button type="button" className="btn-action delete" onClick={() => removeButton(b.id)} title="Quitar"><FaTrash /></button>
+                                    </div>
+                                    <label className="hero-inline-check">
+                                        <input type="checkbox" checked={!!b.isRaffle} onChange={e => updateButton(b.id, { isRaffle: e.target.checked })} />
+                                        Abrir Sorteo (en vez de link)
+                                    </label>
+                                    {!b.isRaffle && (
+                                        <input value={b.link} onChange={e => updateButton(b.id, { link: e.target.value })} placeholder="Dirección (ej. #Productos o https://...)" />
+                                    )}
+                                    <div className="hero-color-pair">
+                                        <span>Fondo</span>
+                                        <ColorPicker value={b.bgColor} onChange={c => updateButton(b.id, { bgColor: c })} />
+                                    </div>
+                                    <div className="hero-color-pair">
+                                        <span>Texto</span>
+                                        <ColorPicker value={b.textColor} onChange={c => updateButton(b.id, { textColor: c })} />
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="hero-add-row">
+                                <button type="button" className="btn-secondary btn-sm" onClick={addButton}><FaPlus /> Agregar botón</button>
+                            </div>
+                            <small style={{ color: '#6b7280', marginTop: '8px', display: 'block' }}>
+                                Usá <b>#Categoria</b> para secciones internas o URLs completas.
+                            </small>
                         </div>
 
-                        {/* RIGHT COLUMN: Image */}
+                        {/* RIGHT COLUMN: imagen */}
                         <div className="pm-col-sidebar">
                             <div className="form-group">
                                 <label>Imagen de Fondo</label>
@@ -325,20 +309,31 @@ export default function HeroManager() {
                                         <input type="file" hidden accept="image/*" onChange={handleImageChange} disabled={uploading} />
                                     </label>
 
-                                    {/* Preview Logic */}
-                                    {(imageFile || formData.imageUrl) && (
+                                    {previewSrc && (
                                         <div className="hero-preview-container">
-                                            {imageFile ? (
-                                                // Preview local file
-                                                <img src={URL.createObjectURL(imageFile)} alt="preview" />
-                                            ) : (
-                                                // Preview existing URL
-                                                <img src={formData.imageUrl} alt="current" />
-                                            )}
+                                            <img src={previewSrc} alt="preview" />
                                             {imageFile && <span className="preview-label">Nueva Imagen</span>}
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label>Oscurecer imagen: {formData.overlay}%</label>
+                                <input
+                                    type="range" min={0} max={80} step={5}
+                                    value={formData.overlay}
+                                    onChange={e => setFormData(prev => ({ ...prev, overlay: Number(e.target.value) }))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Animación</label>
+                                <select
+                                    value={formData.animation}
+                                    onChange={e => setFormData(prev => ({ ...prev, animation: e.target.value as "zoom-in" | "zoom-out" }))}
+                                >
+                                    <option value="zoom-in">Zoom In (Acercar)</option>
+                                    <option value="zoom-out">Zoom Out (Alejar)</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -356,7 +351,7 @@ export default function HeroManager() {
             {/* LIST SECTION */}
             <div className="hero-list-section">
                 <div className="inventory-header" style={{ marginBottom: '20px' }}>
-                    <h3>Slides Activos ({slides.length})</h3>
+                    <h3>Slides ({slides.length})</h3>
                     <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Arrastra las tarjetas para cambiar el orden en el que aparecen en la página principal.</p>
                     <button className="btn-secondary btn-sm" onClick={fetchSlides}><FaSync /> Actualizar Lista</button>
                 </div>
@@ -386,11 +381,11 @@ export default function HeroManager() {
                                     <span className="hero-anim-badge">{slide.animation}</span>
                                 </div>
                                 <div className="hero-card-body">
-                                    <h4>{slide.title}</h4>
-                                    <p>{slide.subtitle}</p>
-                                    {slide.showButton && (
+                                    <h4>{slide.texts.find(t => t.kind === 'title')?.text || slide.texts[0]?.text || '(sin texto)'}</h4>
+                                    <p>{slide.texts.filter(t => t.kind !== 'title').map(t => t.text).join(' · ')}</p>
+                                    {slide.buttons.length > 0 && (
                                         <span className="hero-btn-preview">
-                                            {slide.isRaffleButton ? `🎁 ${slide.buttonText || 'Ver Sorteo'} (Abre Sorteo)` : `${slide.buttonText} → ${slide.buttonLink}`}
+                                            {slide.buttons.map(b => b.isRaffle ? `🎁 ${b.text}` : `${b.text}${b.link ? ` → ${b.link}` : ''}`).join(' | ')}
                                         </span>
                                     )}
                                 </div>
