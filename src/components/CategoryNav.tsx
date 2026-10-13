@@ -19,30 +19,26 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
         return () => document.body.classList.remove("has-category-nav");
     }, []);
 
-    // Categoría "en pantalla": la primera (en orden) cuya sección cruza la franja bajo el nav.
+    // Categoría "en pantalla": la última cuya sección ya llegó a la franja superior de la
+    // pantalla (se anticipa: cuenta como actual cuando su título pasa el 40% del alto).
     useEffect(() => {
         if (categories.length === 0) return;
-        const visible = new Set<string>();
-        const observer = new IntersectionObserver(
-            entries => {
-                entries.forEach(e => {
-                    const cat = (e.target as HTMLElement).dataset.cat || "";
-                    if (e.isIntersecting) visible.add(cat);
-                    else visible.delete(cat);
-                });
-                const first = categories.find(c => visible.has(c));
-                if (first) setActive(first);
-            },
-            { rootMargin: "-120px 0px -55% 0px" }
-        );
-        categories.forEach(c => {
-            const el = document.getElementById(categoryAnchorId(c));
-            if (el) {
-                el.dataset.cat = c;
-                observer.observe(el);
+        const update = () => {
+            const line = window.innerHeight * 0.4;
+            let current = categories[0];
+            for (const c of categories) {
+                const el = document.getElementById(categoryAnchorId(c));
+                if (el && el.getBoundingClientRect().top <= line) current = c;
             }
-        });
-        return () => observer.disconnect();
+            setActive(current);
+        };
+        update();
+        window.addEventListener("scroll", update, { passive: true });
+        window.addEventListener("resize", update);
+        return () => {
+            window.removeEventListener("scroll", update);
+            window.removeEventListener("resize", update);
+        };
     }, [categories]);
 
     // Mantener el chip activo a la vista dentro del carrusel.
