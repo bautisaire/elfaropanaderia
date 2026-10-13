@@ -1,4 +1,5 @@
 .cart-sidebar-overlay {
+    touch-action: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -20,77 +21,83 @@
 
 .cart-sidebar {
     position: fixed;
-    top: 0;
+    bottom: 0;
     right: 0;
-    width: 400px;
+    width: 440px;
     max-width: 100vw;
-    height: 100%;
-    height: 100dvh;
-    background-color: #ffffff;
-    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.15);
+    /* No ocupa todo el alto: queda un margen arriba con las esquinas redondeadas */
+    height: calc(100dvh - 16px - env(safe-area-inset-top, 0px));
+    background-color: #2b2827;
+    color: #fff;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -5px 30px rgba(0, 0, 0, 0.35);
     z-index: 9999;
     display: flex;
     flex-direction: column;
+    overscroll-behavior: contain;
     transform: translateY(100%);
-    /* Belt-and-braces on top of the transform: translateY(100%) is computed
-       against 100dvh, which recalculates as the mobile browser's toolbar
-       shows/hides during scroll — if that races with a fast scroll, the
-       transform can momentarily be wrong and let the panel peek into view.
-       visibility:hidden guarantees it never paints while "closed", no
-       matter what the transform is doing at that instant. */
+    /* visibility:hidden evita que el panel cerrado se pinte si el transform
+       se calcula mal mientras la barra del navegador móvil aparece/desaparece. */
     visibility: hidden;
-    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0.35s;
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0.4s;
 }
 
 .cart-sidebar.open {
     transform: translateY(0);
     visibility: visible;
-    transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0s;
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0s linear 0s;
+}
+
+.cart-sidebar-grabber {
+    width: 44px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    margin: 10px auto 0;
+    flex-shrink: 0;
+}
+
+/* El arrastre fuera de la lista lo maneja el panel, no el navegador */
+.cart-sidebar-grabber,
+.cart-sidebar-header,
+.cart-sidebar-footer {
+    touch-action: none;
 }
 
 /* Header */
 .cart-sidebar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-    background-color: #f8f9fa;
+    padding: 8px 24px 12px;
+    flex-shrink: 0;
 }
 
-.cart-sidebar-header h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    color: #333;
+.continue-shopping-btn {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.close-sidebar-btn {
+    margin-left: auto;
     background: none;
     border: none;
-    font-size: 1.5rem;
-    color: #666;
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
     cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s, transform 0.2s;
-    border-radius: 50%;
+    padding: 6px 0;
 }
 
-.close-sidebar-btn:hover {
-    color: #333;
-    background-color: #e9ecef;
+.cart-sidebar-header h2 {
+    margin: 10px 0 0;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-color);
 }
 
 /* Body / Items */
 .cart-sidebar-body {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 8px 24px 20px;
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -102,7 +109,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #888;
+    color: #78716c;
     text-align: center;
     gap: 15px;
 }
@@ -127,7 +134,7 @@
     display: flex;
     gap: 15px;
     padding-bottom: 15px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     align-items: center;
 }
 
@@ -136,7 +143,7 @@
     height: 70px;
     object-fit: cover;
     border-radius: 8px;
-    background-color: #f5f5f5;
+    background-color: #3a3634;
     flex-shrink: 0;
 }
 
@@ -158,7 +165,7 @@
 .sidebar-item-title {
     font-size: 1rem;
     font-weight: 600;
-    color: #333;
+    color: #fff;
     margin: 0;
     line-height: 1.2;
 }
@@ -179,7 +186,7 @@
 .sidebar-qty-controls {
     display: flex;
     align-items: center;
-    background: #f5f5f5;
+    background: #3a3634;
     border-radius: 6px;
     padding: 2px 4px;
     gap: 10px;
@@ -190,8 +197,8 @@
     height: 26px;
     border-radius: 4px;
     border: none;
-    background: white;
-    color: #333;
+    background: #4a4543;
+    color: #fff;
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
@@ -217,7 +224,7 @@
 .sidebar-btn-remove {
     background: none;
     border: none;
-    color: #dc3545;
+    color: #f87171;
     cursor: pointer;
     padding: 5px;
     display: flex;
@@ -227,57 +234,72 @@
 }
 
 .sidebar-btn-remove:hover {
-    background-color: #fee2e2;
+    background-color: rgba(248, 113, 113, 0.15);
 }
 
 /* Footer */
 .cart-sidebar-footer {
-    padding: 20px;
-    border-top: 1px solid #eee;
-    background-color: white;
-    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.02);
+    flex-shrink: 0;
+    padding: 18px 24px calc(20px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .sidebar-summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 16px;
 }
 
 .sidebar-summary span {
-    font-size: 1.1rem;
-    color: #555;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
 }
 
 .sidebar-summary strong {
-    font-size: 1.3rem;
-    color: #333;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: #fff;
 }
 
 .sidebar-checkout-btn {
     width: 100%;
-    padding: 14px;
+    padding: 16px;
     background-color: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 10px;
-    font-size: 1.1rem;
-    font-weight: bold;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 8px;
-    transition: background-color 0.2s;
+    transition: filter 0.2s, opacity 0.2s;
 }
 
-.sidebar-checkout-btn:hover {
-    background-color: var(--secondary-color);
+.sidebar-checkout-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.sidebar-checkout-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 @media (max-width: 480px) {
     .cart-sidebar {
         width: 100vw;
+    }
+}
+
+@media (min-width: 481px) {
+    .cart-sidebar {
+        right: 16px;
+        border-radius: 24px 24px 0 0;
     }
 }

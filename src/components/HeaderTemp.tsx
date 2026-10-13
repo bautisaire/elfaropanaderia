@@ -154,6 +154,9 @@ export default function Header() {
   const isCuentaActive = location.pathname.startsWith("/mi-cuenta");
   const isPedidosActive = location.pathname.startsWith("/mis-pedidos");
 
+  // En el checkout el header se reemplaza por la barra de pasos.
+  if (location.pathname.startsWith("/checkout")) return null;
+
   return (
     <>
       {!isStoreOpen && (

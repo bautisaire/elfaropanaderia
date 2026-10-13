@@ -10,7 +10,7 @@ import { withTimeout, TimeoutError } from "../utils/withTimeout";
 import { shouldMarkOrderAsTest } from "../utils/testMode";
 import StockErrorModal from "../components/StockErrorModal";
 import OrderProcessingOverlay from "../components/OrderProcessingOverlay";
-import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt } from "react-icons/fa";
+import { FaCheckCircle, FaWhatsapp, FaShoppingBag, FaArrowLeft, FaMotorcycle, FaStore, FaMapMarkerAlt, FaShoppingCart } from "react-icons/fa";
 
 export default function Checkout() {
   const { cart, removeFromCart, clearCart, cartTotal, isAdmin, user, removeCompletelyFromCart, getCatalogProduct, cartHasOnlyRaffleTickets, requireProductWithTicket } = useContext(CartContext);
@@ -83,9 +83,6 @@ export default function Checkout() {
   const [allowDelivery, setAllowDelivery] = useState<boolean>(true);
   const [allowPickup, setAllowPickup] = useState<boolean>(true);
   const [disabledMethodModal, setDisabledMethodModal] = useState<{ isOpen: boolean, message: string }>({ isOpen: false, message: "" });
-  const [deliveryMethodModalOpen, setDeliveryMethodModalOpen] = useState(false);
-  const [deliveryModalReopen, setDeliveryModalReopen] = useState(false);
-  const deliveryModalDismissedRef = useRef(false);
 
   const [pickupDiscountPercentage, setPickupDiscountPercentage] = useState<number>(0);
   const [pickupDiscountText, setPickupDiscountText] = useState<string>("");
@@ -289,6 +286,27 @@ export default function Checkout() {
     }
   };
 
+  // Checkout por pasos: 0 = entrega, 1 = cliente, 2 = dirección / retiro, 3 = pago
+  const [step, setStep] = useState(0);
+  const STEP_FIELDS: string[][] = [[], ["nombre", "telefono"], ["direccion"], []];
+
+  const goToStep = (n: number) => {
+    setStep(n);
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  };
+
+  const goNext = () => {
+    const all = validateForm();
+    const bad = STEP_FIELDS[step].filter((f) => all[f]);
+    if (bad.length > 0) {
+      setErrors(Object.fromEntries(bad.map((f) => [f, all[f]])));
+      setTimeout(() => focusField(bad[0]), 50);
+      return;
+    }
+    setErrors({});
+    goToStep(Math.min(step + 1, 3));
+  };
+
   const validatePhone = (phone: string): boolean => {
     const phoneDigits = phone.replace(/\D/g, "");
     const phoneRegex = /^[0-9]{10,}$/;
@@ -318,6 +336,7 @@ export default function Checkout() {
     const order = ["nombre", "telefono", "direccion"];
     const firstErrorField = order.find((f) => formErrors[f]);
     if (!firstErrorField) return;
+    setStep(firstErrorField === "direccion" ? 2 : 1);
 
     // Si la dirección está en modo "direcciones guardadas", el input manual no
     // está montado todavía: hay que revelarlo antes de poder enfocarlo.
@@ -400,25 +419,6 @@ export default function Checkout() {
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    if (!showCheckout) {
-      deliveryModalDismissedRef.current = false;
-      setDeliveryMethodModalOpen(false);
-      setDeliveryModalReopen(false);
-      return;
-    }
-    if (confirmedOrder || cart.length === 0) {
-      setDeliveryMethodModalOpen(false);
-      return;
-    }
-    if (allowDelivery && allowPickup && !deliveryModalDismissedRef.current) {
-      setDeliveryMethodModalOpen(true);
-      setDeliveryModalReopen(false);
-    } else if (!allowDelivery || !allowPickup) {
-      setDeliveryMethodModalOpen(false);
-    }
-  }, [showCheckout, cart.length, confirmedOrder, allowDelivery, allowPickup]);
-
   const handlePickDeliveryMethod = (method: "delivery" | "pickup") => {
     if (method === "delivery" && !allowDelivery) {
       setDisabledMethodModal({ isOpen: true, message: "El envío a domicilio no está disponible en este momento." });
@@ -432,9 +432,6 @@ export default function Checkout() {
     if (method === "pickup" && errors.direccion) {
       setErrors((prev) => ({ ...prev, direccion: "" }));
     }
-    deliveryModalDismissedRef.current = true;
-    setDeliveryMethodModalOpen(false);
-    setDeliveryModalReopen(false);
   };
 
   useEffect(() => {
@@ -479,6 +476,11 @@ export default function Checkout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter en los primeros pasos avanza, no confirma el pedido.
+    if (step < 3) {
+      goNext();
+      return;
+    }
     const formErrors = validateForm();
     if (Object.keys(formErrors).length > 0) {
       scrollToFirstError(formErrors);
@@ -560,10 +562,18 @@ export default function Checkout() {
       // para ver que el overlay se cierra al toque cuando la respuesta llega rápido.
       if (import.meta.env.DEV && simulateSuccess) {
         await new Promise((resolve) => setTimeout(resolve, 1200));
+        // Mismo armado que el ticket real: productos + envío - descuento.
+        const fakeItems = [...cart];
+        if (effectiveShipping > 0) {
+          fakeItems.push({ id: 'shipping-cost', name: 'Envío', price: effectiveShipping, quantity: 1 } as any);
+        }
+        if (discountAmount > 0) {
+          fakeItems.push({ id: 'pickup-discount', name: effectivePickupDiscountText || `Descuento Retiro Local (-${effectivePickupDiscountPercentage}%)`, price: -discountAmount, quantity: 1 } as any);
+        }
         const fakeTicket = {
           id: 'TEST-' + Date.now(),
           items: cart,
-          itemsWithShipping: cart,
+          itemsWithShipping: fakeItems,
           total: finalTotal,
           paymentMethod: orderFormData.metodoPago,
           cliente: orderFormData,
@@ -609,6 +619,12 @@ export default function Checkout() {
       // del cliente tienen que mostrar lo que quedó guardado, no lo que calculamos acá.
       if (typeof data.shippingCost === 'number') effectiveShipping = data.shippingCost;
       const savedTotal = typeof data.total === 'number' ? data.total : finalTotalToSend;
+      // Si el backend no devolvió el envío por separado, se deduce del total guardado
+      // (total = productos + envío - descuento) para que el ticket lo muestre.
+      if (deliveryMethod === 'delivery' && effectiveShipping === 0) {
+        const impliedShipping = Math.round(savedTotal - cartTotal + discountAmount);
+        if (impliedShipping > 0) effectiveShipping = impliedShipping;
+      }
 
       // Guardar LocalStorage
       try {
@@ -821,10 +837,8 @@ export default function Checkout() {
             </div>
 
             {confirmedOrder.paymentMethod === 'transferencia' && (
-              <div className="transfer-details-card" style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', fontWeight: 700, color: '#212529' }}>
-                  Datos de transferencia
-                </h4>
+              <div className="transfer-details-card transfer-highlight">
+                <div className="transfer-highlight-badge">Datos de transferencia</div>
 
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '0.8rem', color: '#6c757d', display: 'block', marginBottom: '4px' }}>Titular</span>
@@ -861,7 +875,7 @@ export default function Checkout() {
 
 
                 <p style={{ margin: '12px 0 0 0', paddingTop: '12px', borderTop: '1px solid #dee2e6', fontSize: '0.9rem', color: '#495057' }}>
-                  Enviar comprobante
+                  Después de transferir, enviá el comprobante por WhatsApp con el botón de abajo.
                 </p>
               </div>
             )}
@@ -910,7 +924,14 @@ export default function Checkout() {
           </div>
         </div>
       ) : cart.length === 0 ? (
-        <p className="empty-cart">El carrito está vacío.</p>
+        <div className="checkout-empty">
+          <FaShoppingCart className="checkout-empty-icon" aria-hidden />
+          <h2>Tu carrito está vacío</h2>
+          <p>Agregá productos para armar tu pedido.</p>
+          <button type="button" className="btn-step-next checkout-empty-btn" onClick={() => navigate("/")}>
+            Comenzar la compra
+          </button>
+        </div>
       ) : (
         <>
           {!showCheckout && (
@@ -962,51 +983,70 @@ export default function Checkout() {
             </div>
           ) : (
 
-            <div className="checkout-layout">
+            <div className={`checkout-layout ${step === 3 ? "on-last-step" : ""}`}>
               {/* Left Column: Form */}
               <div className="checkout-left">
-                <form ref={formRef} className="checkout-form" onSubmit={handleSubmit}>
-                  <div className="form-group delivery-method-summary-wrap" style={{ marginBottom: "20px" }}>
-                    <label>Método de entrega <span className="required">*</span></label>
-                    <div className="delivery-method-summary-card">
-                      <div className="delivery-method-summary-main">
-                        {deliveryMethod === "delivery" ? (
-                          <FaMotorcycle className="delivery-method-summary-icon" aria-hidden />
-                        ) : (
-                          <FaStore className="delivery-method-summary-icon" aria-hidden />
-                        )}
-                        <div className="delivery-method-summary-text">
-                          <strong>
-                            {deliveryMethod === "delivery" ? "Envío a domicilio" : "Retiro en local"}
-                            {deliveryMethod === "pickup" && pickupDiscountPercentage > 0 && (
-                              <span style={{ color: '#16a34a', fontSize: '0.85em', marginLeft: '6px', fontWeight: 'bold' }}>
-                                (-{pickupDiscountPercentage}%)
-                              </span>
-                            )}
-                          </strong>
-                          <p>
-                            {deliveryMethod === "delivery"
-                              ? "Te llevamos el pedido a tu dirección."
-                              : "Pasás a retirar el pedido por el local."}
-                          </p>
-                        </div>
-                      </div>
-                      {allowDelivery && allowPickup && (
+                <form ref={formRef} className="checkout-form" onSubmit={handleSubmit} noValidate>
+                  <ol className="checkout-stepper" aria-label="Pasos del pedido">
+                    {["Entrega", "Cliente", deliveryMethod === "delivery" ? "Dirección" : "Retiro", "Pago"].map((label, i) => (
+                      <li key={label} className={`checkout-stepper-item ${i === step ? "current" : ""} ${i < step ? "done" : ""}`}>
                         <button
                           type="button"
-                          className="btn-change-delivery"
-                          onClick={() => {
-                            setDeliveryModalReopen(true);
-                            setDeliveryMethodModalOpen(true);
-                          }}
+                          className="checkout-stepper-dot"
+                          onClick={() => i < step && goToStep(i)}
+                          disabled={i > step}
+                          aria-current={i === step ? "step" : undefined}
                         >
-                          Cambiar
+                          {i < step ? "✓" : i + 1}
                         </button>
-                      )}
+                        <span className="checkout-stepper-label">{label}</span>
+                      </li>
+                    ))}
+                  </ol>
+
+                  <div className={`checkout-step ${step === 0 ? "active" : ""}`}>
+                  <div className="form-group">
+                    <label>Método de entrega <span className="required">*</span></label>
+                    <div className="radio-group">
+                      <label
+                        className={`radio-card ${deliveryMethod === "delivery" ? "selected" : ""} ${!allowDelivery ? "disabled" : ""}`}
+                        onClick={(e) => { e.preventDefault(); handlePickDeliveryMethod("delivery"); }}
+                      >
+                        <FaMotorcycle className="radio-icon" aria-hidden />
+                        <div>
+                          <div className="radio-label">Envío a domicilio</div>
+                          <div className="radio-desc">Te lo llevamos a tu dirección</div>
+                        </div>
+                      </label>
+
+                      <label
+                        className={`radio-card ${deliveryMethod === "pickup" ? "selected" : ""} ${!allowPickup ? "disabled" : ""}`}
+                        onClick={(e) => { e.preventDefault(); handlePickDeliveryMethod("pickup"); }}
+                      >
+                        <FaStore className="radio-icon" aria-hidden />
+                        <div>
+                          <div className="radio-label">
+                            Retiro en local
+                            {pickupDiscountPercentage > 0 && (
+                              <span style={{ color: '#16a34a', fontSize: '0.8em', marginLeft: '6px', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '10px' }}>
+                                -{pickupDiscountPercentage}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="radio-desc">
+                            {pickupDiscountPercentage > 0 && pickupDiscountText ? pickupDiscountText : "Pasás a buscarlo por el local"}
+                          </div>
+                        </div>
+                      </label>
                     </div>
                   </div>
 
-                  <h3>Detalles del pedido</h3>
+                  <div className="checkout-step-nav">
+                    <button type="button" className="btn-step-next" onClick={goNext}>Siguiente</button>
+                  </div>
+                  </div>
+
+                  <div className={`checkout-step ${step === 1 ? "active" : ""}`}>
 
                   <div className="form-group">
                     <label htmlFor="nombre">
@@ -1043,6 +1083,13 @@ export default function Checkout() {
                     {errors.telefono && <span className="error-message">{errors.telefono}</span>}
                   </div>
 
+                  <div className="checkout-step-nav">
+                    <button type="button" className="btn-step-back" onClick={() => goToStep(0)}>Atrás</button>
+                    <button type="button" className="btn-step-next" onClick={goNext}>Siguiente</button>
+                  </div>
+                  </div>
+
+                  <div className={`checkout-step ${step === 2 ? "active" : ""}`}>
                   {deliveryMethod === 'pickup' ? (
                     <div className="form-group pickup-info-card" style={{ marginBottom: '20px', padding: '20px', borderRadius: '8px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                       <div>
@@ -1167,13 +1214,33 @@ export default function Checkout() {
                       id="indicaciones"
                       name="indicaciones"
                       value={formData.indicaciones}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        // Crece con lo que escribe el cliente
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
                       placeholder="Referencias / Indicaciones para la entrega"
-                      rows={3}
+                      rows={1}
+                      className="textarea-autogrow"
+                      ref={(el) => {
+                        // Ajusta la altura al texto ya cargado (el paso oculto mide 0)
+                        if (el && el.scrollHeight > 0) {
+                          el.style.height = 'auto';
+                          el.style.height = `${el.scrollHeight}px`;
+                        }
+                      }}
                       maxLength={200}
                     />
                   </div>
 
+                  <div className="checkout-step-nav">
+                    <button type="button" className="btn-step-back" onClick={() => goToStep(1)}>Atrás</button>
+                    <button type="button" className="btn-step-next" onClick={goNext}>Siguiente</button>
+                  </div>
+                  </div>
+
+                  <div className={`checkout-step ${step === 3 ? "active" : ""}`}>
                   <div className="form-group">
                     <label>
                       Método de pago  <span className="required">*</span>
@@ -1279,7 +1346,9 @@ export default function Checkout() {
                     <button type="submit" className="btn-confirm" disabled={isSubmitting}>
                       {isSubmitting ? 'Procesando...' : 'Confirmar pedido'}
                     </button>
+                    <button type="button" className="btn-step-back btn-step-back-full" onClick={() => goToStep(2)} disabled={isSubmitting}>Atrás</button>
 
+                  </div>
                   </div>
                 </form>
               </div>
@@ -1408,80 +1477,6 @@ export default function Checkout() {
           </div>
         )
       }
-
-      {/* Modal: método de entrega */}
-      {deliveryMethodModalOpen && showCheckout && cart.length > 0 && !confirmedOrder && allowDelivery && allowPickup && (
-        <div
-          className="order-modal delivery-method-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delivery-method-modal-title"
-        >
-          <div className="order-modal-content delivery-method-modal-panel" onClick={(e) => e.stopPropagation()}>
-            <h3 id="delivery-method-modal-title" className="delivery-method-modal-title">
-              ¿Cómo querés recibir tu pedido?
-            </h3>
-            <p className="delivery-method-modal-subtitle">Elegí una opción para continuar con los datos del pedido.</p>
-            <div className="delivery-method-modal-options">
-              <button
-                type="button"
-                className={`delivery-method-modal-card ${deliveryMethod === "delivery" ? "is-selected" : ""}`}
-                onClick={() => handlePickDeliveryMethod("delivery")}
-                disabled={!allowDelivery}
-              >
-                <FaMotorcycle className="delivery-method-modal-card-icon" aria-hidden />
-                <span className="delivery-method-modal-card-title">Envío a domicilio</span>
-                <span className="delivery-method-modal-card-desc">Te lo llevamos a tu dirección</span>
-              </button>
-              <button
-                type="button"
-                className={`delivery-method-modal-card ${deliveryMethod === "pickup" ? "is-selected" : ""}`}
-                onClick={() => handlePickDeliveryMethod("pickup")}
-                disabled={!allowPickup}
-              >
-                <FaStore className="delivery-method-modal-card-icon" aria-hidden />
-                <span className="delivery-method-modal-card-title">
-                  Retiro en local
-                  {pickupDiscountPercentage > 0 && (
-                    <span style={{ color: '#16a34a', fontSize: '0.8em', marginLeft: '6px', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '10px' }}>
-                      -{pickupDiscountPercentage}%
-                    </span>
-                  )}
-                </span>
-                <span className="delivery-method-modal-card-desc">
-                  {pickupDiscountPercentage > 0 && pickupDiscountText ? pickupDiscountText : "Pasás a buscarlo por el local"}
-                </span>
-              </button>
-            </div>
-            <div className="delivery-method-modal-footer">
-              {deliveryModalReopen && (
-                <button
-                  type="button"
-                  className="delivery-method-modal-cancel"
-                  onClick={() => {
-                    setDeliveryMethodModalOpen(false);
-                    setDeliveryModalReopen(false);
-                  }}
-                >
-                  Cancelar
-                </button>
-              )}
-              <button
-                type="button"
-                className="delivery-method-modal-back-home"
-                onClick={() => {
-                  setDeliveryMethodModalOpen(false);
-                  setDeliveryModalReopen(false);
-                  setShowCheckout(false);
-                  navigate("/");
-                }}
-              >
-                <FaArrowLeft aria-hidden /> Volver al inicio
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Disabled Method Modal */}
       {

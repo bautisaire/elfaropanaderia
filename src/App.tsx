@@ -24,6 +24,7 @@ function Layout() {
   const location = useLocation();
   const isEditor = location.pathname.toLowerCase().startsWith('/editor');
   const isRuleta = location.pathname.toLowerCase().startsWith('/ruleta');
+  const isCheckout = location.pathname.toLowerCase().startsWith('/checkout');
 
   const cartContext = useContext(CartContext);
 
@@ -78,7 +79,7 @@ function Layout() {
           </Routes>
         </Suspense>
       </div>
-      {!isEditor && !isRuleta && <Footer />}
+      {!isEditor && !isRuleta && !isCheckout && <Footer />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaTrash, FaShoppingCart, FaEdit, FaTicketAlt } from "react-icons/fa";
+import { useContext, useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FaPlus, FaMinus, FaTrash, FaEdit, FaTicketAlt, FaChevronRight } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import "./CartSidebar.css";
@@ -22,6 +22,7 @@ export default function CartSidebar() {
         requireProductWithTicket,
     } = useContext(CartContext);
     const navigate = useNavigate();
+    const inCheckout = useLocation().pathname.startsWith("/checkout");
 
     const [priceEditModal, setPriceEditModal] = useState<{
         isOpen: boolean;
@@ -30,14 +31,24 @@ export default function CartSidebar() {
         currentPrice: number;
     }>({ isOpen: false, itemId: '', itemName: '', currentPrice: 0 });
 
+    // Bloquea el scroll de la página mientras el carrito está abierto. `overflow: hidden`
+    // no alcanza en iOS (la página se mueve al arrastrar el panel), así que se fija el body
+    // en su posición actual y se restaura el scroll al cerrar.
     useEffect(() => {
-        if (isSidebarOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+        if (!isSidebarOpen) return;
+        const scrollY = window.scrollY;
+        const body = document.body;
+        const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
+        body.style.position = 'fixed';
+        body.style.top = `-${scrollY}px`;
+        body.style.width = '100%';
+        body.style.overflow = 'hidden';
         return () => {
-            document.body.style.overflow = '';
+            body.style.position = prev.position;
+            body.style.top = prev.top;
+            body.style.width = prev.width;
+            body.style.overflow = prev.overflow;
+            window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior });
         };
     }, [isSidebarOpen]);
 
@@ -45,7 +56,63 @@ export default function CartSidebar() {
         setIsSidebarOpen(false);
     };
 
+    // Arrastrar hacia abajo cierra el carrito como una cortina.
+    const sheetRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const drag = useRef({ eligible: false, active: false, startY: 0, dy: 0, startT: 0 });
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        const inBody = bodyRef.current?.contains(e.target as Node);
+        drag.current = {
+            eligible: !inBody || (bodyRef.current?.scrollTop ?? 0) <= 0,
+            active: false,
+            startY: e.touches[0].clientY,
+            dy: 0,
+            startT: Date.now(),
+        };
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        const d = drag.current;
+        const sheet = sheetRef.current;
+        if (!d.eligible || !sheet) return;
+        const dy = e.touches[0].clientY - d.startY;
+        if (dy <= 0 && !d.active) return;
+        d.active = true;
+        d.dy = Math.max(0, dy);
+        sheet.style.transition = "none";
+        sheet.style.transform = `translateY(${d.dy}px)`;
+        if (overlayRef.current) {
+            overlayRef.current.style.transition = "none";
+            overlayRef.current.style.opacity = String(Math.max(0, 1 - d.dy / sheet.offsetHeight));
+        }
+    };
+
+    const onTouchEnd = () => {
+        const d = drag.current;
+        if (!d.active) return;
+        const velocity = d.dy / Math.max(1, Date.now() - d.startT);
+        const shouldClose = d.dy > 110 || velocity > 0.6;
+        d.active = false;
+        // Quitar los estilos inline: la transición CSS lleva el panel a su posición final.
+        if (sheetRef.current) {
+            sheetRef.current.style.transition = "";
+            sheetRef.current.style.transform = "";
+        }
+        if (overlayRef.current) {
+            overlayRef.current.style.transition = "";
+            overlayRef.current.style.opacity = "";
+        }
+        if (shouldClose) setIsSidebarOpen(false);
+    };
+
     const handleCheckout = () => {
+        // Ya estamos en el checkout: solo se cierra el carrito donde estaba.
+        if (inCheckout) {
+            setIsSidebarOpen(false);
+            return;
+        }
         if (cartHasOnlyRaffleTickets) {
             requireProductWithTicket();
             return;
@@ -70,31 +137,33 @@ export default function CartSidebar() {
         <>
             {/* Overlay Background */}
             <div
+                ref={overlayRef}
                 className={`cart-sidebar-overlay ${isSidebarOpen ? 'open' : ''}`}
                 onClick={handleClose}
             />
 
             {/* Sidebar Panel */}
-            <div className={`cart-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+            <div
+                ref={sheetRef}
+                className={`cart-sidebar ${isSidebarOpen ? 'open' : ''}`}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                onTouchCancel={onTouchEnd}
+            >
+                <div className="cart-sidebar-grabber" />
 
                 <div className="cart-sidebar-header">
-                    <h2>
-                        <FaShoppingCart />
-                        Mi Carrito
-                    </h2>
-                    <button className="close-sidebar-btn" onClick={handleClose}>
-                        <FaTimes />
+                    <button className="continue-shopping-btn" onClick={handleClose}>
+                        Seguir comprando <FaChevronRight size={12} />
                     </button>
+                    <h2>Tu Selección</h2>
                 </div>
 
-                <div className="cart-sidebar-body">
+                <div className="cart-sidebar-body" ref={bodyRef}>
                     {cart.length === 0 ? (
                         <div className="cart-sidebar-empty">
-                            <FaShoppingCart size={50} color="#ddd" />
                             <p>Tu carrito está vacío</p>
-                            <button className="start-shopping-btn" onClick={handleClose}>
-                                Ver Menú
-                            </button>
                         </div>
                     ) : (
                         cart.map((item) => (
@@ -110,9 +179,9 @@ export default function CartSidebar() {
                                 <div className="sidebar-item-details">
                                     <h4 className="sidebar-item-title">
                                         {item.name}
-                                        {item.selectedVariant && <span style={{ fontSize: '0.85em', color: '#666', display: 'block' }}>{item.selectedVariant}</span>}
+                                        {item.selectedVariant && <span style={{ fontSize: '0.85em', color: '#a8a29e', display: 'block' }}>{item.selectedVariant}</span>}
                                         {item.selectedComboItems && item.selectedComboItems.length > 0 && (
-                                            <div style={{ fontSize: '0.8em', color: '#666', marginTop: '4px', lineHeight: '1.3', fontWeight: 'normal' }}>
+                                            <div style={{ fontSize: '0.8em', color: '#a8a29e', marginTop: '4px', lineHeight: '1.3', fontWeight: 'normal' }}>
                                                 {item.selectedComboItems.map((comboItem, idx) => (
                                                     <div key={idx}>- {comboItem.quantity}x {comboItem.name}</div>
                                                 ))}
@@ -172,17 +241,15 @@ export default function CartSidebar() {
                     )}
                 </div>
 
-                {cart.length > 0 && (
-                    <div className="cart-sidebar-footer">
-                        <div className="sidebar-summary">
-                            <span>Total:</span>
-                            <strong>${Math.floor(cartTotal)}</strong>
-                        </div>
-                        <button className="sidebar-checkout-btn" onClick={handleCheckout}>
-                            Proceder al pago
-                        </button>
+                <div className="cart-sidebar-footer">
+                    <div className="sidebar-summary">
+                        <span>Total:</span>
+                        <strong>$ {Math.floor(cartTotal)}</strong>
                     </div>
-                )}
+                    <button className="sidebar-checkout-btn" onClick={handleCheckout} disabled={cart.length === 0}>
+                        {inCheckout ? "Continuar la compra" : "Ir a pagar →"}
+                    </button>
+                </div>
             </div>
 
             <PriceEditModal

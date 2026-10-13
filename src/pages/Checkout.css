@@ -490,7 +490,7 @@
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-  background: #fcfc fc;
+  background: #ffffff;
   position: relative;
 }
 
@@ -507,8 +507,8 @@
 
 .radio-card.selected {
   border-color: var(--primary-color);
-  background: #ffe1ea;
-  box-shadow: 0 4px 12px var(--primary-color);
+  background: #fff1f3;
+  box-shadow: 0 4px 14px rgba(255, 76, 79, 0.25);
 }
 
 .radio-input {
@@ -1165,4 +1165,510 @@
 
 .delivery-method-modal-back-home:hover {
   background: #f8f8f8;
+}
+/* =========================================
+   Checkout por pasos
+   ========================================= */
+.checkout-stepper {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 28px;
+  padding: 0;
+}
+
+.checkout-stepper-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+/* línea que une los pasos */
+.checkout-stepper-item:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  right: 50%;
+  width: 100%;
+  height: 3px;
+  background: #e5e7eb;
+  z-index: 0;
+}
+
+.checkout-stepper-item.done:not(:first-child)::before,
+.checkout-stepper-item.current:not(:first-child)::before {
+  background: var(--primary-color);
+}
+
+.checkout-stepper-dot {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #e5e7eb;
+  background: #fff;
+  color: #9ca3af;
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+}
+
+.checkout-stepper-item.current .checkout-stepper-dot {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.checkout-stepper-item.done .checkout-stepper-dot {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.checkout-stepper-item.done .checkout-stepper-dot:not(:disabled) {
+  cursor: pointer;
+}
+
+.checkout-stepper-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.checkout-stepper-item.current .checkout-stepper-label,
+.checkout-stepper-item.done .checkout-stepper-label {
+  color: #1f2937;
+}
+
+.checkout-step {
+  display: none;
+}
+
+.checkout-step.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  animation: stepIn 0.3s ease-out;
+}
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.checkout-step-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.btn-step-next,
+.btn-step-back {
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.btn-step-next {
+  flex: 1;
+  border: none;
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.btn-step-next::after {
+  content: ' →';
+}
+
+.btn-step-back {
+  flex: 0 0 auto;
+  background: #fff;
+  color: #4b5563;
+  border: 2px solid #e5e7eb;
+}
+
+.btn-step-back-full {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.form-actions {
+  margin-top: auto;
+}
+
+/* El resumen del carrito se ve recién en el último paso (en pantallas chicas) */
+@media (max-width: 991px) {
+  .checkout-layout:not(.on-last-step) .checkout-right {
+    display: none;
+  }
+}
+
+/* Pantalla completa en celular: sin tarjeta flotante */
+@media (max-width: 768px) {
+  .carrito-container {
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+
+  .checkout-layout {
+    gap: 0;
+  }
+
+  .checkout-form {
+    margin-top: 0;
+    padding: 0 20px calc(116px + env(safe-area-inset-bottom, 0px));
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
+    animation: none;
+    min-height: calc(100dvh - var(--header-height, 52px));
+    display: flex;
+    flex-direction: column;
+  }
+
+  .checkout-form::before {
+    display: none;
+  }
+
+  /* Los pasos quedan fijos debajo del header */
+  .checkout-stepper {
+    position: sticky;
+    top: var(--header-height, 52px);
+    z-index: 5;
+    margin: 0 -20px 22px;
+    padding: 14px 20px 12px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .checkout-stepper-item:not(:first-child)::before {
+    top: 30px;
+  }
+
+  .checkout-layout.on-last-step .checkout-right {
+    padding: 0 20px 116px;
+  }
+}
+
+
+/* =========================================
+   Barra de pasos en color de marca (reemplaza al header en el checkout)
+   ========================================= */
+.carrito-container {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
+}
+
+.checkout-stepper {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--primary-color);
+  margin: -32px -32px 28px;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 32px 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.checkout-form::before {
+  display: none;
+}
+
+.checkout-stepper-item:not(:first-child)::before {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.checkout-stepper-item.done:not(:first-child)::before,
+.checkout-stepper-item.current:not(:first-child)::before {
+  background: #fff;
+}
+
+.checkout-stepper-dot {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.checkout-stepper-item.current .checkout-stepper-dot {
+  background: #fff;
+  border-color: #fff;
+  color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
+}
+
+.checkout-stepper-item.done .checkout-stepper-dot {
+  background: #fff;
+  border-color: #fff;
+  color: var(--primary-color);
+}
+
+.checkout-stepper-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.checkout-stepper-item.current .checkout-stepper-label,
+.checkout-stepper-item.done .checkout-stepper-label {
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .carrito-container {
+    padding-top: 0;
+  }
+
+  .checkout-stepper {
+    top: 0;
+    margin: 0 -20px 22px;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px 14px;
+    background: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .checkout-form {
+    min-height: 100dvh;
+  }
+}
+
+
+/* Tarjetas de opción siempre opacas (se leían transparentes sobre el fondo con dibujo) */
+.radio-card {
+  background-color: #ffffff;
+}
+
+.radio-card:hover {
+  background-color: #ffffff;
+}
+
+.radio-card.selected {
+  background-color: #fff1f3;
+}
+
+.radio-card.disabled {
+  opacity: 0.55;
+}
+
+/* Carrito vacío en el checkout: pantalla completa */
+.checkout-empty {
+  min-height: calc(100dvh - 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 24px 24px 120px;
+}
+
+.checkout-empty-icon {
+  font-size: 3.5rem;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+
+.checkout-empty h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: #1f2937;
+}
+
+.checkout-empty p {
+  margin: 0 0 18px;
+  color: #6b7280;
+}
+
+.checkout-empty-btn {
+  flex: none;
+  width: 100%;
+  max-width: 340px;
+}
+
+/* Compra exitosa: encabezado compacto en celular para que se vean los botones sin scrollear */
+@media (max-width: 768px) {
+  .checkout-success-container {
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 16px;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  .success-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 4px;
+  }
+
+  .success-icon {
+    font-size: 22px;
+  }
+
+  .checkout-success-container h2 {
+    font-size: 1.2rem;
+    margin: 0 0 2px;
+  }
+
+  .success-subtitle {
+    font-size: 0.82rem;
+    margin: 0 0 10px;
+  }
+
+  .success-ticket {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .ticket-header {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+}
+
+/* Datos de transferencia resaltados: es lo que el cliente tiene que hacer */
+.transfer-highlight {
+  position: relative;
+  margin-top: 22px;
+  padding: 22px 15px 15px;
+  background: #fff7f7;
+  border: 2px solid var(--primary-color);
+  border-radius: 12px;
+  box-shadow: 0 0 0 4px rgba(255, 76, 79, 0.12);
+  animation: transferPulse 2.2s ease-in-out infinite;
+}
+
+.transfer-highlight-badge {
+  position: absolute;
+  top: -13px;
+  left: 14px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.transfer-highlight code {
+  background: #fff;
+  border: 1px solid #fecaca;
+}
+
+@keyframes transferPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 76, 79, 0.10); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 76, 79, 0.20); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transfer-highlight { animation: none; }
+}
+
+/* =========================================
+   Campos del formulario: más grandes, centrados y con fondo blanco sólido
+   ========================================= */
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 58px;
+  padding: 16px 18px;
+  font-size: 1.05rem;
+  background-color: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.form-group textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #9ca3af;
+}
+
+.form-group input:hover,
+.form-group textarea:hover,
+.form-group select:hover {
+  background-color: #ffffff;
+  border-color: #d1d5db;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  background-color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(255, 76, 79, 0.15);
+  transform: none;
+}
+
+.phone-input-group {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 58px;
+  background-color: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.phone-input-group:focus-within {
+  background-color: #ffffff;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(255, 76, 79, 0.15);
+  transform: none;
+}
+
+.phone-prefix {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 18px;
+  font-size: 1.05rem;
+  color: #374151;
+  border-right: 2px solid #f1f1f1;
+}
+
+.phone-input-field {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 18px 16px 14px !important;
+  font-size: 1.05rem !important;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 10px;
+}
+
+.form-group {
+  margin-bottom: 26px;
+}
+
+/* Indicaciones: arranca de una línea y crece mientras el cliente escribe */
+.form-group textarea.textarea-autogrow {
+  min-height: 58px;
+  max-height: 220px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
 }
