@@ -52,6 +52,10 @@ export default function Editor() {
 
   // Determine active tab based on path
   const currentPath = location.pathname.replace('/editor', '').split('/')[1] || 'dashboard';
+  // Caja queda montada una vez visitada para no perder las ventas pendientes al cambiar de sección
+  const [cajaVisited, setCajaVisited] = useState(false);
+  useEffect(() => { if (currentPath === 'caja') setCajaVisited(true); }, [currentPath]);
+  const [pendingSalesCount, setPendingSalesCount] = useState(0);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -169,7 +173,7 @@ export default function Editor() {
       items: [
         { key: "stock", label: "Stock", icon: <FaClipboardCheck />, color: '#eab308', path: "/editor/stock", visible: adminPermissions?.stock !== false, active: currentPath === "stock" },
         { key: "orders", label: "Pedidos", icon: <FaClipboardList />, color: '#a855f7', path: "/editor/orders/pos", visible: adminPermissions?.orders !== false, active: currentPath === "orders", badge: pendingOrdersCount },
-        { key: "caja", label: "Caja", icon: <FaMoneyBillWave />, color: '#8b5cf6', path: "/editor/caja", visible: adminPermissions?.pos_sales !== false, active: currentPath === "caja" },
+        { key: "caja", label: "Caja", icon: <FaMoneyBillWave />, color: '#8b5cf6', path: "/editor/caja", visible: adminPermissions?.pos_sales !== false, active: currentPath === "caja", badge: pendingSalesCount },
       ]
     },
     {
@@ -341,11 +345,16 @@ export default function Editor() {
           </aside>
 
           <main className={`editor-content ${collapsed ? 'collapsed-mode' : ''} ${currentPath === 'caja' ? 'pos-active-tab' : ''} ${currentPath === 'orders' || currentPath === 'bills' ? 'editor-orders-fullbleed' : ''} ${currentPath === 'costs' || currentPath === 'products' ? 'editor-costs-fullbleed' : ''}`}>
+            {cajaVisited && adminPermissions?.pos_sales !== false && (
+              <div style={{ display: currentPath === 'caja' ? 'block' : 'none' }}>
+                <CajaManager active={currentPath === 'caja'} onPendingSalesChange={setPendingSalesCount} />
+              </div>
+            )}
             <Routes>
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {/* El POS de venta se reemplazó por Stock → Productos (Caja es donde se vende) */}
               <Route path="/pos" element={<Navigate to="/editor/stock" replace />} />
-              {adminPermissions?.pos_sales !== false && <Route path="/caja" element={<CajaManager />} />}
+              {adminPermissions?.pos_sales !== false && <Route path="/caja" element={null} />}
               {adminPermissions?.orders !== false && <Route path="/orders/*" element={<OrdersManager />} />}
               {adminPermissions?.store_editor !== false && <Route path="/store_editor" element={<StoreEditor />} />}
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, runTransaction, onSnapshot } from 'firebase/firestore';
-import { FaArrowLeft, FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen, FaQrcode } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen, FaQrcode } from 'react-icons/fa';
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
 import { getDeviceId } from '../utils/deviceId';
@@ -54,7 +54,8 @@ const getRowLineTotal = (row: CartRow): number => {
 };
 
 interface CajaVentaProps {
-    onBack: () => void;
+    active?: boolean;
+    onCartCountChange?: (count: number) => void;
     onSaleComplete: (data: { amount: number; payments: { method: string; amount: number }[]; orderId: string; itemCount: number }) => void;
 }
 
@@ -64,12 +65,13 @@ const PAYMENT_METHODS_ORDER: PaymentMethod[] = ['Efectivo', 'Débito', 'Transfer
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
+export default function CajaVenta({ onSaleComplete, active = true, onCartCountChange }: CajaVentaProps) {
     const { user, isSuperAdmin, adminPermissions } = useCart();
     const canEditPrices = isSuperAdmin || adminPermissions?.orders_can_edit_prices === true;
 
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartRow[]>([]);
+    useEffect(() => { onCartCountChange?.(cart.length); }, [cart.length]); // eslint-disable-line react-hooks/exhaustive-deps
     const [enabledMethods, setEnabledMethods] = useState<Record<PaymentMethod, boolean>>({ Efectivo: true, 'Débito': false, Transferencia: false, QR: false });
     const [paymentAmounts, setPaymentAmounts] = useState<Record<PaymentMethod, string>>({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '' });
     const [combinePayments, setCombinePayments] = useState(false);
@@ -141,6 +143,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     useEffect(() => {
         if (!modalConfig.isOpen) return;
 
+        if (!active) return;
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 setModalConfig(prev => ({ ...prev, isOpen: false }));
@@ -160,7 +163,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [modalConfig]);
+    }, [modalConfig, active]);
 
     useEffect(() => {
         const unsub = onSnapshot(collection(db, 'products'), (snap) => {
@@ -244,6 +247,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
     useEffect(() => {
         if (!isAddModalOpen || quantityModalOpen || weightModalOpen) return;
 
+        if (!active) return;
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 if (codeBuffer.length > 0) {
@@ -301,7 +305,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAddModalOpen, codeBuffer, quantityModalOpen, weightModalOpen, products, addModalStockMode]);
+    }, [isAddModalOpen, codeBuffer, quantityModalOpen, weightModalOpen, products, addModalStockMode, active]);
 
     const getEffectivePrice = (product: Product, variantName?: string) => {
         const variantObj = variantName && product.variants ? product.variants.find(v => v.name === variantName) : undefined;
@@ -1009,6 +1013,7 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         const anyModalOpen = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey || envioModalOpen;
         if (anyModalOpen) return;
 
+        if (!active) return;
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -1043,17 +1048,10 @@ export default function CajaVenta({ onBack, onSaleComplete }: CajaVentaProps) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen, envioClientName, cart, enabledMethods, paymentAmounts, total, processing]);
+    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen, envioClientName, cart, enabledMethods, paymentAmounts, total, processing, active]);
 
     return (
         <div className="caja-venta-container">
-            <div className="caja-venta-header">
-                <button className="caja-venta-back-btn" onClick={onBack}>
-                    <FaArrowLeft /> Volver
-                </button>
-                <h2>Caja - Registrar Venta</h2>
-            </div>
-
             <div className="caja-venta-body">
                 <div className="caja-venta-main">
                     <div className="caja-venta-list-wrapper">

@@ -3,7 +3,7 @@ import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
-import CajaVenta from './CajaVenta';
+import CajaVentaTabs from './CajaVentaTabs';
 import CajaStockAdjust from './CajaStockAdjust';
 import './CajaManager.css';
 
@@ -56,7 +56,7 @@ const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
     return value instanceof Timestamp ? value.toDate() : value;
 };
 
-export default function CajaManager() {
+export default function CajaManager({ active = true, onPendingSalesChange }: { active?: boolean; onPendingSalesChange?: (count: number) => void }) {
     const { user, isSuperAdmin } = useCart();
     const [view, setView] = useState<'menu' | 'venta' | 'historial' | 'stock'>('menu');
     const [movements, setMovements] = useState<CajaMovement[]>([]);
@@ -359,7 +359,9 @@ export default function CajaManager() {
 
     if (view === 'venta') {
         return (
-            <CajaVenta
+            <CajaVentaTabs
+                onPendingSalesChange={onPendingSalesChange}
+                active={active}
                 onBack={() => setView('menu')}
                 onSaleComplete={handleSaleComplete}
             />
@@ -367,7 +369,7 @@ export default function CajaManager() {
     }
 
     if (view === 'stock') {
-        return <CajaStockAdjust onBack={() => setView('menu')} />;
+        return <CajaStockAdjust active={active} onBack={() => setView('menu')} />;
     }
 
     return (

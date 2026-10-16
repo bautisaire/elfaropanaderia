@@ -1,0 +1,19 @@
+.caja-tabs-bar { display: flex; align-items: center; gap: 4px; padding: 8px 12px 0; overflow-x: auto; border-bottom: 1px solid #ddd; background: #f5f5f5; }
+.caja-tab { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px 8px 0 0; background: #e4e4e4; cursor: pointer; font-weight: 600; white-space: nowrap; user-select: none; }
+.caja-tab.active { background: #fff; box-shadow: 0 -2px 0 #c0392b inset; }
+.caja-tab-close, .caja-tab-add { border: none; background: transparent; cursor: pointer; display: flex; align-items: center; padding: 4px; border-radius: 50%; color: #666; }
+.caja-tab-close:hover { background: #d9d9d9; color: #c0392b; }
+.caja-tab-add { padding: 8px; font-size: 1rem; }
+.caja-tab-add:hover { background: #ddd; }
+.caja-tab-confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+.caja-tab-confirm { background: #fff; border-radius: 12px; padding: 20px 24px; max-width: 380px; width: calc(100% - 32px); }
+.caja-tab-confirm h3 { margin: 0 0 8px; }
+.caja-tab-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.caja-tab-confirm-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-weight: 600; }
+.caja-tab-confirm-actions button.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
+.caja-tabs-root { height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+.caja-tabs-root > .caja-venta-header { padding: 20px 30px 0; margin-bottom: 12px; }
+@media (min-width: 850px) { .caja-tabs-root > .caja-venta-header, .caja-tabs-bar { padding-left: 80px; } }
+@media (max-width: 700px) { .caja-tabs-root > .caja-venta-header { padding: 14px 14px 0; } }
+.caja-tab-pane { flex: 1; min-height: 0; }
+.caja-tab-pane > .caja-venta-container { height: 100%; padding-top: 14px; }

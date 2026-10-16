@@ -24,9 +24,10 @@ interface Product {
 
 interface CajaStockAdjustProps {
     onBack: () => void;
+    active?: boolean;
 }
 
-export default function CajaStockAdjust({ onBack }: CajaStockAdjustProps) {
+export default function CajaStockAdjust({ onBack, active = true }: CajaStockAdjustProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +66,7 @@ export default function CajaStockAdjust({ onBack }: CajaStockAdjustProps) {
 
     // Numeric buffer for barcode-style code entry, same behavior as the sale screen's add-product picker.
     useEffect(() => {
-        if (isStockModalOpen) return;
+        if (isStockModalOpen || !active) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
             const isSearchFocused = document.activeElement === searchInputRef.current;
@@ -98,7 +99,7 @@ export default function CajaStockAdjust({ onBack }: CajaStockAdjustProps) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [codeBuffer, isStockModalOpen, products]);
+    }, [codeBuffer, isStockModalOpen, products, active]);
 
     const filteredResults = useMemo(() => {
         const term = normalizeForSearch(searchTerm.trim());
