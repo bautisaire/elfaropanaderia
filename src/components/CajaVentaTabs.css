@@ -17,3 +17,43 @@
 @media (max-width: 700px) { .caja-tabs-root > .caja-venta-header { padding: 14px 14px 0; } }
 .caja-tab-pane { flex: 1; min-height: 0; }
 .caja-tab-pane > .caja-venta-container { height: 100%; padding-top: 14px; }
+
+/* Notebooks / pantallas bajas: compactar para que no aparezca scroll vertical */
+.caja-tab-pane > .caja-venta-container { overflow: hidden; }
+.caja-venta-summary-panel { min-height: 0; overflow-y: auto; }
+
+@media (max-height: 820px) {
+    .caja-tabs-root > .caja-venta-header { padding-top: 8px; margin-bottom: 6px; }
+    .caja-tabs-root .caja-venta-header h2 { font-size: 1.25rem; }
+    .caja-tabs-root .caja-venta-back-btn { padding: 5px 12px; }
+    .caja-tabs-bar { padding-top: 4px; }
+    .caja-tab { padding: 5px 12px; }
+    .caja-tab-add { padding: 5px 8px; }
+    .caja-tab-pane > .caja-venta-container { padding-top: 8px; padding-bottom: 8px; }
+    .caja-venta-body { gap: 14px; }
+    .caja-venta-list-header, .caja-venta-row { padding-top: 8px; padding-bottom: 8px; }
+    .caja-venta-add-row { padding: 8px 0 0; }
+    .caja-venta-add-btn { padding: 10px 28px; font-size: 1rem; }
+    .caja-venta-summary-panel { gap: 8px; }
+    .caja-venta-total-box { padding: 12px 20px; }
+    .caja-venta-total-value, .caja-venta-total-value-input { font-size: 2rem; }
+    .caja-venta-total-currency { font-size: 1.7rem; }
+    .caja-venta-total-sub { margin-top: 8px; padding-top: 8px; }
+    .caja-venta-discount-box { padding: 6px 14px; }
+    .caja-venta-discount-box input { padding: 4px 8px; font-size: 1rem; }
+    .caja-venta-combine-toggle { padding: 0 4px; }
+    .caja-venta-payment-methods { gap: 5px; }
+    .caja-venta-payment-toggle { padding: 8px 10px; }
+    .caja-venta-payment-input { padding: 8px 12px; font-size: 1.3rem; }
+    .caja-venta-confirm-btn { padding-top: 12px; padding-bottom: 12px; }
+}
+
+@media (max-height: 680px) {
+    .caja-venta-total-box { padding: 8px 18px; }
+    .caja-venta-total-value, .caja-venta-total-value-input { font-size: 1.7rem; }
+    .caja-venta-summary-panel { gap: 6px; }
+    .caja-venta-payment-toggle { padding: 6px 10px; }
+    .caja-venta-payment-input { padding: 5px 12px; font-size: 1.15rem; }
+    .caja-venta-confirm-btn { padding-top: 9px; padding-bottom: 9px; }
+    .caja-venta-last-sale { display: none; }
+}
