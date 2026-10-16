@@ -595,7 +595,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     // e.g. to enter a higher tendered amount and see "vuelto").
     useEffect(() => {
         const enabled = PAYMENT_METHODS_ORDER.filter(m => enabledMethods[m]);
-        if (enabled.length === 1) {
+        // Efectivo queda en blanco: el usuario ingresa con cuánto paga el cliente.
+        if (enabled.length === 1 && enabled[0] !== 'Efectivo') {
             setPaymentAmounts(prev => ({ ...prev, [enabled[0]]: total > 0 ? String(total) : '' }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -608,7 +609,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             const enabledList = PAYMENT_METHODS_ORDER.filter(m => prev[m]);
             if (enabledList.length <= 1) return prev;
             const keep = enabledList[0];
-            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [keep]: total > 0 ? String(total) : '' });
+            setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [keep]: keep !== 'Efectivo' && total > 0 ? String(total) : '' });
             return { Efectivo: false, 'Débito': false, Transferencia: false, QR: false, [keep]: true };
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -627,7 +628,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             // Turning it on, single-select mode (default): switch away from whatever was
             // active and hand the full amount to the newly selected method.
             if (!combinePayments) {
-                setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [method]: total > 0 ? String(total) : '' });
+                setPaymentAmounts({ Efectivo: '', 'Débito': '', Transferencia: '', QR: '', [method]: method !== 'Efectivo' && total > 0 ? String(total) : '' });
                 return { Efectivo: false, 'Débito': false, Transferencia: false, QR: false, [method]: true };
             }
 
@@ -647,9 +648,18 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         setPaymentAmounts(prev => ({ ...prev, [method]: value }));
     };
 
+    // Efectivo solo y sin monto ingresado = el cliente paga justo el importe.
+    const effectiveAmounts = useMemo(() => {
+        const enabled = PAYMENT_METHODS_ORDER.filter(m => enabledMethods[m]);
+        if (enabled.length === 1 && enabled[0] === 'Efectivo' && !(parseFloat(paymentAmounts.Efectivo) > 0) && total > 0) {
+            return { ...paymentAmounts, Efectivo: String(total) };
+        }
+        return paymentAmounts;
+    }, [enabledMethods, paymentAmounts, total]);
+
     const sumEntered = useMemo(() => {
-        return round2(PAYMENT_METHODS_ORDER.reduce((sum, m) => sum + (enabledMethods[m] ? (parseFloat(paymentAmounts[m]) || 0) : 0), 0));
-    }, [enabledMethods, paymentAmounts]);
+        return round2(PAYMENT_METHODS_ORDER.reduce((sum, m) => sum + (enabledMethods[m] ? (parseFloat(effectiveAmounts[m]) || 0) : 0), 0));
+    }, [enabledMethods, effectiveAmounts]);
 
     const paymentDiff = useMemo(() => round2(sumEntered - total), [sumEntered, total]);
 
@@ -660,7 +670,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         const result: { method: PaymentMethod; amount: number }[] = [];
         PAYMENT_METHODS_ORDER.forEach(m => {
             if (!enabledMethods[m]) return;
-            const entered = parseFloat(paymentAmounts[m]) || 0;
+            const entered = parseFloat(effectiveAmounts[m]) || 0;
             if (entered <= 0) return;
             const applied = Math.min(entered, Math.max(0, remaining));
             if (applied > 0) {
@@ -669,7 +679,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             }
         });
         return result;
-    }, [enabledMethods, paymentAmounts, total]);
+    }, [enabledMethods, effectiveAmounts, total]);
 
     const filteredResults = useMemo(() => {
         const term = normalizeForSearch(searchTerm.trim());
@@ -994,6 +1004,21 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             setProcessing(false);
         }
     };
+
+    // Al cargar productos, el input de Efectivo queda seleccionado para escribir el monto recibido.
+    useEffect(() => {
+        if (!active || cart.length === 0) return;
+        if (isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || editRowKey || envioModalOpen) return;
+        const t = setTimeout(() => {
+            const el = paymentInputRefs.current.Efectivo;
+            const other = document.activeElement;
+            if (!el || (other && other !== document.body && other !== el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(other.tagName))) return;
+            el.focus();
+            el.select();
+        }, 80);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cart.length, active, isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen]);
 
     const activatePaymentMethod = (method: PaymentMethod) => {
         const wasEnabled = enabledMethods[method];
