@@ -14,6 +14,10 @@ import {
   resolveCartItemBaseAndVariant,
 } from "../utils/cartStock";
 
+const CATALOG_STALL_TIMEOUT_MS = 10000;
+const STALL_RELOAD_COOLDOWN_MS = 2 * 60 * 1000;
+const STALL_RELOAD_KEY = "firestore_stall_reload_at";
+
 export interface Product {
   id: string | number;
   name: string;
@@ -167,13 +171,32 @@ export const CartProvider = ({ children }: Props) => {
 
   // Catálogo en tiempo real (stock y visibilidad)
   useEffect(() => {
-    const fallbackTimeout = setTimeout(() => {
+    // Watchdog de arranque: si en 10s no llegó ni el caché ni el servidor, el cliente de
+    // Firestore quedó trabado (mal arranque). Recargamos una vez sola, que es lo que
+    // destraba; si ya se recargó hace poco, mostramos el "Reintentar" de la tienda.
+    let catalogReceived = false;
+    const onStall = () => {
+      if (catalogReceived) return;
+      if (document.visibilityState !== "visible") {
+        document.addEventListener("visibilitychange", onStall, { once: true });
+        return;
+      }
+      let lastReload = 0;
+      try { lastReload = Number(sessionStorage.getItem(STALL_RELOAD_KEY)) || 0; } catch { /* sin storage */ }
+      if (Date.now() - lastReload > STALL_RELOAD_COOLDOWN_MS) {
+        try { sessionStorage.setItem(STALL_RELOAD_KEY, String(Date.now())); } catch { /* sin storage */ }
+        console.warn("Catálogo sin respuesta de Firestore, recargando la página");
+        window.location.reload();
+        return;
+      }
       setCatalogLoading(false);
-    }, 15000);
+    };
+    const fallbackTimeout = setTimeout(onStall, CATALOG_STALL_TIMEOUT_MS);
 
     const unsub = onFreshSnapshot(
       collection(db, "products"),
       (snapshot) => {
+        catalogReceived = true;
         clearTimeout(fallbackTimeout);
         const catalog: Record<string, Product> = {};
         const visible: Product[] = [];
@@ -235,11 +258,14 @@ export const CartProvider = ({ children }: Props) => {
       },
       (error) => {
         console.error("Error en catálogo en vivo:", error);
+        catalogReceived = true;
+        clearTimeout(fallbackTimeout);
         setCatalogLoading(false);
       }
     );
     return () => {
       clearTimeout(fallbackTimeout);
+      document.removeEventListener("visibilitychange", onStall);
       unsub();
     };
   }, []);

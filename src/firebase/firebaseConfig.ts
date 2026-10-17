@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getMessaging, isSupported } from "firebase/messaging";
@@ -21,7 +21,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  // Single-tab a propósito: con el multi-tab solo UNA pestaña ("primaria") habla con el
+  // servidor y el resto recibe los datos a través de ella vía IndexedDB. Si esa pestaña
+  // queda congelada en segundo plano (ahorro de memoria del navegador), las demás se
+  // quedan cargando para siempre sin error. Con single-tab la primera pestaña usa el
+  // caché persistente y las otras caen solas a caché en memoria, cada una con su conexión.
+  localCache: persistentLocalCache({ tabManager: persistentSingleTabManager(undefined) }),
   // Evita que conexiones lentas/con proxy (wifi del local, datos móviles) se queden
   // colgadas varios segundos esperando el canal de streaming por defecto.
   experimentalAutoDetectLongPolling: true
