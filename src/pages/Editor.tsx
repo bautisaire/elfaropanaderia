@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaUserFriends, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaChartLine } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -14,7 +14,7 @@ import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
 import ProductsSection from "../components/ProductsSection";
 import BillsManager from "../components/BillsManager";
-import EmployeesManager from "../components/EmployeesManager";
+import FinanzasManager from "../components/FinanzasManager";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
 import { useCart } from "../context/CartContext";
@@ -43,7 +43,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
-  const { adminPermissions } = useCart();
+  const { adminPermissions, isSuperAdmin } = useCart();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -186,8 +186,8 @@ export default function Editor() {
     {
       label: "Finanzas",
       items: [
+        { key: "finanzas", label: "Finanzas", icon: <FaChartLine />, color: '#16a34a', path: "/editor/finanzas", visible: isSuperAdmin, active: currentPath === "finanzas" },
         { key: "bills", label: "Gastos", icon: <FaFileInvoiceDollar />, color: '#dc2626', path: "/editor/bills/gastos", visible: adminPermissions?.bills === true, active: currentPath === "bills" },
-        { key: "employees", label: "Personal", icon: <FaUserFriends />, color: '#0ea5e9', path: "/editor/employees", visible: adminPermissions?.employees !== false, active: currentPath === "employees" },
       ]
     },
     {
@@ -362,7 +362,8 @@ export default function Editor() {
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
               {adminPermissions?.costs !== false && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
-              {adminPermissions?.employees !== false && <Route path="/employees" element={<EmployeesManager />} />}
+              {isSuperAdmin && <Route path="/finanzas" element={<FinanzasManager />} />}
+              <Route path="/employees" element={<Navigate to="/editor/finanzas" replace />} />
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
               <Route path="*" element={
@@ -374,7 +375,6 @@ export default function Editor() {
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
-                  if (adminPermissions?.employees !== false) return <Navigate to="/editor/employees" replace />;
                   if (adminPermissions?.bills === true) return <Navigate to="/editor/bills/gastos" replace />;
                   if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
                   return <div style={{ padding: '50px', textAlign: 'center' }}>No tienes permiso para ver ninguna sección.</div>;

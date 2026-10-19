@@ -40,7 +40,6 @@ const PERMISSIONS_MAP = [
   { key: 'costs', label: 'Productos, Costos y Recetas' },
   { key: 'bills', label: 'Gastos y Tickets' },
   { key: 'stock', label: 'Gestión de Stock' },
-  { key: 'employees', label: 'Personal (Empleados, Horarios, Anticipos)' },
   { key: 'raffle', label: 'Sorteos' },
   { key: 'settings', label: 'Configuración (Delivery, etc.)' },
   { key: 'is_rider', label: 'Rol: Repartidor (Rider)' },

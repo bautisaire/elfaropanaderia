@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash } from 'react-icons/fa';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash, FaQrcode, FaInfoCircle } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVentaTabs from './CajaVentaTabs';
 import CajaStockAdjust from './CajaStockAdjust';
 import './CajaManager.css';
 
 type MovementType = 'venta' | 'ingreso' | 'egreso';
-type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia';
+type PaymentMethod = 'Efectivo' | 'Débito' | 'Transferencia' | 'QR' | 'Online';
 
 interface CajaMovement {
     id: string;
@@ -30,6 +30,7 @@ interface CajaSessionStats {
     efectivo: number;
     transferencia: number;
     debito: number;
+    qr?: number;
     cantidad: number;
 }
 
@@ -71,6 +72,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('Efectivo');
     const [addToExpenses, setAddToExpenses] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [showOnlineInfo, setShowOnlineInfo] = useState(false);
 
     const [showAmounts, setShowAmounts] = useState(() => {
         return localStorage.getItem('showSensitiveData') !== 'false';
@@ -166,6 +168,8 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         let efectivo = 0;
         let transferencia = 0;
         let debito = 0;
+        let qr = 0;
+        let onlineGen = 0;
 
         currentSessionMovements.forEach(m => {
             const method = m.paymentMethod || 'Efectivo';
@@ -178,6 +182,8 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             if (method === 'Efectivo') efectivo += sign * m.amount;
             else if (method === 'Transferencia') transferencia += sign * m.amount;
             else if (method === 'Débito') debito += sign * m.amount;
+            else if (method === 'QR') qr += sign * m.amount;
+            else if (method === 'Online') onlineGen += sign * m.amount;
         });
 
         return {
@@ -188,6 +194,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             efectivo,
             transferencia,
             debito,
+            qr,
+            online: transferencia + debito + qr + onlineGen,
+            onlineGen,
             cantidad: currentSessionMovements.length
         };
     }, [currentSessionMovements]);
@@ -306,8 +315,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     egresos: stats.egresos,
                     ventas: stats.ventas,
                     efectivo: stats.efectivo,
-                    transferencia: stats.transferencia,
+                    transferencia: stats.transferencia + stats.onlineGen,
                     debito: stats.debito,
+                    qr: stats.qr,
                     cantidad: stats.cantidad
                 }
             });
@@ -344,8 +354,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                     <span>Ingresos: {fmt(s.stats?.ingresos || 0)}</span>
                                     <span>Egresos: {fmt(s.stats?.egresos || 0)}</span>
                                     <span>Efectivo: {fmt(s.stats?.efectivo || 0)}</span>
-                                    <span>Transf.: {fmt(s.stats?.transferencia || 0)}</span>
-                                    <span>Débito: {fmt(s.stats?.debito || 0)}</span>
+                                    <span title={`Transf. ${fmt(s.stats?.transferencia || 0)} · Débito ${fmt(s.stats?.debito || 0)} · QR ${fmt(s.stats?.qr || 0)}`}>Online: {fmt((s.stats?.transferencia || 0) + (s.stats?.debito || 0) + (s.stats?.qr || 0))}</span>
                                     <span>{s.stats?.cantidad || 0} mov.</span>
                                 </div>
                                 {s.closedByEmail && <div className="caja-history-closedby">Cerrado por {s.closedByEmail}</div>}
@@ -417,16 +426,32 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     <span className="caja-stat-value" style={{ color: '#ef4444' }}>{fmt(stats.egresos)}</span>
                 </div>
                 <div className="caja-stat">
-                    <span className="caja-stat-label"><FaExchangeAlt /> Transf.</span>
-                    <span className="caja-stat-value">{fmt(stats.transferencia)}</span>
+                    <span className="caja-stat-label">
+                        <FaExchangeAlt /> Online
+                        <span
+                            className="caja-info-trigger"
+                            onMouseEnter={() => setShowOnlineInfo(true)}
+                            onMouseLeave={() => setShowOnlineInfo(false)}
+                            onClick={(e) => { e.stopPropagation(); setShowOnlineInfo(v => !v); }}
+                        >
+                            <FaInfoCircle color="#3b82f6" size={15} title="Ver desglose de pagos online" />
+                            {showOnlineInfo && (
+                                <div className="caja-info-bubble" onClick={(e) => e.stopPropagation()}>
+                                    <div className="caja-bubble-pointer" />
+                                    <h4>Pagos online</h4>
+                                    <div className="caja-bubble-row"><span><FaExchangeAlt /> Transferencia</span><strong>{fmt(stats.transferencia)}</strong></div>
+                                    <div className="caja-bubble-row"><span><FaCreditCard /> Débito</span><strong>{fmt(stats.debito)}</strong></div>
+                                    <div className="caja-bubble-row"><span><FaQrcode /> QR</span><strong>{fmt(stats.qr)}</strong></div>
+                                    {stats.onlineGen !== 0 && <div className="caja-bubble-row"><span><FaExchangeAlt /> Otros (sin detallar)</span><strong>{fmt(stats.onlineGen)}</strong></div>}
+                                </div>
+                            )}
+                        </span>
+                    </span>
+                    <span className="caja-stat-value">{fmt(stats.online)}</span>
                 </div>
                 <div className="caja-stat">
                     <span className="caja-stat-label"><FaMoneyBillWave /> Efectivo</span>
                     <span className="caja-stat-value">{fmt(stats.efectivo)}</span>
-                </div>
-                <div className="caja-stat">
-                    <span className="caja-stat-label"><FaCreditCard /> Débito</span>
-                    <span className="caja-stat-value">{fmt(stats.debito)}</span>
                 </div>
                 <div className="caja-stat">
                     <span className="caja-stat-label"><FaListUl /> Movimientos</span>
@@ -499,7 +524,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                             <div className="caja-form-group">
                                 <label>Medio</label>
                                 <div className="caja-method-options">
-                                    {(['Efectivo', 'Débito', 'Transferencia'] as PaymentMethod[]).map(pm => (
+                                    {(['Efectivo', 'Online'] as PaymentMethod[]).map(pm => (
                                         <button
                                             type="button"
                                             key={pm}

@@ -154,6 +154,19 @@ service cloud.firestore {
     match /caja_sessions/{document=**} {
       allow read, write: if canPosSales();
     }
+    // Finanzas: solo superadmin
+    match /finance_config/{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /finance_closings/{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /finance_movements/{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /finance_payables/{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
     match /time_entries/{document=**} {
       allow read, write: if isAdmin();
     }
