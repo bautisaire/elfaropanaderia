@@ -73,6 +73,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [addToExpenses, setAddToExpenses] = useState(false);
     const [saving, setSaving] = useState(false);
     const [showOnlineInfo, setShowOnlineInfo] = useState(false);
+    const [showVentasInfo, setShowVentasInfo] = useState(false);
 
     const [showAmounts, setShowAmounts] = useState(() => {
         return localStorage.getItem('showSensitiveData') !== 'false';
@@ -170,6 +171,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         let debito = 0;
         let qr = 0;
         let onlineGen = 0;
+        let ventasEfectivo = 0;
+        let ventasOnline = 0;
+        let cantVentas = 0;
 
         currentSessionMovements.forEach(m => {
             const method = m.paymentMethod || 'Efectivo';
@@ -177,7 +181,11 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
 
             if (m.type === 'ingreso') ingresos += m.amount;
             else if (m.type === 'egreso') egresos += m.amount;
-            else ventas += m.amount;
+            else {
+                ventas += m.amount;
+                cantVentas += 1;
+                if (method === 'Efectivo') ventasEfectivo += m.amount; else ventasOnline += m.amount;
+            }
 
             if (method === 'Efectivo') efectivo += sign * m.amount;
             else if (method === 'Transferencia') transferencia += sign * m.amount;
@@ -191,6 +199,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             ingresos,
             egresos,
             ventas,
+            ventasEfectivo,
+            ventasOnline,
+            cantVentas,
             efectivo,
             transferencia,
             debito,
@@ -416,6 +427,29 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                 <div className="caja-stat caja-stat-main">
                     <span className="caja-stat-label">En caja</span>
                     <span className="caja-stat-value">{fmt(stats.enCaja)}</span>
+                </div>
+                <div className="caja-stat">
+                    <span className="caja-stat-label">
+                        Ventas
+                        <span
+                            className="caja-info-trigger"
+                            onMouseEnter={() => setShowVentasInfo(true)}
+                            onMouseLeave={() => setShowVentasInfo(false)}
+                            onClick={(e) => { e.stopPropagation(); setShowVentasInfo(v => !v); }}
+                        >
+                            <FaInfoCircle color="#10b981" size={15} title="Ver desglose de ventas" />
+                            {showVentasInfo && (
+                                <div className="caja-info-bubble" onClick={(e) => e.stopPropagation()}>
+                                    <div className="caja-bubble-pointer" />
+                                    <h4>Solo ventas (sin ingresos ni egresos)</h4>
+                                    <div className="caja-bubble-row"><span><FaMoneyBillWave /> Efectivo</span><strong>{fmt(stats.ventasEfectivo)}</strong></div>
+                                    <div className="caja-bubble-row"><span><FaExchangeAlt /> Online</span><strong>{fmt(stats.ventasOnline)}</strong></div>
+                                    <div className="caja-bubble-row"><span><FaListUl /> Cantidad de ventas</span><strong>{stats.cantVentas}</strong></div>
+                                </div>
+                            )}
+                        </span>
+                    </span>
+                    <span className="caja-stat-value" style={{ color: '#059669' }}>{fmt(stats.ventas)}</span>
                 </div>
                 <div className="caja-stat">
                     <span className="caja-stat-label">Ingresos</span>
