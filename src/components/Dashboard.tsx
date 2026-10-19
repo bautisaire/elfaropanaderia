@@ -10,6 +10,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
 import NotesManager from "./NotesManager";
+import CustomersRanking from "./CustomersRanking";
 import { normalizeForSearch } from "../utils/textSearch";
 import { getArgentinaDateKey } from "../utils/visitTracker";
 
@@ -1768,6 +1769,8 @@ export default function Dashboard() {
                     </button>
                 </div>
             )}
+
+            <CustomersRanking orders={rawOrders} showAmounts={showSensitiveData} />
 
             {showCopyStockModal && (
                 <div className="copy-stock-modal-overlay" onClick={() => setShowCopyStockModal(false)}>
