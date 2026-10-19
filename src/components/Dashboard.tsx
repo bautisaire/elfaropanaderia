@@ -5,12 +5,13 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice } from "react-icons/fa";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
 import NotesManager from "./NotesManager";
-import CustomersRanking from "./CustomersRanking";
+import { useNavigate } from "react-router-dom";
+import "./CustomersRanking.css";
 import { normalizeForSearch } from "../utils/textSearch";
 import { getArgentinaDateKey } from "../utils/visitTracker";
 
@@ -52,6 +53,7 @@ interface ProductSale {
 
 export default function Dashboard() {
     const { adminPermissions, catalogProducts } = useCart();
+    const navigate = useNavigate();
     const [showNotes, setShowNotes] = useState(false);
     const [stockListCopied, setStockListCopied] = useState(false);
     const [showCopyStockModal, setShowCopyStockModal] = useState(false);
@@ -1770,7 +1772,16 @@ export default function Dashboard() {
                 </div>
             )}
 
-            <CustomersRanking orders={rawOrders} showAmounts={showSensitiveData} />
+            <div className="cr-nav-cards">
+                <button className="cr-nav-card" onClick={() => navigate('/editor/clientes')}>
+                    <span className="cr-nav-icon" style={{ background: '#3b82f6' }}><FaUsers /></span>
+                    <span><strong>Ranking de clientes</strong><small>Pedidos y monto total por teléfono</small></span>
+                </button>
+                <button className="cr-nav-card" onClick={() => navigate('/editor/ranking-productos')}>
+                    <span className="cr-nav-icon" style={{ background: '#f97316' }}><FaBreadSlice /></span>
+                    <span><strong>Ranking de productos</strong><small>Más vendidos y más ganancia</small></span>
+                </button>
+            </div>
 
             {showCopyStockModal && (
                 <div className="copy-stock-modal-overlay" onClick={() => setShowCopyStockModal(false)}>

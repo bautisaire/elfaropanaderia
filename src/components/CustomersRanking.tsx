@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FaUsers, FaTrophy, FaSearch, FaWhatsapp } from 'react-icons/fa';
 import './CustomersRanking.css';
 
-interface OrderLike {
+export interface OrderLike {
     status?: string;
     isTestOrder?: boolean;
     source?: string;
