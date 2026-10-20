@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { syncChildProducts } from "../utils/stockUtils";
+import { mapFirestoreProduct, applyDerivedStockToCatalog, getComboOptionLinkedStock } from "../utils/cartStock";
+import type { Product as CatalogProduct } from "../context/CartContext";
 import { normalizeForSearch } from "../utils/textSearch";
 import * as costing from "../utils/costing";
 import type { CostingRecipe } from "../utils/costing";
@@ -59,7 +61,7 @@ export interface FirestoreProduct {
     updatedAt?: any;
     isCombo?: boolean;
     comboItemsCount?: number;
-    comboOptions?: { name: string; image?: string; disabled?: boolean }[];
+    comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
     isQuickStock?: boolean;
 }
 
@@ -102,6 +104,13 @@ type ImageEditorTarget =
 
 export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
+    // Catálogo con stock derivado resuelto, para saber la disponibilidad real de los productos vinculados a un combo.
+    const stockCatalog = useMemo(() => {
+        const c: Record<string, CatalogProduct> = {};
+        products.forEach(p => { if (p.id) c[p.id] = mapFirestoreProduct(p.id, p as unknown as Record<string, unknown>); });
+        applyDerivedStockToCatalog(c);
+        return c;
+    }, [products]);
     const [rawMaterials, setRawMaterials] = useState<any[]>([]);
     const [globalCifUnitCost, setGlobalCifUnitCost] = useState(0);
     const [categories, setCategories] = useState<string[]>([]);
@@ -462,7 +471,87 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         }));
     };
 
-    const toggleComboOptionDisabled = (idx: number) => {
+    const setComboOptionLink = (idx: number, productId: string, variant?: string) => {
+        setFormData(prev => {
+            const newOptions = [...(prev.comboOptions || [])];
+            const updated = { ...newOptions[idx] };
+            // Firestore no acepta undefined: se borran las claves en vez de asignarlas vacías.
+            delete updated.linkedProductId;
+            delete updated.linkedVariant;
+            if (productId) {
+                updated.linkedProductId = productId;
+                if (variant) updated.linkedVariant = variant;
+            }
+            newOptions[idx] = updated;
+            return { ...prev, comboOptions: newOptions };
+        });
+    };
+
+    // Escribe el stock en el producto/variante vinculado (el stock vive ahí, el combo solo lo refleja).
+    const writeLinkedStock = async (opt: { linkedProductId?: string; linkedVariant?: string }, newQty: number): Promise<boolean> => {
+        if (!opt.linkedProductId) return false;
+        const ref = doc(db, "products", opt.linkedProductId);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) { alert("El producto vinculado ya no existe."); return false; }
+        const data = snap.data();
+        if (data.stockDependency?.productId) {
+            alert("Ese producto toma su stock de otro producto. Modificá el stock del producto padre.");
+            return false;
+        }
+        let before = 0;
+        let label = String(data.nombre || "");
+        if (opt.linkedVariant && Array.isArray(data.variants)) {
+            const variants = data.variants.map((v: { name: string; stockQuantity?: number; stock?: boolean }) => {
+                if (v.name !== opt.linkedVariant) return v;
+                before = Number(v.stockQuantity || 0);
+                return { ...v, stockQuantity: newQty, stock: newQty > 0 };
+            });
+            await updateDoc(ref, { variants });
+            label = `${label} (${opt.linkedVariant})`;
+        } else {
+            before = Number(data.stockQuantity || 0);
+            await updateDoc(ref, { stockQuantity: newQty, stock: newQty > 0 });
+        }
+        try {
+            await addDoc(collection(db, "stock_movements"), {
+                productId: opt.linkedProductId,
+                productName: label,
+                type: newQty >= before ? 'IN' : 'OUT',
+                quantity: Math.abs(newQty - before),
+                reason: 'Ajuste desde combo',
+                observation: 'Ajuste de stock desde las opciones de un combo',
+                date: new Date(),
+                stockAfter: newQty
+            });
+            if (!opt.linkedVariant) await syncChildProducts(opt.linkedProductId, newQty);
+        } catch (e) {
+            console.error("Error registrando movimiento de stock desde combo:", e);
+        }
+        return true;
+    };
+
+    const toggleComboOptionDisabled = async (idx: number) => {
+        const opt = formData.comboOptions?.[idx];
+        const linkedStock = opt ? getComboOptionLinkedStock(opt, stockCatalog) : null;
+        if (opt && linkedStock !== null) {
+            // Opción vinculada: el interruptor modifica el stock real del producto/variante.
+            const target = `${stockCatalog[String(opt.linkedProductId)]?.name || ''}${opt.linkedVariant ? ` (${opt.linkedVariant})` : ''}`;
+            try {
+                if (linkedStock > 0) {
+                    if (!window.confirm(`Esto deja en 0 el stock de "${target}" (hoy: ${linkedStock}) en todos los lugares donde se vende. ¿Continuar?`)) return;
+                    await writeLinkedStock(opt, 0);
+                } else {
+                    const answer = window.prompt(`¿Cuántas unidades hay disponibles de "${target}"?`, "1");
+                    const qty = Number(answer);
+                    if (answer === null || !(qty > 0)) return;
+                    await writeLinkedStock(opt, qty);
+                }
+            } catch (e) {
+                console.error("Error ajustando stock vinculado:", e);
+                alert("No se pudo actualizar el stock del producto vinculado.");
+            }
+            return;
+        }
         setFormData(prev => {
             const newOptions = [...(prev.comboOptions || [])];
             newOptions[idx] = { ...newOptions[idx], disabled: !newOptions[idx].disabled };
@@ -1032,7 +1121,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 
                                                 <div className="variants-list">
                                                     {formData.comboOptions?.map((opt, idx) => (
-                                                        <div key={idx} className="variant-row" style={{ alignItems: 'center', gap: '10px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '5px' }}>
+                                                        <div key={idx} className="variant-row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '5px' }}>
                                                             <div style={{ flex: 1 }}>
                                                                 <input
                                                                     placeholder="Ej. Medialuna de Manteca"
@@ -1060,19 +1149,57 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                                     </label>
                                                                 )}
 
-                                                                <button 
-                                                                    type="button" 
-                                                                    className="btn-icon-secondary" 
-                                                                    onClick={() => toggleComboOptionDisabled(idx)}
-                                                                    title={opt.disabled ? "Habilitar opción" : "Deshabilitar opción (Sin stock)"}
-                                                                    style={{ color: opt.disabled ? '#ef4444' : '#10b981', border: '1px solid #ddd', padding: '5px', borderRadius: '4px', cursor: 'pointer' }}
-                                                                >
-                                                                    {opt.disabled ? <span style={{ textDecoration: 'line-through', fontWeight: 'bold' }}>S/Stock</span> : <span style={{ fontWeight: 'bold' }}>Stock</span>}
-                                                                </button>
+                                                                {(() => {
+                                                                    const linkedStock = getComboOptionLinkedStock(opt, stockCatalog);
+                                                                    const off = linkedStock !== null ? linkedStock <= 0 : !!opt.disabled;
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn-icon-secondary"
+                                                                            onClick={() => toggleComboOptionDisabled(idx)}
+                                                                            title={linkedStock !== null
+                                                                                ? (off ? "Cargar stock del producto vinculado" : "Dejar en 0 el stock del producto vinculado")
+                                                                                : (opt.disabled ? "Habilitar opción" : "Deshabilitar opción (Sin stock)")}
+                                                                            style={{ color: off ? '#ef4444' : '#10b981', border: '1px solid #ddd', padding: '5px', borderRadius: '4px', cursor: 'pointer' }}
+                                                                        >
+                                                                            {off
+                                                                                ? <span style={{ textDecoration: 'line-through', fontWeight: 'bold' }}>S/Stock</span>
+                                                                                : <span style={{ fontWeight: 'bold' }}>Stock{linkedStock !== null ? ` (${linkedStock})` : ''}</span>}
+                                                                        </button>
+                                                                    );
+                                                                })()}
 
                                                                 <button type="button" className="btn-icon-danger" onClick={() => removeComboOption(idx)} title="Eliminar opción">
                                                                     <FaTrash />
                                                                 </button>
+                                                            </div>
+                                                            <div style={{ width: '100%', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748b' }}>
+                                                                <span>Vincular stock con:</span>
+                                                                <select
+                                                                    value={opt.linkedProductId || ''}
+                                                                    onChange={(e) => setComboOptionLink(idx, e.target.value)}
+                                                                    style={{ flex: '1 1 160px', minWidth: 0 }}
+                                                                >
+                                                                    <option value="">Sin vincular (manual)</option>
+                                                                    {products.filter(p => p.id && p.id !== formData.id).sort((a, b) => a.nombre.localeCompare(b.nombre)).map(p => (
+                                                                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                                                                    ))}
+                                                                </select>
+                                                                {opt.linkedProductId && (products.find(p => p.id === opt.linkedProductId)?.variants?.length || 0) > 0 && (
+                                                                    <select
+                                                                        value={opt.linkedVariant || ''}
+                                                                        onChange={(e) => setComboOptionLink(idx, opt.linkedProductId || '', e.target.value)}
+                                                                        style={{ flex: '1 1 140px', minWidth: 0 }}
+                                                                    >
+                                                                        <option value="">Cualquier variante</option>
+                                                                        {products.find(p => p.id === opt.linkedProductId)?.variants?.map(v => (
+                                                                            <option key={v.name} value={v.name}>{v.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
+                                                                {opt.linkedProductId && getComboOptionLinkedStock(opt, stockCatalog) === null && (
+                                                                    <span style={{ color: '#b45309', fontWeight: 600 }}>⚠ Vínculo roto (producto o variante no existe): se usa el interruptor manual</span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}

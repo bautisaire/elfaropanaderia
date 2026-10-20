@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { FaTrash, FaUserPlus, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 
@@ -24,6 +24,8 @@ interface AdminRole {
   raffle: boolean;
   is_rider: boolean;
   auto_assign_orders?: boolean;
+  primary_name?: string;
+  secondary_profile?: { name?: string } & Partial<Record<string, boolean>>;
 }
 
 const PERMISSIONS_MAP = [
@@ -135,6 +137,68 @@ export default function AdminRolesManager() {
     }
   };
 
+  const handleToggleSecondaryPermission = async (email: string, key: string, currentValue: boolean) => {
+    try {
+      await updateDoc(doc(db, 'admin_roles', email), { [`secondary_profile.${key}`]: !currentValue });
+    } catch (err) {
+      console.error('Error toggling secondary permission:', err);
+      alert('Error al actualizar permisos');
+    }
+  };
+
+  const handleEnableSecondary = async (email: string) => {
+    const secondary: Record<string, any> = { name: 'Empleado' };
+    PERMISSIONS_MAP.forEach(p => { secondary[p.key] = false; });
+    try {
+      await updateDoc(doc(db, 'admin_roles', email), { secondary_profile: secondary });
+    } catch (err) {
+      console.error(err);
+      alert('Error al habilitar el segundo usuario');
+    }
+  };
+
+  const handleDisableSecondary = async (email: string) => {
+    if (!window.confirm('¿Quitar el segundo usuario de este email?')) return;
+    try {
+      await updateDoc(doc(db, 'admin_roles', email), { secondary_profile: deleteField() });
+    } catch (err) {
+      console.error(err);
+      alert('Error al quitar el segundo usuario');
+    }
+  };
+
+  const handleRename = async (email: string, field: 'primary_name' | 'secondary_profile.name', value: string) => {
+    const name = value.trim();
+    if (!name) return;
+    try {
+      await updateDoc(doc(db, 'admin_roles', email), { [field]: name });
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar el nombre');
+    }
+  };
+
+  const renderToggles = (flags: Partial<Record<string, any>>, onToggle: (key: string, current: boolean) => void) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+      {PERMISSIONS_MAP.map(perm => {
+        const isEnabled = flags[perm.key] === true;
+        return (
+          <div key={perm.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <span style={{ fontSize: '0.9rem', color: '#334155' }}>{perm.label}</span>
+            <div
+              onClick={() => onToggle(perm.key, isEnabled)}
+              style={{ width: '44px', height: '24px', background: isEnabled ? '#10b981' : '#cbd5e1', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: 'background 0.3s' }}
+            >
+              <div style={{ width: '20px', height: '20px', background: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: isEnabled ? '22px' : '2px', transition: 'left 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const nameInputStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', width: '220px' };
+
   if (!isSuperAdmin) return null;
   if (loading) return <div>Cargando roles...</div>;
 
@@ -194,43 +258,54 @@ export default function AdminRolesManager() {
               {/* Body (Permissions Toggles) */}
               {expandedEmail === role.email && (
                 <div style={{ padding: '20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                  <h4 style={{ margin: '0 0 15px 0', color: '#475569', fontSize: '0.95rem' }}>Permisos Habilitados</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-                    {PERMISSIONS_MAP.map(perm => {
-                      // @ts-ignore
-                      const isEnabled = role[perm.key] === true;
-                      return (
-                        <div key={perm.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                          <span style={{ fontSize: '0.9rem', color: '#334155' }}>{perm.label}</span>
-                          
-                          {/* Toggle Switch */}
-                          <div 
-                            onClick={() => handleTogglePermission(role.email, perm.key, isEnabled)}
-                            style={{
-                              width: '44px',
-                              height: '24px',
-                              background: isEnabled ? '#10b981' : '#cbd5e1',
-                              borderRadius: '12px',
-                              position: 'relative',
-                              cursor: 'pointer',
-                              transition: 'background 0.3s'
-                            }}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '0 0 15px 0' }}>
+                    <h4 style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>
+                      {role.secondary_profile ? 'Usuario 1 — Permisos' : 'Permisos Habilitados'}
+                    </h4>
+                    {role.secondary_profile && (
+                      <input
+                        key={`pn-${role.email}-${role.primary_name || ''}`}
+                        defaultValue={role.primary_name || 'Administrador'}
+                        onBlur={e => handleRename(role.email, 'primary_name', e.target.value)}
+                        style={nameInputStyle}
+                        placeholder="Nombre del usuario 1"
+                      />
+                    )}
+                  </div>
+                  {renderToggles(role, (key, current) => handleTogglePermission(role.email, key, current))}
+
+                  <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px dashed #cbd5e1' }}>
+                    {!role.secondary_profile ? (
+                      <button
+                        onClick={() => handleEnableSecondary(role.email)}
+                        style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        + Habilitar segundo usuario en este email
+                      </button>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                          <h4 style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>Usuario 2 — Permisos</h4>
+                          <input
+                            key={`sn-${role.email}-${role.secondary_profile.name || ''}`}
+                            defaultValue={role.secondary_profile.name || 'Empleado'}
+                            onBlur={e => handleRename(role.email, 'secondary_profile.name', e.target.value)}
+                            style={nameInputStyle}
+                            placeholder="Nombre del usuario 2"
+                          />
+                          <button
+                            onClick={() => handleDisableSecondary(role.email)}
+                            style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}
                           >
-                            <div style={{
-                              width: '20px',
-                              height: '20px',
-                              background: '#fff',
-                              borderRadius: '50%',
-                              position: 'absolute',
-                              top: '2px',
-                              left: isEnabled ? '22px' : '2px',
-                              transition: 'left 0.3s',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                            }} />
-                          </div>
+                            Quitar segundo usuario
+                          </button>
                         </div>
-                      );
-                    })}
+                        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 15px 0' }}>
+                          Desde el panel, "Cerrar sesión / Cambiar de usuario" permite alternar. Volver al Usuario 1 pide el código.
+                        </p>
+                        {renderToggles(role.secondary_profile, (key, current) => handleToggleSecondaryPermission(role.email, key, current))}
+                      </>
+                    )}
                   </div>
                 </div>
               )}

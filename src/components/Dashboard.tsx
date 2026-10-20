@@ -1487,6 +1487,27 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+            </div>
+
+            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(240px, 360px))', marginTop: '20px' }}>
+                {/* Rankings (abren su propia página) */}
+                <div className="stat-card orders" style={{ cursor: 'pointer' }} onClick={() => navigate('/editor/clientes')} title="Ver ranking de clientes">
+                    <div className="stat-icon" style={{ background: '#3b82f6' }}><FaUsers color="#fff" /></div>
+                    <div className="stat-info">
+                        <h3>Ranking de clientes</h3>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ver clientes</p>
+                        <span className="stat-sub">Pedidos y total por teléfono</span>
+                    </div>
+                </div>
+                <div className="stat-card orders" style={{ cursor: 'pointer' }} onClick={() => navigate('/editor/ranking-productos')} title="Ver ranking de productos">
+                    <div className="stat-icon" style={{ background: '#f97316' }}><FaBreadSlice color="#fff" /></div>
+                    <div className="stat-info">
+                        <h3>Ranking de productos</h3>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ver productos</p>
+                        <span className="stat-sub">Más vendidos y más ganancia</span>
+                    </div>
+                </div>
             </div>
 
             {/* Charts Section */}
@@ -1771,17 +1792,6 @@ export default function Dashboard() {
                     </button>
                 </div>
             )}
-
-            <div className="cr-nav-cards">
-                <button className="cr-nav-card" onClick={() => navigate('/editor/clientes')}>
-                    <span className="cr-nav-icon" style={{ background: '#3b82f6' }}><FaUsers /></span>
-                    <span><strong>Ranking de clientes</strong><small>Pedidos y monto total por teléfono</small></span>
-                </button>
-                <button className="cr-nav-card" onClick={() => navigate('/editor/ranking-productos')}>
-                    <span className="cr-nav-icon" style={{ background: '#f97316' }}><FaBreadSlice /></span>
-                    <span><strong>Ranking de productos</strong><small>Más vendidos y más ganancia</small></span>
-                </button>
-            </div>
 
             {showCopyStockModal && (
                 <div className="copy-stock-modal-overlay" onClick={() => setShowCopyStockModal(false)}>

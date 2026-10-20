@@ -123,6 +123,45 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
     });
 }
 
+/**
+ * Opciones de combo vinculadas a un producto (o a una variante de uno): su disponibilidad
+ * se toma del stock real de ese producto/variante, así se maneja desde un solo lugar.
+ * Si el vínculo quedó roto (producto borrado o variante renombrada) se respeta el
+ * interruptor manual `disabled` para no mostrar como disponible algo que no se sabe.
+ */
+export function isComboLinkBroken(
+    opt: { linkedProductId?: string; linkedVariant?: string },
+    catalog: Record<string, Product>
+): boolean {
+    if (!opt.linkedProductId) return false;
+    const linked = catalog[String(opt.linkedProductId)];
+    if (!linked) return true;
+    if (opt.linkedVariant && !(linked.variants || []).some((v) => v.name === opt.linkedVariant)) return true;
+    return false;
+}
+
+export function getComboOptionLinkedStock(
+    opt: { linkedProductId?: string; linkedVariant?: string },
+    catalog: Record<string, Product>
+): number | null {
+    if (!opt.linkedProductId || isComboLinkBroken(opt, catalog)) return null;
+    return getAvailableStock(catalog[String(opt.linkedProductId)], opt.linkedVariant || null, catalog);
+}
+
+export function applyComboLinksToCatalog(catalog: Record<string, Product>): void {
+    Object.keys(catalog).forEach((id) => {
+        const product = catalog[id];
+        if (!product.isCombo || !product.comboOptions?.some((o) => o.linkedProductId)) return;
+        catalog[id] = {
+            ...product,
+            comboOptions: product.comboOptions.map((o) => {
+                const stock = getComboOptionLinkedStock(o, catalog);
+                return stock === null ? o : { ...o, disabled: stock <= 0 };
+            }),
+        };
+    });
+}
+
 export function mapFirestoreProduct(docId: string, data: Record<string, unknown>): Product {
     const stockDependency = data.stockDependency as Product["stockDependency"];
     const basePrice = (data.precio as number) || 0;

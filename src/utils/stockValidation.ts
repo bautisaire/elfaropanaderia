@@ -185,6 +185,51 @@ const checkCartStock = async (cart: Parameters<typeof validateCartStock>[0]): Pr
         }
     }
 
+    // Opciones de combo vinculadas a otro producto: si la opción elegida se agotó mientras el
+    // cliente armaba el combo, se le avisa antes de mandar el pedido.
+    const linkedIds = new Set<string>();
+    cart.forEach(item => {
+        if (item.isRaffleTicket || !Array.isArray(item.selectedComboItems)) return;
+        const options: any[] = baseDataMap.get(getBaseId(item))?.comboOptions || [];
+        options.forEach(o => { if (o?.linkedProductId) linkedIds.add(String(o.linkedProductId)); });
+    });
+    if (linkedIds.size > 0) {
+        const ids = Array.from(linkedIds);
+        const snaps = await Promise.allSettled(ids.map(id => getDoc(doc(db, "products", id))));
+        const linkedData = new Map<string, any>();
+        snaps.forEach((r, i) => {
+            if (r.status === 'fulfilled' && r.value.exists()) linkedData.set(ids[i], r.value.data());
+        });
+        for (const item of cart) {
+            if (item.isRaffleTicket || !Array.isArray(item.selectedComboItems)) continue;
+            const options: any[] = baseDataMap.get(getBaseId(item))?.comboOptions || [];
+            for (const sel of item.selectedComboItems) {
+                if (!(Number(sel.quantity) > 0)) continue;
+                const opt = options.find(o => o?.name === sel.name && o?.linkedProductId);
+                if (!opt) continue;
+                const linked = linkedData.get(String(opt.linkedProductId));
+                // Sin datos legibles, producto derivado o vínculo roto: no se bloquea (lo decide el backend / el interruptor manual).
+                if (!linked || linked.stockDependency?.productId) continue;
+                let available: number;
+                if (opt.linkedVariant && Array.isArray(linked.variants)) {
+                    const v = linked.variants.find((x: any) => x.name === opt.linkedVariant);
+                    if (!v) continue;
+                    available = Number(v.stockQuantity || 0);
+                } else {
+                    available = Number(linked.stockQuantity || 0);
+                }
+                if (available <= 0) {
+                    outOfStockItems.push({
+                        id: `${item.id}-opcion-${sel.name}`,
+                        name: `${item.name}: ${sel.name} (opción agotada)`,
+                        requested: Number(sel.quantity),
+                        available: 0
+                    });
+                }
+            }
+        }
+    }
+
     return {
         isValid: outOfStockItems.length === 0,
         outOfStockItems

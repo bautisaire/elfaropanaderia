@@ -9,6 +9,7 @@ import TicketOnlyModal from "../components/TicketOnlyModal";
 import {
   mapFirestoreProduct,
   applyDerivedStockToCatalog,
+  applyComboLinksToCatalog,
   getCartItemMaxQuantity,
   getAvailableStock,
   resolveCartItemBaseAndVariant,
@@ -51,7 +52,7 @@ export interface Product {
   description?: string;
   isCombo?: boolean;
   comboItemsCount?: number;
-  comboOptions?: { name: string; image?: string }[];
+  comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
   selectedComboItems?: { name: string; quantity: number }[];
   createdAt?: string;
   isRaffleTicket?: boolean;
@@ -82,6 +83,12 @@ interface CartContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   adminPermissions: Record<string, boolean>;
+  /** Perfiles del mismo email (ej. María / Sole). hasSecondaryProfile=false => comportamiento normal. */
+  hasSecondaryProfile: boolean;
+  activeProfile: 'primary' | 'secondary';
+  profileNames: { primary: string; secondary: string };
+  /** Cambia de perfil. Para volver al principal se exige el código. Devuelve false si el código es incorrecto. */
+  switchProfile: (target: 'primary' | 'secondary', code?: string) => boolean;
   removeCompletelyFromCart: (id: string | number) => void;
   updateCartItemPrice: (id: string | number, newPrice: number) => void;
   user: any;
@@ -97,6 +104,10 @@ interface CartContextType {
   cartHasOnlyRaffleTickets: boolean;
   requireProductWithTicket: () => void;
 }
+
+// Código para volver al perfil principal en mails con dos usuarios (control de comodidad en el cliente, no seguridad real)
+const PROFILE_SWITCH_CODE = '1978';
+const PROFILE_STORAGE_KEY = 'elfaro_active_profile';
 
 const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAIL || "").split(",").map((e: string) => e.trim());
 
@@ -124,6 +135,10 @@ export const CartContext = createContext<CartContextType>({
   isAdmin: false,
   isSuperAdmin: false,
   adminPermissions: {},
+  hasSecondaryProfile: false,
+  activeProfile: 'primary',
+  profileNames: { primary: 'Administrador', secondary: 'Empleado' },
+  switchProfile: () => false,
   removeCompletelyFromCart: () => { },
   updateCartItemPrice: () => { },
   user: null,
@@ -159,6 +174,11 @@ export const CartProvider = ({ children }: Props) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [adminPermissions, setAdminPermissions] = useState<Record<string, boolean>>({});
+  // Documento crudo de admin_roles/{email}; permite dos perfiles (principal + secondary_profile) en un mismo mail
+  const [roleDoc, setRoleDoc] = useState<Record<string, any> | null>(null);
+  const [profileChoice, setProfileChoice] = useState<{ email: string; profile: 'primary' | 'secondary' } | null>(() => {
+    try { return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || 'null'); } catch { return null; }
+  });
   const [user, setUser] = useState<any>(null);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -206,6 +226,7 @@ export const CartProvider = ({ children }: Props) => {
         });
 
         applyDerivedStockToCatalog(catalog);
+        applyComboLinksToCatalog(catalog);
         productsCatalogRef.current = catalog;
 
         Object.values(catalog).forEach((p) => {
@@ -359,6 +380,7 @@ export const CartProvider = ({ children }: Props) => {
 
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
+      setRoleDoc(null);
       if (roleUnsub) {
         roleUnsub();
         roleUnsub = null;
@@ -386,9 +408,9 @@ export const CartProvider = ({ children }: Props) => {
           setIsSuperAdmin(false);
           // Check if it's an admin in admin_roles
           roleUnsub = onSnapshot(doc(db, "admin_roles", authUser.email.toLowerCase()), (roleDoc) => {
+            setRoleDoc(roleDoc.exists() ? roleDoc.data() : null);
             if (roleDoc.exists()) {
               setIsAdmin(true);
-              setAdminPermissions(roleDoc.data() as Record<string, boolean>);
             } else if (ADMIN_EMAILS.includes(authUser.email)) {
                // Fallback to VITE_ADMIN_EMAIL for legacy if needed, but no specific permissions
                setIsAdmin(true);
@@ -448,6 +470,48 @@ export const CartProvider = ({ children }: Props) => {
       if (roleUnsub) roleUnsub();
     };
   }, []);
+
+  // Perfiles del mismo mail: el documento plano es el perfil principal y `secondary_profile` el restringido
+  const secondaryProfile: Record<string, any> | null =
+    roleDoc && roleDoc.secondary_profile && typeof roleDoc.secondary_profile === 'object' ? roleDoc.secondary_profile : null;
+  const hasSecondaryProfile = !!secondaryProfile;
+  const userEmailLower = (user?.email || '').toLowerCase();
+  // Con dos perfiles y sin elección guardada se arranca en el restringido
+  const activeProfile: 'primary' | 'secondary' =
+    hasSecondaryProfile && !(profileChoice && profileChoice.email === userEmailLower && profileChoice.profile === 'primary')
+      ? 'secondary'
+      : 'primary';
+  const profileNames = useMemo(() => ({
+    primary: (roleDoc?.primary_name as string) || 'Administrador',
+    secondary: (secondaryProfile?.name as string) || 'Empleado',
+  }), [roleDoc, secondaryProfile]);
+
+  useEffect(() => {
+    if (!roleDoc) return;
+    const primaryFlags = { ...roleDoc };
+    delete primaryFlags.secondary_profile;
+    delete primaryFlags.primary_name;
+    if (activeProfile === 'secondary' && secondaryProfile) {
+      const secFlags = secondaryProfile;
+      // Perfil restringido: cualquier permiso no marcado explícitamente queda en false
+      const restricted: Record<string, boolean> = {};
+      ['dashboard', 'orders', 'orders_can_cancel', 'orders_can_modify', 'orders_can_change_payment', 'orders_can_assign_deliveries',
+        'orders_can_edit_prices', 'pos_sales', 'notes', 'store_editor', 'costs', 'bills', 'stock', 'settings', 'employees', 'raffle',
+        'is_rider', 'auto_assign_orders'].forEach(k => { restricted[k] = secFlags[k] === true; });
+      setAdminPermissions(restricted);
+    } else {
+      setAdminPermissions(primaryFlags as Record<string, boolean>);
+    }
+  }, [roleDoc, activeProfile, secondaryProfile]);
+
+  const switchProfile = useCallback((target: 'primary' | 'secondary', code?: string) => {
+    if (!hasSecondaryProfile || !userEmailLower) return false;
+    if (target === 'primary' && code !== PROFILE_SWITCH_CODE) return false;
+    const choice = { email: userEmailLower, profile: target };
+    setProfileChoice(choice);
+    try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(choice)); } catch { /* storage no disponible */ }
+    return true;
+  }, [hasSecondaryProfile, userEmailLower]);
 
   // Favoritos en vivo (por usuario)
   useEffect(() => {
@@ -613,6 +677,10 @@ export const CartProvider = ({ children }: Props) => {
         isAdmin,
         isSuperAdmin,
         adminPermissions,
+        hasSecondaryProfile,
+        activeProfile,
+        profileNames,
+        switchProfile,
         removeCompletelyFromCart,
         user,
         catalogProducts,

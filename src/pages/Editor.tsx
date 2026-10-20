@@ -45,7 +45,11 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
-  const { adminPermissions, isSuperAdmin } = useCart();
+  const { adminPermissions, isSuperAdmin, hasSecondaryProfile, activeProfile, profileNames, switchProfile } = useCart();
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const [switchTarget, setSwitchTarget] = useState<'primary' | 'secondary' | null>(null);
+  const [switchCode, setSwitchCode] = useState('');
+  const [switchError, setSwitchError] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -157,6 +161,17 @@ export default function Editor() {
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/");
+  };
+
+  const confirmSwitch = (target: 'primary' | 'secondary', code?: string) => {
+    if (target === activeProfile) { setSwitchOpen(false); return; }
+    if (switchProfile(target, code)) {
+      setSwitchOpen(false);
+      setMobileMenuOpen(false);
+      navigate("/editor/");
+    } else {
+      setSwitchError(true);
+    }
   };
 
   const handleNavClick = (path: string) => {
@@ -338,9 +353,13 @@ export default function Editor() {
                   <div className="nav-icon" style={{ color: '#84cc16' }}><FaHome /></div>
                   <span className="nav-text">Ir al Inicio</span>
                 </button>
-                <button onClick={handleLogout} className="btn-logout-action" title="Cerrar Sesión">
+                <button
+                  onClick={hasSecondaryProfile ? () => { setSwitchOpen(true); setSwitchTarget(null); setSwitchCode(''); setSwitchError(false); } : handleLogout}
+                  className="btn-logout-action"
+                  title={hasSecondaryProfile ? "Cerrar sesión o cambiar de usuario" : "Cerrar Sesión"}
+                >
                   <div className="nav-icon"><FaSignOutAlt /></div>
-                  <span className="nav-text">Cerrar Sesión</span>
+                  <span className="nav-text">{hasSecondaryProfile ? `${profileNames[activeProfile]} · Cerrar sesión / Cambiar usuario` : "Cerrar Sesión"}</span>
                 </button>
               </div>
             </nav>
@@ -386,6 +405,68 @@ export default function Editor() {
               } />
             </Routes>
           </main>
+        </div>
+      )}
+
+      {switchOpen && hasSecondaryProfile && (
+        <div
+          onClick={() => setSwitchOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '16px' }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: '14px', padding: '24px', width: '100%', maxWidth: '360px', boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
+            <h3 style={{ margin: '0 0 6px 0', color: '#1e293b' }}>Cambiar de usuario</h3>
+            <p style={{ margin: '0 0 16px 0', color: '#64748b', fontSize: '0.9rem' }}>Estás como <b>{profileNames[activeProfile]}</b>.</p>
+
+            {(['primary', 'secondary'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => {
+                  if (p === activeProfile) return;
+                  setSwitchError(false);
+                  setSwitchCode('');
+                  if (p === 'primary') setSwitchTarget('primary');
+                  else confirmSwitch('secondary');
+                }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left', padding: '12px 14px', marginBottom: '8px', borderRadius: '10px', cursor: p === activeProfile ? 'default' : 'pointer',
+                  border: p === activeProfile ? '2px solid #10b981' : '1px solid #cbd5e1', background: p === activeProfile ? '#ecfdf5' : '#fff', fontSize: '1rem', color: '#1e293b'
+                }}
+              >
+                {profileNames[p]}{p === activeProfile ? ' (actual)' : ''}
+              </button>
+            ))}
+
+            {switchTarget === 'primary' && (
+              <form
+                onSubmit={e => { e.preventDefault(); confirmSwitch('primary', switchCode); }}
+                style={{ marginTop: '12px' }}
+              >
+                <label style={{ display: 'block', fontSize: '0.9rem', color: '#475569', marginBottom: '6px' }}>
+                  Código para entrar como {profileNames.primary}
+                </label>
+                <input
+                  autoFocus
+                  type="password"
+                  inputMode="numeric"
+                  value={switchCode}
+                  onChange={e => { setSwitchCode(e.target.value); setSwitchError(false); }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${switchError ? '#ef4444' : '#cbd5e1'}`, fontSize: '1.1rem', letterSpacing: '4px' }}
+                />
+                {switchError && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '6px' }}>Código incorrecto</div>}
+                <button type="submit" style={{ marginTop: '10px', width: '100%', padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  Entrar
+                </button>
+              </form>
+            )}
+
+            <hr style={{ margin: '16px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
+            <button
+              onClick={() => { setSwitchOpen(false); handleLogout(); }}
+              style={{ width: '100%', padding: '10px', background: '#fff', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Cerrar sesión de Google
+            </button>
+          </div>
         </div>
       )}
 
