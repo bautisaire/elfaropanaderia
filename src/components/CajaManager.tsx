@@ -52,10 +52,24 @@ const isSameDay = (d1: Date, d2: Date) => {
         d1.getDate() === d2.getDate();
 };
 
+// Los pedidos online guardan el método en minúscula / con otros nombres ('efectivo', 'transferencia', 'mercadopago'),
+// mientras que la caja usa 'Efectivo', 'Transferencia', etc. Se unifica para que cuente en el medio correcto.
+const normalizePaymentMethod = (raw?: string | null): PaymentMethod => {
+    const v = (raw || '').toString().trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!v) return 'Efectivo';
+    if (v.includes('efectivo')) return 'Efectivo';
+    if (v.includes('transfer')) return 'Transferencia';
+    if (v === 'qr' || v.includes('qr')) return 'QR';
+    if (v.includes('debito') || v.includes('tarjeta')) return 'Débito';
+    return 'Online';
+};
+
 const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
     if (!value) return null;
     return value instanceof Timestamp ? value.toDate() : value;
 };
+
+const filterSelectStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem', color: '#334155' };
 
 export default function CajaManager({ active = true, onPendingSalesChange }: { active?: boolean; onPendingSalesChange?: (count: number) => void }) {
     const { user, isSuperAdmin } = useCart();
@@ -72,6 +86,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [formPaymentMethod, setFormPaymentMethod] = useState<PaymentMethod>('Efectivo');
     const [addToExpenses, setAddToExpenses] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [filterType, setFilterType] = useState<'all' | MovementType>('all');
+    const [filterMethod, setFilterMethod] = useState<'all' | PaymentMethod>('all');
+    const [filterOrigin, setFilterOrigin] = useState<'all' | 'pedido' | 'caja' | 'manual'>('all');
     const [showOnlineInfo, setShowOnlineInfo] = useState(false);
     const [showVentasInfo, setShowVentasInfo] = useState(false);
 
@@ -128,7 +145,10 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     };
 
     const currentSessionMovements = useMemo(() => {
+        // Pedidos cancelados: sus ventas ya registradas en caja no deben seguir sumando
+        const cancelledOrderIds = new Set(rawOrders.filter(o => o.status === 'cancelado').map(o => o.id));
         const cajaMovs = movements.filter(m => {
+            if (m.type === 'venta' && m.orderId && cancelledOrderIds.has(m.orderId)) return false;
             const d = toDate(m.date);
             return d ? isInCurrentSession(d) : false;
         });
@@ -146,7 +166,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     id: `order-${o.id}`,
                     type: 'venta' as MovementType,
                     amount: Number(o.total) || 0,
-                    paymentMethod: (o.cliente?.metodoPago as PaymentMethod) || undefined,
+                    paymentMethod: normalizePaymentMethod(o.cliente?.metodoPago),
                     orderId: o.id,
                     itemCount: Array.isArray(o.items) ? o.items.length : 0,
                     date: d
@@ -176,7 +196,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         let cantVentas = 0;
 
         currentSessionMovements.forEach(m => {
-            const method = m.paymentMethod || 'Efectivo';
+            const method = normalizePaymentMethod(m.paymentMethod);
             const sign = m.type === 'egreso' ? -1 : 1;
 
             if (m.type === 'ingreso') ingresos += m.amount;
@@ -211,6 +231,19 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             cantidad: currentSessionMovements.length
         };
     }, [currentSessionMovements]);
+
+    const filteredMovements = useMemo(() => currentSessionMovements.filter(m => {
+        if (filterType !== 'all' && m.type !== filterType) return false;
+        if (filterMethod !== 'all' && normalizePaymentMethod(m.paymentMethod) !== filterMethod) return false;
+        // 'pedido' = pedidos online/delivery (no pasaron por la caja); 'caja' = ventas cargadas en caja; 'manual' = ingresos/egresos
+        if (filterOrigin === 'pedido' && !m.id.startsWith('order-')) return false;
+        if (filterOrigin === 'caja' && !(m.type === 'venta' && !m.id.startsWith('order-'))) return false;
+        if (filterOrigin === 'manual' && m.type === 'venta') return false;
+        return true;
+    }), [currentSessionMovements, filterType, filterMethod, filterOrigin]);
+
+    const filtersActive = filterType !== 'all' || filterMethod !== 'all' || filterOrigin !== 'all';
+    const filteredTotal = filteredMovements.reduce((s, m) => s + (m.type === 'egreso' ? -m.amount : m.amount), 0);
 
     const fmt = (n: number) => showAmounts ? `$${Math.round(n).toLocaleString('es-AR')}` : '***';
 
@@ -510,12 +543,49 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
 
             <div className="caja-movements-list">
                 <h3>Movimientos de la caja actual</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
+                    <select value={filterOrigin} onChange={e => setFilterOrigin(e.target.value as typeof filterOrigin)} style={filterSelectStyle} title="Origen">
+                        <option value="all">Origen: todos</option>
+                        <option value="pedido">Pedidos (online / delivery)</option>
+                        <option value="caja">Ventas cargadas en caja</option>
+                        <option value="manual">Ingresos / egresos manuales</option>
+                    </select>
+                    <select value={filterMethod} onChange={e => setFilterMethod(e.target.value as typeof filterMethod)} style={filterSelectStyle} title="Método de pago">
+                        <option value="all">Método: todos</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Débito">Débito</option>
+                        <option value="QR">QR</option>
+                        <option value="Online">Otros online</option>
+                    </select>
+                    <select value={filterType} onChange={e => setFilterType(e.target.value as typeof filterType)} style={filterSelectStyle} title="Tipo">
+                        <option value="all">Tipo: todos</option>
+                        <option value="venta">Ventas</option>
+                        <option value="ingreso">Ingresos</option>
+                        <option value="egreso">Egresos</option>
+                    </select>
+                    {filtersActive && (
+                        <>
+                            <button
+                                className="caja-secondary-btn"
+                                onClick={() => { setFilterType('all'); setFilterMethod('all'); setFilterOrigin('all'); }}
+                            >
+                                Limpiar filtros
+                            </button>
+                            <span style={{ color: '#475569', fontSize: '0.9rem' }}>
+                                {filteredMovements.length} mov. · Total {fmt(filteredTotal)}
+                            </span>
+                        </>
+                    )}
+                </div>
                 {loading ? (
                     <p className="caja-empty">Cargando...</p>
                 ) : currentSessionMovements.length === 0 ? (
                     <p className="caja-empty">Todavía no hay movimientos registrados en esta caja.</p>
+                ) : filteredMovements.length === 0 ? (
+                    <p className="caja-empty">Ningún movimiento coincide con los filtros.</p>
                 ) : (
-                    currentSessionMovements.map(m => {
+                    filteredMovements.map(m => {
                         const isRealMovement = !m.id.startsWith('order-');
                         return (
                             <div key={m.id} className={`caja-movement-row caja-movement-${m.type}`}>
