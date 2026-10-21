@@ -334,7 +334,7 @@ export default function Home() {
                 }}
                 style={{
                   width: '100%',
-                  height: '200px',
+                  aspectRatio: '4 / 3',
                   backgroundImage: `url(${activeRaffle.imageUrl})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
@@ -484,7 +484,7 @@ export default function Home() {
                 }}
                 style={{
                   width: '100%',
-                  height: '200px',
+                  aspectRatio: '4 / 3',
                   backgroundImage: `url(${activeRaffle.imageUrl})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',

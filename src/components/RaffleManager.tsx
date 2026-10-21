@@ -1160,7 +1160,7 @@ export default function RaffleManager() {
         <ProductImageEditor
           imageFile={pendingImageFile}
           previewType="simple"
-          aspectRatio={2 / 1}
+          aspectRatio={4 / 3}
           onConfirm={handleImageEditorConfirm}
           onCancel={() => {
             setPendingImageFile(null);
