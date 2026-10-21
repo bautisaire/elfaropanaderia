@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash, FaQrcode, FaInfoCircle } from 'react-icons/fa';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash, FaQrcode, FaInfoCircle, FaFilter } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVentaTabs from './CajaVentaTabs';
 import CajaStockAdjust from './CajaStockAdjust';
@@ -69,8 +69,6 @@ const toDate = (value: Timestamp | Date | null | undefined): Date | null => {
     return value instanceof Timestamp ? value.toDate() : value;
 };
 
-const filterSelectStyle: React.CSSProperties = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '0.9rem', color: '#334155' };
-
 export default function CajaManager({ active = true, onPendingSalesChange }: { active?: boolean; onPendingSalesChange?: (count: number) => void }) {
     const { user, isSuperAdmin } = useCart();
     const [view, setView] = useState<'menu' | 'venta' | 'historial' | 'stock'>('menu');
@@ -89,6 +87,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [filterType, setFilterType] = useState<'all' | MovementType>('all');
     const [filterMethod, setFilterMethod] = useState<'all' | PaymentMethod>('all');
     const [filterOrigin, setFilterOrigin] = useState<'all' | 'pedido' | 'caja' | 'manual'>('all');
+    const [showFilters, setShowFilters] = useState(false);
     const [showOnlineInfo, setShowOnlineInfo] = useState(false);
     const [showVentasInfo, setShowVentasInfo] = useState(false);
 
@@ -146,11 +145,20 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
 
     const currentSessionMovements = useMemo(() => {
         // Pedidos cancelados: sus ventas ya registradas en caja no deben seguir sumando
+        const ordersById = new Map<string, any>(rawOrders.map(o => [o.id, o]));
         const cancelledOrderIds = new Set(rawOrders.filter(o => o.status === 'cancelado').map(o => o.id));
         const cajaMovs = movements.filter(m => {
             if (m.type === 'venta' && m.orderId && cancelledOrderIds.has(m.orderId)) return false;
             const d = toDate(m.date);
             return d ? isInCurrentSession(d) : false;
+        }).map(m => {
+            // Si después se cambió el método de pago del pedido (Pedidos → editar), la caja lo sigue.
+            // Los pagos mixtos ("Efectivo + Débito") se dejan como se registraron.
+            if (m.type !== 'venta' || !m.orderId) return m;
+            const order = ordersById.get(m.orderId);
+            const current = (order?.cliente?.metodoPago || '').toString().trim();
+            if (!current || current.includes('+')) return m;
+            return { ...m, paymentMethod: normalizePaymentMethod(current) };
         });
 
         const coveredOrderIds = new Set(
@@ -242,6 +250,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         return true;
     }), [currentSessionMovements, filterType, filterMethod, filterOrigin]);
 
+    const activeFilterCount = [filterType, filterMethod, filterOrigin].filter(f => f !== 'all').length;
     const filtersActive = filterType !== 'all' || filterMethod !== 'all' || filterOrigin !== 'all';
     const filteredTotal = filteredMovements.reduce((s, m) => s + (m.type === 'egreso' ? -m.amount : m.amount), 0);
 
@@ -542,41 +551,59 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             </div>
 
             <div className="caja-movements-list">
-                <h3>Movimientos de la caja actual</h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
-                    <select value={filterOrigin} onChange={e => setFilterOrigin(e.target.value as typeof filterOrigin)} style={filterSelectStyle} title="Origen">
-                        <option value="all">Origen: todos</option>
-                        <option value="pedido">Pedidos (online / delivery)</option>
-                        <option value="caja">Ventas cargadas en caja</option>
-                        <option value="manual">Ingresos / egresos manuales</option>
-                    </select>
-                    <select value={filterMethod} onChange={e => setFilterMethod(e.target.value as typeof filterMethod)} style={filterSelectStyle} title="Método de pago">
-                        <option value="all">Método: todos</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Débito">Débito</option>
-                        <option value="QR">QR</option>
-                        <option value="Online">Otros online</option>
-                    </select>
-                    <select value={filterType} onChange={e => setFilterType(e.target.value as typeof filterType)} style={filterSelectStyle} title="Tipo">
-                        <option value="all">Tipo: todos</option>
-                        <option value="venta">Ventas</option>
-                        <option value="ingreso">Ingresos</option>
-                        <option value="egreso">Egresos</option>
-                    </select>
-                    {filtersActive && (
-                        <>
-                            <button
-                                className="caja-secondary-btn"
-                                onClick={() => { setFilterType('all'); setFilterMethod('all'); setFilterOrigin('all'); }}
-                            >
-                                Limpiar filtros
-                            </button>
-                            <span style={{ color: '#475569', fontSize: '0.9rem' }}>
-                                {filteredMovements.length} mov. · Total {fmt(filteredTotal)}
-                            </span>
-                        </>
-                    )}
+                <div className="caja-list-header">
+                    <h3>Movimientos de la caja actual</h3>
+                    <div className="caja-filter-wrap">
+                        <button
+                            className={`caja-filter-btn ${filtersActive ? 'active' : ''}`}
+                            onClick={() => setShowFilters(v => !v)}
+                            title="Filtros"
+                        >
+                            <FaFilter />
+                            {activeFilterCount > 0 && <span className="caja-filter-badge">{activeFilterCount}</span>}
+                        </button>
+                        {showFilters && (
+                            <>
+                                <div className="caja-filter-backdrop" onClick={() => setShowFilters(false)} />
+                                <div className="caja-filter-panel">
+                                    <div className="caja-filter-group">
+                                        <span className="caja-filter-label">Origen</span>
+                                        <div className="caja-filter-chips">
+                                            {([['all', 'Todos'], ['pedido', 'Pedidos'], ['caja', 'Ventas en caja'], ['manual', 'Manuales']] as const).map(([v, l]) => (
+                                                <button key={v} className={`caja-filter-chip ${filterOrigin === v ? 'active' : ''}`} onClick={() => setFilterOrigin(v)}>{l}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="caja-filter-group">
+                                        <span className="caja-filter-label">Método de pago</span>
+                                        <div className="caja-filter-chips">
+                                            {([['all', 'Todos'], ['Efectivo', 'Efectivo'], ['Transferencia', 'Transferencia'], ['Débito', 'Débito'], ['QR', 'QR'], ['Online', 'Otros online']] as const).map(([v, l]) => (
+                                                <button key={v} className={`caja-filter-chip ${filterMethod === v ? 'active' : ''}`} onClick={() => setFilterMethod(v)}>{l}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="caja-filter-group">
+                                        <span className="caja-filter-label">Tipo</span>
+                                        <div className="caja-filter-chips">
+                                            {([['all', 'Todos'], ['venta', 'Ventas'], ['ingreso', 'Ingresos'], ['egreso', 'Egresos']] as const).map(([v, l]) => (
+                                                <button key={v} className={`caja-filter-chip ${filterType === v ? 'active' : ''}`} onClick={() => setFilterType(v)}>{l}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="caja-filter-footer">
+                                        <span>{filteredMovements.length} mov. · Total {fmt(filteredTotal)}</span>
+                                        <button
+                                            className="caja-filter-clear"
+                                            disabled={!filtersActive}
+                                            onClick={() => { setFilterType('all'); setFilterMethod('all'); setFilterOrigin('all'); }}
+                                        >
+                                            Limpiar
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
                 {loading ? (
                     <p className="caja-empty">Cargando...</p>

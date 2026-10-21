@@ -505,3 +505,43 @@
 }
 .caja-bubble-row { display: flex; justify-content: space-between; align-items: center; background: #eff6ff; padding: 6px 10px; border-radius: 6px; gap: 8px; }
 .caja-bubble-row span { display: flex; align-items: center; gap: 6px; color: #1d4ed8; font-weight: 500; }
+
+/* Filtros del listado de movimientos */
+.caja-movements-list .caja-list-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.caja-movements-list .caja-list-header h3 { margin: 0; }
+.caja-filter-wrap { position: relative; }
+.caja-filter-btn {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer;
+    background: #f1f5f9; color: #475569; font-size: 0.95rem;
+}
+.caja-filter-btn:hover { background: #e2e8f0; }
+.caja-filter-btn.active { background: #065f46; color: #fff; }
+.caja-filter-badge {
+    position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px;
+    border-radius: 9px; background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+}
+.caja-filter-backdrop { position: fixed; inset: 0; z-index: 40; }
+.caja-filter-panel {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: 320px; max-width: 86vw;
+    background: #fff; border: 1px solid rgba(0,0,0,0.06); border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.18); padding: 14px; display: flex; flex-direction: column; gap: 14px;
+}
+.caja-filter-group { display: flex; flex-direction: column; gap: 6px; }
+.caja-filter-label { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+.caja-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.caja-filter-chip {
+    padding: 6px 12px; border-radius: 20px; border: 1px solid #cbd5e1; background: #fff; color: #475569;
+    cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.15s;
+}
+.caja-filter-chip:hover { background: #f1f5f9; }
+.caja-filter-chip.active { background: #065f46; border-color: #065f46; color: #fff; }
+.caja-filter-footer {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 0.82rem; color: #475569;
+}
+.caja-filter-clear {
+    background: none; border: none; color: #b91c1c; font-weight: 700; cursor: pointer; font-size: 0.82rem;
+}
+.caja-filter-clear:disabled { color: #cbd5e1; cursor: default; }
