@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, limit, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash, FaQrcode, FaInfoCircle, FaFilter } from 'react-icons/fa';
+import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaListUl, FaEye, FaEyeSlash, FaLock, FaHistory, FaArrowLeft, FaBoxOpen, FaTrash, FaQrcode, FaInfoCircle, FaFilter, FaExclamationCircle } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import CajaVentaTabs from './CajaVentaTabs';
 import CajaStockAdjust from './CajaStockAdjust';
@@ -54,6 +54,9 @@ const isSameDay = (d1: Date, d2: Date) => {
 
 // Los pedidos online guardan el método en minúscula / con otros nombres ('efectivo', 'transferencia', 'mercadopago'),
 // mientras que la caja usa 'Efectivo', 'Transferencia', etc. Se unifica para que cuente en el medio correcto.
+// Mercado Pago cobra por QR 0,8% + 21% de IVA sobre esa comisión = 0,968% (ej: $7.500 -> $72,60)
+const QR_FEE_RATE = 0.008 * 1.21;
+
 const normalizePaymentMethod = (raw?: string | null): PaymentMethod => {
     const v = (raw || '').toString().trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     if (!v) return 'Efectivo';
@@ -202,6 +205,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         let ventasEfectivo = 0;
         let ventasOnline = 0;
         let cantVentas = 0;
+        let qrVentas = 0;
 
         currentSessionMovements.forEach(m => {
             const method = normalizePaymentMethod(m.paymentMethod);
@@ -213,6 +217,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                 ventas += m.amount;
                 cantVentas += 1;
                 if (method === 'Efectivo') ventasEfectivo += m.amount; else ventasOnline += m.amount;
+                if (method === 'QR') qrVentas += m.amount;
             }
 
             if (method === 'Efectivo') efectivo += sign * m.amount;
@@ -230,6 +235,8 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             ventasEfectivo,
             ventasOnline,
             cantVentas,
+            qrVentas,
+            qrComision: qrVentas * QR_FEE_RATE,
             efectivo,
             transferencia,
             debito,
@@ -518,6 +525,12 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                     <div className="caja-bubble-row"><span><FaExchangeAlt /> Transferencia</span><strong>{fmt(stats.transferencia)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaCreditCard /> Débito</span><strong>{fmt(stats.debito)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaQrcode /> QR</span><strong>{fmt(stats.qr)}</strong></div>
+                                    {stats.qrComision > 0 && (
+                                        <div className="caja-bubble-row" style={{ background: '#fef2f2' }}>
+                                            <span style={{ color: '#b91c1c' }}><FaExclamationCircle /> Comisión QR ({(QR_FEE_RATE * 100).toFixed(3).replace('.', ',')}%)</span>
+                                            <strong style={{ color: '#b91c1c' }}>-{showAmounts ? `$${stats.qrComision.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '***'}</strong>
+                                        </div>
+                                    )}
                                     {stats.onlineGen !== 0 && <div className="caja-bubble-row"><span><FaExchangeAlt /> Otros (sin detallar)</span><strong>{fmt(stats.onlineGen)}</strong></div>}
                                 </div>
                             )}
