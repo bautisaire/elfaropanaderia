@@ -91,6 +91,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [filterMethod, setFilterMethod] = useState<'all' | PaymentMethod>('all');
     const [filterOrigin, setFilterOrigin] = useState<'all' | 'pedido' | 'caja' | 'manual'>('all');
     const [showFilters, setShowFilters] = useState(false);
+    const [feeInfoId, setFeeInfoId] = useState<string | null>(null);
     const [showOnlineInfo, setShowOnlineInfo] = useState(false);
     const [showVentasInfo, setShowVentasInfo] = useState(false);
 
@@ -636,7 +637,33 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                 <span className="caja-movement-qty">
                                     {m.type === 'venta' && m.itemCount ? `${m.itemCount} ${m.itemCount === 1 ? 'producto' : 'productos'}` : ''}
                                 </span>
-                                <span className="caja-movement-method">{m.paymentMethod || ''}</span>
+                                <span className="caja-movement-method">
+                                    {m.paymentMethod || ''}
+                                    {m.type === 'venta' && normalizePaymentMethod(m.paymentMethod) === 'QR' && (
+                                        <span
+                                            className="caja-info-trigger"
+                                            onMouseEnter={() => setFeeInfoId(m.id)}
+                                            onMouseLeave={() => setFeeInfoId(null)}
+                                            onClick={(e) => { e.stopPropagation(); setFeeInfoId(feeInfoId === m.id ? null : m.id); }}
+                                        >
+                                            <FaExclamationCircle color="#ef4444" size={14} title="Comisión de esta venta" />
+                                            {feeInfoId === m.id && (
+                                                <div className="caja-info-bubble" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="caja-bubble-pointer" />
+                                                    <h4>Comisión QR (Mercado Pago)</h4>
+                                                    <div className="caja-bubble-row" style={{ background: '#fef2f2' }}>
+                                                        <span style={{ color: '#b91c1c' }}>Descontado ({(QR_FEE_RATE * 100).toFixed(3).replace('.', ',')}%)</span>
+                                                        <strong style={{ color: '#b91c1c' }}>-{showAmounts ? `$${(m.amount * QR_FEE_RATE).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '***'}</strong>
+                                                    </div>
+                                                    <div className="caja-bubble-row">
+                                                        <span>Neto a recibir</span>
+                                                        <strong>{showAmounts ? `$${(m.amount * (1 - QR_FEE_RATE)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '***'}</strong>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </span>
+                                    )}
+                                </span>
                                 <span className="caja-movement-time">{formatTime(m.date)}</span>
                                 <span className={`caja-movement-amount ${m.type === 'egreso' ? 'negative' : 'positive'}`}>
                                     {showAmounts ? `${m.type === 'egreso' ? '-' : '+'}${fmt(m.amount)}` : '***'}
