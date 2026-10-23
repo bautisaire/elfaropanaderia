@@ -15,14 +15,16 @@ interface ComboSelectionModalProps {
 export default function ComboSelectionModal({ product, isOpen, onClose, onAddToCart }: ComboSelectionModalProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const totalRequired = product.comboItemsCount || 0;
-  const isSingleChoice = totalRequired === 1;
+  // Combo de 1 ítem que permite sumar varias opciones/unidades (sin tope).
+  const isFreeChoice = totalRequired === 1 && !!product.comboAllowMultiple;
+  const isSingleChoice = totalRequired === 1 && !isFreeChoice;
   // Elección simple: una sola opción y una sola unidad por combo.
   const singleChoiceMax = 1;
 
   useEffect(() => {
     if (isOpen) {
       let initialQuantities: Record<string, number> = {};
-      if (product.comboOptions && product.comboOptions.length > 0 && totalRequired > 0 && !isSingleChoice) {
+      if (product.comboOptions && product.comboOptions.length > 0 && totalRequired > 0 && !isSingleChoice && !isFreeChoice) {
         const availableOptions = product.comboOptions.filter(opt => !(opt as any).disabled);
         const optionsCount = availableOptions.length;
         
@@ -38,7 +40,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
       }
       setQuantities(initialQuantities);
     }
-  }, [isOpen, product.comboOptions, totalRequired, isSingleChoice]);
+  }, [isOpen, product.comboOptions, totalRequired, isSingleChoice, isFreeChoice]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,10 +51,10 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
   if (!isOpen || !product.isCombo) return null;
 
   const totalSelected = Object.values(quantities).reduce((sum, q) => sum + q, 0);
-  const isComplete = isSingleChoice ? totalSelected > 0 : totalSelected === totalRequired;
+  const isComplete = (isSingleChoice || isFreeChoice) ? totalSelected > 0 : totalSelected === totalRequired;
 
   const handleIncrement = (optionName: string) => {
-    if (totalSelected < totalRequired) {
+    if (isFreeChoice || totalSelected < totalRequired) {
       setQuantities(prev => ({
         ...prev,
         [optionName]: (prev[optionName] || 0) + 1
@@ -110,7 +112,9 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
         <div className="combo-modal-header">
           <h2>{isSingleChoice ? 'Seleccioná' : 'Armá'} tu {product.name}</h2>
           <p className="combo-progress">
-            {isSingleChoice ? (
+            {isFreeChoice ? (
+              <>Elegí las que quieras: <strong>{totalSelected}</strong> seleccionadas</>
+            ) : isSingleChoice ? (
               <>Elegí <strong>1</strong> opción</>
             ) : (
               <>Seleccionadas: <strong>{totalSelected}</strong> / {totalRequired}</>
@@ -119,7 +123,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
           <div className="combo-progress-bar">
             <div
               className="combo-progress-fill"
-              style={{ width: `${(totalSelected / (isSingleChoice ? singleChoiceMax : totalRequired)) * 100}%`, background: isComplete ? '#3EE8CB' : '#f59e0b' }}
+              style={{ width: `${isFreeChoice ? (totalSelected > 0 ? 100 : 0) : (totalSelected / (isSingleChoice ? singleChoiceMax : totalRequired)) * 100}%`, background: isComplete ? '#3EE8CB' : '#f59e0b' }}
             ></div>
           </div>
         </div>
@@ -181,7 +185,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
                       type="button"
                       className="combo-ctrl-btn" 
                       onClick={() => handleIncrement(opt.name)}
-                      disabled={totalSelected >= totalRequired || isOptionDisabled}
+                      disabled={(!isFreeChoice && totalSelected >= totalRequired) || isOptionDisabled}
                     >
                       <FaPlus />
                     </button>
@@ -204,7 +208,7 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
           >
             {isComplete
               ? 'Agregar al Carrito'
-              : (isSingleChoice ? 'Seleccioná una opción' : `Faltan elegir ${totalRequired - totalSelected}`)}
+              : ((isSingleChoice || isFreeChoice) ? 'Seleccioná una opción' : `Faltan elegir ${totalRequired - totalSelected}`)}
           </button>
         </div>
       </div>

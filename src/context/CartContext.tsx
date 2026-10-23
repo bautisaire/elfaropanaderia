@@ -52,6 +52,7 @@ export interface Product {
   description?: string;
   isCombo?: boolean;
   comboItemsCount?: number;
+  comboAllowMultiple?: boolean;
   comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
   selectedComboItems?: { name: string; quantity: number }[];
   createdAt?: string;

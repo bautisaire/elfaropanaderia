@@ -192,6 +192,7 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         createdAt: data.createdAt ? new Date((data.createdAt as any).seconds * 1000).toISOString() : new Date().toISOString(),
         isCombo: data.isCombo as boolean | undefined,
         comboItemsCount: data.comboItemsCount as number | undefined,
+        comboAllowMultiple: data.comboAllowMultiple as boolean | undefined,
         comboOptions: data.comboOptions as any[] | undefined,
     };
 }

@@ -61,6 +61,7 @@ export interface FirestoreProduct {
     updatedAt?: any;
     isCombo?: boolean;
     comboItemsCount?: number;
+    comboAllowMultiple?: boolean;
     comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
     isQuickStock?: boolean;
 }
@@ -1051,7 +1052,19 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                         min="1"
                                                     />
                                                 </div>
-                                                
+
+                                                {Number(formData.comboItemsCount) === 1 && (
+                                                    <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            name="comboAllowMultiple"
+                                                            checked={!!formData.comboAllowMultiple}
+                                                            onChange={handleInputChange}
+                                                        />
+                                                        <span style={{ color: '#0369a1' }}>Permitir elegir varias opciones (cada una suma una unidad)</span>
+                                                    </label>
+                                                )}
+
                                                 <div className="variants-header" style={{ borderBottom: '1px solid #bae6fd', paddingBottom: '10px', marginBottom: '10px' }}>
                                                     <label style={{ color: '#0369a1' }}>Opciones del Combo</label>
                                                     <button type="button" className="btn-secondary btn-sm" onClick={addComboOption}><FaPlus /> Agregar Opción</button>

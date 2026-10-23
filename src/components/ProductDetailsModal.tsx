@@ -279,7 +279,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                     onClose={() => setShowComboModal(false)}
                     onAddToCart={(_, comboItems) => {
                         const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
-                        const isSingleChoiceCombo = (product.comboItemsCount || 0) === 1;
+                        const isSingleChoiceCombo = (product.comboItemsCount || 0) === 1;  // incluye el modo de elección libre
                         const totalQty = isSingleChoiceCombo
                             ? comboItems.reduce((sum, item) => sum + item.quantity, 0)
                             : 1;

@@ -359,7 +359,11 @@ export default function ProductCard({ product, onOpenDetails }: Props) {
                name: selectedVariant ? `${liveProduct.name} (${selectedVariant})` : liveProduct.name,
                selectedComboItems: comboItems
              };
-             addToCart(productToAdd, 1);
+             // Combo de 1 ítem: cada opción elegida suma una unidad al carrito.
+             const totalQty = (liveProduct.comboItemsCount || 0) === 1
+               ? Math.max(1, comboItems.reduce((sum, item) => sum + item.quantity, 0))
+               : 1;
+             addToCart(productToAdd, totalQty);
           }}
         />
       )}
