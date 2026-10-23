@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import ProductSearch from './ProductSearch';
 import { db, storage } from "../firebase/firebaseConfig";
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { syncChildProducts } from "../utils/stockUtils";
 import { mapFirestoreProduct, applyDerivedStockToCatalog, getComboOptionLinkedStock } from "../utils/cartStock";
@@ -487,71 +487,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         });
     };
 
-    // Escribe el stock en el producto/variante vinculado (el stock vive ahí, el combo solo lo refleja).
-    const writeLinkedStock = async (opt: { linkedProductId?: string; linkedVariant?: string }, newQty: number): Promise<boolean> => {
-        if (!opt.linkedProductId) return false;
-        const ref = doc(db, "products", opt.linkedProductId);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) { alert("El producto vinculado ya no existe."); return false; }
-        const data = snap.data();
-        if (data.stockDependency?.productId) {
-            alert("Ese producto toma su stock de otro producto. Modificá el stock del producto padre.");
-            return false;
-        }
-        let before = 0;
-        let label = String(data.nombre || "");
-        if (opt.linkedVariant && Array.isArray(data.variants)) {
-            const variants = data.variants.map((v: { name: string; stockQuantity?: number; stock?: boolean }) => {
-                if (v.name !== opt.linkedVariant) return v;
-                before = Number(v.stockQuantity || 0);
-                return { ...v, stockQuantity: newQty, stock: newQty > 0 };
-            });
-            await updateDoc(ref, { variants });
-            label = `${label} (${opt.linkedVariant})`;
-        } else {
-            before = Number(data.stockQuantity || 0);
-            await updateDoc(ref, { stockQuantity: newQty, stock: newQty > 0 });
-        }
-        try {
-            await addDoc(collection(db, "stock_movements"), {
-                productId: opt.linkedProductId,
-                productName: label,
-                type: newQty >= before ? 'IN' : 'OUT',
-                quantity: Math.abs(newQty - before),
-                reason: 'Ajuste desde combo',
-                observation: 'Ajuste de stock desde las opciones de un combo',
-                date: new Date(),
-                stockAfter: newQty
-            });
-            if (!opt.linkedVariant) await syncChildProducts(opt.linkedProductId, newQty);
-        } catch (e) {
-            console.error("Error registrando movimiento de stock desde combo:", e);
-        }
-        return true;
-    };
-
-    const toggleComboOptionDisabled = async (idx: number) => {
-        const opt = formData.comboOptions?.[idx];
-        const linkedStock = opt ? getComboOptionLinkedStock(opt, stockCatalog) : null;
-        if (opt && linkedStock !== null) {
-            // Opción vinculada: el interruptor modifica el stock real del producto/variante.
-            const target = `${stockCatalog[String(opt.linkedProductId)]?.name || ''}${opt.linkedVariant ? ` (${opt.linkedVariant})` : ''}`;
-            try {
-                if (linkedStock > 0) {
-                    if (!window.confirm(`Esto deja en 0 el stock de "${target}" (hoy: ${linkedStock}) en todos los lugares donde se vende. ¿Continuar?`)) return;
-                    await writeLinkedStock(opt, 0);
-                } else {
-                    const answer = window.prompt(`¿Cuántas unidades hay disponibles de "${target}"?`, "1");
-                    const qty = Number(answer);
-                    if (answer === null || !(qty > 0)) return;
-                    await writeLinkedStock(opt, qty);
-                }
-            } catch (e) {
-                console.error("Error ajustando stock vinculado:", e);
-                alert("No se pudo actualizar el stock del producto vinculado.");
-            }
-            return;
-        }
+    // El vínculo solo apaga la opción cuando el producto/variante vinculado queda sin stock;
+    // este interruptor es propio del combo y no toca el stock del producto vinculado.
+    const toggleComboOptionDisabled = (idx: number) => {
         setFormData(prev => {
             const newOptions = [...(prev.comboOptions || [])];
             newOptions[idx] = { ...newOptions[idx], disabled: !newOptions[idx].disabled };
@@ -1151,20 +1089,21 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
 
                                                                 {(() => {
                                                                     const linkedStock = getComboOptionLinkedStock(opt, stockCatalog);
-                                                                    const off = linkedStock !== null ? linkedStock <= 0 : !!opt.disabled;
+                                                                    const linkedOff = linkedStock !== null && linkedStock <= 0;
+                                                                    const off = linkedOff || !!opt.disabled;
                                                                     return (
                                                                         <button
                                                                             type="button"
                                                                             className="btn-icon-secondary"
                                                                             onClick={() => toggleComboOptionDisabled(idx)}
-                                                                            title={linkedStock !== null
-                                                                                ? (off ? "Cargar stock del producto vinculado" : "Dejar en 0 el stock del producto vinculado")
+                                                                            title={linkedOff
+                                                                                ? "Desactivada porque el producto/variante vinculado está sin stock"
                                                                                 : (opt.disabled ? "Habilitar opción" : "Deshabilitar opción (Sin stock)")}
                                                                             style={{ color: off ? '#ef4444' : '#10b981', border: '1px solid #ddd', padding: '5px', borderRadius: '4px', cursor: 'pointer' }}
                                                                         >
                                                                             {off
                                                                                 ? <span style={{ textDecoration: 'line-through', fontWeight: 'bold' }}>S/Stock</span>
-                                                                                : <span style={{ fontWeight: 'bold' }}>Stock{linkedStock !== null ? ` (${linkedStock})` : ''}</span>}
+                                                                                : <span style={{ fontWeight: 'bold' }}>Stock</span>}
                                                                         </button>
                                                                     );
                                                                 })()}

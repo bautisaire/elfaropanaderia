@@ -124,8 +124,8 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
 }
 
 /**
- * Opciones de combo vinculadas a un producto (o a una variante de uno): su disponibilidad
- * se toma del stock real de ese producto/variante, así se maneja desde un solo lugar.
+ * Opciones de combo vinculadas a un producto (o a una variante de uno): si ese producto/variante
+ * se desactiva (sin stock) la opción también se desactiva, sin consumir ni controlar su stock.
  * Si el vínculo quedó roto (producto borrado o variante renombrada) se respeta el
  * interruptor manual `disabled` para no mostrar como disponible algo que no se sabe.
  */
@@ -156,7 +156,9 @@ export function applyComboLinksToCatalog(catalog: Record<string, Product>): void
             ...product,
             comboOptions: product.comboOptions.map((o) => {
                 const stock = getComboOptionLinkedStock(o, catalog);
-                return stock === null ? o : { ...o, disabled: stock <= 0 };
+                // El vínculo solo apaga la opción; el stock del combo es independiente y el
+                // interruptor manual (`disabled`) se respeta aunque el producto vinculado esté activo.
+                return stock === null ? o : { ...o, disabled: !!o.disabled || stock <= 0 };
             }),
         };
     });
