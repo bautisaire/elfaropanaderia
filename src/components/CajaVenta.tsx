@@ -30,6 +30,7 @@ interface Product {
     unitType?: 'unit' | 'weight';
     stockDependency?: { productId: string; unitsToDeduct?: number };
     isHiddenInPOS?: boolean;
+    isFrequent?: boolean;
     discount?: number;
     priceTiers?: PriceTier[];
 }
@@ -378,6 +379,22 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         });
     };
 
+    // Producto frecuente: un toque agrega 1 unidad directo a la caja (los de peso piden el peso).
+    const quickAddFrequent = (product: Product, variant?: string) => {
+        if (product.unitType === 'weight') {
+            openEntryModal(product, variant);
+            return;
+        }
+        const freshProduct = products.find(p => p.id === product.id) || product;
+        const maxStock = getMaxStock(freshProduct, variant);
+        const already = getQuantityAlreadyInCart(freshProduct.id, variant);
+        if (already + 1 > maxStock) {
+            handleStockError(freshProduct, variant, `No hay suficiente stock. Solicitado: ${already + 1}, Disponible: ${maxStock}.`, (already + 1) - maxStock, 1);
+            return;
+        }
+        addRowToCart(freshProduct, variant, 1);
+    };
+
     const confirmQuantity = () => {
         if (!pendingProduct) return;
         const qty = parseInt(quantityInput, 10);
@@ -688,6 +705,19 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             if (!p.isHiddenInPOS && p.categoria) set.add(p.categoria);
         });
         return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [products]);
+
+    const frequentItems = useMemo(() => {
+        const items: { product: Product; variant?: string; label: string }[] = [];
+        products.forEach(p => {
+            if (p.isHiddenInPOS || !p.isFrequent) return;
+            if (p.variants && p.variants.length > 0) {
+                p.variants.forEach(v => items.push({ product: p, variant: v.name, label: `${p.nombre} (${v.name})` }));
+            } else {
+                items.push({ product: p, label: p.nombre });
+            }
+        });
+        return items.sort((a, b) => a.label.localeCompare(b.label));
     }, [products]);
 
     const filteredResults = useMemo(() => {
@@ -1279,6 +1309,23 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                 placeholder="Buscar producto por nombre... (o escaneá/ingresá un código sin hacer clic acá)"
                             />
                         </div>
+                        {frequentItems.length > 0 && !addModalStockMode && (
+                            <div className="caja-venta-frequent">
+                                <span className="caja-venta-frequent-title">⭐ Frecuentes</span>
+                                <div className="caja-venta-frequent-list">
+                                    {frequentItems.map((item, idx) => (
+                                        <button
+                                            key={`${item.product.id}-${item.variant || 'base'}-${idx}`}
+                                            type="button"
+                                            className="caja-venta-frequent-btn"
+                                            onClick={() => quickAddFrequent(item.product, item.variant)}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {posCategories.length > 0 && (
                             <div className="caja-venta-category-chips">
                                 <button

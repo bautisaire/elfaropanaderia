@@ -45,6 +45,7 @@ export interface FirestoreProduct {
     }[];
     isVisible?: boolean;
     isHiddenInPOS?: boolean;
+    isFrequent?: boolean;
     unitType?: 'unit' | 'weight'; // 'unit' (default) or 'weight' (kilos)
     unitsPerProduct?: number; // Equivalencia de unidades
     trackInDashboard?: boolean;
@@ -83,6 +84,7 @@ const INITIAL_STATE: FirestoreProduct = {
     variants: [],
     isVisible: true,
     isHiddenInPOS: false,
+    isFrequent: false,
     unitType: 'unit',
     unitsPerProduct: 1,
     trackInDashboard: false,
@@ -985,6 +987,18 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 onChange={handleInputChange}
                                             />
                                             <strong style={{ color: '#d97706' }}>Ocultar en POS</strong>
+                                        </label>
+                                    </div>
+
+                                    <div className="form-group quarter checkbox-group-styled">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="isFrequent"
+                                                checked={!!formData.isFrequent}
+                                                onChange={handleInputChange}
+                                            />
+                                            <strong style={{ color: '#b45309' }}>⭐ Producto frecuente</strong>
                                         </label>
                                     </div>
 

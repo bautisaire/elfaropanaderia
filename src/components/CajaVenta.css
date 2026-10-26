@@ -517,11 +517,46 @@
     font-size: 1rem;
 }
 
+.caja-venta-frequent {
+    padding: 10px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fffbeb;
+}
+
+.caja-venta-frequent-title {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #b45309;
+}
+
+.caja-venta-frequent-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.caja-venta-frequent-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid #fcd34d;
+    background: #fff;
+    color: #92400e;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.caja-venta-frequent-btn:active {
+    background: #fef3c7;
+}
+
 .caja-venta-category-chips {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
     padding: 10px 20px;
-    overflow-x: auto;
     border-bottom: 1px solid #f1f5f9;
 }
 

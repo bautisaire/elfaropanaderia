@@ -564,7 +564,7 @@ export default function StockManager() {
             </div>
 
             {(activeTab === 'catalog' || activeTab === 'inventory' || activeTab === 'bulk') && stockCategories.length > 0 && (
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
                     {['', ...stockCategories].map(cat => (
                         <button
                             key={cat || 'all'}
