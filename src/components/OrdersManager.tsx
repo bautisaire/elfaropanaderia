@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
-import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt, FaShoppingBag } from 'react-icons/fa';
 import ProductSearch from "./ProductSearch";
 import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
@@ -948,7 +948,7 @@ export default function OrdersManager() {
                                         return activeTab === 'pos' ? isPos : !isPos;
                                     }).map((order) => {
                                         const rowPickup = orderIsPickup(order);
-                                        const rowStatusOptions = statusOptions.map(o => ({ ...o, label: adminStatusLabel(o.value, o.label, rowPickup) }));
+                                        const rowStatusOptions = statusOptions.map(o => ({ ...o, label: adminStatusLabel(o.value, o.label, rowPickup), icon: rowPickup && o.value === 'enviado' ? <FaShoppingBag /> : o.icon }));
                                         const currentStatus = rowStatusOptions.find(s => s.value === order.status) || rowStatusOptions[0];
 
                                         return (
@@ -972,7 +972,15 @@ export default function OrdersManager() {
                                                     </td>
                                                     <td className="col-cliente">
                                                         <div className="order-cell-client">
-                                                            <strong>{order.cliente.nombre}</strong>
+                                                            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                {activeTab === 'deliveries' && <span
+                                                                    title={rowPickup ? 'Retiro en el local' : 'Envío'}
+                                                                    style={{ display: 'inline-flex', color: rowPickup ? '#d97706' : '#8b5cf6' }}
+                                                                >
+                                                                    {rowPickup ? <FaShoppingBag size={14} /> : <FaMotorcycle size={14} />}
+                                                                </span>}
+                                                                {order.cliente.nombre}
+                                                            </strong>
                                                             {activeTab === 'deliveries' && (
                                                                 <div className="client-contact-icons">
                                                                     {order.cliente.telefono && <FaPhone size={12} title={order.cliente.telefono} />}
