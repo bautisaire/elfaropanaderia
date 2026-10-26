@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { collection, doc, runTransaction, onSnapshot } from 'firebase/firestore';
+import { collection, doc, runTransaction, onSnapshot, updateDoc, deleteField } from 'firebase/firestore';
 import { FaPlus, FaTrash, FaTimes, FaSearch, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaEdit, FaBoxOpen, FaQrcode } from 'react-icons/fa';
 import { syncChildProducts } from '../utils/stockUtils';
 import { shouldMarkOrderAsTest } from '../utils/testMode';
@@ -31,6 +31,8 @@ interface Product {
     stockDependency?: { productId: string; unitsToDeduct?: number };
     isHiddenInPOS?: boolean;
     isFrequent?: boolean;
+    frequentSlot?: number;
+    frequentVariant?: string;
     discount?: number;
     priceTiers?: PriceTier[];
 }
@@ -99,12 +101,16 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     const [addModalStockMode, setAddModalStockMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [assigningSlot, setAssigningSlot] = useState<number | null>(null);
+    // Los accesos rápidos no deben mover el foco al cobro en efectivo (así se sigue agregando).
+    const skipPaymentFocusRef = useRef(false);
     const [addModalError, setAddModalError] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const closeAddModal = () => {
         setIsAddModalOpen(false);
         setAddModalStockMode(false);
+        setAssigningSlot(null);
     };
 
     const [codeBuffer, setCodeBuffer] = useState('');
@@ -153,6 +159,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             }
             if (e.key === 'Enter') {
                 if (modalConfig.type === 'success') {
+                    e.preventDefault();
                     setModalConfig(prev => ({ ...prev, isOpen: false }));
                     return;
                 }
@@ -237,6 +244,12 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     // Selección de producto desde el picker de "Agregar Producto": en modo normal se agrega
     // al carrito, en modo "Ajustar Stock" abre directamente el ajuste de stock del producto.
     const handleProductPicked = (product: Product, variant?: string) => {
+        if (assigningSlot !== null) {
+            const slot = assigningSlot;
+            closeAddModal();
+            assignFrequentSlot(slot, product, variant);
+            return;
+        }
         if (addModalStockMode) {
             openStockAdjustModal(product, variant);
         } else {
@@ -392,6 +405,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             handleStockError(freshProduct, variant, `No hay suficiente stock. Solicitado: ${already + 1}, Disponible: ${maxStock}.`, (already + 1) - maxStock, 1);
             return;
         }
+        skipPaymentFocusRef.current = true;
+        setTimeout(() => { skipPaymentFocusRef.current = false; }, 300);
         addRowToCart(freshProduct, variant, 1);
     };
 
@@ -707,18 +722,52 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         return Array.from(set).sort((a, b) => a.localeCompare(b));
     }, [products]);
 
-    const frequentItems = useMemo(() => {
-        const items: { product: Product; variant?: string; label: string }[] = [];
-        products.forEach(p => {
-            if (p.isHiddenInPOS || !p.isFrequent) return;
-            if (p.variants && p.variants.length > 0) {
-                p.variants.forEach(v => items.push({ product: p, variant: v.name, label: `${p.nombre} (${v.name})` }));
-            } else {
-                items.push({ product: p, label: p.nombre });
-            }
+    // Casillas 1-9 de productos frecuentes: primero los que tienen casilla asignada,
+    // los marcados como frecuentes sin casilla completan las casillas libres.
+    const frequentSlots = useMemo(() => {
+        const slots: ({ product: Product; variant?: string } | null)[] = Array(9).fill(null);
+        const pool = products.filter(p => p.isFrequent && !p.isHiddenInPOS);
+        const unslotted: Product[] = [];
+        pool.forEach(p => {
+            const n = p.frequentSlot;
+            if (n && n >= 1 && n <= 9 && !slots[n - 1]) slots[n - 1] = { product: p, variant: p.frequentVariant };
+            else unslotted.push(p);
         });
-        return items.sort((a, b) => a.label.localeCompare(b.label));
+        unslotted.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        unslotted.forEach(p => {
+            const free = slots.findIndex(x => x === null);
+            if (free === -1) return;
+            const variant = p.variants && p.variants.length > 0 ? (p.frequentVariant || p.variants[0].name) : undefined;
+            slots[free] = { product: p, variant };
+        });
+        return slots;
     }, [products]);
+
+    const assignFrequentSlot = async (slot: number, product: Product, variant?: string) => {
+        try {
+            const prev = frequentSlots[slot - 1];
+            if (prev && prev.product.id !== product.id) {
+                await updateDoc(doc(db, 'products', prev.product.id), { isFrequent: false, frequentSlot: deleteField(), frequentVariant: deleteField() });
+            }
+            await updateDoc(doc(db, 'products', product.id), {
+                isFrequent: true,
+                frequentSlot: slot,
+                frequentVariant: variant ?? deleteField()
+            });
+        } catch (err) {
+            console.error('Error asignando producto frecuente:', err);
+        }
+    };
+
+    const clearFrequentSlot = async (slot: number) => {
+        const cur = frequentSlots[slot - 1];
+        if (!cur) return;
+        try {
+            await updateDoc(doc(db, 'products', cur.product.id), { isFrequent: false, frequentSlot: deleteField(), frequentVariant: deleteField() });
+        } catch (err) {
+            console.error('Error quitando producto frecuente:', err);
+        }
+    };
 
     const filteredResults = useMemo(() => {
         const term = normalizeForSearch(searchTerm.trim());
@@ -1048,6 +1097,10 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     // Al cargar productos, el input de Efectivo queda seleccionado para escribir el monto recibido.
     useEffect(() => {
         if (!active || cart.length === 0) return;
+        if (skipPaymentFocusRef.current) {
+            skipPaymentFocusRef.current = false;
+            return;
+        }
         if (isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || editRowKey || envioModalOpen) return;
         const t = setTimeout(() => {
             const el = paymentInputRefs.current.Efectivo;
@@ -1074,6 +1127,23 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     // Keyboard shortcuts on the main sale screen: E/T/D activate the matching payment
     // method's input, Enter charges the sale. Disabled while any modal/overlay is open,
     // and E/T/D are skipped while typing elsewhere so they don't hijack normal typing.
+    // Al entrar a la pestaña de venta, soltar cualquier campo enfocado para que los atajos funcionen.
+    useEffect(() => {
+        if (!active) return;
+        const el = document.activeElement as HTMLElement | null;
+        if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) el.blur();
+    }, [active]);
+
+    // Si un modal se cierra con Enter, ese mismo Enter no debe cobrar la venta: se ignora
+    // cualquier Enter que llegue justo después de que el último modal se cerró.
+    const anyModalOpenNow = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey || envioModalOpen;
+    const modalClosedAtRef = useRef(0);
+    const prevModalOpenRef = useRef(false);
+    useEffect(() => {
+        if (prevModalOpenRef.current && !anyModalOpenNow) modalClosedAtRef.current = Date.now();
+        prevModalOpenRef.current = anyModalOpenNow;
+    }, [anyModalOpenNow]);
+
     useEffect(() => {
         const anyModalOpen = isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || !!editRowKey || envioModalOpen;
         if (anyModalOpen) return;
@@ -1081,8 +1151,20 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         if (!active) return;
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Enter') {
+                // Un Enter ya atendido por un modal (editar fila, cantidad, etc.) no cobra la venta.
+                if (e.defaultPrevented || e.repeat || Date.now() - modalClosedAtRef.current < 400) return;
                 e.preventDefault();
                 handleConfirmSale();
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                // Sale del campo de cobro seleccionado para volver a usar los atajos (1-9, E/T/D/Q, espacio).
+                const focused = document.activeElement as HTMLElement | null;
+                if (focused && PAYMENT_METHODS_ORDER.some(m => paymentInputRefs.current[m] === focused)) {
+                    e.preventDefault();
+                    focused.blur();
+                }
                 return;
             }
 
@@ -1107,6 +1189,12 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             } else if (e.key === ' ') {
                 e.preventDefault();
                 setIsAddModalOpen(true);
+            } else if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && (isPaymentInput && cart.length === 0 ? true : tag !== 'input' && tag !== 'textarea' && tag !== 'select')) {
+                const slot = frequentSlots[Number(e.key) - 1];
+                if (slot) {
+                    e.preventDefault();
+                    quickAddFrequent(slot.product, slot.variant);
+                }
             }
         };
 
@@ -1159,6 +1247,34 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                     </div>
 
                     <div className="caja-venta-add-row">
+                        <div className="caja-venta-frequent-slots">
+                            {frequentSlots.map((slot, i) => {
+                                const n = i + 1;
+                                if (!slot) {
+                                    return (
+                                        <button
+                                            key={n}
+                                            type="button"
+                                            className="caja-venta-slot empty"
+                                            title="Agregar producto frecuente"
+                                            onClick={() => { setAssigningSlot(n); setAddModalStockMode(false); setIsAddModalOpen(true); }}
+                                        >
+                                            <span className="caja-venta-slot-num">{n}</span>
+                                            <span className="caja-venta-slot-plus">+</span>
+                                        </button>
+                                    );
+                                }
+                                return (
+                                    <div key={n} className="caja-venta-slot filled">
+                                        <button type="button" className="caja-venta-slot-main" onClick={() => quickAddFrequent(slot.product, slot.variant)}>
+                                            <span className="caja-venta-slot-num">{n}</span>
+                                            <span className="caja-venta-slot-name">{slot.product.nombre}{slot.variant ? ` (${slot.variant})` : ''}</span>
+                                        </button>
+                                        <button type="button" className="caja-venta-slot-clear" title="Quitar de frecuentes" onClick={() => clearFrequentSlot(n)}>×</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
                         <button className="caja-venta-add-btn" onClick={() => setIsAddModalOpen(true)}>
                             <FaPlus /> Agregar Producto
                         </button>
@@ -1280,7 +1396,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                 <div className="caja-venta-modal-overlay" onClick={closeAddModal}>
                     <div className={`caja-venta-add-modal ${addModalStockMode ? 'stock-mode' : ''}`} onClick={(e) => e.stopPropagation()}>
                         <div className="caja-venta-add-modal-header">
-                            <h3>{addModalStockMode ? 'Ajustar Stock' : 'Agregar Producto'}</h3>
+                            <h3>{assigningSlot !== null ? `Producto frecuente para la casilla ${assigningSlot}` : addModalStockMode ? 'Ajustar Stock' : 'Agregar Producto'}</h3>
                             <button
                                 type="button"
                                 className={`caja-venta-stock-mode-toggle ${addModalStockMode ? 'active' : ''}`}
@@ -1309,23 +1425,6 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                 placeholder="Buscar producto por nombre... (o escaneá/ingresá un código sin hacer clic acá)"
                             />
                         </div>
-                        {frequentItems.length > 0 && !addModalStockMode && (
-                            <div className="caja-venta-frequent">
-                                <span className="caja-venta-frequent-title">⭐ Frecuentes</span>
-                                <div className="caja-venta-frequent-list">
-                                    {frequentItems.map((item, idx) => (
-                                        <button
-                                            key={`${item.product.id}-${item.variant || 'base'}-${idx}`}
-                                            type="button"
-                                            className="caja-venta-frequent-btn"
-                                            onClick={() => quickAddFrequent(item.product, item.variant)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                         {posCategories.length > 0 && (
                             <div className="caja-venta-category-chips">
                                 <button
@@ -1400,7 +1499,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                             value={quantityInput}
                             onChange={(e) => { setQuantityInput(e.target.value); setQuantityError(''); }}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') confirmQuantity();
+                                if (e.key === 'Enter') { e.preventDefault(); confirmQuantity(); }
                                 if (e.key === 'Escape') { setQuantityModalOpen(false); setPendingProduct(null); }
                             }}
                         />
@@ -1502,7 +1601,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                     step={editingRow.unitType === 'weight' ? '0.001' : '1'}
                                     value={editQuantityInput}
                                     onChange={(e) => handleEditQuantityChange(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') confirmEditRow(); if (e.key === 'Escape') closeEditRowModal(); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmEditRow(); } if (e.key === 'Escape') closeEditRowModal(); }}
                                 />
                             </div>
 
@@ -1513,7 +1612,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                     value={editUnitInput}
                                     disabled={!canEditPrices}
                                     onChange={(e) => handleEditUnitChange(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') confirmEditRow(); if (e.key === 'Escape') closeEditRowModal(); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmEditRow(); } if (e.key === 'Escape') closeEditRowModal(); }}
                                 />
                             </div>
 
@@ -1524,7 +1623,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                     value={editTotalInput}
                                     disabled={!canEditPrices}
                                     onChange={(e) => handleEditTotalChange(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') confirmEditRow(); if (e.key === 'Escape') closeEditRowModal(); }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmEditRow(); } if (e.key === 'Escape') closeEditRowModal(); }}
                                 />
                             </div>
 
