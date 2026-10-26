@@ -517,6 +517,32 @@
     font-size: 1rem;
 }
 
+.caja-venta-category-chips {
+    display: flex;
+    gap: 8px;
+    padding: 10px 20px;
+    overflow-x: auto;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.caja-venta-category-chip {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.caja-venta-category-chip.active {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #fff;
+}
+
 .caja-venta-add-error {
     margin: 0;
     padding: 10px 20px;

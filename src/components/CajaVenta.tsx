@@ -97,6 +97,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     // abre el ajuste de stock en vez de agregarlo al carrito. Se resetea al cerrar el modal.
     const [addModalStockMode, setAddModalStockMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
     const [addModalError, setAddModalError] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -681,12 +682,21 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         return result;
     }, [enabledMethods, effectiveAmounts, total]);
 
+    const posCategories = useMemo(() => {
+        const set = new Set<string>();
+        products.forEach(p => {
+            if (!p.isHiddenInPOS && p.categoria) set.add(p.categoria);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [products]);
+
     const filteredResults = useMemo(() => {
         const term = normalizeForSearch(searchTerm.trim());
         const items: { product: Product; variant?: string; label: string; price: number; code?: string; stock: number; priceTiers?: PriceTier[] }[] = [];
 
         products.forEach(p => {
             if (p.isHiddenInPOS) return;
+            if (categoryFilter && p.categoria !== categoryFilter) return;
             if (p.variants && p.variants.length > 0) {
                 p.variants.forEach(v => {
                     const label = `${p.nombre} (${v.name})`;
@@ -720,7 +730,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         });
 
         return items;
-    }, [searchTerm, products]);
+    }, [searchTerm, products, categoryFilter]);
 
     const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
 
@@ -1269,6 +1279,27 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                 placeholder="Buscar producto por nombre... (o escaneá/ingresá un código sin hacer clic acá)"
                             />
                         </div>
+                        {posCategories.length > 0 && (
+                            <div className="caja-venta-category-chips">
+                                <button
+                                    type="button"
+                                    className={`caja-venta-category-chip ${categoryFilter === '' ? 'active' : ''}`}
+                                    onClick={() => setCategoryFilter('')}
+                                >
+                                    Todas
+                                </button>
+                                {posCategories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        className={`caja-venta-category-chip ${categoryFilter === cat ? 'active' : ''}`}
+                                        onClick={() => setCategoryFilter(cat)}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {addModalError && <p className="caja-venta-add-error">{addModalError}</p>}
                         <div className="caja-venta-search-results">
                             {filteredResults.length === 0 ? (

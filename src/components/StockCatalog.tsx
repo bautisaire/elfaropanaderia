@@ -46,7 +46,7 @@ const getItemName = (item: CatalogItem) =>
 
 const formatPrice = (value: number) => `$${Math.round(value * 100) / 100}`;
 
-export default function StockCatalog({ searchTerm }: { searchTerm: string }) {
+export default function StockCatalog({ searchTerm, categoryFilter = '' }: { searchTerm: string; categoryFilter?: string }) {
     const [products, setProducts] = useState<CatalogProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
@@ -86,6 +86,7 @@ export default function StockCatalog({ searchTerm }: { searchTerm: string }) {
 
         products.forEach(product => {
             if (product.isHiddenInPOS) return;
+            if (categoryFilter && product.categoria !== categoryFilter) return;
 
             if (product.variants && product.variants.length > 0) {
                 product.variants.forEach(variant => {
@@ -111,7 +112,7 @@ export default function StockCatalog({ searchTerm }: { searchTerm: string }) {
             if (codeB) return 1;
             return getItemName(a).localeCompare(getItemName(b));
         });
-    }, [products, searchTerm]);
+    }, [products, searchTerm, categoryFilter]);
 
     const renderPrice = (product: CatalogProduct, variant?: CatalogVariant) => {
         const basePrice = getVariantPrice(product.precio, variant);

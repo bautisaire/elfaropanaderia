@@ -51,6 +51,7 @@ function formatDateGroup(dateStr: string) {
 interface Product {
     id: string;
     nombre: string;
+    categoria?: string;
     shortId?: string;
     stockQuantity?: number;
     stockDependency?: any;
@@ -82,6 +83,7 @@ export default function StockManager() {
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("");
 
     // Modal State - Simplified for Component
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -234,12 +236,18 @@ export default function StockManager() {
 
     // Carga Rápida Logic
     const quickProducts = useMemo(() => {
-        return products.filter(p => (p.isQuickStock || p.quickStock) && (
+        return products.filter(p => (p.isQuickStock || p.quickStock) && (!categoryFilter || p.categoria === categoryFilter) && (
             !searchTerm ||
             normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
             (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(normalizeForSearch(searchTerm))))
         ));
-    }, [products, searchTerm]);
+    }, [products, searchTerm, categoryFilter]);
+
+    const stockCategories = useMemo(() => {
+        const set = new Set<string>();
+        products.forEach(p => { if (p.categoria) set.add(p.categoria); });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [products]);
 
     const availableForQuick = useMemo(() => {
         return products.filter(p => {
@@ -508,8 +516,10 @@ export default function StockManager() {
 
     // Filter Logic
     const filteredProducts = products.filter(p =>
-        normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
-        (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(normalizeForSearch(searchTerm))))
+        (!categoryFilter || p.categoria === categoryFilter) && (
+            normalizeForSearch(p.nombre).includes(normalizeForSearch(searchTerm)) ||
+            (p.variants && p.variants.some(v => normalizeForSearch(v.name).includes(normalizeForSearch(searchTerm))))
+        )
     );
 
     return (
@@ -553,10 +563,35 @@ export default function StockManager() {
                 )}
             </div>
 
+            {(activeTab === 'catalog' || activeTab === 'inventory' || activeTab === 'bulk') && stockCategories.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }}>
+                    {['', ...stockCategories].map(cat => (
+                        <button
+                            key={cat || 'all'}
+                            type="button"
+                            onClick={() => setCategoryFilter(cat)}
+                            style={{
+                                flexShrink: 0,
+                                padding: '6px 14px',
+                                borderRadius: '999px',
+                                border: '1px solid #e2e8f0',
+                                background: categoryFilter === cat ? '#0f172a' : '#fff',
+                                color: categoryFilter === cat ? '#fff' : '#475569',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {cat || 'Todas'}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {loading && activeTab !== 'catalog' && <p>Cargando...</p>}
 
             {/* TAB PRODUCTOS (tarjetas: tocar para editar stock o producto) */}
-            {activeTab === 'catalog' && <StockCatalog searchTerm={searchTerm} />}
+            {activeTab === 'catalog' && <StockCatalog searchTerm={searchTerm} categoryFilter={categoryFilter} />}
 
             {/* TAB INVENTARIO */}
             {activeTab === 'inventory' && !loading && (
