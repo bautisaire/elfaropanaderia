@@ -115,6 +115,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [assigningSlot, setAssigningSlot] = useState<number | null>(null);
+    // Casilla pendiente de confirmar antes de quitarla de frecuentes (evita toques accidentales).
+    const [slotToClear, setSlotToClear] = useState<number | null>(null);
     // Los accesos rápidos no deben mover el foco al cobro en efectivo (así se sigue agregando).
     const skipPaymentFocusRef = useRef(false);
     const [addModalError, setAddModalError] = useState('');
@@ -1283,7 +1285,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                             <span className="caja-venta-slot-num">{n}</span>
                                             <span className="caja-venta-slot-name">{slot.product.nombre}{slot.variant ? ` (${slot.variant})` : ''}</span>
                                         </button>
-                                        <button type="button" className="caja-venta-slot-clear" title="Quitar de frecuentes" onClick={() => clearFrequentSlot(n)}>×</button>
+                                        <button type="button" className="caja-venta-slot-clear" title="Quitar de frecuentes" onClick={() => setSlotToClear(n)}>×</button>
                                     </div>
                                 );
                             })}
@@ -1535,6 +1537,33 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                 onConfirm={confirmWeight}
                 onCancel={() => { setWeightModalOpen(false); setPendingProduct(null); }}
             />
+
+            {slotToClear !== null && (() => {
+                const cur = frequentSlots[slotToClear - 1];
+                if (!cur) return null;
+                return (
+                    <div className="caja-venta-modal-overlay" onClick={() => setSlotToClear(null)}>
+                        <div className="caja-venta-entry-modal" onClick={(e) => e.stopPropagation()}>
+                            <h3>Quitar de frecuentes</h3>
+                            <p style={{ margin: '0 0 15px 0', color: '#475569' }}>
+                                ¿Quitar <strong>{cur.product.nombre}{cur.variant ? ` (${cur.variant})` : ''}</strong> de la casilla {slotToClear}?
+                            </p>
+                            <div className="caja-venta-entry-actions">
+                                <button
+                                    className="caja-venta-entry-confirm"
+                                    autoFocus
+                                    onClick={() => { clearFrequentSlot(slotToClear); setSlotToClear(null); }}
+                                >
+                                    Quitar
+                                </button>
+                                <button className="caja-venta-entry-cancel" onClick={() => setSlotToClear(null)}>
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {envioModalOpen && (
                 <div className="caja-venta-modal-overlay">
