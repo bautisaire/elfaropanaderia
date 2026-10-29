@@ -38,6 +38,7 @@ export interface Product {
   discount?: number;
   categoria?: string;
   isVisible?: boolean;
+  order?: number;
   stockReadyTime?: string;
   availableAt?: string;
   customBadgeEnabled?: boolean;
@@ -251,8 +252,11 @@ export const CartProvider = ({ children }: Props) => {
               : b.stockQuantity !== undefined
                 ? b.stockQuantity <= 0
                 : b.stock === false;
-          if (aOut === bOut) return 0;
-          return aOut ? 1 : -1;
+          if (aOut !== bOut) return aOut ? 1 : -1;
+          // Orden manual dentro de la categoría; sin `order` van al final
+          return (a.order ?? Infinity) === (b.order ?? Infinity)
+            ? 0
+            : (a.order ?? Infinity) < (b.order ?? Infinity) ? -1 : 1;
         });
 
         setCatalogProducts(visible);

@@ -10,11 +10,11 @@ import ProductDetailsModal from "../components/ProductDetailsModal";
 import FloatingCartButton from "../components/FloatingCartButton";
 import "./Home.css";
 import { db } from "../firebase/firebaseConfig";
-import { collection, doc, getDoc, increment, updateDoc, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
+import { collection, doc, getDoc, increment, updateDoc, onSnapshot, query, where, limit, orderBy, writeBatch } from "firebase/firestore";
 import { Product, useCart } from "../context/CartContext";
 import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 
-import { FaStoreSlash, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt } from "react-icons/fa";
+import { FaStoreSlash, FaTrophy, FaTimes, FaGift, FaExternalLinkAlt, FaSave } from "react-icons/fa";
 export default function Home() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<Record<string, number>>({});
@@ -68,7 +68,42 @@ export default function Home() {
     user,
     addToCart,
     setIsSidebarOpen,
+    isAdmin,
+    adminPermissions,
   } = useCart();
+
+  // Edición del orden de productos desde el home (solo admin con permiso de editor)
+  const canEditOrder = isAdmin && !!adminPermissions.store_editor;
+  const [editMode, setEditMode] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<Record<string, string[]>>({});
+  const [savingOrder, setSavingOrder] = useState(false);
+  const hasOrderChanges = Object.keys(draftOrder).length > 0;
+
+  const discardOrderChanges = () => {
+    setDraftOrder({});
+    setEditMode(false);
+  };
+
+  const saveOrderChanges = async () => {
+    setSavingOrder(true);
+    try {
+      const currentOrder = new Map(products.map(p => [String(p.id), p.order]));
+      const batch = writeBatch(db);
+      Object.values(draftOrder).forEach(ids => {
+        ids.forEach((id, index) => {
+          if (currentOrder.get(id) !== index) batch.update(doc(db, "products", id), { order: index });
+        });
+      });
+      await batch.commit();
+      setDraftOrder({});
+      setEditMode(false);
+    } catch (err) {
+      console.error("Error guardando el orden de productos:", err);
+      alert("No se pudo guardar el orden. Intentá de nuevo.");
+    } finally {
+      setSavingOrder(false);
+    }
+  };
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -226,6 +261,14 @@ export default function Home() {
       acc[category].push(product);
       return acc;
     }, {} as Record<string, Product[]>);
+    // Aplica el orden provisorio (borrador) de las categorías que se están editando
+    Object.entries(draftOrder).forEach(([category, ids]) => {
+      if (!groups[category]) return;
+      const position = new Map(ids.map((id, i) => [id, i]));
+      groups[category] = [...groups[category]].sort(
+        (a, b) => (position.get(String(a.id)) ?? 0) - (position.get(String(b.id)) ?? 0)
+      );
+    });
     return Object.entries(groups)
       .filter(([category]) => categoryVisibility[category] !== false)
       .sort(([a], [b]) => {
@@ -236,7 +279,7 @@ export default function Home() {
         if (b === 'Otros') return -1;
         return a.localeCompare(b);
       });
-  }, [products, categoryOrder, categoryVisibility]);
+  }, [products, categoryOrder, categoryVisibility, draftOrder]);
 
   // El nav solo lista categorías con al menos un producto en stock
   const navCategories = useMemo(
@@ -263,10 +306,40 @@ export default function Home() {
         ) : (
           sortedCategories
             .map(([category, categoryProducts]) => (
-              <CategorySlider key={category} category={category} products={categoryProducts} onOpenDetails={setSelectedProduct} />
+              <CategorySlider
+                key={category}
+                category={category}
+                products={categoryProducts}
+                onOpenDetails={setSelectedProduct}
+                canEdit={canEditOrder}
+                editMode={editMode}
+                editLocked={hasOrderChanges}
+                onToggleEdit={() => setEditMode(m => !m)}
+                onReorder={(cat, ids) => setDraftOrder(d => ({ ...d, [cat]: ids }))}
+              />
             ))
         )}
       </div>
+      {editMode && hasOrderChanges && (
+        <div style={{ position: 'fixed', right: '16px', bottom: '96px', zIndex: 1000, display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={saveOrderChanges}
+            disabled={savingOrder}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '999px', padding: '12px 20px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', opacity: savingOrder ? 0.7 : 1 }}
+          >
+            <FaSave /> {savingOrder ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+          <button
+            onClick={discardOrderChanges}
+            disabled={savingOrder}
+            title="Descartar cambios"
+            aria-label="Descartar cambios"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', background: '#fff', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '50%', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.25)' }}
+          >
+            <FaTimes />
+          </button>
+        </div>
+      )}
 
       {!isStoreOpen && !isStoreClosedDismissed && (
         <div className="store-closed-overlay">

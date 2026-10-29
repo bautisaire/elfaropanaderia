@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaPen } from "react-icons/fa";
+import { DndContext, closestCenter, DragEndEvent, MouseSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import ProductCard from "./ProductCard";
 import { Product } from "../context/CartContext";
 import "../pages/Home.css"; // Reuse existing styles
@@ -8,9 +11,55 @@ interface CategorySliderProps {
     category: string;
     products: Product[];
     onOpenDetails?: (product: Product) => void;
+    // Edición del orden (solo admin)
+    canEdit?: boolean;
+    editMode?: boolean;
+    editLocked?: boolean;
+    onToggleEdit?: () => void;
+    onReorder?: (category: string, orderedIds: string[]) => void;
 }
 
-export default function CategorySlider({ category, products, onOpenDetails }: CategorySliderProps) {
+// Tarjeta arrastrable: el contenido queda inerte para que el toque no abra el producto ni agregue al carrito
+function SortableProduct({ product }: { product: Product }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: String(product.id) });
+    return (
+        <div
+            ref={setNodeRef}
+            {...attributes}
+            {...listeners}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                cursor: isDragging ? 'grabbing' : 'grab',
+                zIndex: isDragging ? 5 : 1,
+                opacity: isDragging ? 0.6 : 1,
+                filter: 'grayscale(1)',
+                userSelect: 'none',
+            }}
+        >
+            <div style={{ pointerEvents: 'none' }}>
+                <ProductCard product={product} />
+            </div>
+        </div>
+    );
+}
+
+export default function CategorySlider({ category, products, onOpenDetails, canEdit, editMode, editLocked, onToggleEdit, onReorder }: CategorySliderProps) {
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const ids = products.map(p => String(p.id));
+        const from = ids.indexOf(String(active.id));
+        const to = ids.indexOf(String(over.id));
+        if (from < 0 || to < 0) return;
+        onReorder?.(category, arrayMove(ids, from, to));
+    };
+
     // Función auxiliar para determinar si un producto no tiene stock
     const isOutOfStock = (p: Product) => {
         if (p.variants && p.variants.length > 0) {
@@ -32,7 +81,11 @@ export default function CategorySlider({ category, products, onOpenDetails }: Ca
     const [showOutOfStock, setShowOutOfStock] = useState(false);
 
     return (
-        <div className="category-section" id={category.replace(/\s+/g, '-')}>
+        <div
+            className="category-section"
+            id={category.replace(/\s+/g, '-')}
+            style={editMode ? { background: '#e2e8f0', borderRadius: '12px', padding: '8px 0', marginBottom: '12px' } : undefined}
+        >
             <h2
                 className="category-title"
                 onClick={() => allOutOfStock && setIsExpanded(!isExpanded)}
@@ -46,8 +99,32 @@ export default function CategorySlider({ category, products, onOpenDetails }: Ca
                     paddingRight: '16px'
                 }}
             >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {category}
+                    {canEdit && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onToggleEdit?.(); }}
+                            disabled={editMode && editLocked}
+                            title={editMode && editLocked ? 'Guardá o descartá los cambios para salir' : undefined}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                padding: '4px 10px',
+                                borderRadius: '999px',
+                                border: '1px solid #94a3b8',
+                                background: editMode ? '#475569' : '#fff',
+                                color: editMode ? '#fff' : '#475569',
+                                cursor: editMode && editLocked ? 'not-allowed' : 'pointer',
+                                opacity: editMode && editLocked ? 0.6 : 1,
+                                textTransform: 'none'
+                            }}
+                        >
+                            <FaPen size={10} /> {editMode ? 'Salir' : 'Editar'}
+                        </button>
+                    )}
                 </div>
                 {allOutOfStock && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#888' }}>
@@ -59,7 +136,17 @@ export default function CategorySlider({ category, products, onOpenDetails }: Ca
                 )}
             </h2>
 
-            {isExpanded && (
+            {editMode ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={products.map(p => String(p.id))} strategy={rectSortingStrategy}>
+                        <div className="products-slider">
+                            {products.map((p) => (
+                                <SortableProduct key={p.id} product={p} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            ) : isExpanded && (
                 <>
                     {/* Productos CON stock */}
                     {inStockProducts.length > 0 && (

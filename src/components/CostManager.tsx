@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { db } from '../firebase/firebaseConfig';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, addDoc, query, orderBy, Timestamp, writeBatch, deleteField } from 'firebase/firestore';
 import { FaPlus, FaEdit, FaTrash, FaCalculator, FaList, FaChartLine, FaSave, FaTimes, FaQuestionCircle, FaRobot } from 'react-icons/fa';
 import './CostManager.css';
 import { normalizeForSearch } from '../utils/textSearch';
 import * as costing from '../utils/costing';
-import type { CostingContext, CostingRecipe, RealProductCostOptions, YieldType } from '../utils/costing';
+import type { CostingContext, CostingRecipe, RealProductCostOptions, RecipeBase, YieldType } from '../utils/costing';
 
 export interface RawMaterial {
     id: string;
@@ -54,6 +54,14 @@ export interface Product {
 }
 
 
+/** Copia de la receta sin el vínculo a una base (se vuelve a calcular al guardar). */
+const stripBaseLink = (recipe: ProductRecipe): ProductRecipe => {
+    const copy = { ...recipe };
+    delete copy.baseRecipeId;
+    delete copy.variant;
+    return copy;
+};
+
 export default function CostManager() {
     const { "*": tab } = useParams();
     const navigate = useNavigate();
@@ -85,6 +93,14 @@ export default function CostManager() {
     const [recipeYieldType, setRecipeYieldType] = useState<'units' | 'kg'>('units');
     const [newIngredient, setNewIngredient] = useState<RecipeIngredient>({ rawMaterialId: '', quantity: 0 });
     const [cloneFromId, setCloneFromId] = useState<string>('');
+
+    // Recetas base: `selectedProductId` vale `base:<id>` cuando lo que se edita es una base.
+    const [recipeBases, setRecipeBases] = useState<RecipeBase[]>([]);
+    const [baseName, setBaseName] = useState('');
+    const [linkBaseId, setLinkBaseId] = useState('');
+    const [isSavingRecipe, setIsSavingRecipe] = useState(false);
+    // Vista de sólo lectura: cantidades y costos de 1 unidad (o 1 kg) en vez de la tanda entera.
+    const [perUnitView, setPerUnitView] = useState(false);
 
     // Quick Add Form
     const [newMaterial, setNewMaterial] = useState<Partial<RawMaterial>>({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '', category: 'materia prima' });
@@ -138,6 +154,10 @@ export default function CostManager() {
             setProducts(data);
         });
 
+        const unsubBases = onSnapshot(query(collection(db, "recipe_bases"), orderBy("name")), (snap) => {
+            setRecipeBases(snap.docs.map(d => ({ id: d.id, ...d.data() } as RecipeBase)));
+        });
+
         // Fetch CIF Unit Cost
         const unsubCif = onSnapshot(doc(db, "config", "cif_settings"), (docSnap) => {
             if (docSnap.exists()) {
@@ -149,6 +169,7 @@ export default function CostManager() {
         return () => {
             unsubMat();
             unsubProd();
+            unsubBases();
             unsubCif();
         };
     }, []);
@@ -235,7 +256,22 @@ export default function CostManager() {
         if (selectedProductId) {
             if (loadedRecipeProductId.current !== selectedProductId) {
                 const prod = products.find(p => p.id === selectedProductId);
-                if (prod) {
+                const base = selectedProductId.startsWith('base:')
+                    ? recipeBases.find(b => b.id === selectedProductId.slice(5))
+                    : undefined;
+                if (base) {
+                    setEditingRecipe({
+                        ingredients: JSON.parse(JSON.stringify(base.ingredients || [])),
+                        yield: base.yield || 1,
+                        yieldType: base.yieldType || 'units',
+                        weightPerUnitGrams: base.weightPerUnitGrams,
+                        merma: base.merma || 0,
+                        excludeCif: base.excludeCif
+                    });
+                    setRecipeYieldType(base.yieldType || 'units');
+                    setBaseName(base.name);
+                    loadedRecipeProductId.current = selectedProductId;
+                } else if (prod) {
                     if (prod.recipe) {
                         const cloned = JSON.parse(JSON.stringify(prod.recipe));
                         setEditingRecipe(cloned);
@@ -253,7 +289,7 @@ export default function CostManager() {
             setNewIngredient({ rawMaterialId: '', quantity: 0 });
             loadedRecipeProductId.current = null;
         }
-    }, [selectedProductId, products]);
+    }, [selectedProductId, products, recipeBases]);
 
     const handleAddIngredient = () => {
         if (!editingRecipe) return;
@@ -293,13 +329,25 @@ export default function CostManager() {
             ? calculateRealProductCost(currentProduct, { recipeOverride: editingRecipe, yieldTypeOverride: recipeYieldType })
             : calculateRecipeUnitCost(editingRecipe, recipeYieldType);
 
+        // Si deriva de una base guardamos sólo las diferencias; la receta resuelta queda copiada
+        // en el producto para que Caja y Dashboard sigan leyendo `recipe.ingredients` sin enterarse.
+        const linkedBase = editingRecipe.baseRecipeId
+            ? recipeBases.find(b => b.id === editingRecipe.baseRecipeId)
+            : undefined;
+        const ownRecipe = stripBaseLink(editingRecipe);
+        const recipeToSave = linkedBase
+            ? {
+                ...ownRecipe,
+                yieldType: linkedBase.yieldType || 'units',
+                baseRecipeId: linkedBase.id,
+                variant: costing.diffRecipeFromBase(linkedBase, editingRecipe),
+                costPerUnit: unitCost
+            }
+            : { ...ownRecipe, yieldType: recipeYieldType, costPerUnit: unitCost };
+
         try {
             await updateDoc(doc(db, "products", selectedProductId), {
-                recipe: {
-                    ...editingRecipe,
-                    yieldType: recipeYieldType,
-                    costPerUnit: unitCost
-                }
+                recipe: JSON.parse(JSON.stringify(recipeToSave))
             });
             alert("Receta guardada exitosamente.");
         } catch (error) {
@@ -308,7 +356,160 @@ export default function CostManager() {
         }
     };
 
+    // --- RECETAS BASE ---
+    const isBaseSelected = selectedProductId.startsWith('base:');
+    const selectedBase = isBaseSelected ? recipeBases.find(b => b.id === selectedProductId.slice(5)) : undefined;
+    const productsUsingBase = (baseId: string) => products.filter(p => p.recipe?.baseRecipeId === baseId);
+    const linkedBaseOfEditing = editingRecipe?.baseRecipeId
+        ? recipeBases.find(b => b.id === editingRecipe.baseRecipeId)
+        : undefined;
+
+    /** Receta del producto = base + su variante, con el costo unitario ya calculado. */
+    const materializeFromBase = (prod: Product, base: RecipeBase, variant: costing.RecipeVariant | undefined): ProductRecipe => {
+        const resolved = costing.applyRecipeVariant(base, variant);
+        const yieldType = base.yieldType || 'units';
+        const recipe = { ...resolved, yieldType, baseRecipeId: base.id, variant: variant || {} } as ProductRecipe;
+        return { ...recipe, costPerUnit: calculateRealProductCost(prod, { recipeOverride: recipe, yieldTypeOverride: yieldType }) };
+    };
+
+    const baseFieldsFromEditing = (name: string) => JSON.parse(JSON.stringify({
+        name,
+        ingredients: editingRecipe?.ingredients || [],
+        yield: editingRecipe?.yield || 1,
+        yieldType: recipeYieldType,
+        weightPerUnitGrams: editingRecipe?.weightPerUnitGrams,
+        merma: editingRecipe?.merma || 0,
+        excludeCif: !!editingRecipe?.excludeCif
+    }));
+
+    const handleNewBase = async () => {
+        const name = window.prompt("Nombre de la receta base (ej: Masa de torta, Relleno de alfajor):")?.trim();
+        if (!name) return;
+        try {
+            const ref = await addDoc(collection(db, "recipe_bases"), {
+                name, ingredients: [], yield: 1, yieldType: 'units', merma: 0, excludeCif: false
+            });
+            loadedRecipeProductId.current = null;
+            setSelectedProductId(`base:${ref.id}`);
+        } catch (error) {
+            console.error(error);
+            alert("Error al crear la receta base.");
+        }
+    };
+
+    /** Guarda la base y recalcula todos los productos que derivan de ella. */
+    const handleSaveBase = async () => {
+        if (!selectedBase || !editingRecipe) return;
+        const name = baseName.trim();
+        if (!name) return alert("La receta base necesita un nombre.");
+
+        setIsSavingRecipe(true);
+        try {
+            const fields = baseFieldsFromEditing(name);
+            const newBase: RecipeBase = { id: selectedBase.id, ...fields };
+            const batch = writeBatch(db);
+            batch.set(doc(db, "recipe_bases", selectedBase.id), { ...fields, updatedAt: Timestamp.now() });
+            const dependents = productsUsingBase(selectedBase.id);
+            for (const prod of dependents) {
+                batch.update(doc(db, "products", prod.id), {
+                    recipe: JSON.parse(JSON.stringify(materializeFromBase(prod, newBase, prod.recipe?.variant)))
+                });
+            }
+            await batch.commit();
+            alert(dependents.length > 0
+                ? `Base guardada. Se recalcularon ${dependents.length} producto(s) que la usan.`
+                : "Base guardada.");
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar la receta base.");
+        } finally {
+            setIsSavingRecipe(false);
+        }
+    };
+
+    const handleDeleteBase = async () => {
+        if (!selectedBase) return;
+        const dependents = productsUsingBase(selectedBase.id);
+        if (!window.confirm(`¿Eliminar la base "${selectedBase.name}"? ${dependents.length > 0 ? `${dependents.length} producto(s) conservan su receta actual pero dejan de estar vinculados.` : ''}`)) return;
+        try {
+            const batch = writeBatch(db);
+            batch.delete(doc(db, "recipe_bases", selectedBase.id));
+            for (const prod of dependents) {
+                batch.update(doc(db, "products", prod.id), {
+                    "recipe.baseRecipeId": deleteField(),
+                    "recipe.variant": deleteField()
+                });
+            }
+            await batch.commit();
+            loadedRecipeProductId.current = null;
+            setSelectedProductId('');
+        } catch (error) {
+            console.error(error);
+            alert("Error al eliminar la receta base.");
+        }
+    };
+
+    /** Convierte la receta que se está editando en una base nueva y deja el producto vinculado a ella. */
+    const handleConvertToBase = async () => {
+        const currentProduct = products.find(p => p.id === selectedProductId);
+        if (!currentProduct || !editingRecipe) return;
+        if (editingRecipe.ingredients.length === 0) return alert("Armá la fórmula antes de convertirla en base.");
+        const name = window.prompt("Nombre de la receta base:", currentProduct.nombre)?.trim();
+        if (!name) return;
+
+        try {
+            const fields = baseFieldsFromEditing(name);
+            const baseRef = doc(collection(db, "recipe_bases"));
+            const newBase: RecipeBase = { id: baseRef.id, ...fields };
+            const linked = materializeFromBase(currentProduct, newBase, {});
+            const batch = writeBatch(db);
+            batch.set(baseRef, { ...fields, updatedAt: Timestamp.now() });
+            batch.update(doc(db, "products", currentProduct.id), { recipe: JSON.parse(JSON.stringify(linked)) });
+            await batch.commit();
+            setEditingRecipe(JSON.parse(JSON.stringify(linked)));
+            alert(`Base "${name}" creada. Ahora podés vincularla desde otros productos.`);
+        } catch (error) {
+            console.error(error);
+            alert("Error al crear la base.");
+        }
+    };
+
+    const handleLinkBase = () => {
+        const base = recipeBases.find(b => b.id === linkBaseId);
+        if (!base || !editingRecipe) return;
+        if (editingRecipe.ingredients.length > 0 && !editingRecipe.baseRecipeId &&
+            !window.confirm(`Se reemplaza la fórmula actual por la de "${base.name}". Después podés ajustarla: sólo se guardan las diferencias. ¿Continuar?`)) return;
+        setEditingRecipe({
+            ...costing.applyRecipeVariant(base, {}),
+            yieldType: base.yieldType || 'units',
+            baseRecipeId: base.id
+        } as ProductRecipe);
+        setRecipeYieldType(base.yieldType || 'units');
+        setLinkBaseId('');
+    };
+
+    const handleUnlinkBase = () => {
+        if (!editingRecipe) return;
+        setEditingRecipe(stripBaseLink(editingRecipe));
+    };
+
+    /** Multiplica todos los ingredientes para que la tanda rinda `newYield` (ej: de 7 a 14 unidades). */
+    const handleScaleRecipe = () => {
+        if (!editingRecipe || !editingRecipe.yield || editingRecipe.yield <= 0) return alert("Primero indicá cuánto rinde la receta.");
+        const unitLabel = recipeYieldType === 'kg' ? 'kg' : 'unidades';
+        const input = window.prompt(`La tanda actual rinde ${editingRecipe.yield} ${unitLabel}. ¿Cuánto querés que rinda? Se ajustan todas las cantidades.`, '1');
+        const newYield = Number(String(input ?? '').replace(',', '.'));
+        if (!input || isNaN(newYield) || newYield <= 0) return;
+        const factor = newYield / editingRecipe.yield;
+        setEditingRecipe({
+            ...editingRecipe,
+            yield: newYield,
+            ingredients: editingRecipe.ingredients.map(i => ({ ...i, quantity: Math.round(i.quantity * factor * 1000) / 1000 }))
+        });
+    };
+
     const handleYieldTypeChange = (type: 'units' | 'kg') => {
+        if (editingRecipe?.baseRecipeId) return; // el tipo de rendimiento lo define la base
         setRecipeYieldType(type);
         if (!editingRecipe) return;
 
@@ -421,60 +622,64 @@ export default function CostManager() {
         
         if (!fromMat || !toMat) return;
 
-        // Buscar productos que tengan el ingrediente 'replaceFromId'
-        const productsToUpdate = products.filter(p => 
-            p.recipe && p.recipe.ingredients &&
-            p.recipe.ingredients.some(ing => ing.rawMaterialId === replaceFromId)
+        // Bases que usan el ingrediente: se reemplaza en la base y se re-resuelven sus variantes.
+        const basesToUpdate = recipeBases.filter(b => b.ingredients?.some(ing => ing.rawMaterialId === replaceFromId));
+        const newBases = new Map(recipeBases.map(b => [
+            b.id,
+            basesToUpdate.includes(b)
+                ? { ...b, ingredients: costing.replaceIngredient(b.ingredients || [], replaceFromId, replaceToId) }
+                : b
+        ]));
+
+        // Productos con el ingrediente en su receta o en las diferencias de su variante
+        const productsToUpdate = products.filter(p =>
+            p.recipe && (
+                p.recipe.ingredients?.some(ing => ing.rawMaterialId === replaceFromId) ||
+                p.recipe.variant?.changes?.some(c => c.rawMaterialId === replaceFromId)
+            )
         );
 
-        if (productsToUpdate.length === 0) {
+        if (productsToUpdate.length === 0 && basesToUpdate.length === 0) {
             return alert(`No se encontraron recetas que usen "${fromMat.name}".`);
         }
 
-        if (!window.confirm(`¿Estás seguro de reemplazar "${fromMat.name}" por "${toMat.name}" en ${productsToUpdate.length} receta(s)? Esta acción no se puede deshacer.`)) {
+        if (!window.confirm(`¿Estás seguro de reemplazar "${fromMat.name}" por "${toMat.name}" en ${productsToUpdate.length} receta(s) de productos${basesToUpdate.length > 0 ? ` y ${basesToUpdate.length} receta(s) base` : ''}? Esta acción no se puede deshacer.`)) {
             return;
         }
 
         setIsReplacing(true);
         try {
-            // Actualizar cada producto
+            for (const base of basesToUpdate) {
+                await updateDoc(doc(db, "recipe_bases", base.id), {
+                    ingredients: newBases.get(base.id)!.ingredients,
+                    updatedAt: Timestamp.now()
+                });
+            }
+
             for (const prod of productsToUpdate) {
                 if (!prod.recipe) continue;
-                
-                // Si la receta ya tiene el ingrediente destino, sumar las cantidades y eliminar el origen.
-                // Si no, simplemente cambiar el ID.
-                const newIngredients = [...prod.recipe.ingredients];
-                const fromIndex = newIngredients.findIndex(i => i.rawMaterialId === replaceFromId);
-                const toIndex = newIngredients.findIndex(i => i.rawMaterialId === replaceToId);
-                
-                if (fromIndex !== -1) {
-                    const fromQty = newIngredients[fromIndex].quantity;
-                    
-                    if (toIndex !== -1) {
-                        // Ya existe el destino, sumamos y eliminamos el origen
-                        newIngredients[toIndex].quantity += fromQty;
-                        newIngredients.splice(fromIndex, 1);
-                    } else {
-                        // No existe el destino, cambiamos el ID del origen
-                        newIngredients[fromIndex].rawMaterialId = replaceToId;
-                    }
-                    
-                    // Recalcular el unitCost de esta receta actualizada
+
+                const base = prod.recipe.baseRecipeId ? newBases.get(prod.recipe.baseRecipeId) : undefined;
+                let newRecipe: ProductRecipe;
+                if (base) {
+                    // Vinculada: se re-resuelve contra la base ya actualizada
+                    const variant = costing.replaceIngredientInVariant(prod.recipe.variant, replaceFromId, replaceToId);
+                    newRecipe = materializeFromBase(prod, base, variant);
+                } else {
+                    // Propia: si ya tiene el destino se suman las cantidades, si no se cambia el ID
                     const updatedRecipe = {
                         ...prod.recipe,
-                        ingredients: newIngredients
+                        ingredients: costing.replaceIngredient(prod.recipe.ingredients, replaceFromId, replaceToId)
                     };
                     const unitCost = calculateRealProductCost(prod, { recipeOverride: updatedRecipe, yieldTypeOverride: prod.recipe.yieldType || 'units' });
-                    
-                    await updateDoc(doc(db, "products", prod.id), {
-                        recipe: {
-                            ...updatedRecipe,
-                            costPerUnit: unitCost
-                        }
-                    });
+                    newRecipe = { ...updatedRecipe, costPerUnit: unitCost };
                 }
+
+                await updateDoc(doc(db, "products", prod.id), {
+                    recipe: JSON.parse(JSON.stringify(newRecipe))
+                });
             }
-            alert(`Reemplazo global completado en ${productsToUpdate.length} receta(s).`);
+            alert(`Reemplazo global completado en ${productsToUpdate.length} receta(s) de productos${basesToUpdate.length > 0 ? ` y ${basesToUpdate.length} receta(s) base` : ''}.`);
             setReplaceFromId('');
             setReplaceToId('');
         } catch (error) {
@@ -896,22 +1101,38 @@ export default function CostManager() {
                                 className="cm-select-large cm-select-recipe-product"
                                 style={{ maxWidth: '400px' }}
                             >
-                                <option value="">-- Elige un Producto --</option>
-                                {products
-                                    .filter(p => p.requiresRecipe !== false)
-                                    .map(p => {
-                                        const hasOwnRecipe = p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0;
-                                        const isDerived = !!p.stockDependency?.productId;
-                                        const status = [];
-                                        if (hasOwnRecipe) status.push('✔️ Receta');
-                                        if (isDerived) status.push('🔗 Derivado');
-                                        return (
-                                            <option key={p.id} value={p.id}>
-                                                {p.nombre} {status.length > 0 ? `(${status.join(', ')})` : ''}
+                                <option value="">-- Elige un Producto o una Receta Base --</option>
+                                {recipeBases.length > 0 && (
+                                    <optgroup label="📘 Recetas base">
+                                        {recipeBases.map(b => (
+                                            <option key={b.id} value={`base:${b.id}`}>
+                                                {b.name} ({productsUsingBase(b.id).length} productos)
                                             </option>
-                                        );
-                                    })}
+                                        ))}
+                                    </optgroup>
+                                )}
+                                <optgroup label="Productos">
+                                    {products
+                                        .filter(p => p.requiresRecipe !== false)
+                                        .map(p => {
+                                            const hasOwnRecipe = p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0;
+                                            const isDerived = !!p.stockDependency?.productId;
+                                            const baseOfProduct = p.recipe?.baseRecipeId ? recipeBases.find(b => b.id === p.recipe?.baseRecipeId) : undefined;
+                                            const status = [];
+                                            if (hasOwnRecipe) status.push('✔️ Receta');
+                                            if (baseOfProduct) status.push(`📘 ${baseOfProduct.name}`);
+                                            if (isDerived) status.push('🔗 Derivado');
+                                            return (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.nombre} {status.length > 0 ? `(${status.join(', ')})` : ''}
+                                                </option>
+                                            );
+                                        })}
+                                </optgroup>
                             </select>
+                            <button className="cm-btn-secondary" onClick={handleNewBase} style={{ marginLeft: '10px' }}>
+                                <FaPlus /> Nueva receta base
+                            </button>
                         </div>
 
                         {selectedProductId && editingRecipe && (() => {
@@ -931,7 +1152,81 @@ export default function CostManager() {
                                         </div>
                                     )}
 
+                                    {/* --- RECETA BASE (cabecera al editar una base) --- */}
+                                    {isBaseSelected && selectedBase && (
+                                        <div style={{ background: '#fefce8', border: '1px solid #fde68a', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                                            <h4 style={{ color: '#854d0e', marginTop: 0 }}>📘 Receta base</h4>
+                                            <input
+                                                type="text"
+                                                value={baseName}
+                                                onChange={e => setBaseName(e.target.value)}
+                                                placeholder="Nombre de la base"
+                                                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #fcd34d', width: '100%', maxWidth: '400px', marginBottom: '8px' }}
+                                            />
+                                            <p style={{ margin: 0, color: '#713f12', fontSize: '0.9rem' }}>
+                                                {productsUsingBase(selectedBase.id).length > 0
+                                                    ? <>Al guardar se recalculan: <strong>{productsUsingBase(selectedBase.id).map(p => p.nombre).join(', ')}</strong>. Cada uno conserva sus diferencias.</>
+                                                    : 'Todavía no la usa ningún producto. Elegí un producto y vinculalo a esta base.'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* --- VÍNCULO CON BASE (al editar un producto) --- */}
+                                    {!isBaseSelected && (
+                                        <div style={{ background: '#fefce8', border: '1px solid #fde68a', padding: '10px 15px', borderRadius: '8px', marginBottom: '15px' }}>
+                                            {linkedBaseOfEditing ? (() => {
+                                                const diff = costing.diffRecipeFromBase(linkedBaseOfEditing, editingRecipe);
+                                                const matName = (id: string) => rawMaterials.find(m => m.id === id)?.name || '¿?';
+                                                const baseQty = (id: string) => linkedBaseOfEditing.ingredients?.find(i => i.rawMaterialId === id)?.quantity;
+                                                return (
+                                                    <>
+                                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            <strong style={{ color: '#854d0e' }}>📘 Basada en: {linkedBaseOfEditing.name}</strong>
+                                                            <button className="cm-btn-secondary" onClick={() => { loadedRecipeProductId.current = null; setSelectedProductId(`base:${linkedBaseOfEditing.id}`); }}>Editar base</button>
+                                                            <button className="cm-btn-secondary" onClick={handleUnlinkBase}>Desvincular (queda como copia)</button>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', color: '#713f12', marginTop: '8px' }}>
+                                                            {Object.keys(diff).length === 0 ? 'Idéntica a la base.' : (
+                                                                <>
+                                                                    <strong>Diferencias con la base:</strong>
+                                                                    <ul style={{ margin: '4px 0 0', paddingLeft: '20px' }}>
+                                                                        {diff.changes?.map(c => (
+                                                                            <li key={c.rawMaterialId}>
+                                                                                {c.remove ? `− Quita ${matName(c.rawMaterialId)}`
+                                                                                    : baseQty(c.rawMaterialId) === undefined ? `+ Agrega ${matName(c.rawMaterialId)} (${c.quantity})`
+                                                                                    : `${matName(c.rawMaterialId)}: ${baseQty(c.rawMaterialId)} → ${c.quantity}`}
+                                                                            </li>
+                                                                        ))}
+                                                                        {diff.yield !== undefined && <li>Rendimiento: {linkedBaseOfEditing.yield} → {diff.yield}</li>}
+                                                                        {diff.weightPerUnitGrams !== undefined && <li>Peso por unidad: {linkedBaseOfEditing.weightPerUnitGrams || 0} g → {diff.weightPerUnitGrams} g</li>}
+                                                                        {diff.merma !== undefined && <li>Merma: {linkedBaseOfEditing.merma || 0}% → {diff.merma}%</li>}
+                                                                        {diff.excludeCif !== undefined && <li>{diff.excludeCif ? 'Sin CIF' : 'Con CIF'}</li>}
+                                                                    </ul>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                );
+                                            })() : (
+                                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                    <strong style={{ color: '#854d0e' }}>📘 Receta base:</strong>
+                                                    <select
+                                                        value={linkBaseId}
+                                                        onChange={e => setLinkBaseId(e.target.value)}
+                                                        style={{ padding: '6px', borderRadius: '4px', border: '1px solid #fcd34d', flex: 1, maxWidth: '260px' }}
+                                                    >
+                                                        <option value="">-- Vincular a una base --</option>
+                                                        {recipeBases.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                    </select>
+                                                    <button className="cm-btn-secondary" onClick={handleLinkBase} disabled={!linkBaseId}>Vincular</button>
+                                                    <button className="cm-btn-secondary" onClick={handleConvertToBase}>Usar esta receta como base</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* --- SECCIÓN COPIAR RECETA --- */}
+                                    {!isBaseSelected && (
                                     <div className="cm-copy-recipe-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#e0e7ff', padding: '10px 15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #c7d2fe' }}>
                                         <FaRobot color="#4f46e5" />
                                         <label style={{ color: '#3730a3', fontWeight: 'bold' }}>Cargar receta desde:</label>
@@ -961,6 +1256,7 @@ export default function CostManager() {
                                             Copiar Fórmula
                                         </button>
                                     </div>
+                                    )}
 
                                     <div className="cm-add-bar" style={{ background: '#eff6ff', borderColor: '#bfdbfe', flexWrap: 'wrap' }}>
                                         <div style={{ display: 'flex', flex: 1, gap: '5px', minWidth: '200px', position: 'relative' }}>
@@ -1053,6 +1349,18 @@ export default function CostManager() {
                                         <button className="cm-btn-primary" onClick={handleAddIngredient}><FaPlus /> Añadir a Fórmula</button>
                                     </div>
 
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+                                        <button className="cm-btn-secondary" onClick={() => setPerUnitView(v => !v)}>
+                                            {perUnitView ? '↩ Ver tanda completa' : `🔍 Ver por 1 ${recipeYieldType === 'kg' ? 'kg' : 'unidad'}`}
+                                        </button>
+                                        <button className="cm-btn-secondary" onClick={handleScaleRecipe}>⚖️ Escalar tanda…</button>
+                                        {perUnitView && (
+                                            <span style={{ fontSize: '0.85rem', color: '#0369a1' }}>
+                                                Vista de sólo lectura: cada ingrediente dividido por {editingRecipe.yield || 1} {recipeYieldType === 'kg' ? 'kg' : 'un'}.
+                                            </span>
+                                        )}
+                                    </div>
+
                                     {/* Tabla de Ficha de Costos estilo Papel */}
                                     <div className="cm-table-container recipe-paper-container">
                                         <table className="cm-table recipe-table recipe-paper">
@@ -1074,6 +1382,11 @@ export default function CostManager() {
                                                         <tr key={mat.id} className="recipe-paper-row">
                                                             <td><strong>{mat.name}</strong></td>
                                                             <td>
+                                                                {perUnitView ? (
+                                                                    <strong>
+                                                                        {(ing.quantity / (editingRecipe.yield || 1)).toLocaleString('es-AR', { maximumFractionDigits: 2 })} {mat.unit}
+                                                                    </strong>
+                                                                ) : (
                                                                 <div className="cm-input-group yield-group" style={{ display: 'inline-flex', width: 'auto' }}>
                                                                     <input
                                                                         type="number"
@@ -1087,9 +1400,10 @@ export default function CostManager() {
                                                                     />
                                                                     <span className="currency-symbol" style={{ padding: '4px 8px', background: 'transparent', borderLeft: 'none', borderStyle: 'none', fontWeight: 'bold' }}>{mat.unit}</span>
                                                                 </div>
+                                                                )}
                                                             </td>
                                                             <td style={{ color: '#000', fontWeight: 'bold' }}>
-                                                                ${calculateIngredientCost(ing).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                ${(calculateIngredientCost(ing) / (perUnitView ? (editingRecipe.yield || 1) : 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </td>
                                                             <td className="cm-actions">
                                                                 <button className="cm-icon-btn delete" onClick={() => handleRemoveIngredient(mat.id)}><FaTrash /></button>
@@ -1265,9 +1579,17 @@ export default function CostManager() {
                                         </table>
                                     </div>
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                                        <button className="cm-btn-primary" style={{ padding: '12px 30px', fontSize: '1.1rem' }} onClick={handleSaveRecipe}>
-                                            <FaSave /> ¡Guardar Ficha de Costo!
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                        {isBaseSelected && (
+                                            <button className="cm-btn-secondary" onClick={handleDeleteBase}><FaTrash /> Eliminar base</button>
+                                        )}
+                                        <button
+                                            className="cm-btn-primary"
+                                            style={{ padding: '12px 30px', fontSize: '1.1rem' }}
+                                            onClick={isBaseSelected ? handleSaveBase : handleSaveRecipe}
+                                            disabled={isSavingRecipe}
+                                        >
+                                            <FaSave /> {isBaseSelected ? 'Guardar base y recalcular productos' : '¡Guardar Ficha de Costo!'}
                                         </button>
                                     </div>
 

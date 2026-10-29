@@ -39,6 +39,7 @@ export interface HeroCard {
     alt?: string;
     active?: boolean;
     order?: number;
+    slideIds?: string[]; // slides donde se muestra; vacío/ausente = en todos
 }
 
 export const HERO_PALETTE = [

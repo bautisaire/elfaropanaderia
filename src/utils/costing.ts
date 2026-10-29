@@ -22,6 +22,25 @@ export interface CostingIngredient {
     quantity: number;
 }
 
+/**
+ * Diferencia puntual de una variante contra su receta base: cambia la cantidad de un
+ * insumo (o lo agrega si la base no lo tiene) o lo quita.
+ */
+export interface IngredientChange {
+    rawMaterialId: string;
+    quantity?: number;
+    remove?: boolean;
+}
+
+/** Lo que una variante cambia respecto de la base; lo que falta se hereda. */
+export interface RecipeVariant {
+    changes?: IngredientChange[];
+    yield?: number;
+    weightPerUnitGrams?: number;
+    merma?: number;
+    excludeCif?: boolean;
+}
+
 export interface CostingRecipe {
     ingredients?: CostingIngredient[];
     yield?: number;
@@ -29,6 +48,9 @@ export interface CostingRecipe {
     weightPerUnitGrams?: number;
     merma?: number; // Porcentaje de desperdicio/pérdida
     excludeCif?: boolean;
+    /** Receta base (`recipe_bases`) de la que deriva. Los campos de arriba son la copia resuelta. */
+    baseRecipeId?: string;
+    variant?: RecipeVariant;
 }
 
 export interface CostingProduct {
@@ -45,6 +67,112 @@ export interface CostingContext {
     products: CostingProduct[];
     cifUnitCost: number; // Costo CIF cada 100 g (config/cif_settings)
 }
+
+/** Receta base reutilizable por varios productos. */
+export interface RecipeBase extends CostingRecipe {
+    id: string;
+    name: string;
+}
+
+/** Campos de la receta que una variante puede pisar. */
+const VARIANT_SCALARS = ['yield', 'weightPerUnitGrams', 'merma', 'excludeCif'] as const;
+
+/** Receta resuelta = base + diferencias de la variante. Sin variante devuelve la base. */
+export const applyRecipeVariant = (
+    base: CostingRecipe,
+    variant?: RecipeVariant | null
+): CostingRecipe => {
+    const ingredients = (base.ingredients || []).map(i => ({ ...i }));
+
+    for (const change of variant?.changes || []) {
+        const idx = ingredients.findIndex(i => i.rawMaterialId === change.rawMaterialId);
+        if (change.remove) {
+            if (idx !== -1) ingredients.splice(idx, 1);
+        } else if (idx !== -1) {
+            ingredients[idx].quantity = Number(change.quantity) || 0;
+        } else {
+            ingredients.push({ rawMaterialId: change.rawMaterialId, quantity: Number(change.quantity) || 0 });
+        }
+    }
+
+    const resolved: CostingRecipe = {
+        ingredients,
+        yield: base.yield,
+        yieldType: base.yieldType,
+        weightPerUnitGrams: base.weightPerUnitGrams,
+        merma: base.merma,
+        excludeCif: base.excludeCif
+    };
+    for (const key of VARIANT_SCALARS) {
+        if (variant && variant[key] !== undefined) (resolved as Record<string, unknown>)[key] = variant[key];
+    }
+    return resolved;
+};
+
+/** Inversa de `applyRecipeVariant`: qué cambió `edited` respecto de `base`. */
+export const diffRecipeFromBase = (base: CostingRecipe, edited: CostingRecipe): RecipeVariant => {
+    const variant: RecipeVariant = {};
+    const baseIngs = base.ingredients || [];
+    const editedIngs = edited.ingredients || [];
+
+    const changes: IngredientChange[] = [];
+    for (const ing of editedIngs) {
+        const original = baseIngs.find(b => b.rawMaterialId === ing.rawMaterialId);
+        if (!original || original.quantity !== ing.quantity) {
+            changes.push({ rawMaterialId: ing.rawMaterialId, quantity: ing.quantity });
+        }
+    }
+    for (const original of baseIngs) {
+        if (!editedIngs.some(i => i.rawMaterialId === original.rawMaterialId)) {
+            changes.push({ rawMaterialId: original.rawMaterialId, remove: true });
+        }
+    }
+    if (changes.length > 0) variant.changes = changes;
+
+    if (edited.yield !== undefined && edited.yield !== base.yield) variant.yield = edited.yield;
+    if ((edited.weightPerUnitGrams || 0) !== (base.weightPerUnitGrams || 0)) variant.weightPerUnitGrams = edited.weightPerUnitGrams || 0;
+    if ((edited.merma || 0) !== (base.merma || 0)) variant.merma = edited.merma || 0;
+    if (!!edited.excludeCif !== !!base.excludeCif) variant.excludeCif = !!edited.excludeCif;
+
+    return variant;
+};
+
+/** Cambia un insumo por otro en una lista; si el destino ya estaba, suma las cantidades. */
+export const replaceIngredient = (
+    ingredients: CostingIngredient[],
+    fromId: string,
+    toId: string
+): CostingIngredient[] => {
+    const result = ingredients.map(i => ({ ...i }));
+    const fromIdx = result.findIndex(i => i.rawMaterialId === fromId);
+    if (fromIdx === -1) return result;
+    const toIdx = result.findIndex(i => i.rawMaterialId === toId);
+    if (toIdx !== -1) {
+        result[toIdx].quantity += result[fromIdx].quantity;
+        result.splice(fromIdx, 1);
+    } else {
+        result[fromIdx].rawMaterialId = toId;
+    }
+    return result;
+};
+
+/** Igual que `replaceIngredient` pero para las diferencias de una variante. */
+export const replaceIngredientInVariant = (
+    variant: RecipeVariant | undefined,
+    fromId: string,
+    toId: string
+): RecipeVariant | undefined => {
+    if (!variant?.changes) return variant;
+    const changes: IngredientChange[] = [];
+    for (const change of variant.changes) {
+        if (change.rawMaterialId !== fromId) {
+            changes.push({ ...change });
+        } else if (!variant.changes.some(c => c.rawMaterialId === toId)) {
+            changes.push({ ...change, rawMaterialId: toId });
+        }
+    }
+    return { ...variant, changes };
+};
 
 export const getRecipeYieldType = (recipe: CostingRecipe | null | undefined, yieldType?: YieldType): YieldType =>
     yieldType || recipe?.yieldType || 'units';

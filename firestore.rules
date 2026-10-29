@@ -139,6 +139,9 @@ service cloud.firestore {
     match /raw_materials/{document=**} {
       allow read, write: if isAdmin();
     }
+    match /recipe_bases/{document=**} {
+      allow read, write: if isAdmin();
+    }
     match /cif_items/{document=**} {
       allow read, write: if isAdmin();
     }

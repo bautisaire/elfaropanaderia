@@ -183,6 +183,7 @@ export function mapFirestoreProduct(docId: string, data: Record<string, unknown>
         description: data.descripcion as string | undefined,
         unitType: (data.unitType as Product['unitType']) || 'unit',
         isVisible: data.isVisible !== false,
+        order: typeof data.order === 'number' ? data.order : undefined,
         discount: (data.discount as number) || 0,
         categoria: ((data.categoria as string) || "Otros").trim(),
         stockReadyTime: data.stockReadyTime as string | undefined,

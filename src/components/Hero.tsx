@@ -97,6 +97,12 @@ export default function Hero({ onRaffleClick, activeRaffle }: HeroProps) {
 
     const swipeable = slides.length > 1;
 
+    // Una carta sin slides asignados se muestra en todos; si no, solo en los elegidos.
+    const currentSlideId = slides[currentIndex]?.id;
+    const visibleCards = cards.filter(c =>
+        !c.slideIds?.length || (currentSlideId !== undefined && c.slideIds.includes(currentSlideId))
+    );
+
     return (
         <section className={`hero-container ${slides.length === 0 ? "no-bg" : ""}`}>
             {/* Fondo (cubre textos y cartas) */}
@@ -201,10 +207,10 @@ export default function Hero({ onRaffleClick, activeRaffle }: HeroProps) {
             )}
 
             {/* Cartas flotantes */}
-            {cards.length > 0 && (
+            {visibleCards.length > 0 && (
                 <div className="hero-cards">
                     <div className="hero-cards-track">
-                        {cards.map((card, i) => {
+                        {visibleCards.map((card, i) => {
                             const img = (
                                 <img src={card.imageUrl} alt={card.alt || ""} draggable={false} loading="lazy" />
                             );

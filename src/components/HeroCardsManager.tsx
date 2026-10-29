@@ -4,7 +4,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { compressImage } from '../utils/imageUtils';
 import { FaTrash, FaPlus, FaSync, FaCamera, FaEye, FaEyeSlash, FaArrowLeft, FaArrowRight } from 'react-icons/fa';
-import { HeroCard } from '../utils/heroSlides';
+import { HeroCard, HeroSlide, normalizeSlide } from '../utils/heroSlides';
 import './HeroManager.css';
 
 export default function HeroCardsManager() {
@@ -12,6 +12,7 @@ export default function HeroCardsManager() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [msg, setMsg] = useState<string | null>(null);
+    const [slides, setSlides] = useState<HeroSlide[]>([]);
 
     const fetchCards = async () => {
         setLoading(true);
@@ -28,7 +29,29 @@ export default function HeroCardsManager() {
         }
     };
 
-    useEffect(() => { fetchCards(); }, []);
+    useEffect(() => {
+        fetchCards();
+        getDocs(collection(db, "hero_slides"))
+            .then(snap => {
+                const data = snap.docs
+                    .map(d => ({ id: d.id, ...d.data() }) as any)
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map(normalizeSlide);
+                setSlides(data);
+            })
+            .catch(error => console.error(error));
+    }, []);
+
+    const slideLabel = (s: HeroSlide, i: number) => {
+        const title = s.texts.find(t => t.kind === 'title' && t.text.trim())?.text || s.title;
+        return title ? `${i + 1}. ${title}` : `Slide ${i + 1}`;
+    };
+
+    const toggleSlide = (card: HeroCard, slideId: string) => {
+        const current = card.slideIds || [];
+        const next = current.includes(slideId) ? current.filter(id => id !== slideId) : [...current, slideId];
+        patchCard(card, { slideIds: next });
+    };
 
     const handleAdd = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -118,6 +141,36 @@ export default function HeroCardsManager() {
                                     placeholder="Dirección al tocar (opcional): #Productos o https://..."
                                     onBlur={e => e.target.value !== (card.link || '') && patchCard(card, { link: e.target.value.trim() })}
                                 />
+                                {slides.length > 0 && (
+                                    <div style={{ marginTop: 10 }}>
+                                        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>
+                                            {card.slideIds?.length ? 'Se muestra en:' : 'Se muestra en todos los slides (elegí cuáles):'}
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {slides.map((s, i) => {
+                                                const on = !!card.slideIds?.includes(s.id);
+                                                return (
+                                                    <button
+                                                        key={s.id}
+                                                        type="button"
+                                                        onClick={() => toggleSlide(card, s.id)}
+                                                        style={{
+                                                            padding: '4px 10px',
+                                                            borderRadius: 999,
+                                                            fontSize: 12,
+                                                            cursor: 'pointer',
+                                                            border: `1px solid ${on ? '#d63336' : '#d1d5db'}`,
+                                                            background: on ? '#d63336' : '#fff',
+                                                            color: on ? '#fff' : '#374151',
+                                                        }}
+                                                    >
+                                                        {slideLabel(s, i)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="hero-card-actions">
                                 <button onClick={() => move(index, -1)} className="btn-action" title="Mover antes" disabled={index === 0}><FaArrowLeft /></button>
