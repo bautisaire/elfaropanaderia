@@ -68,6 +68,19 @@ const PAYMENT_METHODS_ORDER: PaymentMethod[] = ['Efectivo', 'Débito', 'Transfer
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// Montos con puntos de miles en pantalla ("1.200"); el estado guarda el número crudo ("1200" / "1200.5").
+const formatAmountInput = (raw: string) => {
+    if (!raw) return '';
+    const [int, dec] = raw.split('.');
+    const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return dec === undefined ? grouped : `${grouped},${dec}`;
+};
+const parseAmountInput = (display: string) => {
+    const clean = display.replace(/\./g, '').replace(',', '.').replace(/[^\d.]/g, '');
+    const [int, ...rest] = clean.split('.');
+    return rest.length ? `${int}.${rest.join('')}` : int;
+};
+
 export default function CajaVenta({ onSaleComplete, active = true, onCartCountChange }: CajaVentaProps) {
     const { user, isSuperAdmin, adminPermissions } = useCart();
     const canEditPrices = isSuperAdmin || adminPermissions?.orders_can_edit_prices === true;
@@ -1287,12 +1300,11 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                             <div className="caja-venta-total-input-row">
                                 <span className="caja-venta-total-currency">$</span>
                                 <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
+                                    type="text"
+                                    inputMode="decimal"
                                     className="caja-venta-total-value-input"
-                                    value={totalInput}
-                                    onChange={(e) => handleTotalInputChange(e.target.value)}
+                                    value={formatAmountInput(totalInput)}
+                                    onChange={(e) => handleTotalInputChange(parseAmountInput(e.target.value))}
                                     placeholder="0"
                                 />
                             </div>
@@ -1361,10 +1373,11 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                 {enabledMethods[pm] && (
                                     <input
                                         ref={(el) => { paymentInputRefs.current[pm] = el; }}
-                                        type="number"
+                                        type="text"
+                                        inputMode="decimal"
                                         className="caja-venta-payment-input"
-                                        value={paymentAmounts[pm]}
-                                        onChange={(e) => handlePaymentAmountChange(pm, e.target.value)}
+                                        value={formatAmountInput(paymentAmounts[pm])}
+                                        onChange={(e) => handlePaymentAmountChange(pm, parseAmountInput(e.target.value))}
                                         placeholder="0"
                                     />
                                 )}
