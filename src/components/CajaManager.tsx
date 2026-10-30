@@ -173,6 +173,34 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             return { ...m, paymentMethod: normalizePaymentMethod(current) };
         });
 
+        // Si el pedido se modificó después de registrarse en caja (Deliveries / Ventas POS),
+        // el monto y la cantidad de productos de la caja siguen al pedido.
+        const movsByOrder = new Map<string, number[]>();
+        cajaMovs.forEach((m, i) => {
+            if (m.type === 'venta' && m.orderId) {
+                const list = movsByOrder.get(m.orderId) || [];
+                list.push(i);
+                movsByOrder.set(m.orderId, list);
+            }
+        });
+        movsByOrder.forEach((indexes, orderId) => {
+            const order = ordersById.get(orderId);
+            const orderTotal = Number(order?.total);
+            if (!order || !Number.isFinite(orderTotal)) return;
+            const registered = indexes.reduce((s, i) => s + cajaMovs[i].amount, 0);
+            const itemCount = Array.isArray(order.items) ? order.items.length : undefined;
+            let remaining = orderTotal;
+            indexes.forEach((idx, pos) => {
+                const m = cajaMovs[idx];
+                const isLast = pos === indexes.length - 1;
+                const newAmount = isLast
+                    ? remaining
+                    : (registered > 0 ? Math.round(orderTotal * (m.amount / registered)) : Math.round(orderTotal / indexes.length));
+                remaining -= newAmount;
+                cajaMovs[idx] = { ...m, amount: newAmount, ...(itemCount !== undefined ? { itemCount } : {}) };
+            });
+        });
+
         const coveredOrderIds = new Set(
             cajaMovs.filter(m => m.type === 'venta' && m.orderId).map(m => m.orderId)
         );

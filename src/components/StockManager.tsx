@@ -11,6 +11,7 @@ import ProductSearch from './ProductSearch';
 import './StockManager.css';
 import StockCatalog from './StockCatalog';
 import StockAdjustmentModal from './StockAdjustmentModal';
+import CierreJornada from './CierreJornada';
 
 const REASON_META: Record<string, { icon: React.ComponentType }> = {
     'Venta POS': { icon: FaCashRegister },
@@ -78,7 +79,7 @@ interface StockMovement {
 }
 
 export default function StockManager() {
-    const [activeTab, setActiveTab] = useState<'catalog' | 'inventory' | 'history' | 'bulk'>('catalog');
+    const [activeTab, setActiveTab] = useState<'catalog' | 'inventory' | 'history' | 'bulk' | 'close'>('catalog');
     const [products, setProducts] = useState<Product[]>([]);
     const [movements, setMovements] = useState<StockMovement[]>([]);
     const [loading, setLoading] = useState(false);
@@ -550,6 +551,12 @@ export default function StockManager() {
                     >
                         <FaBoxes /> Inventario
                     </button>
+                    <button
+                        className={`stock-tab-btn ${activeTab === 'close' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('close')}
+                    >
+                        <FaTrashAlt /> Cierre
+                    </button>
                 </div>
 
                 {(activeTab === 'catalog' || activeTab === 'inventory' || activeTab === 'bulk') && (
@@ -592,6 +599,9 @@ export default function StockManager() {
 
             {/* TAB PRODUCTOS (tarjetas: tocar para editar stock o producto) */}
             {activeTab === 'catalog' && <StockCatalog searchTerm={searchTerm} categoryFilter={categoryFilter} />}
+
+            {/* TAB CIERRE DE JORNADA */}
+            {activeTab === 'close' && <CierreJornada />}
 
             {/* TAB INVENTARIO */}
             {activeTab === 'inventory' && !loading && (
