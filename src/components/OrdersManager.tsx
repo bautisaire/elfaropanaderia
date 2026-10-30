@@ -292,7 +292,7 @@ export default function OrdersManager() {
 
         // Si el pedido estaba Cancelado y pasa a otro estado (Reactivación), descontar stock nuevamente
         if (orderToCancel && orderToCancel.status === 'cancelado' && status !== 'cancelado') {
-            const idDisplay = /^\d+$/.test(id) ? id : id.slice(-4);
+            const idDisplay = /^L?\d+$/.test(id) ? id : id.slice(-4);
             await deductOrderStock(orderToCancel, `Reactivación Pedido #${idDisplay}`);
         }
 
@@ -423,7 +423,7 @@ export default function OrdersManager() {
                             type: 'IN',
                             quantity: item.quantity || 1,
                             reason: 'Pedido Cancelado',
-                            observation: `Cancelación Pedido #${/^\d+$/.test(order.id) ? order.id : order.id.slice(-4)}`,
+                            observation: `Cancelación Pedido #${/^L?\d+$/.test(order.id) ? order.id : order.id.slice(-4)}`,
                             date: new Date(),
                             ...(resultStock !== undefined ? { stockAfter: resultStock } : {})
                         });
@@ -662,7 +662,7 @@ export default function OrdersManager() {
             if (originalOrder) {
                 for (const item of originalOrder.items) {
                     try {
-                        const idDisplay = /^\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-4);
+                        const idDisplay = /^L?\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-4);
                         await adjustStock(item, 'IN', `Edición Pedido (Reversión) #${idDisplay}`);
                     } catch (e) {
                         console.error("Error reverting item stock", item, e);
@@ -673,7 +673,7 @@ export default function OrdersManager() {
             // 2. Deduct Stock of NEW Order Items (OUT)
             for (const item of editingOrder.items) {
                 try {
-                    const idDisplay = /^\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-4);
+                    const idDisplay = /^L?\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-4);
                     await adjustStock(item, 'OUT', `Edición Pedido (Actualización) #${idDisplay}`);
                 } catch (e) {
                     console.error("Error deducting item stock", item, e);
@@ -1107,7 +1107,7 @@ export default function OrdersManager() {
                     {isEditModalOpen && editingOrder && (
                         <div className="pm-modal-overlay">
                             <div className="pm-modal-content edit-order-modal">
-                                <h3>Editar Pedido #{/^\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-6)}</h3>
+                                <h3>Editar Pedido #{/^L?\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-6)}</h3>
 
                                 <div className="edit-modal-body">
                                     {/* Current Items */}

@@ -854,14 +854,14 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
 
                 const uniqueIds = Array.from(productIdsToRead);
                 const refs = uniqueIds.map(id => doc(db, 'products', id));
-                const counterRef = doc(db, 'config', 'order_counter');
+                const counterRef = doc(db, 'config', isDeliveryOrder ? 'order_counter' : 'local_order_counter');
 
                 const reads: Promise<any>[] = refs.map(ref => transaction.get(ref));
-                if (isDeliveryOrder) reads.push(transaction.get(counterRef));
+                reads.push(transaction.get(counterRef));
 
                 const allSnaps = await Promise.all(reads);
                 const docsSnap = allSnaps.slice(0, refs.length);
-                const counterSnap = isDeliveryOrder ? allSnaps[refs.length] : null;
+                const counterSnap = allSnaps[refs.length];
 
                 const productDataMap: Record<string, any> = {};
                 docsSnap.forEach((d, i) => {
@@ -880,8 +880,13 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                     orderIdString = nextOrderCounter.toString();
                     orderRef = doc(db, 'orders', orderIdString);
                 } else {
-                    orderRef = doc(collection(db, 'orders'));
-                    orderIdString = orderRef.id;
+                    // Ventas del local: L00001, L00002, ...
+                    nextOrderCounter = 1;
+                    if (counterSnap && counterSnap.exists()) {
+                        nextOrderCounter = (counterSnap.data().current || 0) + 1;
+                    }
+                    orderIdString = `L${nextOrderCounter.toString().padStart(5, '0')}`;
+                    orderRef = doc(db, 'orders', orderIdString);
                 }
 
                 const productsToUpdate = new Set<string>();
@@ -966,9 +971,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                     });
                 });
 
-                if (isDeliveryOrder) {
-                    transaction.set(counterRef, { current: nextOrderCounter }, { merge: true });
-                }
+                transaction.set(counterRef, { current: nextOrderCounter }, { merge: true });
 
                 const metodoPago = paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo';
 

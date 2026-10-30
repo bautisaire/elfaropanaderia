@@ -129,7 +129,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                     <div className="expanded-section">
                         <div className="expanded-header-row">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <h4>Ticket #{/^\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
+                                <h4>Ticket #{/^L?\d+$/.test(order.id) ? order.id : order.id.slice(-6)}</h4>
                                 {/* Mobile Close Button */}
                                 <button className="mobile-close-btn" onClick={(e) => { e.stopPropagation(); onClose(); }}>
                                     <FaTimes />

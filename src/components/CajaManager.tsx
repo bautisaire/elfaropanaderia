@@ -679,7 +679,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                 <span className="caja-movement-type">
                                     {m.type === 'venta' ? 'Venta' : m.type === 'ingreso' ? 'Ingreso' : 'Egreso'}
                                 </span>
-                                <span className="caja-movement-desc">{m.description || (m.orderId ? `Pedido #${m.orderId}` : '—')}</span>
+                                <span className="caja-movement-desc">{m.description || (m.orderId ? (/^L\d+$/.test(m.orderId) ? `Venta local ${m.orderId}` : `Pedido #${m.orderId}`) : '—')}</span>
                                 <span className="caja-movement-qty">
                                     {m.type === 'venta' && m.itemCount ? `${m.itemCount} ${m.itemCount === 1 ? 'producto' : 'productos'}` : ''}
                                 </span>

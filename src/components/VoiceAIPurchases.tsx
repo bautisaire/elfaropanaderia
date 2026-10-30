@@ -443,6 +443,15 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
         }
     };
 
+    const narrowInputStyle = {
+        padding: '12px 4px',
+        fontSize: '18px',
+        borderRadius: '6px',
+        border: '1px solid #94a3b8',
+        width: '100%',
+        boxSizing: 'border-box' as const,
+        textAlign: 'center' as const
+    };
     const bigInputStyle = {
         padding: '12px',
         fontSize: '18px',
@@ -493,11 +502,11 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
                         backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
                         zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '20px', fontFamily: '"Courier New", Courier, monospace'
+                        padding: 0, fontFamily: '"Courier New", Courier, monospace'
                     }}>
                         <div style={{
-                            background: '#fff', width: '80%', maxWidth: '1200px', maxHeight: '90vh',
-                            overflowY: 'auto', padding: '40px', borderRadius: '8px',
+                            background: '#fff', width: '100%', height: '100%', boxSizing: 'border-box',
+                            overflowY: 'auto', padding: '30px 40px', borderRadius: 0,
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                             borderTop: '20px solid #cbd5e1'
                         }}>
@@ -563,22 +572,22 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                 </div>
                             </div>
 
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>
+                            <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', marginBottom: '30px' }}>
                                 <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', fontSize: '1.2rem' }}>
                                         <th style={{ padding: '12px' }}>{ticketType === 'materia_prima' ? 'Materia Prima' : 'Concepto / Ítem'}</th>
                                         {viewMode === 'completo' && (
                                             <>
-                                                <th style={{ padding: '12px', width: '12%' }}>Cantidad</th>
-                                                <th style={{ padding: '12px', width: '12%' }}>Unidad</th>
-                                                <th style={{ padding: '12px', width: '12%' }}>Multipl.</th>
+                                                <th style={{ padding: '12px 4px', width: '5.5%', fontSize: '1rem' }}>Cant.</th>
+                                                <th style={{ padding: '12px 4px', width: '5.5%', fontSize: '1rem' }}>Unid.</th>
+                                                <th style={{ padding: '12px 4px', width: '5.5%', fontSize: '1rem' }}>Mult.</th>
                                             </>
                                         )}
-                                        <th style={{ padding: '12px', width: '15%' }}>Precio (neto)</th>
+                                        <th style={{ padding: '12px', width: '18%' }}>Precio (neto)</th>
                                         {viewMode === 'completo' && (
-                                            <th style={{ padding: '12px', width: '9%' }}>Dto %</th>
+                                            <th style={{ padding: '12px 4px', width: '5%', fontSize: '1rem' }}>Dto %</th>
                                         )}
-                                        <th style={{ padding: '12px', width: '15%' }}>Importe (neto)</th>
+                                        <th style={{ padding: '12px', width: '18%' }}>Importe (neto)</th>
                                         <th style={{ padding: '12px', width: '5%' }}></th>
                                     </tr>
                                 </thead>
@@ -599,7 +608,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                             </td>
                                             {viewMode === 'completo' && (
                                                 <>
-                                                    <td style={{ padding: '12px' }}>
+                                                    <td style={{ padding: '12px 4px' }}>
                                                         <input
                                                             type="number"
                                                             value={prod.cantidad}
@@ -610,10 +619,10 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                             }}
                                                             onKeyDown={e => handleKeyDown(e, idx, 'qty')}
                                                             ref={el => { if (el) inputRefs.current[`${idx}_qty`] = el }}
-                                                            style={bigInputStyle}
+                                                            style={narrowInputStyle}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: '12px' }}>
+                                                    <td style={{ padding: '12px 4px' }}>
                                                         <select
                                                             value={prod.unidad}
                                                             onChange={e => {
@@ -623,7 +632,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                             }}
                                                             onKeyDown={e => handleKeyDown(e, idx, 'unit')}
                                                             ref={el => { if (el) inputRefs.current[`${idx}_unit`] = el }}
-                                                            style={bigInputStyle}
+                                                            style={{ ...narrowInputStyle, padding: '12px 0' }}
                                                         >
                                                             <option value="g">g</option>
                                                             <option value="kg">kg</option>
@@ -632,9 +641,9 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                             <option value="unidad">un</option>
                                                         </select>
                                                     </td>
-                                                    <td style={{ padding: '12px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                            <span style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: 'bold' }}>x</span>
+                                                    <td style={{ padding: '12px 4px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                            <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 'bold' }}>x</span>
                                                             <input
                                                                 type="number"
                                                                 value={prod.multiplicador || 1}
@@ -645,7 +654,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                                 }}
                                                                 onKeyDown={e => handleKeyDown(e, idx, 'multiplier')}
                                                                 ref={el => { if (el) inputRefs.current[`${idx}_multiplier`] = el }}
-                                                                style={bigInputStyle}
+                                                                style={narrowInputStyle}
                                                                 min="1"
                                                             />
                                                         </div>
@@ -670,7 +679,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                 </div>
                                             </td>
                                             {viewMode === 'completo' && (
-                                                <td style={{ padding: '12px' }}>
+                                                <td style={{ padding: '12px 4px' }}>
                                                     <input
                                                         type="number"
                                                         value={prod.descuento || 0}
@@ -681,7 +690,7 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                                         }}
                                                         onKeyDown={e => handleKeyDown(e, idx, 'discount')}
                                                         ref={el => { if (el) inputRefs.current[`${idx}_discount`] = el }}
-                                                        style={bigInputStyle}
+                                                        style={narrowInputStyle}
                                                         min="0"
                                                         max="99"
                                                     />
