@@ -14,14 +14,14 @@ export const generateOrderMessage = (order: any): string => {
     // Productos
     message += `\n🛒 Productos:\n`;
     order.items?.forEach((item: any) => {
-        const itemTotal = item.price * (item.quantity || 1);
+        const itemTotal = Math.ceil(item.price * (item.quantity || 1));
         message += `- ${item.quantity}x ${item.name}`;
         if (item.variant) message += ` (${item.variant})`;
         message += ` ($${itemTotal})\n`;
     });
     
     // Totales
-    message += `\n\n💵 Total: $${order.total}\n\n`;
+    message += `\n\n💵 Total: $${Math.ceil(order.total)}\n\n`;
     message += ` ¡Ya lo estamos preparando! \n\n`;
 
     if (order.cliente?.metodoPago?.toLowerCase() === 'transferencia' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia bancaria' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia/mp') {
@@ -65,7 +65,7 @@ const getWebsiteLine = (order: OrderRaffleParticipation): string => {
 
 export const generateOrderMessageShort = (order: any): string => {
     let message = `¡Hola ${order.cliente?.nombre || ''}! Recibimos tu pedido en El Faro Panadería.\n\n`;
-    message += `💵 Total: $${order.total}\n\n`;
+    message += `💵 Total: $${Math.ceil(order.total)}\n\n`;
 
     if (order.cliente?.metodoPago?.toLowerCase() === 'transferencia' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia bancaria' || order.cliente?.metodoPago?.toLowerCase() === 'transferencia/mp') {
         message += ` Datos de Transferencia:\n`;

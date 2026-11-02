@@ -89,6 +89,8 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
     const navigate = useNavigate();
     const { categories } = useExpenseCategories();
     const [ticketItems, setTicketItems] = useState<any[]>([]);
+    const [activeMaterialRow, setActiveMaterialRow] = useState<number | null>(null);
+    const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(0);
 
     // Modal mode (opened directly from Gastos): skip the landing screen and jump straight into ticket entry.
     useEffect(() => {
@@ -595,16 +597,93 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                     {ticketItems.map((prod, idx) => (
                                         <tr key={prod.id} style={{ borderBottom: '1px dashed #e2e8f0', background: prod.rawMaterialId ? '#f8fafc' : '#f0fdf4' }}>
                                             <td style={{ padding: '12px' }}>
-                                                <input 
-                                                    list="all-raw-materials"
-                                                    value={prod.nombre}
-                                                    onChange={e => handleNameChange(idx, e.target.value)}
-                                                    onKeyDown={e => handleKeyDown(e, idx, 'name')}
-                                                    ref={el => { if (el) inputRefs.current[`${idx}_name`] = el }}
-                                                    placeholder="Escribí el nombre..."
-                                                    style={{ ...bigInputStyle, borderColor: prod.rawMaterialId ? '#cbd5e1' : '#22c55e' }}
-                                                    title={prod.rawMaterialId ? "Material Existente" : "Nuevo Material (Será creado)"}
-                                                />
+                                                <div style={{ position: 'relative', width: '100%' }}>
+                                                    <input
+                                                        value={prod.nombre}
+                                                        onChange={e => {
+                                                            handleNameChange(idx, e.target.value);
+                                                            setActiveMaterialRow(idx);
+                                                            setHighlightedMaterialIndex(0);
+                                                        }}
+                                                        onFocus={() => {
+                                                            setActiveMaterialRow(idx);
+                                                            setHighlightedMaterialIndex(0);
+                                                        }}
+                                                        onBlur={() => setTimeout(() => setActiveMaterialRow(current => current === idx ? null : current), 120)}
+                                                        onKeyDown={e => {
+                                                            const matches = ticketType === 'materia_prima'
+                                                                ? rawMaterials.filter(m => m.name.toLowerCase().includes(prod.nombre.trim().toLowerCase()))
+                                                                : [];
+                                                            if (activeMaterialRow === idx && matches.length > 0 && e.key === 'ArrowDown') {
+                                                                e.preventDefault();
+                                                                setHighlightedMaterialIndex(current => Math.min(current + 1, matches.length - 1));
+                                                                return;
+                                                            }
+                                                            if (activeMaterialRow === idx && matches.length > 0 && e.key === 'ArrowUp') {
+                                                                e.preventDefault();
+                                                                setHighlightedMaterialIndex(current => Math.max(current - 1, 0));
+                                                                return;
+                                                            }
+                                                            if (activeMaterialRow === idx && matches.length > 0 && e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                handleNameChange(idx, matches[highlightedMaterialIndex]?.name || matches[0].name);
+                                                                setActiveMaterialRow(null);
+                                                                return;
+                                                            }
+                                                            if (e.key === 'Escape' && activeMaterialRow === idx) {
+                                                                setActiveMaterialRow(null);
+                                                                return;
+                                                            }
+                                                            handleKeyDown(e, idx, 'name');
+                                                        }}
+                                                        ref={el => { if (el) inputRefs.current[`${idx}_name`] = el }}
+                                                        placeholder="Escribí el nombre..."
+                                                        style={{ ...bigInputStyle, borderColor: prod.rawMaterialId ? '#cbd5e1' : '#22c55e' }}
+                                                        title={prod.rawMaterialId ? "Material Existente" : "Nuevo Material (Será creado)"}
+                                                        role="combobox"
+                                                        aria-expanded={activeMaterialRow === idx && ticketType === 'materia_prima'}
+                                                        aria-autocomplete="list"
+                                                    />
+                                                    {activeMaterialRow === idx && ticketType === 'materia_prima' && (() => {
+                                                        const matches = rawMaterials.filter(m => m.name.toLowerCase().includes(prod.nombre.trim().toLowerCase()));
+                                                        if (matches.length === 0) return null;
+                                                        return (
+                                                            <div
+                                                                role="listbox"
+                                                                style={{
+                                                                    position: 'absolute', top: '100%', left: 0, width: 'min(440px, 85vw)',
+                                                                    maxHeight: 'min(360px, 48vh)', overflowY: 'auto', zIndex: 10001,
+                                                                    background: '#fff', border: '1px solid #94a3b8', borderRadius: '8px',
+                                                                    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.24)'
+                                                                }}
+                                                            >
+                                                                {matches.map((material, materialIndex) => (
+                                                                    <button
+                                                                        key={material.id}
+                                                                        type="button"
+                                                                        role="option"
+                                                                        aria-selected={highlightedMaterialIndex === materialIndex}
+                                                                        onMouseDown={e => e.preventDefault()}
+                                                                        onMouseEnter={() => setHighlightedMaterialIndex(materialIndex)}
+                                                                        onClick={() => {
+                                                                            handleNameChange(idx, material.name);
+                                                                            setActiveMaterialRow(null);
+                                                                        }}
+                                                                        style={{
+                                                                            display: 'block', width: '100%', padding: '14px 16px', textAlign: 'left',
+                                                                            border: 0, borderBottom: '1px solid #e2e8f0', cursor: 'pointer',
+                                                                            background: highlightedMaterialIndex === materialIndex ? '#eaf2ff' : '#fff',
+                                                                            color: '#172033', font: '600 17px/1.35 system-ui, sans-serif'
+                                                                        }}
+                                                                    >
+                                                                        {material.name}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
                                             </td>
                                             {viewMode === 'completo' && (
                                                 <>
@@ -731,12 +810,6 @@ export default function VoiceAIPurchases({ rawMaterials, onClose }: VoiceAIPurch
                                     ))}
                                 </tbody>
                             </table>
-
-                            <datalist id="all-raw-materials">
-                                {rawMaterials.map(m => (
-                                    <option key={m.id} value={m.name} />
-                                ))}
-                            </datalist>
 
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
                                 <button
