@@ -44,7 +44,7 @@ export default function Editor() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(true); // Collapsed by default for desktop
+  const [collapsed, setCollapsed] = useState(false);
   const { adminPermissions, isSuperAdmin, hasSecondaryProfile, activeProfile, profileNames, switchProfile } = useCart();
   const [switchOpen, setSwitchOpen] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<'primary' | 'secondary' | null>(null);
@@ -68,10 +68,10 @@ export default function Editor() {
       if (
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target as Node) &&
-        !collapsed &&
-        window.innerWidth >= 850 // Only for desktop
+        mobileMenuOpen &&
+        window.innerWidth < 850
       ) {
-        setCollapsed(true);
+        setMobileMenuOpen(false);
       }
     }
 
@@ -79,7 +79,7 @@ export default function Editor() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [collapsed]);
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     let roleUnsub: (() => void) | null = null;

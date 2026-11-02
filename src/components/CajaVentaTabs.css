@@ -11,9 +11,9 @@
 .caja-tab-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .caja-tab-confirm-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-weight: 600; }
 .caja-tab-confirm-actions button.danger { background: #c0392b; border-color: #c0392b; color: #fff; }
-.caja-tabs-root { height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+.caja-tabs-root { height: 100%; min-height: 0; display: flex; flex-direction: column; box-sizing: border-box; }
 .caja-tabs-root > .caja-venta-header { padding: 20px 30px 0; margin-bottom: 12px; }
-@media (min-width: 850px) { .caja-tabs-root > .caja-venta-header, .caja-tabs-bar { padding-left: 80px; } }
+@media (min-width: 850px) { .caja-tabs-root > .caja-venta-header { padding-left: 24px; } }
 @media (max-width: 700px) { .caja-tabs-root > .caja-venta-header { padding: 14px 14px 0; } }
 .caja-tab-pane { flex: 1; min-height: 0; }
 .caja-tab-pane > .caja-venta-container { height: 100%; padding-top: 14px; }

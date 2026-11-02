@@ -1225,7 +1225,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         <div className="caja-venta-container">
             <div className="caja-venta-body">
                 <div className="caja-venta-main">
-                    <div className="caja-venta-list-wrapper">
+                    <div className={`caja-venta-list-wrapper ${cart.length === 0 ? 'is-empty' : ''}`}>
                         <div className="caja-venta-list-header">
                             <span>Cantidad</span>
                             <span>Detalle</span>
