@@ -1034,17 +1034,31 @@ export default function OrdersManager() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="col-estado">
-                                                        <div className="status-selector-wrapper-table" style={{ borderColor: currentStatus.color, color: currentStatus.color }}>
+                                                    <td className="col-estado" onClick={(e) => e.stopPropagation()}>
+                                                        <div
+                                                            className="status-selector-wrapper-table row-status-selector"
+                                                            style={{ borderColor: currentStatus.color, color: currentStatus.color }}
+                                                            // La fila completa abre/cierra el detalle. Frenamos el evento
+                                                            // desde el inicio de la interacción para que usar el selector
+                                                            // de estado no active ese acordeón.
+                                                            onPointerDown={(e) => e.stopPropagation()}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
                                                             <span className="status-icon-table">{currentStatus.icon}</span>
+                                                            <span className="status-dropdown-table" aria-hidden="true">{currentStatus.label}</span>
                                                             <select
                                                                 value={order.status}
-                                                                onChange={(e) => updateStatus(order.id, e.target.value)}
-                                                                className="status-dropdown-table"
+                                                                aria-label="Estado del pedido"
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    updateStatus(order.id, e.target.value);
+                                                                }}
+                                                                className="row-status-select"
+                                                                onPointerDown={(e) => e.stopPropagation()}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 {rowStatusOptions.filter(opt => opt.value !== "cancelado" || adminPermissions?.orders_can_cancel !== false || isSuperAdmin).map(opt => (
-                                                                    <option key={opt.value} value={opt.value}>
+                                                                    <option key={opt.value} value={opt.value} style={{ color: opt.color }}>
                                                                         {opt.label}
                                                                     </option>
                                                                 ))}

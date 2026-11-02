@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { useContext, useEffect, lazy, Suspense } from "react";
 import { CartContext } from "./context/CartContext";
 import Home from "./pages/Home";
-import Checkout from "./pages/Checkout";
+const Checkout = lazy(() => import("./pages/Checkout"));
 import Header from "./components/HeaderTemp";
 import Footer from "./components/Footer";
 import Proximamente from "./pages/Proximamente";
