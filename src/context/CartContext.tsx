@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useMemo, useEffect, useCallback, useRef } from "react";
 import { db, auth } from "../firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc, onSnapshot, collection } from "firebase/firestore";
+import { doc, getDoc, getDocFromServer, setDoc, onSnapshot, collection } from "firebase/firestore";
 import { onFreshSnapshot } from "../utils/onFreshSnapshot";
 import ClosedModal from "../components/ClosedModal";
 import PickupOnlyModal from "../components/PickupOnlyModal";
@@ -363,7 +363,7 @@ export const CartProvider = ({ children }: Props) => {
   // Fetch Store Status
   useEffect(() => {
     const docRef = doc(db, "config", "store_settings");
-    const unsub = onFreshSnapshot(docRef, (docSnap) => {
+    const applySettings = (docSnap: { exists: () => boolean; data: () => any }) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setIsStoreOpen(data.isOpen !== undefined ? data.isOpen : true);
@@ -372,11 +372,31 @@ export const CartProvider = ({ children }: Props) => {
         setAllowDelivery(data.allowDelivery !== undefined ? data.allowDelivery : true);
         setPickupOnlyMessage(data.pickupOnlyMessage || "¡Atención! Actualmente solo estamos tomando pedidos para RETIRO EN EL LOCAL.");
       }
-    }, (error) => {
+    };
+
+    const unsub = onFreshSnapshot(docRef, applySettings, (error) => {
       console.error("Error fetching store status:", error);
     });
 
-    return () => unsub();
+    // Si se aplicó un valor viejo del caché (conexión lenta) o la pestaña estuvo
+    // en segundo plano / sin red, releemos directo del servidor al volver.
+    const refetchFromServer = () => {
+      if (document.visibilityState === "hidden") return;
+      getDocFromServer(docRef).then(applySettings).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", refetchFromServer);
+    window.addEventListener("online", refetchFromServer);
+    window.addEventListener("focus", refetchFromServer);
+    // Refuerzo: si el cache viejo ganó, el servidor lo corrige a los pocos segundos.
+    const retryTimer = setTimeout(refetchFromServer, 5000);
+
+    return () => {
+      clearTimeout(retryTimer);
+      document.removeEventListener("visibilitychange", refetchFromServer);
+      window.removeEventListener("online", refetchFromServer);
+      window.removeEventListener("focus", refetchFromServer);
+      unsub();
+    };
   }, []);
 
   // Check Admin Status and User

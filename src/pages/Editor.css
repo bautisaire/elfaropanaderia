@@ -738,11 +738,11 @@
         padding: 20px 30px;
     }
 
-    .editor-content.pos-active-tab {
+    /* Solo el registro de ventas se ajusta al viewport. La lista de movimientos
+       y el historial crecen con el documento y usan el scroll de la página. */
+    .editor-content.pos-active-tab .caja-tabs-root {
         height: calc(100vh - 66px);
         height: calc(100dvh - 66px);
         min-height: 0;
-        overflow: hidden;
-        padding: 0;
     }
 }

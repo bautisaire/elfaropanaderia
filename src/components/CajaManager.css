@@ -1,8 +1,6 @@
 .caja-container {
     padding: 30px;
-    height: 100vh;
     box-sizing: border-box;
-    overflow-y: auto;
     max-width: 1100px;
     margin: 0 auto;
 }
