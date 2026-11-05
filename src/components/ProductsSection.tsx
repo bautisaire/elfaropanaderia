@@ -2,13 +2,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FaBoxOpen, FaFolder } from 'react-icons/fa';
 import ProductManager from './ProductManager';
 import CategoryManager from './CategoryManager';
+import { useCart } from '../context/CartContext';
 import './CostManager.css';
 
 // Sección "Productos" del panel: el catálogo y sus categorías.
 export default function ProductsSection() {
     const { "*": tab } = useParams();
     const navigate = useNavigate();
-    const activeTab = tab === 'categories' ? 'categories' : 'list';
+    const { adminPermissions } = useCart();
+    // Rol "solo stock": ve el catálogo pero no puede crear, editar ni borrar productos.
+    const stockOnly = adminPermissions?.costs === false && adminPermissions?.products_stock_only === true;
+    const activeTab = tab === 'categories' && !stockOnly ? 'categories' : 'list';
 
     return (
         <div className="cost-manager-container">
@@ -21,18 +25,18 @@ export default function ProductsSection() {
                     >
                         <FaBoxOpen /> Productos
                     </button>
-                    <button
+                    {!stockOnly && <button
                         className={`cm-tab ${activeTab === 'categories' ? 'active' : ''}`}
                         onClick={() => navigate('/editor/products/categories')}
                     >
                         <FaFolder /> Categorías
-                    </button>
+                    </button>}
                 </div>
             </header>
 
             <main className="cm-content">
                 {activeTab === 'list' && (
-                    <ProductManager onGoToRecipe={(id) => navigate('/editor/costs/recipes', { state: { productId: id } })} />
+                    <ProductManager stockOnly={stockOnly} onGoToRecipe={(id) => navigate('/editor/costs/recipes', { state: { productId: id } })} />
                 )}
                 {activeTab === 'categories' && <CategoryManager />}
             </main>

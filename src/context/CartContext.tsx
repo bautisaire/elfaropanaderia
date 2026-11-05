@@ -521,7 +521,7 @@ export const CartProvider = ({ children }: Props) => {
       // Perfil restringido: cualquier permiso no marcado explícitamente queda en false
       const restricted: Record<string, boolean> = {};
       ['dashboard', 'orders', 'orders_can_cancel', 'orders_can_modify', 'orders_can_change_payment', 'orders_can_assign_deliveries',
-        'orders_can_edit_prices', 'pos_sales', 'notes', 'store_editor', 'costs', 'bills', 'stock', 'settings', 'employees', 'raffle',
+        'orders_can_edit_prices', 'pos_sales', 'notes', 'store_editor', 'costs', 'products_stock_only', 'bills', 'stock', 'settings', 'employees', 'raffle',
         'is_rider', 'auto_assign_orders'].forEach(k => { restricted[k] = secFlags[k] === true; });
       setAdminPermissions(restricted);
     } else {

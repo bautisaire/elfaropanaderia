@@ -3,8 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
 import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
-import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt, FaShoppingBag } from 'react-icons/fa';
-import ProductSearch from "./ProductSearch";
+import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt, FaShoppingBag, FaSearch, FaTimes, FaCheck } from 'react-icons/fa';
 import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
 import { normalizeForSearch } from "../utils/textSearch";
@@ -144,7 +143,11 @@ export default function OrdersManager() {
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editSearchTerm, setEditSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [itemToRemoveIdx, setItemToRemoveIdx] = useState<number | null>(null);
+    const [noRestoreKeys, setNoRestoreKeys] = useState<string[]>([]);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [pickerProducts, setPickerProducts] = useState<any[]>([]);
+    const [pickerLoading, setPickerLoading] = useState(false);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
 
     // Cancel Modal State
@@ -535,26 +538,43 @@ export default function OrdersManager() {
     };
 
     // --- Search Logic for Valid Products in Edit Modal ---
-    useEffect(() => {
-        if (editSearchTerm.length > 2) {
-            const searchProducts = async () => {
-                const productsRef = collection(db, "products");
-                const q = query(productsRef); // Optimizable
-                const snapshot = await getDocs(q);
-                const allProducts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                const lowerTerm = normalizeForSearch(editSearchTerm);
-                const filtered = allProducts.filter((p: any) =>
-                    normalizeForSearch(p.nombre).includes(lowerTerm) ||
-                    (p.variants && p.variants.some((v: any) => normalizeForSearch(v.name).includes(lowerTerm)))
-                );
-                setSearchResults(filtered);
-            };
-            searchProducts();
-        } else {
-            setSearchResults([]);
+    const openProductPicker = async () => {
+        setEditSearchTerm("");
+        setIsPickerOpen(true);
+        setPickerLoading(true);
+        try {
+            const snapshot = await getDocs(query(collection(db, "products")));
+            const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+            all.sort((x, y) => String(x.nombre || '').localeCompare(String(y.nombre || ''), 'es'));
+            setPickerProducts(all);
+        } catch (err) {
+            console.error("Error cargando productos:", err);
+        } finally {
+            setPickerLoading(false);
         }
-    }, [editSearchTerm]);
+    };
+
+    const closeProductPicker = () => {
+        setIsPickerOpen(false);
+        setEditSearchTerm("");
+    };
+
+    const pickerFiltered = React.useMemo(() => {
+        const term = normalizeForSearch(editSearchTerm);
+        if (!term) return pickerProducts;
+        return pickerProducts.filter((p: any) =>
+            normalizeForSearch(p.nombre || '').includes(term) ||
+            (p.variants && p.variants.some((v: any) => normalizeForSearch(v.name || '').includes(term)))
+        );
+    }, [pickerProducts, editSearchTerm]);
+
+    const getPickedQty = (prod: any, variant: any = null) => {
+        if (!editingOrder) return 0;
+        const id = variant ? `${prod.id}-${variant.name}` : prod.id;
+        const vName = variant ? variant.name : null;
+        const it = editingOrder.items.find((i: any) => i.id === id || (i.name === prod.nombre && (i.variant || null) === vName));
+        return it ? Number(it.quantity) || 0 : 0;
+    };
 
     const handleOpenEditModal = (order: Order) => {
         setEditingOrder(JSON.parse(JSON.stringify(order))); // Deep copy
@@ -565,6 +585,9 @@ export default function OrdersManager() {
         setIsEditModalOpen(false);
         setEditingOrder(null);
         setEditSearchTerm("");
+        setIsPickerOpen(false);
+        setItemToRemoveIdx(null);
+        setNoRestoreKeys([]);
     };
 
     // Heurística para detectar productos vendidos por peso (kg).
@@ -592,14 +615,30 @@ export default function OrdersManager() {
         newQty = Math.round(newQty * 1000) / 1000;
 
         if (newQty <= 0) {
-            newItems.splice(index, 1);
-        } else {
-            item.quantity = newQty;
+            // En vez de borrar directo, preguntamos si se repone el stock.
+            setItemToRemoveIdx(index);
+            return;
         }
+        item.quantity = newQty;
 
         // Recalculate total
         const newTotal = Math.round(newItems.reduce((sum, i) => sum + (Number(i.price) * Number(i.quantity)), 0) * 100) / 100;
         setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
+    };
+
+    const getItemKey = (item: any) => `${item?.id ?? ''}|${item?.name ?? ''}|${item?.variant || ''}`;
+
+    const confirmRemoveItem = (restoreStock: boolean) => {
+        if (!editingOrder || itemToRemoveIdx === null) return;
+        const removed = editingOrder.items[itemToRemoveIdx];
+        const newItems = editingOrder.items.filter((_: any, i: number) => i !== itemToRemoveIdx);
+        const newTotal = Math.round(newItems.reduce((sum: number, i: any) => sum + (Number(i.price) * Number(i.quantity)), 0) * 100) / 100;
+        if (removed) {
+            const key = getItemKey(removed);
+            setNoRestoreKeys(prev => restoreStock ? prev.filter(k => k !== key) : (prev.includes(key) ? prev : [...prev, key]));
+        }
+        setEditingOrder({ ...editingOrder, items: newItems, total: newTotal });
+        setItemToRemoveIdx(null);
     };
 
     // Setea una cantidad exacta (usado por los inputs editables del modal).
@@ -662,6 +701,10 @@ export default function OrdersManager() {
             if (originalOrder) {
                 for (const item of originalOrder.items) {
                     try {
+                        const key = getItemKey(item);
+                        // Producto eliminado del pedido y el admin eligió NO reponer su stock
+                        const stillInOrder = editingOrder.items.some((i: any) => getItemKey(i) === key);
+                        if (noRestoreKeys.includes(key) && !stillInOrder) continue;
                         const idDisplay = /^L?\d+$/.test(editingOrder.id) ? editingOrder.id : editingOrder.id.slice(-4);
                         await adjustStock(item, 'IN', `Edición Pedido (Reversión) #${idDisplay}`);
                     } catch (e) {
@@ -1212,33 +1255,9 @@ export default function OrdersManager() {
                                     {/* Add Product */}
                                     <div className="edit-section">
                                         <h4>Agregar Producto</h4>
-                                        <ProductSearch
-                                            value={editSearchTerm}
-                                            onChange={setEditSearchTerm}
-                                            placeholder="Buscar para agregar..."
-                                        />
-                                        {searchResults.length > 0 && (
-                                            <ul className="edit-search-results">
-                                                {searchResults.map(prod => (
-                                                    <li key={prod.id} className="search-result-item">
-                                                        <span>{prod.nombre}</span>
-                                                        {prod.variants && prod.variants.length > 0 ? (
-                                                            <div className="variant-tags">
-                                                                {prod.variants.map((v: any) => (
-                                                                    <button key={v.name} onClick={() => handleAddItem(prod, v)} className="variant-tag">
-                                                                        {v.name} (${v.price !== undefined ? v.price : prod.precio})
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <button onClick={() => handleAddItem(prod)} className="add-simple-btn">
-                                                                Agregar (${prod.precio})
-                                                            </button>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
+                                        <button type="button" className="oam-open-picker-btn" onClick={openProductPicker}>
+                                            <FaPlus /> Agregar producto
+                                        </button>
                                     </div>
                                 </div>
 
@@ -1246,6 +1265,113 @@ export default function OrdersManager() {
                                     <button className="cancel-btn" onClick={handleCloseEditModal}>Cancelar</button>
                                     <button className="save-btn" onClick={handleSaveOrder} disabled={isSavingOrder}>
                                         {isSavingOrder ? 'Guardando...' : <><FaSave /> Guardar Cambios</>}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Selector de productos para agregar al pedido */}
+                    {isEditModalOpen && editingOrder && isPickerOpen && (
+                        <div className="oam-picker-overlay">
+                            <div className="oam-picker-modal">
+                                <div className="oam-picker-header">
+                                    <h3>Agregar producto</h3>
+                                    <button className="oam-picker-close" onClick={closeProductPicker}><FaTimes /></button>
+                                </div>
+                                <div className="oam-picker-controls">
+                                    <div className="oam-picker-search">
+                                        <FaSearch />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar producto..."
+                                            value={editSearchTerm}
+                                            onChange={(e) => setEditSearchTerm(e.target.value)}
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+                                <div className="oam-picker-list">
+                                    {pickerLoading ? (
+                                        <p className="oam-picker-empty">Cargando productos...</p>
+                                    ) : pickerFiltered.length === 0 ? (
+                                        <p className="oam-picker-empty">No se encontraron productos.</p>
+                                    ) : (
+                                        pickerFiltered.map((prod: any) => {
+                                            const hasVariants = prod.variants && prod.variants.length > 0;
+                                            const rows = hasVariants
+                                                ? prod.variants.map((v: any) => ({ key: `${prod.id}-${v.name}`, label: `${prod.nombre} (${v.name})`, price: v.price !== undefined ? v.price : prod.precio, variant: v }))
+                                                : [{ key: prod.id, label: prod.nombre, price: prod.precio, variant: null }];
+                                            return rows.map((r: any) => {
+                                                const qty = getPickedQty(prod, r.variant);
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={r.key}
+                                                        className={`oam-picker-item ${qty > 0 ? 'checked' : ''}`}
+                                                        onClick={() => { handleAddItem(prod, r.variant); closeProductPicker(); }}
+                                                    >
+                                                        <span className="oam-picker-item-name">{r.label}</span>
+                                                        {qty > 0 && <span className="oam-picker-item-qty"><FaCheck size={10} /> {prod.unitType === 'weight' ? `${Math.round(qty * 1000)} g` : `x${qty}`}</span>}
+                                                        <span className="oam-picker-item-price">${Math.round(Number(r.price) || 0).toLocaleString('es-AR')}{prod.unitType === 'weight' ? '/kg' : ''}</span>
+                                                    </button>
+                                                );
+                                            });
+                                        })
+                                    )}
+                                </div>
+                                <div className="oam-picker-footer">
+                                    <span className="oam-picker-count">Total: ${editingOrder.total}</span>
+                                    <button type="button" className="oam-picker-done" onClick={closeProductPicker}>Listo</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Decisión al quitar un producto del pedido */}
+                    {isEditModalOpen && editingOrder && itemToRemoveIdx !== null && editingOrder.items[itemToRemoveIdx] && (
+                        <div className="pm-modal-overlay" style={{ zIndex: 20002 }}>
+                            <div className="pm-modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '20px', color: '#b91c1c' }}>
+                                    <FaTrash size={36} />
+                                </div>
+                                <h3>Quitar producto</h3>
+                                <p style={{ margin: '15px 0', color: '#4b5563' }}>
+                                    Vas a quitar <strong>{editingOrder.items[itemToRemoveIdx].name}{editingOrder.items[itemToRemoveIdx].variant ? ` (${editingOrder.items[itemToRemoveIdx].variant})` : ''}</strong> del pedido.<br />
+                                    ¿Deseas devolver este producto al stock?
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <button
+                                        className="save-btn"
+                                        onClick={() => confirmRemoveItem(true)}
+                                        style={{ width: '100%', height: '60px', padding: '0 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                                            <FaSync />
+                                            <span>Quitar y Reponer</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.9, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                                            Recomendado
+                                        </span>
+                                    </button>
+                                    <button
+                                        className="cancel-btn"
+                                        onClick={() => confirmRemoveItem(false)}
+                                        style={{ width: '100%', height: '60px', borderColor: '#fca5a5', color: '#b91c1c', background: '#fef2f2', padding: '0 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                                            <FaTimesCircle />
+                                            <span>Solo Quitar (Sin Stock)</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 'normal', opacity: 0.8, background: 'rgba(220, 38, 38, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                            Errores/Merma
+                                        </span>
+                                    </button>
+                                    <button
+                                        onClick={() => setItemToRemoveIdx(null)}
+                                        style={{ width: '100%', height: '50px', border: '1px solid #d1d5db', background: 'white', color: '#4b5563', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', marginTop: '5px' }}
+                                    >
+                                        Volver / No quitar
                                     </button>
                                 </div>
                             </div>

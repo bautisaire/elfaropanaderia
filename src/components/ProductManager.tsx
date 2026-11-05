@@ -107,7 +107,7 @@ type ImageEditorTarget =
     | { type: "variant"; idx: number }
     | { type: "comboOption"; idx: number };
 
-export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void }) {
+export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode, stockOnly = false }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void, stockOnly?: boolean }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
     // Catálogo con stock derivado resuelto, para saber la disponibilidad real de los productos vinculados a un combo.
     const stockCatalog = useMemo(() => {
@@ -715,6 +715,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                         <h2>Administrador de Productos</h2>
                         <p>Gestiona el inventario, precios y detalles de tus productos.</p>
                     </div>
+                    {!stockOnly && (
                     <button
                         className="btn-primary"
                         onClick={() => {
@@ -724,6 +725,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                     >
                         <FaPlus /> Nuevo Producto
                     </button>
+                    )}
                 </div>
             )}
 
@@ -1576,6 +1578,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 </button>
                                             </div>
 
+                                            {!stockOnly && (
                                             <div className="list-item-actions">
                                                 {product.requiresRecipe !== false && (
                                                     <div className="list-item-recipe-group">
@@ -1598,6 +1601,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                     <FaTrash />
                                                 </button>
                                             </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

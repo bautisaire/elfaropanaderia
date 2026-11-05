@@ -196,7 +196,7 @@ export default function Editor() {
     {
       label: "Producción",
       items: [
-        { key: "products", label: "Productos", icon: <FaBreadSlice />, color: '#f97316', path: "/editor/products", visible: adminPermissions?.costs !== false, active: currentPath === "products" },
+        { key: "products", label: "Productos", icon: <FaBreadSlice />, color: '#f97316', path: "/editor/products", visible: adminPermissions?.costs !== false || adminPermissions?.products_stock_only === true, active: currentPath === "products" },
         { key: "costs", label: "Costos y Recetas", icon: <FaCalculator />, color: '#fb923c', path: "/editor/costs/recipes", visible: adminPermissions?.costs !== false, active: currentPath === "costs" },
       ]
     },
@@ -383,7 +383,7 @@ export default function Editor() {
               {adminPermissions?.stock !== false && <Route path="/stock" element={<StockManager />} />}
               {adminPermissions?.settings !== false && <Route path="/settings" element={<AdminSettings />} />}
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
-              {adminPermissions?.costs !== false && <Route path="/products/*" element={<ProductsSection />} />}
+              {(adminPermissions?.costs !== false || adminPermissions?.products_stock_only === true) && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
               {isSuperAdmin && <Route path="/finanzas" element={<FinanzasManager />} />}
               <Route path="/employees" element={<Navigate to="/editor/finanzas" replace />} />
@@ -396,6 +396,7 @@ export default function Editor() {
                   if (adminPermissions?.pos_sales !== false) return <Navigate to="/editor/caja" replace />;
                   if (adminPermissions?.is_rider === true) return <Navigate to="/editor/rider" replace />;
                   if (adminPermissions?.costs !== false) return <Navigate to="/editor/costs" replace />;
+                  if (adminPermissions?.products_stock_only === true) return <Navigate to="/editor/products" replace />;
                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
                   if (adminPermissions?.bills === true) return <Navigate to="/editor/bills/gastos" replace />;
