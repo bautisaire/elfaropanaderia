@@ -7,6 +7,9 @@ import { AuthProvider } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { applyLowPowerClass, scheduleFpsLowPowerCheck } from "./utils/deviceCapability";
 
+import { installModalOverlayGuard } from "./utils/modalOverlayGuard";
+
+installModalOverlayGuard();
 applyLowPowerClass();
 scheduleFpsLowPowerCheck();
 
