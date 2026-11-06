@@ -56,6 +56,19 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [showNotes, setShowNotes] = useState(false);
     const [stockListCopied, setStockListCopied] = useState(false);
+    // Orden de categorías de la tienda (colección "categories"), para armar las listas copiadas
+    const [categoryOrderMap, setCategoryOrderMap] = useState<Record<string, number>>({});
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, "categories"), (snap) => {
+            const orders: Record<string, number> = {};
+            snap.docs.forEach(d => {
+                const data = d.data();
+                orders[data.name] = data.order ?? 9999;
+            });
+            setCategoryOrderMap(orders);
+        });
+        return () => unsub();
+    }, []);
     const [showCopyStockModal, setShowCopyStockModal] = useState(false);
     const [copyStockSearch, setCopyStockSearch] = useState('');
     const [copyStockPriceMode, setCopyStockPriceMode] = useState<'publico' | 'despensa'>('publico');
@@ -865,6 +878,37 @@ export default function Dashboard() {
         return p.stockQuantity !== undefined ? p.stockQuantity > 0 : p.stock !== false;
     };
 
+    // Agrupa por categoría (en el mismo orden que la tienda) con el título de cada una,
+    // y ordena los productos de cada categoría por su orden manual (sin `order` van al final).
+    const buildGroupedStockText = (items: { category?: string; order?: number; line: string }[]) => {
+        const groups = new Map<string, { order?: number; line: string }[]>();
+        items.forEach(it => {
+            const cat = it.category || 'Otros';
+            if (!groups.has(cat)) groups.set(cat, []);
+            groups.get(cat)!.push(it);
+        });
+
+        const sortedCats = Array.from(groups.keys()).sort((a, b) => {
+            const oa = categoryOrderMap[a] ?? 9999;
+            const ob = categoryOrderMap[b] ?? 9999;
+            if (oa !== ob) return oa - ob;
+            if (a === 'Otros') return 1;
+            if (b === 'Otros') return -1;
+            return a.localeCompare(b);
+        });
+
+        return sortedCats
+            .map(cat => {
+                const sorted = [...groups.get(cat)!].sort(
+                    (a, b) => (a.order ?? Infinity) === (b.order ?? Infinity)
+                        ? 0
+                        : (a.order ?? Infinity) < (b.order ?? Infinity) ? -1 : 1
+                );
+                return `*${cat}*\n${sorted.map(i => i.line).join('\n')}`;
+            })
+            .join('\n\n');
+    };
+
     const handleCopyStockList = () => {
         const visibleIds = new Set(catalogProducts.map(p => String(p.id)));
 
@@ -879,17 +923,19 @@ export default function Dashboard() {
             return visibleIds.has(String(parentId));
         };
 
-        const lines = catalogProducts
+        const items = catalogProducts
             .filter(p => isProductInStock(p) && !isDrink(p) && !isChildOfVisibleParent(p))
             .map(p => {
                 const hasDiscount = (p.discount || 0) > 0;
                 const finalPrice = hasDiscount ? p.price * (1 - (p.discount! / 100)) : p.price;
-                return { name: p.name, price: Math.round(finalPrice) };
-            })
-            .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
-            .map(p => `${p.name} - $${p.price.toLocaleString('es-AR')}`);
+                return {
+                    category: p.categoria,
+                    order: p.order,
+                    line: `${p.name} - $${Math.round(finalPrice).toLocaleString('es-AR')}`,
+                };
+            });
 
-        const text = lines.join('\n');
+        const text = buildGroupedStockText(items);
 
         navigator.clipboard.writeText(text).then(() => {
             setStockListCopied(true);
@@ -974,14 +1020,17 @@ export default function Dashboard() {
     };
 
     const handleCopySelectedStock = () => {
-        const lines = allProductsForCopyStock
+        const items = allProductsForCopyStock
             .filter(p => selectedCopyStockIds.has(p.id))
-            .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }))
-            .map(p => `${p.nombre} - $${Math.round(getCopyStockPrice(p)).toLocaleString('es-AR')}`);
+            .map(p => ({
+                category: p.categoria,
+                order: typeof p.order === 'number' ? p.order : undefined,
+                line: `${p.nombre} - $${Math.round(getCopyStockPrice(p)).toLocaleString('es-AR')}`,
+            }));
 
-        if (lines.length === 0) return;
+        if (items.length === 0) return;
 
-        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+        navigator.clipboard.writeText(buildGroupedStockText(items)).then(() => {
             setCopyStockCopied(true);
             setTimeout(() => setCopyStockCopied(false), 2000);
         });
