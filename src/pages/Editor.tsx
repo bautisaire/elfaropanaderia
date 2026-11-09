@@ -17,6 +17,7 @@ import BillsManager from "../components/BillsManager";
 import FinanzasManager from "../components/FinanzasManager";
 import CustomersPage from "../components/CustomersPage";
 import ProductsRankingPage from "../components/ProductsRankingPage";
+import BestPeriodsPage from "../components/BestPeriodsPage";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
 import { useCart } from "../context/CartContext";
@@ -182,7 +183,7 @@ export default function Editor() {
   const navGroups: NavGroup[] = [
     {
       items: [
-        { key: "dashboard", label: "Resumen", icon: <FaChartPie />, color: '#3b82f6', path: "/editor/", visible: adminPermissions?.dashboard !== false, active: currentPath === "dashboard" || currentPath === "" || currentPath === "clientes" || currentPath === "ranking-productos" },
+        { key: "dashboard", label: "Resumen", icon: <FaChartPie />, color: '#3b82f6', path: "/editor/", visible: adminPermissions?.dashboard !== false, active: currentPath === "dashboard" || currentPath === "" || currentPath === "clientes" || currentPath === "ranking-productos" || currentPath === "mejores-periodos" },
       ]
     },
     {
@@ -375,6 +376,7 @@ export default function Editor() {
               {adminPermissions?.dashboard !== false && <Route path="/" element={<Dashboard />} />}
               {adminPermissions?.dashboard !== false && <Route path="/clientes" element={<CustomersPage />} />}
               {adminPermissions?.dashboard !== false && <Route path="/ranking-productos" element={<ProductsRankingPage />} />}
+              {adminPermissions?.dashboard !== false && <Route path="/mejores-periodos" element={<BestPeriodsPage />} />}
               {/* El POS de venta se reemplazó por Stock → Productos (Caja es donde se vende) */}
               <Route path="/pos" element={<Navigate to="/editor/stock" replace />} />
               {adminPermissions?.pos_sales !== false && <Route path="/caja" element={null} />}

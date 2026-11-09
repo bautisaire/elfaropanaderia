@@ -1539,7 +1539,7 @@ export default function Dashboard() {
 
             </div>
 
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(240px, 360px))', marginTop: '20px' }}>
+            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(240px, 360px))', marginTop: '20px' }}>
                 {/* Rankings (abren su propia página) */}
                 <div className="stat-card orders" style={{ cursor: 'pointer' }} onClick={() => navigate('/editor/clientes')} title="Ver ranking de clientes">
                     <div className="stat-icon" style={{ background: '#3b82f6' }}><FaUsers color="#fff" /></div>
@@ -1555,6 +1555,14 @@ export default function Dashboard() {
                         <h3>Ranking de productos</h3>
                         <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ver productos</p>
                         <span className="stat-sub">Más vendidos y más ganancia</span>
+                    </div>
+                </div>
+                <div className="stat-card orders" style={{ cursor: 'pointer' }} onClick={() => navigate('/editor/mejores-periodos')} title="Ver mejores días, semanas y meses">
+                    <div className="stat-icon" style={{ background: '#10b981' }}><FaCalendarAlt color="#fff" /></div>
+                    <div className="stat-info">
+                        <h3>Mejores días, semanas y meses</h3>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>Ver períodos</p>
+                        <span className="stat-sub">Compará tus mejores ventas</span>
                     </div>
                 </div>
             </div>

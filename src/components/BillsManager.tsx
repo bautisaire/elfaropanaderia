@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
-import { collection, doc, addDoc, deleteDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, deleteDoc, updateDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
 import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags, FaBuilding } from 'react-icons/fa';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
@@ -90,6 +90,38 @@ export default function BillsManager() {
                 console.error("Error al eliminar gasto:", error);
                 alert("Error al eliminar el registro.");
             }
+        }
+    };
+
+    // Edición de fecha (solo superadmin): valores datetime-local por id de gasto
+    const [dateEdits, setDateEdits] = useState<Record<string, string>>({});
+    const [savingDateId, setSavingDateId] = useState<string | null>(null);
+
+    const toLocalInputValue = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    const handleSaveExpenseDate = async (id: string) => {
+        if (!isSuperAdmin) return;
+        const value = dateEdits[id];
+        const newDate = value ? new Date(value) : null;
+        if (!newDate || isNaN(newDate.getTime())) {
+            alert('Fecha inválida.');
+            return;
+        }
+        setSavingDateId(id);
+        try {
+            await updateDoc(doc(db, 'expenses', id), { date: Timestamp.fromDate(newDate) });
+            setDateEdits(prev => {
+                const { [id]: _removed, ...rest } = prev;
+                return rest;
+            });
+        } catch (error) {
+            console.error('Error al cambiar la fecha del gasto:', error);
+            alert('No se pudo cambiar la fecha.');
+        } finally {
+            setSavingDateId(null);
         }
     };
 
@@ -319,6 +351,30 @@ export default function BillsManager() {
                                                                 </table>
                                                             ) : (
                                                                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', marginBottom: '15px' }}>Sin ítems detallados.</p>
+                                                            )}
+
+                                                            {isSuperAdmin && (
+                                                                <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}
+                                                                >
+                                                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Fecha del gasto:</label>
+                                                                    <input
+                                                                        type="datetime-local"
+                                                                        value={dateEdits[exp.id] ?? (dateObj ? toLocalInputValue(dateObj) : '')}
+                                                                        onChange={(e) => setDateEdits(prev => ({ ...prev, [exp.id]: e.target.value }))}
+                                                                        style={{ padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                                                                    />
+                                                                    {dateEdits[exp.id] !== undefined && (
+                                                                        <button
+                                                                            onClick={() => handleSaveExpenseDate(exp.id)}
+                                                                            disabled={savingDateId === exp.id}
+                                                                            style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                                                                        >
+                                                                            {savingDateId === exp.id ? 'Guardando...' : 'Guardar fecha'}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             )}
 
                                                             {isSuperAdmin && (
