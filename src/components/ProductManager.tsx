@@ -595,8 +595,19 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         if (!formData.nombre) return setMessage("El nombre es obligatorio");
 
         try {
+            // El precio con descuento se guarda redondeado a pesos enteros (ej. 3800,16 → 3800):
+            // se ajusta el % de descuento para que el precio final dé exactamente ese entero.
+            const toSave = { ...formData };
+            const precioNum = parseFloat(String(formData.precio));
+            const discountNum = parseFloat(String(formData.discount)) || 0;
+            if (precioNum > 0 && discountNum > 0) {
+                const roundedFinal = Math.round(precioNum * (1 - discountNum / 100));
+                toSave.discount = Math.max(0, Math.min(100, Math.round((1 - roundedFinal / precioNum) * 1000000) / 10000));
+            }
+
             if (isEditing && formData.id) {
-                const { id, ...dataToUpdate } = formData;
+                const { id: _ignoredId, ...dataToUpdate } = toSave;
+                const id = formData.id;
                 await updateDoc(doc(db, "products", id), {
                     ...dataToUpdate,
                     updatedAt: serverTimestamp()
@@ -608,7 +619,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                 setMessage("Producto actualizado correctamente");
             } else {
                 await addDoc(collection(db, "products"), {
-                    ...formData,
+                    ...toSave,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp()
                 });
@@ -869,13 +880,14 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                         finalPriceDraft !== null
                                                             ? finalPriceDraft
                                                             : (formData.precio
-                                                                ? Math.round((parseFloat(String(formData.precio)) * (1 - (parseFloat(String(formData.discount)) || 0) / 100)) * 100) / 100
+                                                                ? Math.round(parseFloat(String(formData.precio)) * (1 - (parseFloat(String(formData.discount)) || 0) / 100))
                                                                 : "")
                                                     }
                                                     onChange={handleFinalPriceChange}
                                                     onBlur={handleFinalPriceBlur}
                                                     onWheel={handleWheel}
                                                     min="0"
+                                                    step="any"
                                                     title="Escribí el precio final redondo (ej. 1400) y el % de descuento se ajusta solo."
                                                 />
                                             </div>
