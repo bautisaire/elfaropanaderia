@@ -805,6 +805,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                             <div className="pm-grid">
                                 {/* Columna Izquierda: Detalles Básicos */}
                                 <div className="pm-col-main">
+                                    <div className="pm-row-basic">
                                     <div className="form-group">
                                         <label>Nombre del Producto</label>
                                         <input
@@ -831,6 +832,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                     )}
 
+                                    </div>
+
+                                    <div className="pm-row-price">
                                     <div className="form-group">
                                         <label>Precio</label>
                                         <div className="price-input-container">
@@ -848,6 +852,157 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                     </div>
 
+                                        <div className="form-group quarter">
+                                            <label>Descuento (%)</label>
+                                            <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" step="0.01" />
+                                        </div>
+                                        <div className="form-group quarter">
+                                            <label>Precio con Descuento</label>
+                                            <div className="price-input-container">
+                                                <span className="currency-symbol">$</span>
+                                                <input
+                                                    type="number"
+                                                    name="finalPrice"
+                                                    placeholder="0"
+                                                    value={
+                                                        finalPriceDraft !== null
+                                                            ? finalPriceDraft
+                                                            : (formData.precio
+                                                                ? Math.round((parseFloat(String(formData.precio)) * (1 - (parseFloat(String(formData.discount)) || 0) / 100)) * 100) / 100
+                                                                : "")
+                                                    }
+                                                    onChange={handleFinalPriceChange}
+                                                    onBlur={handleFinalPriceBlur}
+                                                    onWheel={handleWheel}
+                                                    min="0"
+                                                    title="Escribí el precio final redondo (ej. 1400) y el % de descuento se ajusta solo."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row">
+                                        <div className="form-group half">
+                                            <label>Categoría</label>
+                                            <select name="categoria" value={formData.categoria} onChange={handleInputChange}>
+                                                <option value="" disabled>Seleccionar...</option>
+                                                <option value="General">General</option>
+                                                {categories.filter(c => c !== "General").map((cat, index) => (
+                                                    <option key={index} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+
+                                    </div>
+
+                                </div>
+
+                                {/* Columna Derecha: Multimedia y Variantes */}
+                                <div className="pm-col-sidebar">
+                                    <div className="form-group">
+                                        <label>Imágenes del Producto</label>
+                                        <div className="image-upload-area">
+                                            <label className="btn-upload">
+                                                {uploading ? <FaSync className="spin" /> : <FaCamera />}
+                                                <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
+                                                <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading || !!imageEditorFile} />
+                                            </label>
+                                            <small className="image-upload-hint">Se abrirá el editor para recortar en formato 4:3.</small>
+
+                                            <div className="image-previews">
+                                                {formData.images?.map((img, idx) => (
+                                                    <div key={idx} className="img-preview-item">
+                                                        <img src={img} alt="preview" />
+                                                        <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
+                                                    </div>
+                                                ))}
+                                                {(!formData.images || formData.images.length === 0) && (
+                                                    <div className="no-images">Sin imágenes</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-group variants-wrapper">
+                                        <div className="variants-header">
+                                            <label>Variantes</label>
+                                            <button type="button" className="btn-text" onClick={addVariant}><FaPlus /> Agregar</button>
+                                        </div>
+                                        <div className="variants-list">
+                                            {formData.variants?.map((v, idx) => (
+                                                <div key={idx} className="variant-row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minWidth: '200px' }}>
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            <input
+                                                                placeholder="Ej. Frutilla"
+                                                                value={v.name}
+                                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
+                                                                style={{ flex: 1 }}
+                                                            />
+                                                            <input
+                                                                placeholder="Cód. Rápido"
+                                                                value={v.shortId || ""}
+                                                                onChange={(e) => handleVariantChange(idx, 'shortId', e.target.value)}
+                                                                className="input-stock"
+                                                                style={{ width: '80px', fontFamily: 'monospace' }}
+                                                                title="Código Rápido (POS)"
+                                                            />
+                                                        </div>
+                                                        <div className="price-input-container">
+                                                            <span className="currency-symbol">$</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder={`Precio propio (def. ${formData.precio || 0})`}
+                                                                value={v.priceOverride || ""}
+                                                                onChange={(e) => handleVariantChange(idx, 'priceOverride', Number(e.target.value))}
+                                                                onWheel={handleWheel}
+                                                                title="Precio propio de esta variante. Si se deja vacío, usa el Precio del producto."
+                                                                min="0"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Variant Image Control */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                        {v.image ? (
+                                                            <div className="variant-img-preview" style={{ position: 'relative', width: '40px', height: '40px' }}>
+                                                                <img src={v.image} alt="v" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeVariantImage(idx)}
+                                                                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '15px', height: '15px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <label className="btn-icon-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px', border: '1px solid #ddd', borderRadius: '4px' }} title="Subir foto variante">
+                                                                <FaCamera size={14} />
+                                                                <input type="file" hidden accept="image/*" onChange={(e) => handleVariantImageUpload(e, idx)} />
+                                                            </label>
+                                                        )}
+
+                                                        <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
+                                                            <FaTrash />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {(!formData.variants || formData.variants.length === 0) && (
+                                                <p className="text-muted text-sm">Este producto no tiene variantes.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* Configuración avanzada: comprimida por defecto */}
+                            <details className="pm-advanced" key={formData.id || "nuevo"}>
+                                <summary>⚙️ Configuración avanzada</summary>
+                                <div className="pm-advanced-body">
+                                    <div className="pm-row-2">
                                     <div className="form-group">
                                         <label>Precio Mayorista / Despensa</label>
                                         <div className="price-input-container">
@@ -881,6 +1036,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         </div>
                                     </div>
 
+                                    </div>
                                     <div className="form-group">
                                         <label>Precios por Cantidad (ej. media docena, docena)</label>
                                         <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 8px 0' }}>
@@ -926,21 +1082,6 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
 
                                     <div className="form-row">
                                         <div className="form-group half">
-                                            <label>Categoría</label>
-                                            <select name="categoria" value={formData.categoria} onChange={handleInputChange}>
-                                                <option value="" disabled>Seleccionar...</option>
-                                                <option value="General">General</option>
-                                                {categories.filter(c => c !== "General").map((cat, index) => (
-                                                    <option key={index} value={cat}>{cat}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        
-
-                                    </div>
-
-                                    <div className="form-row">
-                                        <div className="form-group half">
                                             <label>Tipo de Unidad</label>
                                             <select name="unitType" value={formData.unitType || 'unit'} onChange={handleInputChange}>
                                                 <option value="unit">Unidad (u)</option>
@@ -951,36 +1092,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             <label>Unidades (Estadística)</label>
                                             <input type="number" name="unitsPerProduct" value={formData.unitsPerProduct !== undefined ? formData.unitsPerProduct : 1} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" step="0.1" title="Cuántas unidades representa para el resumen (ej. Facturas x12 = 12)" disabled={!!formData.stockDependency?.productId} />
                                         </div>
-                                        <div className="form-group quarter">
-                                            <label>Descuento (%)</label>
-                                            <input type="number" name="discount" value={formData.discount || 0} onChange={handleInputChange} onBlur={handleInputBlur} onWheel={handleWheel} min="0" max="100" step="0.01" />
-                                        </div>
-                                        <div className="form-group quarter">
-                                            <label>Precio con Descuento</label>
-                                            <div className="price-input-container">
-                                                <span className="currency-symbol">$</span>
-                                                <input
-                                                    type="number"
-                                                    name="finalPrice"
-                                                    placeholder="0"
-                                                    value={
-                                                        finalPriceDraft !== null
-                                                            ? finalPriceDraft
-                                                            : (formData.precio
-                                                                ? Math.round((parseFloat(String(formData.precio)) * (1 - (parseFloat(String(formData.discount)) || 0) / 100)) * 100) / 100
-                                                                : "")
-                                                    }
-                                                    onChange={handleFinalPriceChange}
-                                                    onBlur={handleFinalPriceBlur}
-                                                    onWheel={handleWheel}
-                                                    min="0"
-                                                    title="Escribí el precio final redondo (ej. 1400) y el % de descuento se ajusta solo."
-                                                />
-                                            </div>
-                                        </div>
                                     </div>
-
-
 
                                     {/* Stock Dependency Section */}
                                     <div className="pm-dependency-section" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #eee' }}>
@@ -1028,6 +1140,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             </div>
                                         )}
                                     </div>
+                                    <div className="pm-checks-grid">
 
                                     <div className="form-group quarter checkbox-group-styled">
                                         <label>
@@ -1111,6 +1224,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                             />
                                             <strong style={{ color: '#ef4444' }}>Excluir de Estadísticas</strong>
                                         </label>
+                                    </div>
+
                                     </div>
 
                                     {/* Combo Settings */}
@@ -1334,106 +1449,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         />
                                     </div>
                                 </div>
+                            </details>
 
-                                {/* Columna Derecha: Multimedia y Variantes */}
-                                <div className="pm-col-sidebar">
-                                    <div className="form-group">
-                                        <label>Imágenes del Producto</label>
-                                        <div className="image-upload-area">
-                                            <label className="btn-upload">
-                                                {uploading ? <FaSync className="spin" /> : <FaCamera />}
-                                                <span>{uploading ? "Subiendo..." : "Agregar Fotos"}</span>
-                                                <input type="file" hidden accept="image/*" multiple onChange={handleImageUpload} disabled={uploading || !!imageEditorFile} />
-                                            </label>
-                                            <small className="image-upload-hint">Se abrirá el editor para recortar en formato 4:3.</small>
-
-                                            <div className="image-previews">
-                                                {formData.images?.map((img, idx) => (
-                                                    <div key={idx} className="img-preview-item">
-                                                        <img src={img} alt="preview" />
-                                                        <button type="button" className="btn-remove-img" onClick={() => removeImage(img)}><FaTimes /></button>
-                                                    </div>
-                                                ))}
-                                                {(!formData.images || formData.images.length === 0) && (
-                                                    <div className="no-images">Sin imágenes</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="form-group variants-wrapper">
-                                        <div className="variants-header">
-                                            <label>Variantes</label>
-                                            <button type="button" className="btn-text" onClick={addVariant}><FaPlus /> Agregar</button>
-                                        </div>
-                                        <div className="variants-list">
-                                            {formData.variants?.map((v, idx) => (
-                                                <div key={idx} className="variant-row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minWidth: '200px' }}>
-                                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                                            <input
-                                                                placeholder="Ej. Frutilla"
-                                                                value={v.name}
-                                                                onChange={(e) => handleVariantChange(idx, 'name', e.target.value)}
-                                                                style={{ flex: 1 }}
-                                                            />
-                                                            <input
-                                                                placeholder="Cód. Rápido"
-                                                                value={v.shortId || ""}
-                                                                onChange={(e) => handleVariantChange(idx, 'shortId', e.target.value)}
-                                                                className="input-stock"
-                                                                style={{ width: '80px', fontFamily: 'monospace' }}
-                                                                title="Código Rápido (POS)"
-                                                            />
-                                                        </div>
-                                                        <div className="price-input-container">
-                                                            <span className="currency-symbol">$</span>
-                                                            <input
-                                                                type="number"
-                                                                placeholder={`Precio propio (def. ${formData.precio || 0})`}
-                                                                value={v.priceOverride || ""}
-                                                                onChange={(e) => handleVariantChange(idx, 'priceOverride', Number(e.target.value))}
-                                                                onWheel={handleWheel}
-                                                                title="Precio propio de esta variante. Si se deja vacío, usa el Precio del producto."
-                                                                min="0"
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Variant Image Control */}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                        {v.image ? (
-                                                            <div className="variant-img-preview" style={{ position: 'relative', width: '40px', height: '40px' }}>
-                                                                <img src={v.image} alt="v" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeVariantImage(idx)}
-                                                                    style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '15px', height: '15px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                                                >
-                                                                    ×
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <label className="btn-icon-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '5px', border: '1px solid #ddd', borderRadius: '4px' }} title="Subir foto variante">
-                                                                <FaCamera size={14} />
-                                                                <input type="file" hidden accept="image/*" onChange={(e) => handleVariantImageUpload(e, idx)} />
-                                                            </label>
-                                                        )}
-
-                                                        <button type="button" className="btn-icon-danger" onClick={() => removeVariant(idx)}>
-                                                            <FaTrash />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {(!formData.variants || formData.variants.length === 0) && (
-                                                <p className="text-muted text-sm">Este producto no tiene variantes.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
                             <div className="pm-card-footer">
                                 <button type="button" className="btn-secondary" onClick={handleReset}>Cancelar</button>
                                 <button type="submit" className="btn-primary" disabled={loading || uploading}>

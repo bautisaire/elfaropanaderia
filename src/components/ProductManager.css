@@ -929,3 +929,90 @@ button {
         padding: 6px 8px;
     }
 }
+/* ===== Formulario de producto: filas compactas + configuración avanzada ===== */
+.pm-row-basic {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+}
+.pm-row-price {
+    display: grid;
+    grid-template-columns: 1fr 120px 1.3fr;
+    gap: 16px;
+}
+.pm-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.pm-row-basic .form-group,
+.pm-row-price .form-group,
+.pm-row-2 .form-group { min-width: 0; margin-bottom: 16px; }
+.pm-row-price .quarter { flex: none; }
+
+/* Inputs con símbolo $ en línea (antes el $ quedaba arriba del campo) */
+.pm-form .price-input-container {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+}
+.pm-form .price-input-container .currency-symbol {
+    display: flex;
+    align-items: center;
+    height: auto;
+    padding: 0 12px;
+    background: #f1f5f9;
+    border-right: 1px solid #d1d5db;
+    color: #64748b;
+    font-weight: 600;
+}
+.pm-form .price-input-container input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.pm-advanced {
+    margin-top: 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fafafa;
+}
+.pm-advanced > summary {
+    cursor: pointer;
+    padding: 14px 16px;
+    font-weight: 700;
+    color: #374151;
+    list-style: none;
+    user-select: none;
+}
+.pm-advanced > summary::-webkit-details-marker { display: none; }
+.pm-advanced > summary::after {
+    content: "▾";
+    float: right;
+    transition: transform 0.2s;
+}
+.pm-advanced[open] > summary { border-bottom: 1px solid #e5e7eb; }
+.pm-advanced[open] > summary::after { transform: rotate(180deg); }
+.pm-advanced-body { padding: 16px; }
+
+.pm-checks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.pm-checks-grid .form-group { margin: 0; width: auto; flex: none; }
+
+@media (max-width: 850px) {
+    .pm-row-basic,
+    .pm-row-2 { grid-template-columns: 1fr; gap: 0; }
+    .pm-row-price { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .pm-row-price > .form-group:first-child { grid-column: 1 / -1; }
+}
