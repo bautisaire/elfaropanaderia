@@ -35,6 +35,7 @@ interface Product {
     frequentVariant?: string;
     discount?: number;
     priceTiers?: PriceTier[];
+    priceTierGroup?: string;
 }
 
 interface CartRow {
@@ -46,14 +47,44 @@ interface CartRow {
     unitType?: 'unit' | 'weight';
     precioUnitario: number;
     priceTiers?: PriceTier[];
+    priceTierGroup?: string;
     manualPriceOverride?: boolean;
 }
 
-const getRowLineTotal = (row: CartRow): number => {
+const normalizeTierGroup = (g?: string) => (g || '').trim().toLowerCase();
+
+/**
+ * Total de una línea. Si el producto tiene "grupo de precio por cantidad", las unidades de todos los
+ * productos del mismo grupo en la venta se suman para aplicar la promo (ej. 10 facturas + 2 de grasa = docena).
+ * Los tiers son los del primer producto del grupo que tenga; el total del grupo se reparte entre sus
+ * filas en proporción a lo que valdrían sin promo.
+ */
+const getRowLineTotal = (row: CartRow, rows: CartRow[] = [row]): number => {
     if (row.manualPriceOverride || row.unitType === 'weight') {
         return round2(row.precioUnitario * row.quantity);
     }
-    return round2(calculateTieredTotal(row.quantity, row.precioUnitario, row.priceTiers));
+    const group = normalizeTierGroup(row.priceTierGroup);
+    if (!group) {
+        return round2(calculateTieredTotal(row.quantity, row.precioUnitario, row.priceTiers));
+    }
+
+    const peers = rows.filter(r => !r.manualPriceOverride && r.unitType !== 'weight' && normalizeTierGroup(r.priceTierGroup) === group);
+    if (!peers.some(r => r.key === row.key)) peers.push(row);
+
+    const tiers = peers.find(r => (r.priceTiers || []).some(t => t.quantity > 0))?.priceTiers;
+    const totalQty = peers.reduce((sum, r) => sum + r.quantity, 0);
+    const baseTotal = peers.reduce((sum, r) => sum + r.quantity * r.precioUnitario, 0);
+    if (totalQty <= 0 || baseTotal <= 0) return 0;
+
+    const groupTotal = round2(calculateTieredTotal(totalQty, baseTotal / totalQty, tiers));
+    let allocated = 0;
+    for (let i = 0; i < peers.length; i++) {
+        const isLast = i === peers.length - 1;
+        const share = isLast ? round2(groupTotal - allocated) : round2(groupTotal * ((peers[i].quantity * peers[i].precioUnitario) / baseTotal));
+        if (peers[i].key === row.key) return share;
+        allocated += share;
+    }
+    return 0;
 };
 
 interface CajaVentaProps {
@@ -117,8 +148,6 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     const [assigningSlot, setAssigningSlot] = useState<number | null>(null);
     // Casilla pendiente de confirmar antes de quitarla de frecuentes (evita toques accidentales).
     const [slotToClear, setSlotToClear] = useState<number | null>(null);
-    // Los accesos rápidos no deben mover el foco al cobro en efectivo (así se sigue agregando).
-    const skipPaymentFocusRef = useRef(false);
     const [addModalError, setAddModalError] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -373,7 +402,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                 quantity: qty,
                 unitType: product.unitType,
                 precioUnitario,
-                priceTiers: product.priceTiers
+                priceTiers: product.priceTiers,
+                priceTierGroup: product.priceTierGroup
             }];
         });
     };
@@ -420,8 +450,6 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             handleStockError(freshProduct, variant, `No hay suficiente stock. Solicitado: ${already + 1}, Disponible: ${maxStock}.`, (already + 1) - maxStock, 1);
             return;
         }
-        skipPaymentFocusRef.current = true;
-        setTimeout(() => { skipPaymentFocusRef.current = false; }, 300);
         addRowToCart(freshProduct, variant, 1);
     };
 
@@ -481,7 +509,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         setEditRowKey(row.key);
         setEditQuantityInput(String(row.quantity));
         setEditUnitInput(String(row.precioUnitario));
-        setEditTotalInput(String(getRowLineTotal(row)));
+        setEditTotalInput(String(getRowLineTotal(row, cart)));
         setEditIsManualOverride(!!row.manualPriceOverride);
         setEditError('');
     };
@@ -497,9 +525,9 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         const qty = parseFloat(value) || 0;
         const row = cart.find(r => r.key === editRowKey);
         const unit = parseFloat(editUnitInput) || 0;
-        const total = editIsManualOverride || row?.unitType === 'weight'
+        const total = editIsManualOverride || row?.unitType === 'weight' || !row
             ? round2(qty * unit)
-            : round2(calculateTieredTotal(qty, unit, row?.priceTiers));
+            : getRowLineTotal({ ...row, quantity: qty, precioUnitario: unit }, cart.map(r => r.key === row.key ? { ...r, quantity: qty, precioUnitario: unit } : r));
         setEditTotalInput(String(total));
     };
 
@@ -566,7 +594,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
     };
 
     const subtotal = useMemo(() => {
-        return round2(cart.reduce((sum, r) => sum + getRowLineTotal(r), 0));
+        return round2(cart.reduce((sum, r) => sum + getRowLineTotal(r, cart), 0));
     }, [cart]);
 
     // The "Importe" total and the "% Descuento" field are bidirectional: editing either one
@@ -737,15 +765,15 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         return Array.from(set).sort((a, b) => a.localeCompare(b));
     }, [products]);
 
-    // Casillas 1-9 de productos frecuentes: primero los que tienen casilla asignada,
+    // Casillas 1-9 y 0 (la 10) de productos frecuentes: primero los que tienen casilla asignada,
     // los marcados como frecuentes sin casilla completan las casillas libres.
     const frequentSlots = useMemo(() => {
-        const slots: ({ product: Product; variant?: string } | null)[] = Array(9).fill(null);
+        const slots: ({ product: Product; variant?: string } | null)[] = Array(10).fill(null);
         const pool = products.filter(p => p.isFrequent && !p.isHiddenInPOS);
         const unslotted: Product[] = [];
         pool.forEach(p => {
             const n = p.frequentSlot;
-            if (n && n >= 1 && n <= 9 && !slots[n - 1]) slots[n - 1] = { product: p, variant: p.frequentVariant };
+            if (n && n >= 1 && n <= 10 && !slots[n - 1]) slots[n - 1] = { product: p, variant: p.frequentVariant };
             else unslotted.push(p);
         });
         unslotted.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -979,7 +1007,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                     ...(shouldMarkOrderAsTest() ? { isTestOrder: true } : {}),
                     items: cart.map(row => {
                         const originalDoc = productDataMap[row.productId] || {};
-                        const rowLineTotal = getRowLineTotal(row);
+                        const rowLineTotal = getRowLineTotal(row, cart);
                         const effectivePrice = row.quantity > 0 ? round2(rowLineTotal / row.quantity) : row.precioUnitario;
                         return {
                             id: row.productId,
@@ -1065,7 +1093,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                     const metodoPago = paymentBreakdown.map(p => p.method).join(' + ') || 'Efectivo';
                     const ticketItems = cart.map(row => ({
                         name: row.nombre,
-                        price: row.quantity > 0 ? round2(getRowLineTotal(row) / row.quantity) : row.precioUnitario,
+                        price: row.quantity > 0 ? round2(getRowLineTotal(row, cart) / row.quantity) : row.precioUnitario,
                         quantity: row.quantity,
                         variant: row.variant || null,
                         unitType: row.unitType
@@ -1112,24 +1140,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         }
     };
 
-    // Al cargar productos, el input de Efectivo queda seleccionado para escribir el monto recibido.
-    useEffect(() => {
-        if (!active || cart.length === 0) return;
-        if (skipPaymentFocusRef.current) {
-            skipPaymentFocusRef.current = false;
-            return;
-        }
-        if (isAddModalOpen || quantityModalOpen || weightModalOpen || isStockModalOpen || modalConfig.isOpen || editRowKey || envioModalOpen) return;
-        const t = setTimeout(() => {
-            const el = paymentInputRefs.current.Efectivo;
-            const other = document.activeElement;
-            if (!el || (other && other !== document.body && other !== el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(other.tagName))) return;
-            el.focus();
-            el.select();
-        }, 80);
-        return () => clearTimeout(t);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cart.length, active, isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen]);
+    // Ya no se enfoca Efectivo solo al agregar productos: con los atajos de teclado (1-9) se sigue
+    // cargando por números; el cobro se activa con E/T/D/Q o con el mouse.
 
     const activatePaymentMethod = (method: PaymentMethod) => {
         const wasEnabled = enabledMethods[method];
@@ -1207,8 +1219,8 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
             } else if (e.key === ' ') {
                 e.preventDefault();
                 setIsAddModalOpen(true);
-            } else if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && (isPaymentInput && cart.length === 0 ? true : tag !== 'input' && tag !== 'textarea' && tag !== 'select')) {
-                const slot = frequentSlots[Number(e.key) - 1];
+            } else if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && (isPaymentInput && cart.length === 0 ? true : tag !== 'input' && tag !== 'textarea' && tag !== 'select')) {
+                const slot = frequentSlots[e.key === "0" ? 9 : Number(e.key) - 1];
                 if (slot) {
                     e.preventDefault();
                     quickAddFrequent(slot.product, slot.variant);
@@ -1219,13 +1231,13 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen, envioClientName, cart, enabledMethods, paymentAmounts, total, processing, active]);
+    }, [isAddModalOpen, quantityModalOpen, weightModalOpen, isStockModalOpen, modalConfig.isOpen, editRowKey, envioModalOpen, envioClientName, cart, enabledMethods, paymentAmounts, total, processing, active, frequentSlots, products]);
 
     return (
         <div className="caja-venta-container">
             <div className="caja-venta-body">
                 <div className="caja-venta-main">
-                    <div className={`caja-venta-list-wrapper ${cart.length === 0 ? 'is-empty' : ''}`}>
+                    <div className="caja-venta-list-wrapper">
                         <div className="caja-venta-list-header">
                             <span>Cantidad</span>
                             <span>Detalle</span>
@@ -1242,14 +1254,14 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                         <span>{row.unitType === 'weight' ? `${Math.round(row.quantity * 1000)}g` : row.quantity}</span>
                                         <span>
                                             {row.nombre}{row.variant ? ` (${row.variant})` : ''}
-                                            {!row.manualPriceOverride && row.unitType !== 'weight' && (row.priceTiers || []).some(t => t.quantity > 0 && row.quantity >= t.quantity) && (
+                                            {!row.manualPriceOverride && row.unitType !== 'weight' && getRowLineTotal(row, cart) < round2(row.precioUnitario * row.quantity) - 0.005 && (
                                                 <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
                                                     Precio x cantidad
                                                 </span>
                                             )}
                                         </span>
                                         <span>${round2(row.precioUnitario).toLocaleString('es-AR')}</span>
-                                        <span>${getRowLineTotal(row).toLocaleString('es-AR')}</span>
+                                        <span>${getRowLineTotal(row, cart).toLocaleString('es-AR')}</span>
                                         <span className="caja-venta-row-actions">
                                             <button className="caja-venta-row-edit" onClick={() => openEditRowModal(row)} title="Editar">
                                                 <FaEdit />
@@ -1277,7 +1289,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                             title="Agregar producto frecuente"
                                             onClick={() => { setAssigningSlot(n); setAddModalStockMode(false); setIsAddModalOpen(true); }}
                                         >
-                                            <span className="caja-venta-slot-num">{n}</span>
+                                            <span className="caja-venta-slot-num">{n === 10 ? 0 : n}</span>
                                             <span className="caja-venta-slot-plus">+</span>
                                         </button>
                                     );
@@ -1285,7 +1297,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                                 return (
                                     <div key={n} className="caja-venta-slot filled">
                                         <button type="button" className="caja-venta-slot-main" onClick={() => quickAddFrequent(slot.product, slot.variant)}>
-                                            <span className="caja-venta-slot-num">{n}</span>
+                                            <span className="caja-venta-slot-num">{n === 10 ? 0 : n}</span>
                                             <span className="caja-venta-slot-name">{slot.product.nombre}{slot.variant ? ` (${slot.variant})` : ''}</span>
                                         </button>
                                         <button type="button" className="caja-venta-slot-clear" title="Quitar de frecuentes" onClick={() => setSlotToClear(n)}>×</button>
@@ -1414,7 +1426,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                 <div className="caja-venta-modal-overlay" onClick={closeAddModal}>
                     <div className={`caja-venta-add-modal ${addModalStockMode ? 'stock-mode' : ''}`} onClick={(e) => e.stopPropagation()}>
                         <div className="caja-venta-add-modal-header">
-                            <h3>{assigningSlot !== null ? `Producto frecuente para la casilla ${assigningSlot}` : addModalStockMode ? 'Ajustar Stock' : 'Agregar Producto'}</h3>
+                            <h3>{assigningSlot !== null ? `Producto frecuente para la casilla ${assigningSlot === 10 ? 0 : assigningSlot}` : addModalStockMode ? 'Ajustar Stock' : 'Agregar Producto'}</h3>
                             <button
                                 type="button"
                                 className={`caja-venta-stock-mode-toggle ${addModalStockMode ? 'active' : ''}`}
@@ -1549,7 +1561,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                         <div className="caja-venta-entry-modal" onClick={(e) => e.stopPropagation()}>
                             <h3>Quitar de frecuentes</h3>
                             <p style={{ margin: '0 0 15px 0', color: '#475569' }}>
-                                ¿Quitar <strong>{cur.product.nombre}{cur.variant ? ` (${cur.variant})` : ''}</strong> de la casilla {slotToClear}?
+                                ¿Quitar <strong>{cur.product.nombre}{cur.variant ? ` (${cur.variant})` : ''}</strong> de la casilla {slotToClear === 10 ? 0 : slotToClear}?
                             </p>
                             <div className="caja-venta-entry-actions">
                                 <button

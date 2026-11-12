@@ -6,7 +6,7 @@ import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
 import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice } from "react-icons/fa";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
 import NotesManager from "./NotesManager";
@@ -163,6 +163,14 @@ export default function Dashboard() {
 
     // Chart Data State
     const [salesTrendData, setSalesTrendData] = useState<any[]>([]);
+    const [salesByHourData, setSalesByHourData] = useState<{ name: string; total: number }[]>([]);
+    const [trendChartMode, setTrendChartMode] = useState<'bars' | 'wave'>(() => {
+        try { return localStorage.getItem('dashboardTrendChartMode') === 'wave' ? 'wave' : 'bars'; } catch { return 'bars'; }
+    });
+    const changeTrendChartMode = (mode: 'bars' | 'wave') => {
+        setTrendChartMode(mode);
+        try { localStorage.setItem('dashboardTrendChartMode', mode); } catch { /* sin storage */ }
+    };
     const [salesSourceData, setSalesSourceData] = useState<any[]>([]);
 
     const COLORS = ['#8b5cf6', '#10b981', '#3b82f6']; // Despensa, Publico, Delivery
@@ -847,6 +855,20 @@ export default function Dashboard() {
         }
 
         setSalesTrendData(trendData);
+
+        // Ventas por hora del día (acumuladas en el período), de la hora más vendedora a la menos
+        const hourMap = new Map<string, number>();
+        filteredOrders.forEach(order => {
+            const hour = getArgentinaDate(order.dateTyped as Date).getHours().toString().padStart(2, '0');
+            const key = `${hour}:00`;
+            hourMap.set(key, (hourMap.get(key) || 0) + order.statsTotal);
+        });
+        setSalesByHourData(
+            Array.from(hourMap.entries())
+                .map(([name, total]) => ({ name, total }))
+                .filter(d => d.total > 0)
+                .sort((a, b) => a.name.localeCompare(b.name))
+        );
 
         // 2. Sales Source Data
         setSalesSourceData([
@@ -1562,8 +1584,67 @@ export default function Dashboard() {
             {/* Charts Section */}
             <div className="charts-section" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '30px' }}>
                 <div className="chart-container" style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                    <h3 style={{ marginBottom: '20px' }}>Tendencia de Ventas</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+                        <h3 style={{ margin: 0 }}>{trendChartMode === 'bars' ? 'Ventas por Hora' : 'Tendencia de Ventas'}</h3>
+                        <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', padding: '3px', borderRadius: '8px' }}>
+                            {([['bars', 'Barras'], ['wave', 'Ondas']] as const).map(([mode, label]) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => changeTrendChartMode(mode)}
+                                    style={{
+                                        border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600,
+                                        background: trendChartMode === mode ? '#8b5cf6' : 'transparent',
+                                        color: trendChartMode === mode ? '#fff' : '#6b7280'
+                                    }}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div style={{ width: '100%', height: 300 }}>
+                        {trendChartMode === 'bars' ? (
+                            salesByHourData.length === 0 ? (
+                                <p style={{ color: '#6b7280', textAlign: 'center', paddingTop: '120px' }}>Sin ventas en el período seleccionado.</p>
+                            ) : (
+                                <div style={{ width: `min(100%, ${salesByHourData.length * 64 + 70}px)`, height: '100%' }}>
+                                <ResponsiveContainer>
+                                    <BarChart barCategoryGap={8} margin={{ top: 34 }} data={salesByHourData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+                                        <YAxis tickLine={false} axisLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(139,92,246,0.08)' }}
+                                            formatter={(value: number | undefined) => [`$${(value || 0).toLocaleString('es-AR')}`, 'Ventas']}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Bar
+                                            dataKey="total"
+                                            fill="#8b5cf6"
+                                            radius={[6, 6, 0, 0]}
+                                            maxBarSize={48}
+                                            label={(props: any) => {
+                                                const { x, y, width, value } = props;
+                                                const max = Math.max(...salesByHourData.map(d => d.total));
+                                                if (!(value > 0) || value !== max) return <g />;
+                                                const text = `$${Math.round(value).toLocaleString('es-AR')}`;
+                                                const w = text.length * 8 + 20;
+                                                const cx = x + width / 2;
+                                                return (
+                                                    <g>
+                                                        <rect x={cx - w / 2} y={y - 32} width={w} height={24} rx={12} fill="#4c1d95" />
+                                                        <path d={`M ${cx - 6} ${y - 9} L ${cx + 6} ${y - 9} L ${cx} ${y - 2} Z`} fill="#4c1d95" />
+                                                        <text x={cx} y={y - 16} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={12} fontWeight={700}>{text}</text>
+                                                    </g>
+                                                );
+                                            }}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                                </div>
+                            )
+                        ) : (
                         <ResponsiveContainer>
                             <AreaChart data={salesTrendData}>
                                 <defs>
@@ -1600,6 +1681,7 @@ export default function Dashboard() {
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 

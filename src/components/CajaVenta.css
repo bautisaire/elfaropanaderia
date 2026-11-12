@@ -67,12 +67,6 @@
     overflow: hidden;
 }
 
-/* La lista vacía no necesita ocupar todo el alto de la pantalla: deja
-   visibles los productos frecuentes y el botón para agregar productos. */
-.caja-venta-list-wrapper.is-empty {
-    flex: 0 0 clamp(150px, 28vh, 240px);
-}
-
 .caja-venta-list-header,
 .caja-venta-row {
     display: grid;

@@ -23,6 +23,7 @@ export interface FirestoreProduct {
     wholesalePrice?: number;
     webPrice?: number;
     priceTiers?: { quantity: number; price: number }[]; // Precios por cantidad (ej. media docena, docena)
+    priceTierGroup?: string; // Productos con el mismo grupo suman sus unidades para aplicar el precio por cantidad
     categoria: string;
     descripcion: string;
     img: string;
@@ -1078,6 +1079,24 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                         <button type="button" className="btn-secondary" onClick={addPriceTier}>
                                             <FaPlus /> Agregar Precio por Cantidad
                                         </button>
+                                        <div style={{ marginTop: '12px' }}>
+                                            <label>Grupo de promo (opcional)</label>
+                                            <input
+                                                list="price-tier-groups"
+                                                value={formData.priceTierGroup || ""}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, priceTierGroup: e.target.value }))}
+                                                placeholder="Ej. Facturas"
+                                            />
+                                            <datalist id="price-tier-groups">
+                                                {Array.from(new Set(products.map(p => (p.priceTierGroup || '').trim()).filter(Boolean))).map(g => (
+                                                    <option key={g} value={g} />
+                                                ))}
+                                            </datalist>
+                                            <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '6px 0 0 0' }}>
+                                                Los productos con el mismo grupo suman sus unidades en la caja para aplicar el precio por cantidad
+                                                (ej. 10 facturas + 2 de grasa = docena). Se usan los precios por cantidad del primer producto del grupo que los tenga; conviene que ambos tengan los mismos.
+                                            </p>
+                                        </div>
                                     </div>
 
                                     <div className="form-row">
