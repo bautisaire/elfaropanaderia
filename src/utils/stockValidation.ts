@@ -209,7 +209,23 @@ const checkCartStock = async (cart: Parameters<typeof validateCartStock>[0]): Pr
                 if (!opt) continue;
                 const linked = linkedData.get(String(opt.linkedProductId));
                 // Sin datos legibles, producto derivado o vínculo roto: no se bloquea (lo decide el backend / el interruptor manual).
-                if (!linked || linked.stockDependency?.productId) continue;
+                if (!linked) continue;
+                // Vínculo a una opción de otro combo: solo cuenta si esa opción está deshabilitada.
+                if (opt.linkedComboOption) {
+                    const target = Array.isArray(linked.comboOptions)
+                        ? linked.comboOptions.find((x: any) => x?.name === opt.linkedComboOption)
+                        : undefined;
+                    if (target?.disabled) {
+                        outOfStockItems.push({
+                            id: `${item.id}-opcion-${sel.name}`,
+                            name: `${item.name}: ${sel.name} (opción agotada)`,
+                            requested: Number(sel.quantity),
+                            available: 0
+                        });
+                    }
+                    continue;
+                }
+                if (linked.stockDependency?.productId) continue;
                 let available: number;
                 if (opt.linkedVariant && Array.isArray(linked.variants)) {
                     const v = linked.variants.find((x: any) => x.name === opt.linkedVariant);

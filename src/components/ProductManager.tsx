@@ -64,7 +64,7 @@ export interface FirestoreProduct {
     isCombo?: boolean;
     comboItemsCount?: number;
     comboAllowMultiple?: boolean;
-    comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
+    comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string; linkedComboOption?: string }[];
     isQuickStock?: boolean;
 }
 
@@ -476,16 +476,21 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         }));
     };
 
-    const setComboOptionLink = (idx: number, productId: string, variant?: string) => {
+    // `target` es una variante del producto vinculado, o (si ese producto es un combo) el nombre de una de sus opciones.
+    const setComboOptionLink = (idx: number, productId: string, target?: string, targetIsComboOption = false) => {
         setFormData(prev => {
             const newOptions = [...(prev.comboOptions || [])];
             const updated = { ...newOptions[idx] };
             // Firestore no acepta undefined: se borran las claves en vez de asignarlas vacías.
             delete updated.linkedProductId;
             delete updated.linkedVariant;
+            delete updated.linkedComboOption;
             if (productId) {
                 updated.linkedProductId = productId;
-                if (variant) updated.linkedVariant = variant;
+                if (target) {
+                    if (targetIsComboOption) updated.linkedComboOption = target;
+                    else updated.linkedVariant = target;
+                }
             }
             newOptions[idx] = updated;
             return { ...prev, comboOptions: newOptions };
@@ -1167,7 +1172,20 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                                         <option key={p.id} value={p.id}>{p.nombre}</option>
                                                                     ))}
                                                                 </select>
-                                                                {opt.linkedProductId && (products.find(p => p.id === opt.linkedProductId)?.variants?.length || 0) > 0 && (
+                                                                {opt.linkedProductId && (products.find(p => p.id === opt.linkedProductId)?.comboOptions?.length || 0) > 0 && (
+                                                                    <select
+                                                                        value={opt.linkedComboOption || ''}
+                                                                        onChange={(e) => setComboOptionLink(idx, opt.linkedProductId || '', e.target.value, true)}
+                                                                        style={{ flex: '1 1 140px', minWidth: 0 }}
+                                                                        title="Si elegís una opción, solo importa si esa opción está habilitada, no el stock general del producto"
+                                                                    >
+                                                                        <option value="">Stock general del producto</option>
+                                                                        {products.find(p => p.id === opt.linkedProductId)?.comboOptions?.map(o => (
+                                                                            <option key={o.name} value={o.name}>Opción: {o.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
+                                                                {opt.linkedProductId && (products.find(p => p.id === opt.linkedProductId)?.comboOptions?.length || 0) === 0 && (products.find(p => p.id === opt.linkedProductId)?.variants?.length || 0) > 0 && (
                                                                     <select
                                                                         value={opt.linkedVariant || ''}
                                                                         onChange={(e) => setComboOptionLink(idx, opt.linkedProductId || '', e.target.value)}

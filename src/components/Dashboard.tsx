@@ -910,21 +910,13 @@ export default function Dashboard() {
     };
 
     const handleCopyStockList = () => {
-        const visibleIds = new Set(catalogProducts.map(p => String(p.id)));
-
         const isDrink = (p: typeof catalogProducts[number]) =>
             normalizeForSearch(p.categoria || '').trim() === 'heladera';
 
-        // Un producto "hijo" (con stockDependency) se omite porque ya lo representa su padre en la lista,
-        // salvo que el padre no esté visible en el home (ahí el hijo es la única forma de mostrarlo).
-        const isChildOfVisibleParent = (p: typeof catalogProducts[number]) => {
-            const parentId = p.stockDependency?.productId;
-            if (!parentId) return false;
-            return visibleIds.has(String(parentId));
-        };
-
+        // Como la lista ya sale agrupada por categoría, se incluyen todos los productos con stock
+        // (combos e individuales), aunque uno derive del otro (ej. "Facturas x6" y "Factura").
         const items = catalogProducts
-            .filter(p => isProductInStock(p) && !isDrink(p) && !isChildOfVisibleParent(p))
+            .filter(p => isProductInStock(p) && !isDrink(p))
             .map(p => {
                 const hasDiscount = (p.discount || 0) > 0;
                 const finalPrice = hasDiscount ? p.price * (1 - (p.discount! / 100)) : p.price;

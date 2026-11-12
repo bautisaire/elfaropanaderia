@@ -129,23 +129,52 @@ export function applyDerivedStockToCatalog(catalog: Record<string, Product>): vo
  * Si el vínculo quedó roto (producto borrado o variante renombrada) se respeta el
  * interruptor manual `disabled` para no mostrar como disponible algo que no se sabe.
  */
+type ComboLinkOpt = {
+    name?: string;
+    disabled?: boolean;
+    linkedProductId?: string;
+    linkedVariant?: string;
+    linkedComboOption?: string;
+};
+
 export function isComboLinkBroken(
-    opt: { linkedProductId?: string; linkedVariant?: string },
+    opt: ComboLinkOpt,
     catalog: Record<string, Product>
 ): boolean {
     if (!opt.linkedProductId) return false;
     const linked = catalog[String(opt.linkedProductId)];
     if (!linked) return true;
+    if (opt.linkedComboOption) {
+        return !(linked.comboOptions || []).some((o) => o.name === opt.linkedComboOption);
+    }
     if (opt.linkedVariant && !(linked.variants || []).some((v) => v.name === opt.linkedVariant)) return true;
     return false;
 }
 
+/**
+ * Stock de la opción vinculada. Si el vínculo apunta a una opción de otro combo
+ * (`linkedComboOption`) NO se mira el stock general de ese producto: solo si esa opción
+ * está habilitada (devuelve 1) o deshabilitada (0), incluyendo su propio vínculo si tiene.
+ */
 export function getComboOptionLinkedStock(
-    opt: { linkedProductId?: string; linkedVariant?: string },
-    catalog: Record<string, Product>
+    opt: ComboLinkOpt,
+    catalog: Record<string, Product>,
+    depth = 0
 ): number | null {
     if (!opt.linkedProductId || isComboLinkBroken(opt, catalog)) return null;
-    return getAvailableStock(catalog[String(opt.linkedProductId)], opt.linkedVariant || null, catalog);
+    const linked = catalog[String(opt.linkedProductId)];
+    if (opt.linkedComboOption) {
+        const target = (linked.comboOptions || []).find((o) => o.name === opt.linkedComboOption);
+        if (!target) return null;
+        if (target.disabled) return 0;
+        // Corta ciclos (A→B→A) con un límite de profundidad.
+        if (depth < 5 && target.linkedProductId) {
+            const nested = getComboOptionLinkedStock(target, catalog, depth + 1);
+            if (nested !== null && nested <= 0) return 0;
+        }
+        return 1;
+    }
+    return getAvailableStock(linked, opt.linkedVariant || null, catalog);
 }
 
 export function applyComboLinksToCatalog(catalog: Record<string, Product>): void {

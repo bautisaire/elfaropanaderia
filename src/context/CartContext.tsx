@@ -54,7 +54,7 @@ export interface Product {
   isCombo?: boolean;
   comboItemsCount?: number;
   comboAllowMultiple?: boolean;
-  comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string }[];
+  comboOptions?: { name: string; image?: string; disabled?: boolean; linkedProductId?: string; linkedVariant?: string; linkedComboOption?: string }[];
   selectedComboItems?: { name: string; quantity: number }[];
   createdAt?: string;
   isRaffleTicket?: boolean;
