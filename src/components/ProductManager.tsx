@@ -107,6 +107,8 @@ type ImageEditorTarget =
     | { type: "variant"; idx: number }
     | { type: "comboOption"; idx: number };
 
+const COMBO_TABS_PER_SIDE = 6;
+
 export default function ProductManager({ onGoToRecipe, editModeProductId, onCloseEditMode, stockOnly = false }: { onGoToRecipe?: (id: string) => void, editModeProductId?: string, onCloseEditMode?: () => void, stockOnly?: boolean }) {
     const [products, setProducts] = useState<FirestoreProduct[]>([]);
     // Catálogo con stock derivado resuelto, para saber la disponibilidad real de los productos vinculados a un combo.
@@ -500,11 +502,30 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
     // El vínculo solo apaga la opción cuando el producto/variante vinculado queda sin stock;
     // este interruptor es propio del combo y no toca el stock del producto vinculado.
     const toggleComboOptionDisabled = (idx: number) => {
+        const target = formData.comboOptions?.[idx];
+        if (!target) return;
+        const nextDisabled = !target.disabled;
+
         setFormData(prev => {
             const newOptions = [...(prev.comboOptions || [])];
-            newOptions[idx] = { ...newOptions[idx], disabled: !newOptions[idx].disabled };
+            newOptions[idx] = { ...newOptions[idx], disabled: nextDisabled };
             return { ...prev, comboOptions: newOptions };
         });
+
+        // En un producto ya guardado el cambio se aplica al instante (sin "Guardar Cambios"), para que
+        // se refleje en la tienda y en los combos vinculados. Solo se toca el flag `disabled` de esa opción;
+        // el resto de ediciones sin guardar del formulario no se escriben.
+        if (isEditing && formData.id) {
+            const stored = products.find(p => p.id === formData.id);
+            const storedOptions = stored?.comboOptions;
+            const storedIdx = storedOptions ? storedOptions.findIndex(o => o.name === target.name) : -1;
+            if (!storedOptions || storedIdx === -1) return; // opción nueva aún sin guardar
+            const updatedOptions = storedOptions.map((o, i) => i === storedIdx ? { ...o, disabled: nextDisabled } : o);
+            updateDoc(doc(db, "products", formData.id), { comboOptions: updatedOptions }).catch(err => {
+                console.error("Error al actualizar la opción del combo:", err);
+                setMessage("No se pudo guardar el cambio de stock de la opción");
+            });
+        }
     };
 
     const handleComboOptionChange = (idx: number, value: string) => {
@@ -737,6 +758,39 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
             {/* Modal Formulario */}
             {isFormVisible && (
                 <div className="pm-modal-overlay" style={editModeProductId ? { zIndex: 9999 } : {}}>
+                    <div className="pm-modal-wrap">
+                    {/* Tiras tipo "separadores de libro" a los costados: habilitan/deshabilitan cada opción del combo (máx. 6 por lado) */}
+                    {formData.isCombo && (['right', 'left'] as const).map(side => {
+                        const start = side === 'right' ? 0 : COMBO_TABS_PER_SIDE;
+                        const tabs = (formData.comboOptions || []).slice(start, start + COMBO_TABS_PER_SIDE);
+                        if (tabs.length === 0) return null;
+                        return (
+                            <div key={side} className={`pm-tab-rail ${side}`}>
+                                {tabs.map((opt, i) => {
+                                    const idx = start + i;
+                                    const linkedStock = getComboOptionLinkedStock(opt, stockCatalog);
+                                    const linkedOff = linkedStock !== null && linkedStock <= 0;
+                                    const off = linkedOff || !!opt.disabled;
+                                    return (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            className={`pm-tab ${side} ${off ? 'off' : ''}`}
+                                            onClick={() => toggleComboOptionDisabled(idx)}
+                                            title={linkedOff
+                                                ? `${opt.name || 'Opción'}: desactivada porque el producto/opción vinculado está sin stock (tocá para cambiar el interruptor manual)`
+                                                : `${opt.name || 'Opción'}: ${off ? 'sin stock, tocá para habilitar' : 'con stock, tocá para deshabilitar'}`}
+                                        >
+                                            {opt.image
+                                                ? <img src={opt.image} alt={opt.name || `Opción ${idx + 1}`} draggable={false} />
+                                                : <FaCamera size={16} />}
+                                            {off && <span className="pm-tab-shade" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
                     <div className="pm-modal-content" ref={formRef}>
                         <div className="pm-card-header">
                             <h3>{isEditing ? `Editar: ${formData.nombre}` : "Agregar Nuevo Producto"}</h3>
@@ -1135,7 +1189,8 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                                     </label>
                                                                 )}
 
-                                                                {(() => {
+                                                                {/* Las primeras opciones se manejan con las tiras de los costados; solo las que no entran en tiras conservan el botón acá. */}
+                                                                {idx >= COMBO_TABS_PER_SIDE * 2 && (() => {
                                                                     const linkedStock = getComboOptionLinkedStock(opt, stockCatalog);
                                                                     const linkedOff = linkedStock !== null && linkedStock <= 0;
                                                                     const off = linkedOff || !!opt.disabled;
@@ -1387,6 +1442,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                 </button>
                             </div>
                         </form>
+                    </div>
                     </div>
                 </div >
             )

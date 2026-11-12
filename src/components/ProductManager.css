@@ -48,7 +48,64 @@
     padding: 20px;
 }
 
+/* Contenedor del modal: permite que las tiras (separadores de libro) sobresalgan sin recortarse por el scroll interno */
+.pm-modal-wrap {
+    position: relative;
+    display: flex;
+    width: 100%;
+    max-width: min(900px, calc(100vw - 340px));
+    max-height: 90vh;
+}
+
+.pm-tab-rail {
+    position: absolute;
+    top: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 0; /* detrás del modal: al deshabilitarse la tira se "hunde" dentro de él */
+}
+.pm-tab-rail.right { left: calc(100% - 2px); align-items: flex-start; }
+.pm-tab-rail.left { right: calc(100% - 2px); align-items: flex-end; }
+
+.pm-tab {
+    position: relative;
+    width: 64px;
+    height: 56px;
+    padding: 0;
+    border: none;
+    background: #10b981;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+.pm-tab img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.pm-tab.right { border-radius: 0 10px 10px 0; }
+.pm-tab.left { border-radius: 10px 0 0 10px; }
+.pm-tab:hover { filter: brightness(1.08); }
+/* Capa gris sobre la imagen cuando la opción está deshabilitada */
+.pm-tab-shade {
+    position: absolute;
+    inset: 0;
+    background: rgba(75, 85, 99, 0.72);
+}
+/* Deshabilitada: la tira se mete hacia adentro del modal y sobresale solo un poco */
+.pm-tab.right.off { transform: translateX(-70%); }
+.pm-tab.left.off { transform: translateX(70%); }
+
 .pm-modal-content {
+    position: relative;
+    z-index: 1;
     background: white;
     width: 100%;
     max-width: 900px;
@@ -687,6 +744,18 @@ button {
         align-items: stretch;
         justify-content: stretch;
     }
+
+    .pm-modal-wrap {
+        max-width: none;
+        height: 100%;
+    }
+
+    /* En pantalla completa no hay lugar afuera: las tiras quedan pegadas al borde, por encima del modal */
+    .pm-tab-rail { z-index: 3; }
+    .pm-tab-rail.right { left: auto; right: 0; }
+    .pm-tab-rail.left { right: auto; left: 0; }
+    .pm-tab { width: 36px; height: 40px; }
+    .pm-tab.right.off, .pm-tab.left.off { transform: none; }
 
     .pm-modal-content {
         max-width: none;
