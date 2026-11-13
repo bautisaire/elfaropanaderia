@@ -30,8 +30,8 @@ const Footer: React.FC = () => {
                 </div>
                 <div className="footer-section">
                     <h3 className="footer-title">Horarios:</h3>
-                    <p>Lunes a Viernes: 08:00 - 13:00 y 17:00 - 20:00</p>
-                    <p>Sábados: 08:00 - 13:00</p>
+                    <p>Lunes a Viernes: 17:00 - 20:30</p>
+                    <p>Sábados: 09:00 - 13:00</p>
                     <p>Domingos: Cerrado</p>
 
                 </div>
