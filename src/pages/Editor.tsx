@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaChartLine } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaWallet } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -14,13 +14,15 @@ import AdminSettings from "../components/AdminSettings";
 import CostManager from "../components/CostManager";
 import ProductsSection from "../components/ProductsSection";
 import BillsManager from "../components/BillsManager";
-import FinanzasManager from "../components/FinanzasManager";
+import PagosManager from "../components/PagosManager";
 import CustomersPage from "../components/CustomersPage";
 import ProductsRankingPage from "../components/ProductsRankingPage";
 import BestPeriodsPage from "../components/BestPeriodsPage";
 import RiderDashboard from "../components/RiderDashboard";
 import RiderSettings from "../components/RiderSettings";
 import { useCart } from "../context/CartContext";
+// Capa visual unificada del panel: debe importarse al final para ganar a los estilos de cada componente
+import "./EditorTheme.css";
 
 interface NavItem {
   key: string;
@@ -204,7 +206,7 @@ export default function Editor() {
     {
       label: "Finanzas",
       items: [
-        { key: "finanzas", label: "Finanzas", icon: <FaChartLine />, color: '#16a34a', path: "/editor/finanzas", visible: isSuperAdmin, active: currentPath === "finanzas" },
+        { key: "finanzas", label: "Pagos", icon: <FaWallet />, color: '#16a34a', path: "/editor/finanzas", visible: isSuperAdmin, active: currentPath === "finanzas" },
         { key: "bills", label: "Gastos", icon: <FaFileInvoiceDollar />, color: '#dc2626', path: "/editor/bills/gastos", visible: adminPermissions?.bills === true, active: currentPath === "bills" },
       ]
     },
@@ -215,6 +217,10 @@ export default function Editor() {
       ]
     },
   ];
+
+  const currentSectionLabel =
+    navGroups.flatMap(g => g.items).find(i => i.active && i.visible)?.label
+    || (currentPath === 'settings' ? 'Configuración' : currentPath.startsWith('rider') ? 'Reparto' : 'Panel Admin');
 
   if (checkingAuth || adminPermissions === null) {
     return <div style={{ marginTop: '100px', textAlign: 'center', fontSize: '1.2rem' }}>Verificando credenciales...</div>;
@@ -258,7 +264,12 @@ export default function Editor() {
             <button className="burger-btn" onClick={() => setMobileMenuOpen(true)}>
               <FaBars />
             </button>
-            <span>Panel Admin</span>
+            <span>{currentSectionLabel}</span>
+            {pendingOrdersCount > 0 && currentPath !== 'orders' && adminPermissions?.orders !== false && (
+              <button className="mobile-header-orders" onClick={() => handleNavClick("/editor/orders/pos")}>
+                <FaClipboardList /> {pendingOrdersCount}
+              </button>
+            )}
           </div>
 
           {/* Mobile Overlay */}
@@ -387,7 +398,7 @@ export default function Editor() {
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
               {(adminPermissions?.costs !== false || adminPermissions?.products_stock_only === true) && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
-              {isSuperAdmin && <Route path="/finanzas" element={<FinanzasManager />} />}
+              {isSuperAdmin && <Route path="/finanzas" element={<PagosManager />} />}
               <Route path="/employees" element={<Navigate to="/editor/finanzas" replace />} />
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}

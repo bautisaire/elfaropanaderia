@@ -1,0 +1,399 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #fff4e6;
+      overflow: hidden;
+      font-family: "Poppins", sans-serif;
+      color: #2a1512;
+    }
+    .cap {
+      position: absolute;
+      left: 110px;
+      top: 140px;
+      width: 860px;
+    }
+    .cap-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .cap-step {
+      background: #ff4c4f;
+      color: #fff;
+      font-weight: 700;
+      font-size: 34px;
+      letter-spacing: 0.1em;
+      padding: 8px 26px;
+      border-radius: 30px;
+      white-space: nowrap;
+    }
+    .cap-bar {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+    .cap-bar i {
+      flex: 1;
+      height: 14px;
+      border-radius: 7px;
+      background: #f1d9c6;
+    }
+    .cap-bar i.on {
+      background: #ff4c4f;
+    }
+    .cap-title {
+      margin-top: 26px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 68px;
+      line-height: 1.08;
+    }
+    /* ---------- pantalla del celu ---------- */
+    #pd-phone {
+      position: absolute;
+      left: 110px;
+      top: 440px;
+      width: 860px;
+      height: 1360px;
+      border-radius: 64px;
+      border: 10px solid #1c1210;
+      background: #fffaf4;
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(120, 40, 20, 0.25);
+    }
+    .pd-header {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 840px;
+      height: 120px;
+      background: #ff4c4f;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 44px;
+    }
+    .pd-logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #fff;
+      overflow: hidden;
+    }
+    .pd-logo img {
+      width: 80px;
+      height: 80px;
+      display: block;
+    }
+    .pd-hoy {
+      position: absolute;
+      left: 24px;
+      top: 146px;
+      font-size: 46px;
+      font-weight: 700;
+      border-left: 8px solid #ff4c4f;
+      padding-left: 16px;
+      line-height: 1.1;
+    }
+    .pd-card {
+      position: absolute;
+      width: 390px;
+      height: 470px;
+      border-radius: 34px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(120, 60, 30, 0.14);
+    }
+    .pd-card img {
+      width: 390px;
+      height: 280px;
+      object-fit: cover;
+      display: block;
+    }
+    .pd-name {
+      padding: 14px 20px 0;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+    .pd-price {
+      position: absolute;
+      left: 20px;
+      bottom: 26px;
+      font-size: 40px;
+      font-weight: 700;
+      color: #ff4c4f;
+    }
+    .pd-plus {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #ff4c4f;
+      color: #fff;
+      font-size: 60px;
+      font-weight: 600;
+      line-height: 78px;
+      text-align: center;
+    }
+    #pd-qty {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #1f8a4c;
+      color: #fff;
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 80px;
+      text-align: center;
+      opacity: 0;
+    }
+    #pd-bar {
+      position: absolute;
+      left: 20px;
+      top: 1190px;
+      width: 800px;
+      height: 130px;
+      border-radius: 44px;
+      background: #2a1512;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      font-size: 36px;
+      font-weight: 600;
+    }
+    #pd-bar b {
+      background: #ff4c4f;
+      padding: 12px 28px;
+      border-radius: 30px;
+    }
+    #pd-dim {
+      position: absolute;
+      inset: 0;
+      background: #1c1210;
+      opacity: 0;
+    }
+    #pd-sheet {
+      position: absolute;
+      left: 0;
+      top: 330px;
+      width: 840px;
+      height: 1010px;
+      border-radius: 56px 56px 0 0;
+      background: #fff;
+      padding: 44px 40px;
+    }
+    #pd-sheet h4 {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 54px;
+    }
+    .pd-item {
+      margin-top: 30px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      font-size: 38px;
+      font-weight: 700;
+    }
+    .pd-item img {
+      width: 150px;
+      height: 150px;
+      border-radius: 26px;
+      object-fit: cover;
+    }
+    .pd-item span {
+      margin-left: auto;
+    }
+    .pd-opt {
+      margin-top: 30px;
+      height: 140px;
+      border-radius: 30px;
+      border: 5px solid #ff4c4f;
+      background: #fff0f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      font-size: 36px;
+      font-weight: 700;
+    }
+    .pd-total {
+      margin-top: 34px;
+      display: flex;
+      justify-content: space-between;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 50px;
+    }
+    #pd-confirm {
+      position: absolute;
+      left: 40px;
+      top: 810px;
+      width: 760px;
+      height: 130px;
+      border-radius: 65px;
+      background: #ff4c4f;
+      color: #fff;
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 130px;
+      text-align: center;
+    }
+    #pd-ok {
+      position: absolute;
+      inset: 0;
+      background: #ff4c4f;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      opacity: 0;
+    }
+    #pd-ok-check {
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    #pd-ok-title {
+      margin-top: 50px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 84px;
+      line-height: 1.05;
+    }
+    #pd-ok-sub {
+      margin-top: 24px;
+      font-size: 42px;
+      font-weight: 600;
+    }
+    #pd-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(42, 21, 18, 0.3);
+      border: 7px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+    }
+  </style>
+  <div id="root" data-composition-id="pedir" data-width="1080" data-height="1920">
+    <div class="cap">
+      <div class="cap-row">
+        <div class="cap-step">PASO 1 DE 4</div>
+        <div class="cap-bar"><i class="on"></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="cap-title" id="pd-title">Pedí desde tu celu</div>
+    </div>
+
+    <div id="pd-phone" data-layout-ignore data-layout-allow-overflow>
+      <div class="pd-header">
+        <div class="pd-logo"><img src="assets/logo.png" alt="" /></div>
+        EL FARO
+      </div>
+      <div class="pd-hoy">Hoy</div>
+
+      <div class="pd-card" style="left: 20px; top: 230px">
+        <img src="assets/productos/facturas.webp" alt="" />
+        <div class="pd-name">Facturas x6</div>
+        <div class="pd-price">$6798</div>
+        <div class="pd-plus" id="pd-plus">+</div>
+        <div id="pd-qty">1</div>
+      </div>
+      <div class="pd-card" style="left: 430px; top: 230px">
+        <img src="assets/productos/pan.webp" alt="" />
+        <div class="pd-name">Pan 500 g.</div>
+        <div class="pd-price">$2000</div>
+        <div class="pd-plus">+</div>
+      </div>
+      <div class="pd-card" style="left: 20px; top: 720px">
+        <img src="assets/productos/pastelitos.webp" alt="" />
+        <div class="pd-name">Pastelitos Membrillo</div>
+        <div class="pd-price">$2000</div>
+        <div class="pd-plus">+</div>
+      </div>
+      <div class="pd-card" style="left: 430px; top: 720px">
+        <img src="assets/productos/tortafrita.webp" alt="" />
+        <div class="pd-name">Torta frita x6</div>
+        <div class="pd-price">$5700</div>
+        <div class="pd-plus">+</div>
+      </div>
+
+      <div id="pd-bar"><span>1 producto · $6798</span><b>Ver pedido</b></div>
+      <div id="pd-dim"></div>
+
+      <div id="pd-sheet">
+        <h4>Tu pedido</h4>
+        <div class="pd-item"><img src="assets/productos/facturas.webp" alt="" />Facturas x6<span>$6798</span></div>
+        <div class="pd-opt"><div>Envío a domicilio</div><div>$2000</div></div>
+        <div class="pd-total"><div>Total</div><div>$8798</div></div>
+        <div id="pd-confirm">Confirmar pedido</div>
+      </div>
+
+      <div id="pd-ok">
+        <div id="pd-ok-check">
+          <svg viewBox="0 0 300 300" width="300" height="300"><path d="M82 155 L132 205 L222 105" fill="none" stroke="#1f8a4c" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </div>
+        <div id="pd-ok-title">¡Pedido<br />confirmado!</div>
+        <div id="pd-ok-sub">Ya lo recibimos</div>
+      </div>
+
+      <div id="pd-cursor"></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      const at = (x, y) => ({ x: x - 55, y: y - 55 });
+      const tap = (t) => {
+        tl.to("#pd-cursor", { scale: 0.68, duration: 0.07, ease: "power2.in" }, t - 0.07);
+        tl.to("#pd-cursor", { scale: 1, duration: 0.16, ease: "back.out(3)" }, t);
+      };
+      tl.fromTo("#pd-title", { scale: 1 }, { scale: 1.03, duration: 6, ease: "none", transformOrigin: "0% 50%" }, 0);
+
+      // 1.0 · toca "+" en Facturas x6
+      tl.fromTo("#pd-cursor", { opacity: 0, ...at(640, 1050), scale: 1 }, { opacity: 1, duration: 0.2 }, 0.2);
+      tl.to("#pd-cursor", { ...at(356, 622), duration: 0.5, ease: "power2.inOut" }, 0.35);
+      tap(1.0);
+      tl.fromTo("#pd-plus", { scale: 1, opacity: 1 }, { scale: 0.4, opacity: 0, duration: 0.12 }, 1.0);
+      tl.fromTo("#pd-qty", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.22, ease: "back.out(3)" }, 1.05);
+      tl.fromTo("#pd-bar", { y: 220 }, { y: 0, duration: 0.4, ease: "back.out(1.4)" }, 1.15);
+
+      // 2.2 · toca "Ver pedido"
+      tl.to("#pd-cursor", { ...at(660, 1255), duration: 0.5, ease: "power2.inOut" }, 1.55);
+      tap(2.2);
+      tl.fromTo("#pd-dim", { opacity: 0 }, { opacity: 0.5, duration: 0.3 }, 2.25);
+      tl.fromTo("#pd-sheet", { y: 1040 }, { y: 0, duration: 0.45, ease: "power3.out" }, 2.25);
+
+      // 3.8 · confirma
+      tl.to("#pd-cursor", { ...at(420, 1205), duration: 0.5, ease: "power2.inOut" }, 3.1);
+      tap(3.8);
+      tl.fromTo("#pd-confirm", { scale: 1 }, { scale: 0.94, duration: 0.07, yoyo: true, repeat: 1 }, 3.8);
+
+      // 4.0 · confirmado
+      tl.fromTo("#pd-ok", { opacity: 0 }, { opacity: 1, duration: 0.15, ease: "none" }, 3.95);
+      tl.to("#pd-cursor", { opacity: 0, duration: 0.1 }, 3.95);
+      tl.fromTo("#pd-ok-check", { scale: 0, rotation: -60 }, { scale: 1, rotation: 0, duration: 0.45, ease: "back.out(2)" }, 4.0);
+      tl.fromTo("#pd-ok-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 4.2);
+      tl.fromTo("#pd-ok-sub", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 4.5);
+      tl.to("#pd-ok-check", { scale: 1.06, duration: 1.4, ease: "none" }, 4.5);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["pedir"] = tl;
+    })();
+  </script>
+</template>

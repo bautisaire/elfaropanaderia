@@ -748,7 +748,7 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
         <div className={`product-manager-container ${editModeProductId ? 'modal-mode-only' : ''}`}>
             {/* Header del Admin */}
             {!editModeProductId && (
-                <div className="pm-header">
+                <div className="pm-header pm-header-main">
                     <div>
                         <h2>Administrador de Productos</h2>
                         <p>Gestiona el inventario, precios y detalles de tus productos.</p>
@@ -1289,15 +1289,9 @@ export default function ProductManager({ onGoToRecipe, editModeProductId, onClos
                                                 </div>
 
                                                 {Number(formData.comboItemsCount) === 1 && (
-                                                    <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            name="comboAllowMultiple"
-                                                            checked={!!formData.comboAllowMultiple}
-                                                            onChange={handleInputChange}
-                                                        />
-                                                        <span style={{ color: '#0369a1' }}>Permitir elegir varias opciones (cada una suma una unidad)</span>
-                                                    </label>
+                                                    <p style={{ color: '#0369a1', fontSize: '0.85em', marginBottom: '15px' }}>
+                                                        El cliente puede elegir varias opciones y cantidades (cada una suma una unidad).
+                                                    </p>
                                                 )}
 
                                                 <div className="variants-header" style={{ borderBottom: '1px solid #bae6fd', paddingBottom: '10px', marginBottom: '10px' }}>

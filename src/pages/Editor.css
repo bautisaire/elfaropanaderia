@@ -746,3 +746,263 @@
         min-height: 0;
     }
 }
+
+/* Encabezado mobile: nombre de la sección actual + acceso rápido a pedidos pendientes */
+.mobile-header {
+    box-sizing: border-box;
+    padding: 12px 16px;
+    gap: 12px;
+}
+
+.mobile-header span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.burger-btn {
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    border-radius: 8px;
+    flex: 0 0 auto;
+}
+
+.burger-btn:active {
+    background: #1f2937;
+}
+
+.mobile-header-orders {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #bb8d0e;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Menú lateral mobile: no más ancho que la pantalla y con lugar para el botón de cerrar */
+@media (max-width: 850px) {
+    .editor-sidebar {
+        width: min(280px, 86vw);
+        height: 100dvh;
+    }
+
+    .editor-sidebar .sidebar-profile {
+        padding-right: 52px;
+    }
+
+    .editor-sidebar .sidebar-footer {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    .editor-sidebar .btn-logout-action .nav-text {
+        white-space: normal;
+    }
+}
+
+/* Menú lateral mobile: ítems alineados a la izquierda y sin el botón de colapsar (solo escritorio) */
+@media (max-width: 849.98px) {
+    .editor-sidebar nav button {
+        justify-content: flex-start;
+        min-height: 46px;
+    }
+
+    .editor-sidebar .sidebar-collapse-toggle {
+        display: none;
+    }
+
+    .editor-sidebar .sidebar-close-btn {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        top: 12px;
+        right: 10px;
+        padding: 0;
+        font-size: 1.2rem;
+    }
+}
+
+/* =====================================================================
+   Pulido mobile del panel (≤ 700px). Van con prefijo .editor-content para
+   ganar a los estilos de cada componente sin tocarlos uno por uno.
+   ===================================================================== */
+@media (max-width: 700px) {
+    /* --- Resumen: título compacto y tarjetas en 2 columnas --- */
+    .editor-content .dashboard-container {
+        padding: 0;
+    }
+
+    .editor-content .dashboard-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .editor-content .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .editor-content .stat-card {
+        padding: 12px;
+        gap: 10px;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .editor-content .stat-card .stat-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 1rem;
+        border-radius: 8px;
+        flex: 0 0 auto;
+    }
+
+    .editor-content .stat-card .stat-info {
+        min-width: 0;
+    }
+
+    .editor-content .stat-card .stat-info h3 {
+        font-size: 0.76rem;
+        line-height: 1.25;
+    }
+
+    .editor-content .stat-card .stat-info p {
+        font-size: 1.2rem;
+        overflow-wrap: anywhere;
+    }
+
+    /* --- Productos: encabezado en una línea y filtros en grilla --- */
+    .editor-content .pm-header {
+        gap: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+
+    .editor-content .pm-header h2 {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .editor-content .pm-header p {
+        display: none;
+    }
+
+    .editor-content .pm-header .btn-primary {
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    .editor-content .inventory-toolbar .search-bar {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 10px !important;
+        max-width: none !important;
+    }
+
+    .editor-content .inventory-toolbar .search-bar > .product-search-container {
+        grid-column: 1 / -1;
+    }
+
+    .editor-content .inventory-toolbar .search-bar > div:not(.product-search-container) {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 3px !important;
+        min-width: 0;
+        font-size: 0.78rem;
+    }
+
+    .editor-content .inventory-toolbar .search-bar > div:not(.product-search-container) select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* --- Caja: título arriba, acciones en su propia fila --- */
+    .editor-content .caja-header {
+        flex-wrap: wrap;
+        row-gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .editor-content .caja-subtitle {
+        white-space: nowrap;
+        font-size: 0.82rem;
+    }
+
+    .editor-content .caja-header-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .editor-content .caja-header-actions .caja-secondary-btn {
+        flex: 1 1 0;
+        white-space: nowrap;
+        justify-content: center;
+    }
+
+    /* --- Gastos: los botones grandes no tocan el borde de la pantalla --- */
+    .editor-content .bills-actions {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .editor-content .bills-big-btn {
+        min-height: 64px;
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
+
+    /* --- Configuración: texto arriba, botón a todo el ancho abajo --- */
+    .editor-content .admin-settings-container {
+        padding: 4px !important;
+    }
+
+    .editor-content .setting-card {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 14px;
+        padding: 16px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .editor-content .setting-card > button {
+        justify-content: center;
+        min-height: 44px;
+    }
+
+    /* --- Estados de carga centrados --- */
+    .editor-content .loading-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 32px 16px;
+        color: #64748b;
+    }
+}
+
+@media (max-width: 700px) {
+    /* --- Costos y Recetas: el encabezado de recetas no queda pegado al borde --- */
+    .editor-content.editor-costs-fullbleed .cm-tab-content > h3,
+    .editor-content.editor-costs-fullbleed .cm-tab-content > p,
+    .editor-content.editor-costs-fullbleed .cm-tab-content > .cm-recipe-selector {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+
+    .editor-content.editor-costs-fullbleed .cm-tab-content > h3 {
+        margin-top: 12px;
+        font-size: 1.05rem;
+    }
+}

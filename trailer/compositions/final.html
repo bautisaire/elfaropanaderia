@@ -1,0 +1,86 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 35%, #ff5a5d, #d9262a 85%);
+      overflow: hidden;
+      font-family: "Poppins", sans-serif;
+      color: #fff;
+      text-align: center;
+    }
+    #fi-logo {
+      position: absolute;
+      left: 350px;
+      top: 440px;
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(90, 10, 12, 0.45);
+    }
+    #fi-logo img {
+      width: 380px;
+      height: 380px;
+      display: block;
+    }
+    .fi-row {
+      position: absolute;
+      left: 0;
+      width: 1080px;
+    }
+    #fi-title {
+      top: 880px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 170px;
+      line-height: 1;
+      text-shadow: 0 10px 0 #a51a1d;
+    }
+    #fi-sub {
+      top: 1076px;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      color: #fff3cf;
+    }
+    #fi-cta {
+      top: 1210px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 76px;
+    }
+    #fi-pill {
+      top: 1340px;
+    }
+    #fi-pill span {
+      display: inline-block;
+      background: #fff;
+      color: #d9262a;
+      font-weight: 700;
+      font-size: 54px;
+      padding: 18px 50px;
+      border-radius: 60px;
+      box-shadow: 0 14px 30px rgba(90, 10, 12, 0.4);
+    }
+  </style>
+  <div id="root" data-composition-id="final" data-width="1080" data-height="1920">
+    <div id="fi-logo"><img src="assets/logo.png" alt="" /></div>
+    <div class="fi-row" id="fi-title">EL FARO</div>
+    <div class="fi-row" id="fi-sub">PANADERÍA Y CONFITERÍA</div>
+    <div class="fi-row" id="fi-cta">Pedí online</div>
+    <div class="fi-row" id="fi-pill"><span>elfaropanificacion.com</span></div>
+  </div>
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#fi-logo", { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(1.8)" }, 0);
+      tl.fromTo("#fi-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0.04);
+      tl.fromTo("#fi-sub", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 0.08);
+      tl.fromTo("#fi-cta", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0.12);
+      tl.fromTo("#fi-pill", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 0.16);
+      tl.to("#fi-logo", { scale: 1.06, duration: 1.2, ease: "none" }, 0.75);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["final"] = tl;
+    })();
+  </script>
+</template>

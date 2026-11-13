@@ -16,8 +16,9 @@ export default function ComboSelectionModal({ product, isOpen, onClose, onAddToC
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const totalRequired = product.comboItemsCount || 0;
   // Combo de 1 ítem que permite sumar varias opciones/unidades (sin tope).
-  const isFreeChoice = totalRequired === 1 && !!product.comboAllowMultiple;
-  const isSingleChoice = totalRequired === 1 && !isFreeChoice;
+  // Siempre permite varias opciones y cantidades; cada selección queda discriminada en selectedComboItems.
+  const isFreeChoice = totalRequired === 1;
+  const isSingleChoice = false;
   // Elección simple: una sola opción y una sola unidad por combo.
   const singleChoiceMax = 1;
 

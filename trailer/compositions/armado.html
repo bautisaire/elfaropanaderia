@@ -1,0 +1,224 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #fff4e6;
+      overflow: hidden;
+      font-family: "Poppins", sans-serif;
+      color: #2a1512;
+    }
+    .cap {
+      position: absolute;
+      left: 110px;
+      top: 140px;
+      width: 860px;
+    }
+    .cap-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .cap-step {
+      background: #ff4c4f;
+      color: #fff;
+      font-weight: 700;
+      font-size: 34px;
+      letter-spacing: 0.1em;
+      padding: 8px 26px;
+      border-radius: 30px;
+      white-space: nowrap;
+    }
+    .cap-bar {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+    .cap-bar i {
+      flex: 1;
+      height: 14px;
+      border-radius: 7px;
+      background: #f1d9c6;
+    }
+    .cap-bar i.on {
+      background: #ff4c4f;
+    }
+    .cap-title {
+      margin-top: 26px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 68px;
+      line-height: 1.08;
+    }
+    .ar-blob {
+      position: absolute;
+      left: 140px;
+      top: 620px;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: #ffe3c7;
+    }
+    /* ---------- caja ---------- */
+    #ar-box {
+      position: absolute;
+      left: 200px;
+      top: 800px;
+      width: 680px;
+      height: 580px;
+    }
+    .ar-back {
+      position: absolute;
+      left: 0;
+      top: 150px;
+      width: 680px;
+      height: 170px;
+      background: #a97b46;
+      border-radius: 14px 14px 0 0;
+    }
+    .ar-item {
+      position: absolute;
+      width: 200px;
+      height: 134px;
+    }
+    .ar-front {
+      position: absolute;
+      left: 0;
+      top: 270px;
+      width: 680px;
+      height: 310px;
+      background: #c79a63;
+      border-radius: 0 0 22px 22px;
+      box-shadow: inset 0 -26px 0 #b3854f;
+    }
+    #ar-lid {
+      position: absolute;
+      left: -14px;
+      top: 214px;
+      width: 708px;
+      height: 76px;
+      border-radius: 16px;
+      background: #d9b07a;
+      box-shadow: 0 8px 0 #b3854f;
+    }
+    #ar-sticker {
+      position: absolute;
+      left: 250px;
+      top: 330px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: #fff;
+      overflow: hidden;
+    }
+    #ar-sticker img {
+      width: 180px;
+      height: 180px;
+      display: block;
+    }
+    /* ---------- estado ---------- */
+    #ar-status {
+      position: absolute;
+      left: 110px;
+      top: 1470px;
+      width: 860px;
+      height: 200px;
+      border-radius: 44px;
+      background: #fff;
+      box-shadow: 0 20px 50px rgba(120, 40, 20, 0.18);
+    }
+    .ar-order {
+      position: absolute;
+      left: 44px;
+      top: 46px;
+      font-size: 34px;
+      font-weight: 600;
+      color: #7a4a3c;
+      line-height: 1.25;
+    }
+    .ar-order b {
+      display: block;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 44px;
+      color: #2a1512;
+    }
+    .ar-chip {
+      position: absolute;
+      left: 440px;
+      top: 50px;
+      width: 380px;
+      height: 100px;
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 40px;
+      line-height: 100px;
+      text-align: center;
+    }
+    #ar-prep {
+      background: #ffe3b0;
+      color: #8a5200;
+    }
+    #ar-sent {
+      background: #1f8a4c;
+      color: #fff;
+      opacity: 0;
+    }
+  </style>
+  <div id="root" data-composition-id="armado" data-width="1080" data-height="1920">
+    <div class="ar-blob" data-layout-ignore></div>
+    <div class="cap">
+      <div class="cap-row">
+        <div class="cap-step">PASO 3 DE 4</div>
+        <div class="cap-bar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+      </div>
+      <div class="cap-title" id="ar-title">Lo preparamos</div>
+    </div>
+
+    <div id="ar-box" data-layout-allow-overflow>
+      <div class="ar-back"></div>
+      <svg class="ar-item" id="ar-i0" style="left: 30px; top: 120px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#e8a548" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <svg class="ar-item" id="ar-i1" style="left: 240px; top: 110px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#edb158" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <svg class="ar-item" id="ar-i2" style="left: 450px; top: 120px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#e8a548" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <svg class="ar-item" id="ar-i3" style="left: 130px; top: 170px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#edb158" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <svg class="ar-item" id="ar-i4" style="left: 345px; top: 170px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#e8a548" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <svg class="ar-item" id="ar-i5" style="left: 240px; top: 190px" viewBox="0 0 200 134"><path d="M14 104 C18 30 182 30 186 104 C160 70 40 70 14 104 Z" fill="#f2bb66" stroke="#b9722a" stroke-width="8" stroke-linejoin="round" /><path d="M62 48 L74 76 M100 40 L100 70 M138 48 L126 76" stroke="#b9722a" stroke-width="7" stroke-linecap="round" /></svg>
+      <div class="ar-front"></div>
+      <div id="ar-lid"></div>
+      <div id="ar-sticker"><img src="assets/logo.png" alt="" /></div>
+    </div>
+
+    <div id="ar-status">
+      <div class="ar-order">Pedido #0047<b>Facturas x6</b></div>
+      <div class="ar-chip" id="ar-prep">Preparando…</div>
+      <div class="ar-chip" id="ar-sent">✓ Enviado</div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#ar-title", { scale: 1 }, { scale: 1.03, duration: 4, ease: "none", transformOrigin: "0% 50%" }, 0);
+      tl.fromTo("#ar-box", { scale: 0.7, opacity: 0, x: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(1.6)" }, 0);
+      tl.fromTo("#ar-status", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.15);
+      // 0.55 → 1.8 · entran las seis facturas, una por una
+      for (let i = 0; i < 6; i++) {
+        const t = 0.3 + i * 0.25;
+        tl.fromTo(
+          "#ar-i" + i,
+          { y: -760, rotation: (i % 2 ? 1 : -1) * 50, opacity: 0 },
+          { y: 0, rotation: (i % 2 ? -1 : 1) * 6, opacity: 1, duration: 0.25, ease: "power2.in" },
+          t,
+        );
+        tl.fromTo(".ar-front", { scaleY: 1 }, { scaleY: 0.97, duration: 0.05, yoyo: true, repeat: 1, transformOrigin: "50% 100%" }, t + 0.25);
+      }
+      // 2.3 · se cierra la caja
+      tl.fromTo("#ar-lid", { y: -420, opacity: 0, rotation: -8 }, { y: 0, opacity: 1, rotation: 0, duration: 0.3, ease: "power2.in" }, 2.0);
+      tl.fromTo("#ar-sticker", { scale: 0, rotation: -40 }, { scale: 1, rotation: 0, duration: 0.3, ease: "back.out(2.5)" }, 2.4);
+      // 3.0 · pasa a "Enviado"
+      tl.to("#ar-prep", { opacity: 0, duration: 0.12 }, 2.95);
+      tl.fromTo("#ar-sent", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(3)" }, 3.0);
+      // la caja sale rumbo al reparto
+      tl.to("#ar-box", { x: 1100, rotation: 6, duration: 0.5, ease: "power2.in" }, 3.4);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["armado"] = tl;
+    })();
+  </script>
+</template>

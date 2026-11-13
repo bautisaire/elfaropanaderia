@@ -1,0 +1,643 @@
+/* =====================================================================
+   Capa visual unificada del panel de administración.
+
+   Cada sección (Stock, Pedidos, Caja, Productos, Costos, Gastos, Tienda…)
+   trae sus propios estilos; este archivo los empareja para que todo el
+   panel se vea como una sola aplicación: misma barra, mismos títulos,
+   mismas pestañas, tarjetas, botones y campos.
+
+   Todo va con prefijo .editor-page / .editor-content para ganar por
+   especificidad. Los !important son solo donde el componente usa
+   estilos en línea.
+   ===================================================================== */
+
+.editor-page {
+    --ad-bg: #f3f5f8;
+    --ad-surface: #ffffff;
+    --ad-border: #e3e8ef;
+    --ad-text: #0f172a;
+    --ad-muted: #64748b;
+    --ad-primary: #2563eb;
+    --ad-primary-dark: #1d4ed8;
+    --ad-ink: #0f172a;
+    --ad-radius: 14px;
+    --ad-radius-sm: 10px;
+    --ad-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
+    background-color: var(--ad-bg);
+    color: var(--ad-text);
+}
+
+/* ---------------------------------------------------------------------
+   1. Barra superior (escritorio y laptop)
+   --------------------------------------------------------------------- */
+@media (min-width: 850px) {
+    .editor-page .editor-sidebar {
+        background: #0f172a;
+        padding: 0 14px;
+        border-bottom: 0;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+    }
+
+    /* Sin barra de scroll visible: los tamaños de abajo hacen que todo entre */
+    .editor-page .editor-sidebar nav {
+        scrollbar-width: none;
+    }
+
+    .editor-page .editor-sidebar nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .editor-page .editor-sidebar .nav-group {
+        border-right-color: rgba(255, 255, 255, 0.09);
+        padding: 0 6px;
+    }
+
+    .editor-page .editor-sidebar .sidebar-profile {
+        border-right-color: rgba(255, 255, 255, 0.09);
+    }
+
+    .editor-page .editor-sidebar .sidebar-footer {
+        border-left-color: rgba(255, 255, 255, 0.09);
+    }
+
+    .editor-page .editor-sidebar nav button {
+        border-radius: 9px;
+        color: #aab4c5;
+        font-weight: 600;
+        min-height: 40px;
+    }
+
+    .editor-page .editor-sidebar nav button:hover {
+        background: rgba(255, 255, 255, 0.07);
+        color: #fff;
+    }
+
+    .editor-page .editor-sidebar nav button.active {
+        background: var(--ad-primary);
+        color: #fff;
+        box-shadow: none;
+    }
+
+    .editor-page .editor-sidebar nav button.active .nav-icon {
+        color: #fff !important;
+    }
+
+    .editor-page .editor-sidebar .sidebar-badge {
+        background: #f59e0b;
+        color: #1c1304;
+    }
+
+    .editor-page .editor-content,
+    .editor-page .editor-content.collapsed-mode {
+        padding: 24px 32px 40px;
+    }
+
+    .editor-page .editor-content.pos-active-tab {
+        padding: 0;
+    }
+}
+
+/* Hasta 1500px: Configuración / Inicio / Salir quedan solo con ícono */
+@media (min-width: 850px) and (max-width: 1500px) {
+    .editor-page .editor-sidebar .sidebar-footer .nav-text {
+        display: none;
+    }
+
+    .editor-page .editor-sidebar .sidebar-footer button {
+        width: 40px;
+        padding: 0;
+    }
+
+    .editor-page .editor-sidebar .sidebar-footer .nav-icon {
+        font-size: 1.05rem;
+    }
+}
+
+/* Laptop */
+@media (min-width: 850px) and (max-width: 1280px) {
+    .editor-page .editor-sidebar {
+        padding: 0 8px;
+    }
+
+    .editor-page .editor-sidebar nav button {
+        padding: 8px 9px;
+        gap: 6px;
+        font-size: 0.82rem;
+    }
+
+    .editor-page .editor-sidebar .nav-group {
+        padding: 0 4px;
+    }
+
+    .editor-page .editor-content,
+    .editor-page .editor-content.collapsed-mode {
+        padding: 18px 20px 32px;
+    }
+
+    .editor-page .editor-content.pos-active-tab {
+        padding: 0;
+    }
+}
+
+@media (min-width: 850px) and (max-width: 1150px) {
+    .editor-page .editor-sidebar .sidebar-profile {
+        display: none;
+    }
+}
+
+/* Laptop chica / tablet apaisada: ícono arriba, texto abajo */
+@media (min-width: 850px) and (max-width: 1020px) {
+    .editor-page .editor-sidebar nav > .nav-group button {
+        flex-direction: column;
+        gap: 3px;
+        padding: 6px 7px;
+        font-size: 0.66rem;
+        line-height: 1.1;
+        min-width: 54px;
+        min-height: 50px;
+        position: relative;
+    }
+
+    .editor-page .editor-sidebar nav > .nav-group .nav-icon {
+        font-size: 1.05rem;
+    }
+
+    .editor-page .editor-sidebar nav > .nav-group .sidebar-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   2. Contenedores de sección: mismo fondo, mismo ancho máximo
+   --------------------------------------------------------------------- */
+.editor-content .cost-manager-container,
+.editor-content .product-manager-container,
+.editor-content .dashboard-container,
+.editor-content .store-editor-container,
+.editor-content .stock-manager {
+    background: transparent;
+}
+
+@media (min-width: 850px) {
+    .editor-content .cost-manager-container,
+    .editor-content .dashboard-container,
+    .editor-content .store-editor-container,
+    .editor-content .product-manager-container.orders-manager-page {
+        padding: 0;
+        min-height: 0;
+    }
+
+    .editor-content .product-manager-container {
+        padding-left: 0;
+        min-height: 0;
+    }
+
+    .editor-content .dashboard-container,
+    .editor-content .cost-manager-container,
+    .editor-content .store-editor-container,
+    .editor-content .stock-manager,
+    .editor-content .product-manager-container.orders-manager-page {
+        max-width: 1560px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .editor-content .admin-settings-container {
+        margin: 0 auto;
+        padding: 0 !important;
+    }
+
+    .editor-content .orders-list-container {
+        padding: 0;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   3. Títulos de sección
+   --------------------------------------------------------------------- */
+.editor-content .dashboard-title,
+.editor-content .caja-header h2,
+.editor-content .cm-header h2,
+.editor-content .store-editor-title,
+.editor-content .admin-settings-container > h2,
+.editor-content .pg-header h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--ad-text);
+}
+
+.editor-content .store-editor-title,
+.editor-content .admin-settings-container > h2 {
+    margin: 0 0 14px !important;
+}
+
+/* El encabezado de Productos / Costos / Gastos deja de ser una tarjeta aparte */
+.editor-content .cm-header {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 16px;
+}
+
+.editor-content .cm-header h2 {
+    margin: 0 0 12px;
+}
+
+/* "Administrador de Productos" repetía el título de la sección */
+.editor-content .pm-header.pm-header-main {
+    border-bottom: 0;
+    padding: 0;
+    margin: 0 0 12px;
+    justify-content: flex-end;
+    min-height: 0;
+}
+
+.editor-content .pm-header.pm-header-main > div:first-child {
+    display: none;
+}
+
+.editor-content .cm-tab-content > h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ad-text);
+    border-bottom: 1px solid var(--ad-border);
+}
+
+/* ---------------------------------------------------------------------
+   4. Pestañas: un solo estilo en todo el panel
+   --------------------------------------------------------------------- */
+.editor-content .cm-tabs,
+.editor-content .stock-tabs,
+.editor-content .store-editor-tabs {
+    gap: 8px;
+    scrollbar-width: none;
+}
+
+.editor-content .cm-tabs::-webkit-scrollbar,
+.editor-content .stock-tabs::-webkit-scrollbar,
+.editor-content .store-editor-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.editor-content .store-editor-tabs {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 16px;
+}
+
+.editor-content .cm-tab,
+.editor-content .stock-tab-btn,
+.editor-content .store-tab-btn,
+.editor-content .orders-tabs .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px !important;
+    border-radius: var(--ad-radius-sm) !important;
+    border: 1px solid var(--ad-border) !important;
+    background: var(--ad-surface) !important;
+    color: #475569 !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap;
+    box-shadow: none !important;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.editor-content .cm-tab:hover,
+.editor-content .stock-tab-btn:hover,
+.editor-content .store-tab-btn:hover,
+.editor-content .orders-tabs .tab-btn:hover {
+    background: #f1f5f9 !important;
+    color: var(--ad-text) !important;
+}
+
+.editor-content .cm-tab.active,
+.editor-content .stock-tab-btn.active,
+.editor-content .store-tab-btn.active,
+.editor-content .orders-tabs .tab-btn.active {
+    background: var(--ad-ink) !important;
+    border-color: var(--ad-ink) !important;
+    color: #fff !important;
+}
+
+.editor-content .timeframe-selector {
+    background: #e7ebf1;
+    border-radius: var(--ad-radius-sm);
+    gap: 4px;
+    padding: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   5. Tarjetas y superficies
+   --------------------------------------------------------------------- */
+.editor-content .stat-card,
+.editor-content .caja-stats-bar,
+.editor-content .cm-content,
+.editor-content .setting-card,
+.editor-content .orders-table-container,
+.editor-content .store-editor-content {
+    border: 1px solid var(--ad-border) !important;
+    border-radius: var(--ad-radius) !important;
+    box-shadow: var(--ad-shadow) !important;
+}
+
+.editor-content .store-editor-content {
+    background: var(--ad-surface);
+}
+
+.editor-content .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+.editor-content .stat-card .stat-icon {
+    border-radius: 12px;
+}
+
+/* Tarjetas dentro de tarjetas: sin doble marco */
+.editor-content .cm-content > .orders-table-container {
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.editor-content .pos-product-card {
+    border: 1px solid var(--ad-border);
+    border-radius: 12px;
+    box-shadow: none;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.editor-content .pos-product-card:hover {
+    transform: translateY(-2px);
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.editor-content .summary-pill {
+    border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------------
+   6. Botones
+   --------------------------------------------------------------------- */
+.editor-content .btn-primary {
+    background: var(--ad-primary);
+    border-radius: var(--ad-radius-sm);
+    padding: 10px 16px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.editor-content .btn-primary:hover {
+    background: var(--ad-primary-dark);
+}
+
+.editor-content .btn-secondary {
+    border-radius: var(--ad-radius-sm);
+}
+
+.editor-content .cm-btn-secondary {
+    padding: 10px 14px !important;
+    border-radius: var(--ad-radius-sm);
+    border: 1px solid var(--ad-border);
+    background: var(--ad-surface);
+    color: #334155;
+    font-weight: 600;
+}
+
+.editor-content .cm-btn-secondary:hover {
+    background: #f1f5f9;
+}
+
+.editor-content .caja-big-btn,
+.editor-content .bills-big-btn {
+    border-radius: 16px;
+    transition: transform 0.12s, box-shadow 0.15s, filter 0.15s;
+}
+
+.editor-content .caja-big-btn:hover,
+.editor-content .bills-big-btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+}
+
+.editor-content .caja-big-btn:active,
+.editor-content .bills-big-btn:active {
+    transform: scale(0.98);
+}
+
+/* ---------------------------------------------------------------------
+   7. Campos y buscadores
+   --------------------------------------------------------------------- */
+.editor-content input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):focus,
+.editor-content select:focus,
+.editor-content textarea:focus {
+    outline: none;
+    border-color: var(--ad-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.editor-content .product-search-container {
+    background: var(--ad-surface);
+    border-color: #cfd6e0;
+    border-radius: var(--ad-radius-sm);
+    padding: 4px 12px;
+    min-height: 42px;
+}
+
+/* El input de adentro no lleva marco propio (el marco es el del contenedor) */
+.editor-content .product-search-container .product-search-input,
+.editor-content .product-search-container .product-search-input:focus {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 6px 0;
+}
+
+/* Filtros de Productos: buscador + selects en una fila */
+.editor-content .inventory-toolbar {
+    margin-bottom: 16px;
+}
+
+.editor-content .inventory-toolbar .search-bar {
+    max-width: none !important;
+    flex: 1 1 auto;
+    gap: 10px 14px !important;
+}
+
+.editor-content .inventory-toolbar .search-bar > .product-search-container {
+    flex: 1 1 260px;
+    max-width: 380px;
+}
+
+.editor-content .inventory-toolbar .search-bar select {
+    background: var(--ad-surface) !important;
+    border-radius: var(--ad-radius-sm) !important;
+    min-height: 42px;
+}
+
+/* ---------------------------------------------------------------------
+   8. Tablas
+   --------------------------------------------------------------------- */
+.editor-content .orders-table th,
+.editor-content .stock-table th {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ad-muted);
+    background: #f8fafc;
+}
+
+.editor-content .orders-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* ---------------------------------------------------------------------
+   9. Laptop: un poco más compacto
+   --------------------------------------------------------------------- */
+@media (min-width: 850px) and (max-width: 1280px) {
+    .editor-content .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 14px;
+    }
+
+    .editor-content .stat-card {
+        padding: 16px;
+    }
+
+    .editor-content .caja-big-btn {
+        min-height: 0;
+        padding-top: 22px;
+        padding-bottom: 22px;
+    }
+
+    .editor-content .cm-content,
+    .editor-content .store-editor-content {
+        padding: 16px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   10. Mobile
+   --------------------------------------------------------------------- */
+@media (max-width: 849.98px) {
+    .editor-page .mobile-header {
+        background: #0f172a;
+    }
+
+    /* El nombre de la sección ya está en la barra de arriba: no se repite */
+    .editor-content .cm-header h2,
+    .editor-content .store-editor-title,
+    .editor-content .admin-settings-container > h2 {
+        display: none;
+    }
+
+    .editor-content .cm-header {
+        padding: 10px 12px 0;
+        margin-bottom: 10px;
+    }
+
+    .editor-content .cm-tabs,
+    .editor-content .stock-tabs,
+    .editor-content .store-editor-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+    }
+
+    .editor-content .cm-tab,
+    .editor-content .stock-tab-btn,
+    .editor-content .store-tab-btn,
+    .editor-content .orders-tabs .tab-btn {
+        flex: 0 0 auto;
+        padding: 9px 13px !important;
+        font-size: 0.86rem !important;
+    }
+
+    .editor-content .pm-header.pm-header-main {
+        padding: 0 12px;
+        margin-bottom: 10px;
+    }
+
+    .editor-content .pm-header.pm-header-main .btn-primary {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .editor-content .inventory-toolbar {
+        padding: 0 12px;
+    }
+
+    .editor-content .inventory-toolbar .search-bar > .product-search-container {
+        max-width: none;
+    }
+
+    .editor-content .cm-content {
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    .editor-content .store-editor-container {
+        padding: 0;
+    }
+
+    .editor-content .store-editor-content {
+        padding: 12px;
+    }
+
+    .editor-content .dashboard-title {
+        font-size: 1.25rem;
+    }
+
+    .editor-content .caja-header h2,
+    .editor-content .pg-header h2 {
+        font-size: 1.3rem;
+    }
+}
+
+/* Productos (escritorio): "Nuevo Producto" comparte fila con el buscador y los filtros */
+@media (min-width: 850px) {
+    .editor-content .pm-header.pm-header-main {
+        float: right;
+        margin: 2px 0 12px 14px;
+    }
+}
+
+/* Caja en laptop: los 7 indicadores entran en una sola fila */
+@media (min-width: 850px) and (max-width: 1180px) {
+    .editor-content .caja-stats-bar {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0;
+    }
+
+    .editor-content .caja-stat {
+        min-width: 0;
+        padding-left: 10px;
+        padding-right: 8px;
+    }
+
+    .editor-content .caja-stat-value {
+        font-size: 1.02rem;
+        overflow-wrap: anywhere;
+    }
+
+    .editor-content .caja-stat-main .caja-stat-value {
+        font-size: 1.2rem;
+    }
+
+    .editor-content .caja-stat-label {
+        font-size: 0.66rem;
+    }
+}
