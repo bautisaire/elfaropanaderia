@@ -1,0 +1,241 @@
+.rv {
+    color: #1c1917;
+}
+
+.rv-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.rv-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.rv-avg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.88rem;
+    color: #78716c;
+}
+
+.rv-avg b {
+    color: #1c1917;
+}
+
+/* Calificar */
+.rv-rate {
+    background: #faf8f5;
+    border: 1px solid #f1eeea;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.rv-rate-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.rv-rate-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #57534e;
+}
+
+.rv-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.rv-stars button {
+    background: none;
+    border: none;
+    padding: 4px;
+    font-size: 1.45rem;
+    line-height: 1;
+    color: #e7e5e4;
+    cursor: pointer;
+    transition: color 0.15s, transform 0.1s;
+}
+
+.rv-stars button.on {
+    color: #fbbf24;
+}
+
+.rv-stars button:active {
+    transform: scale(0.9);
+}
+
+.rv-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    animation: rvIn 0.25s ease;
+}
+
+.rv-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #e7e5e4;
+    border-radius: 10px;
+    resize: none;
+    font-family: inherit;
+    font-size: 16px;
+    background: #fff;
+}
+
+.rv-form textarea:focus {
+    outline: none;
+    border-color: #a8a29e;
+}
+
+.rv-form-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #a8a29e;
+}
+
+.rv-form-foot button {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 10px;
+    background: #1c1917;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rv-form-foot button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.rv-thanks {
+    padding: 10px 14px;
+    background: #ecfdf5;
+    color: #047857;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.rv-empty {
+    padding: 14px;
+    text-align: center;
+    font-size: 0.88rem;
+    color: #a8a29e;
+}
+
+/* Lista */
+.rv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rv-item {
+    padding: 12px 14px;
+    border: 1px solid #f1eeea;
+    border-radius: 14px;
+}
+
+.rv-item-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rv-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.rv-who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.rv-who b {
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rv-who > span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #a8a29e;
+}
+
+.rv-item-stars {
+    display: inline-flex;
+    gap: 1px;
+    font-size: 0.72rem;
+}
+
+.rv-delete {
+    background: none;
+    border: none;
+    color: #ef4444;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 6px;
+}
+
+.rv-delete:hover {
+    opacity: 1;
+}
+
+.rv-comment {
+    margin: 8px 0 0;
+    color: #44403c;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.rv-more {
+    align-self: center;
+    margin-top: 4px;
+    padding: 9px 18px;
+    border: 1px solid #e7e5e4;
+    background: #fff;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #44403c;
+    cursor: pointer;
+}
+
+@keyframes rvIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* El modal de borrar usa esta animación */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

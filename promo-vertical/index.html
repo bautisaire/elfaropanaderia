@@ -1,0 +1,78 @@
+<!doctype html>
+<html
+  lang="es"
+  data-composition-variables='[
+    {"id":"titulo","type":"string","label":"Título","default":"EL FARO"},
+    {"id":"etiqueta","type":"string","label":"Etiqueta","default":"PANADERÍA ARTESANAL"},
+    {"id":"cta","type":"string","label":"Llamado a la acción","default":"¡Hacé tu pedido ahora!"},
+    {"id":"url","type":"string","label":"Sitio web","default":"ELFAROPANIFICACION.COM"},
+    {"id":"color-ground","type":"color","label":"Fondo","default":"#f2c9a2"},
+    {"id":"color-ink","type":"color","label":"Texto","default":"#1b1210"},
+    {"id":"color-accent","type":"color","label":"Rojo","default":"#c8321a"},
+    {"id":"color-gold","type":"color","label":"Dorado","default":"#f5b03c"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --color-ground: #f2c9a2;
+        --color-ink: #1b1210;
+        --color-accent: #c8321a;
+        --color-gold: #f5b03c;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: var(--color-ground);
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- El Faro · promo vertical 1080×1920 · 10 s -->
+    <div id="root" data-composition-id="main" data-start="0" data-duration="10" data-width="1080" data-height="1920">
+      <div
+        id="promo"
+        data-composition-id="promo"
+        data-composition-src="compositions/promo.html"
+        data-start="0"
+        data-duration="10"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1080"
+        data-height="1920"
+      ></div>
+      <audio
+        id="music"
+        class="clip"
+        src="assets/bgm/track.mp3"
+        data-start="0"
+        data-duration="10"
+        data-track-index="2"
+        data-volume="0.9"
+        data-fade-in="0.05"
+        data-fade-out="1.2"
+      ></audio>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

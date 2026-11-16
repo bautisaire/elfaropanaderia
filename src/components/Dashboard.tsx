@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice, FaFileExcel } from "react-icons/fa";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import "./CustomersRanking.css";
 import { normalizeForSearch } from "../utils/textSearch";
 import { getArgentinaDateKey } from "../utils/visitTracker";
+import { exportRecordsToExcel } from "../utils/excelExport";
 
 registerLocale('es', es);
 
@@ -55,6 +56,8 @@ export default function Dashboard() {
     const { adminPermissions, catalogProducts } = useCart();
     const navigate = useNavigate();
     const [showNotes, setShowNotes] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [stockListCopied, setStockListCopied] = useState(false);
     // Orden de categorías de la tienda (colección "categories"), para armar las listas copiadas
     const [categoryOrderMap, setCategoryOrderMap] = useState<Record<string, number>>({});
@@ -1062,6 +1065,22 @@ export default function Dashboard() {
         }
     };
 
+    const handleExportExcel = async (scope: 'period' | 'all') => {
+        setExporting(true);
+        try {
+            await exportRecordsToExcel({
+                inRange: scope === 'all' ? null : (d: Date) => isInTimeframe(d, timeframe),
+                periodLabel: scope === 'all' ? 'Todo el historial' : getTimeframeLabel(),
+            });
+            setShowExportModal(false);
+        } catch (error) {
+            console.error('Error exportando a Excel:', error);
+            alert('No se pudo generar el Excel. Probá de nuevo.');
+        } finally {
+            setExporting(false);
+        }
+    };
+
 
     return (
         <div className="dashboard-container">
@@ -1109,6 +1128,27 @@ export default function Dashboard() {
                             Notas
                         </button>
                     )}
+
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        style={{
+                            background: '#ecfdf5',
+                            border: '1px solid #a7f3d0',
+                            cursor: 'pointer',
+                            color: '#047857',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 14px',
+                            borderRadius: '20px',
+                            fontWeight: 600,
+                            fontSize: '0.9rem'
+                        }}
+                        title="Descargar ventas, caja, gastos, stock, clientes y productos en Excel"
+                    >
+                        <FaFileExcel size={16} />
+                        Exportar Excel
+                    </button>
                 </div>
 
                 <div className="timeframe-selector-row">
@@ -1167,6 +1207,47 @@ export default function Dashboard() {
                     )}
                 </div>
             </div >
+
+            {showExportModal && (
+                <div
+                    onClick={() => { if (!exporting) setShowExportModal(false); }}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '16px' }}
+                >
+                    <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: '14px', padding: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', position: 'relative' }}>
+                        <button
+                            onClick={() => setShowExportModal(false)}
+                            disabled={exporting}
+                            style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                            title="Cerrar"
+                        >
+                            <FaTimes size={18} />
+                        </button>
+                        <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FaFileExcel color="#047857" /> Exportar a Excel
+                        </h3>
+                        <p style={{ margin: '0 0 16px 0', color: '#64748b', fontSize: '0.9rem', lineHeight: 1.4 }}>
+                            Un archivo .xlsx con una pestaña para cada registro: Ventas, Ventas por producto, Caja, Cierres de caja, Gastos, Stock, Movimientos de stock, Materias primas, Clientes y Productos.
+                        </p>
+                        <button
+                            onClick={() => handleExportExcel('period')}
+                            disabled={exporting || (timeframe === 'custom' && (!customRange.start || !customRange.end))}
+                            style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '8px', background: '#047857', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '0.95rem', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.7 : 1 }}
+                        >
+                            {exporting ? 'Generando...' : `Período seleccionado (${getTimeframeLabel()})`}
+                        </button>
+                        <button
+                            onClick={() => handleExportExcel('all')}
+                            disabled={exporting}
+                            style={{ display: 'block', width: '100%', padding: '12px', background: '#fff', color: '#047857', border: '1px solid #047857', borderRadius: '10px', fontWeight: 600, fontSize: '0.95rem', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.7 : 1 }}
+                        >
+                            Todo el historial
+                        </button>
+                        <p style={{ margin: '12px 0 0 0', color: '#94a3b8', fontSize: '0.8rem' }}>
+                            Stock, productos y materias primas siempre se exportan con los valores actuales.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {showNotes && adminPermissions?.notes === true && (
                 <div className="dashboard-notes-embed" style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: '30px', position: 'relative' }}>

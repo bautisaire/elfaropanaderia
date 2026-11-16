@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { FaPlus, FaMinus, FaTrash, FaEdit, FaTicketAlt, FaChevronRight } from "react-icons/fa";
+import { FaPlus, FaMinus, FaTrash, FaEdit, FaTicketAlt, FaTimes, FaShoppingBasket, FaArrowRight } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import PriceEditModal from "./PriceEditModal";
 import "./CartSidebar.css";
@@ -122,6 +122,9 @@ export default function CartSidebar() {
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    const itemCount = cart.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
+    const money = (n: number) => `$${Math.floor(n).toLocaleString("es-AR")}`;
+
     // Helper to get image
     const getImage = (item: any) => {
         if (item.selectedVariant) {
@@ -154,102 +157,123 @@ export default function CartSidebar() {
                 <div className="cart-sidebar-grabber" />
 
                 <div className="cart-sidebar-header">
-                    <button className="continue-shopping-btn" onClick={handleClose}>
-                        Seguir comprando <FaChevronRight size={12} />
+                    <div>
+                        <h2>Tu pedido</h2>
+                        {itemCount > 0 && <span className="cart-sidebar-count">{itemCount} {itemCount === 1 ? "producto" : "productos"}</span>}
+                    </div>
+                    <button className="cart-sidebar-close" onClick={handleClose} aria-label="Cerrar carrito">
+                        <FaTimes />
                     </button>
-                    <h2>Tu Selección</h2>
                 </div>
 
                 <div className="cart-sidebar-body" ref={bodyRef}>
                     {cart.length === 0 ? (
                         <div className="cart-sidebar-empty">
+                            <FaShoppingBasket className="cart-sidebar-empty-icon" />
                             <p>Tu carrito está vacío</p>
+                            <button className="start-shopping-btn" onClick={handleClose}>Ver productos</button>
                         </div>
                     ) : (
-                        cart.map((item) => (
-                            <div key={`${item.id}-${item.selectedVariant || 'base'}`} className="sidebar-item">
-                                {item.isRaffleTicket ? (
-                                    <div className="sidebar-item-img sidebar-item-ticket-icon">
-                                        <FaTicketAlt size={28} />
-                                    </div>
-                                ) : (
-                                    <img src={getImage(item)} alt={item.name} className="sidebar-item-img" />
-                                )}
+                        cart.map((item) => {
+                            const qty = Number(item.quantity) || 1;
+                            const canAdd = canAddMore(item);
+                            return (
+                                <div key={`${item.id}-${item.selectedVariant || 'base'}`} className="sidebar-item">
+                                    {item.isRaffleTicket ? (
+                                        <div className="sidebar-item-img sidebar-item-ticket-icon">
+                                            <FaTicketAlt size={26} />
+                                        </div>
+                                    ) : (
+                                        <img src={getImage(item)} alt="" className="sidebar-item-img" loading="lazy" />
+                                    )}
 
-                                <div className="sidebar-item-details">
-                                    <h4 className="sidebar-item-title">
-                                        {item.name}
-                                        {item.selectedVariant && <span style={{ fontSize: '0.85em', color: '#a8a29e', display: 'block' }}>{item.selectedVariant}</span>}
+                                    <div className="sidebar-item-details">
+                                        <div className="sidebar-item-top">
+                                            <h4 className="sidebar-item-title">{item.name}</h4>
+                                            <span className="sidebar-item-subtotal">{money(item.price * qty)}</span>
+                                        </div>
                                         {item.selectedComboItems && item.selectedComboItems.length > 0 && (
-                                            <div style={{ fontSize: '0.8em', color: '#a8a29e', marginTop: '4px', lineHeight: '1.3', fontWeight: 'normal' }}>
+                                            <ul className="sidebar-item-combo">
                                                 {item.selectedComboItems.map((comboItem, idx) => (
-                                                    <div key={idx}>- {comboItem.quantity}x {comboItem.name}</div>
+                                                    <li key={idx}>{comboItem.quantity}× {comboItem.name}</li>
                                                 ))}
-                                            </div>
+                                            </ul>
                                         )}
-                                    </h4>
-                                    <div className="sidebar-item-price" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        ${Math.floor(item.price)} C/U
-                                        {(isSuperAdmin || adminPermissions?.orders_can_edit_prices) && (
-                                            <button
-                                                style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0 }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setPriceEditModal({
-                                                        isOpen: true,
-                                                        itemId: String(item.id),
-                                                        itemName: item.name,
-                                                        currentPrice: item.price
-                                                    });
-                                                }}
-                                                title="Editar Precio Unitario"
-                                            >
-                                                <FaEdit size={12} />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="sidebar-item-controls">
-                                        <div className="sidebar-qty-controls">
-                                            <button
-                                                className="sidebar-btn-qty"
-                                                onClick={() => removeFromCart(item.id)}
-                                            >
-                                                <FaMinus size={10} />
-                                            </button>
-                                            <span className="sidebar-qty">{item.quantity}</span>
-                                            <button
-                                                className="sidebar-btn-qty"
-                                                onClick={() => addToCart(item)}
-                                                disabled={!canAddMore(item)}
-                                                aria-label={canAddMore(item) ? "Agregar uno más" : "Stock máximo"}
-                                            >
-                                                <FaPlus size={10} />
-                                            </button>
+                                        <div className="sidebar-item-price">
+                                            {money(item.price)} c/u
+                                            {(isSuperAdmin || adminPermissions?.orders_can_edit_prices) && (
+                                                <button
+                                                    className="sidebar-item-edit"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPriceEditModal({
+                                                            isOpen: true,
+                                                            itemId: String(item.id),
+                                                            itemName: item.name,
+                                                            currentPrice: item.price
+                                                        });
+                                                    }}
+                                                    title="Editar precio unitario"
+                                                    aria-label="Editar precio unitario"
+                                                >
+                                                    <FaEdit size={12} />
+                                                </button>
+                                            )}
                                         </div>
 
-                                        <button
-                                            className="sidebar-btn-remove"
-                                            onClick={() => removeCompletelyFromCart(item.id)}
-                                        >
-                                            <FaTrash size={14} />
-                                        </button>
+                                        <div className="sidebar-item-controls">
+                                            <div className="sidebar-qty-controls">
+                                                <button
+                                                    className="sidebar-btn-qty"
+                                                    onClick={() => (qty <= 1 ? removeCompletelyFromCart(item.id) : removeFromCart(item.id))}
+                                                    aria-label={qty <= 1 ? "Quitar del carrito" : "Quitar uno"}
+                                                >
+                                                    {qty <= 1 ? <FaTrash size={11} /> : <FaMinus size={10} />}
+                                                </button>
+                                                <span className="sidebar-qty">{qty}</span>
+                                                <button
+                                                    className="sidebar-btn-qty"
+                                                    onClick={() => addToCart(item)}
+                                                    disabled={!canAdd}
+                                                    aria-label={canAdd ? "Agregar uno más" : "Stock máximo"}
+                                                >
+                                                    <FaPlus size={10} />
+                                                </button>
+                                            </div>
+                                            {!canAdd && !item.isRaffleTicket && <span className="sidebar-item-max">Máx. disponible</span>}
+                                            {qty > 1 && (
+                                                <button
+                                                    className="sidebar-btn-remove"
+                                                    onClick={() => removeCompletelyFromCart(item.id)}
+                                                    aria-label="Quitar del carrito"
+                                                    title="Quitar del carrito"
+                                                >
+                                                    <FaTrash size={13} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
 
-                <div className="cart-sidebar-footer">
-                    <div className="sidebar-summary">
-                        <span>Total:</span>
-                        <strong>$ {Math.floor(cartTotal)}</strong>
+                {cart.length > 0 && (
+                    <div className="cart-sidebar-footer">
+                        <div className="sidebar-summary">
+                            <span>Subtotal</span>
+                            <strong>{money(cartTotal)}</strong>
+                        </div>
+                        {!inCheckout && <p className="sidebar-note">El envío y la forma de pago se eligen en el siguiente paso.</p>}
+                        <button className="sidebar-checkout-btn" onClick={handleCheckout}>
+                            {inCheckout ? "Volver al pedido" : <>Continuar <FaArrowRight size={14} /></>}
+                        </button>
+                        <button className="continue-shopping-btn" onClick={handleClose}>
+                            Seguir comprando
+                        </button>
                     </div>
-                    <button className="sidebar-checkout-btn" onClick={handleCheckout} disabled={cart.length === 0}>
-                        {inCheckout ? "Continuar la compra" : "Ir a pagar →"}
-                    </button>
-                </div>
+                )}
             </div>
 
             <PriceEditModal

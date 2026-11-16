@@ -1,0 +1,765 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: var(--color-ground, #f2c9a2);
+      font-family: "Poppins", sans-serif;
+      color: var(--color-ink, #1b1210);
+    }
+
+    /* ---------- fondo: dibujos de panadería ---------- */
+    #pr-warm {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle 1250px at 540px 620px, rgba(255, 236, 205, 0.75), rgba(255, 236, 205, 0) 100%);
+      z-index: 0;
+    }
+    #pr-pattern {
+      position: absolute;
+      left: -60px;
+      top: -60px;
+      width: 1680px;
+      height: 2520px;
+      z-index: 1;
+    }
+
+    #pr-dusk {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      opacity: 0;
+      background: radial-gradient(circle 1500px at 540px 1507px, rgba(150, 70, 20, 0.12) 0, rgba(120, 50, 12, 0.5) 100%);
+    }
+    /* ---------- haz de luz del faro ---------- */
+    #pr-beam {
+      position: absolute;
+      left: -1160px;
+      top: -193px;
+      width: 3400px;
+      height: 3400px;
+      border-radius: 50%;
+      z-index: 2;
+      opacity: 0;
+      background: conic-gradient(
+        from -18deg,
+        rgba(255, 250, 225, 0) 0deg,
+        rgba(255, 250, 225, 0.95) 9deg,
+        rgba(255, 250, 225, 0.95) 27deg,
+        rgba(255, 250, 225, 0) 36deg,
+        rgba(255, 250, 225, 0) 180deg,
+        rgba(255, 232, 150, 0.8) 189deg,
+        rgba(255, 232, 150, 0.8) 207deg,
+        rgba(255, 250, 225, 0) 216deg,
+        rgba(255, 250, 225, 0) 360deg
+      );
+      -webkit-mask-image: radial-gradient(circle 1700px at center, #000 0, rgba(0, 0, 0, 0.6) 55%, transparent 100%);
+      mask-image: radial-gradient(circle 1700px at center, #000 0, rgba(0, 0, 0, 0.6) 55%, transparent 100%);
+    }
+    #pr-halo {
+      position: absolute;
+      left: 240px;
+      top: 1207px;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      z-index: 3;
+      opacity: 0;
+      background: radial-gradient(circle, rgba(255, 244, 196, 0.95) 0, rgba(255, 220, 130, 0.45) 40%, rgba(255, 220, 130, 0) 70%);
+    }
+
+    /* ---------- tarjeta ---------- */
+    #pr-cardwrap {
+      position: absolute;
+      left: 90px;
+      top: 190px;
+      width: 900px;
+      height: 900px;
+      z-index: 4;
+    }
+    #pr-card {
+      position: absolute;
+      inset: 0;
+      background: #fffdf9;
+      border-radius: 60px;
+      overflow: hidden;
+      box-shadow: 0 34px 70px rgba(122, 62, 20, 0.32), 0 6px 0 rgba(122, 62, 20, 0.12);
+      text-align: center;
+    }
+    #pr-rays {
+      position: absolute;
+      left: 100px;
+      top: -100px;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(from 0deg, rgba(245, 176, 60, 0.5) 0deg 9deg, rgba(245, 176, 60, 0) 9deg 18deg);
+      -webkit-mask-image: radial-gradient(circle, #000 0, #000 34%, transparent 70%);
+      mask-image: radial-gradient(circle, #000 0, #000 34%, transparent 70%);
+    }
+    #pr-ring {
+      position: absolute;
+      left: 236px;
+      top: 36px;
+      width: 428px;
+      height: 428px;
+      border-radius: 50%;
+      border: 10px solid var(--color-gold, #f5b03c);
+      opacity: 0;
+    }
+    #pr-med {
+      position: absolute;
+      left: 240px;
+      top: 40px;
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 12px solid #fff;
+      background: #f3ede6;
+      box-shadow: 0 0 0 8px var(--color-gold, #f5b03c), 0 22px 44px rgba(122, 62, 20, 0.35);
+    }
+    .pr-photo {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+    }
+    #pr-photo-0 {
+      opacity: 1;
+    }
+    #pr-chip {
+      position: absolute;
+      left: 170px;
+      top: 424px;
+      width: 560px;
+      height: 68px;
+      border-radius: 34px;
+      background: var(--color-accent, #c8321a);
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(140, 30, 10, 0.35);
+    }
+    .pr-chiptxt {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 560px;
+      height: 68px;
+      line-height: 68px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 30px;
+      letter-spacing: 0.07em;
+      opacity: 0;
+    }
+    #pr-chiptxt-0 {
+      opacity: 1;
+    }
+    #pr-label {
+      position: absolute;
+      left: 0;
+      top: 524px;
+      width: 900px;
+      font-weight: 700;
+      font-size: 38px;
+      line-height: 1.2;
+      letter-spacing: 0.22em;
+      text-indent: 0.22em;
+      white-space: nowrap;
+      opacity: 0;
+    }
+    #pr-title {
+      position: absolute;
+      left: 0;
+      top: 574px;
+      width: 900px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 178px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    #pr-cta {
+      position: absolute;
+      left: 0;
+      top: 774px;
+      width: 900px;
+      font-weight: 800;
+      font-size: 58px;
+      line-height: 1.2;
+      color: var(--color-accent, #c8321a);
+      white-space: nowrap;
+    }
+    .pr-ch {
+      display: inline-block;
+      white-space: pre;
+      opacity: 0;
+    }
+    #pr-shine {
+      position: absolute;
+      left: -420px;
+      top: -200px;
+      width: 300px;
+      height: 1300px;
+      background: linear-gradient(90deg, rgba(255, 205, 95, 0), rgba(255, 205, 95, 0.55), rgba(255, 244, 205, 0.9), rgba(255, 205, 95, 0.55), rgba(255, 205, 95, 0));
+      mix-blend-mode: multiply;
+    }
+
+    /* ---------- flecha, píldora, logo ---------- */
+    #pr-arrow {
+      position: absolute;
+      left: 496px;
+      top: 1114px;
+      width: 88px;
+      height: 88px;
+      z-index: 5;
+    }
+    #pr-arrow-in {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      border: 5px solid #7a3e14;
+      background: rgba(255, 253, 249, 0.55);
+    }
+    #pr-pill {
+      position: absolute;
+      left: 150px;
+      top: 1224px;
+      width: 780px;
+      height: 98px;
+      z-index: 5;
+    }
+    #pr-pill-in {
+      position: absolute;
+      inset: 0;
+      border-radius: 49px;
+      background: var(--color-accent, #c8321a);
+      box-shadow: inset 0 -6px 0 rgba(90, 14, 4, 0.28);
+      color: #fff;
+      font-weight: 700;
+      font-size: 42px;
+      line-height: 98px;
+      letter-spacing: 0.06em;
+      text-align: center;
+      white-space: nowrap;
+    }
+    #pr-logo {
+      position: absolute;
+      left: 390px;
+      top: 1357px;
+      width: 300px;
+      height: 300px;
+      z-index: 6;
+    }
+    #pr-logo-in {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #fffdf9;
+      overflow: hidden;
+      box-shadow: 0 0 0 8px var(--color-gold, #f5b03c), 0 24px 50px rgba(122, 62, 20, 0.4);
+    }
+    #pr-logo-img {
+      position: absolute;
+      left: 6px;
+      top: 2px;
+      width: 288px;
+      height: 288px;
+    }
+    #pr-logo-ring {
+      position: absolute;
+      left: 390px;
+      top: 1357px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      border: 10px solid #fff6d8;
+      z-index: 5;
+      opacity: 0;
+    }
+
+    /* ---------- partículas ---------- */
+    #pr-fx {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+    }
+    .pr-dot {
+      position: absolute;
+      border-radius: 50%;
+      background: #fffaf0;
+      opacity: 0;
+    }
+    .pr-star {
+      position: absolute;
+      background: var(--color-gold, #f5b03c);
+      clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+      opacity: 0;
+    }
+    .pr-burst {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      background: var(--color-gold, #f5b03c);
+      clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+      opacity: 0;
+    }
+    .pr-burst.pr-w {
+      background: #fff;
+    }
+  </style>
+
+  <div id="root" data-composition-id="promo" data-width="1080" data-height="1920">
+    <div id="pr-warm"></div>
+
+    <svg id="pr-pattern" data-layout-ignore viewBox="0 0 1680 2520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="pr-tile" width="560" height="560" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="#8a4a1c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.55">
+            <!-- pan de molde -->
+            <path d="M52 132 q0 -56 62 -56 h96 q62 0 62 56 q0 22 -22 30 v84 h-176 v-84 q-22 -8 -22 -30z" />
+            <path d="M100 196 h8 M150 176 h8 M196 206 h8 M128 226 h8 M176 236 h8" />
+            <!-- medialuna -->
+            <circle cx="430" cy="128" r="78" />
+            <path d="M378 112 q52 -40 104 0 M372 150 q58 -40 116 0 M392 186 q38 -24 76 0" />
+            <!-- baguette -->
+            <g transform="rotate(-24 170 420)">
+              <rect x="40" y="386" width="270" height="68" rx="34" />
+              <path d="M96 400 q16 20 6 40 M150 400 q16 20 6 40 M204 400 q16 20 6 40 M258 400 q16 20 6 40" />
+            </g>
+            <!-- espiga -->
+            <path d="M450 520 q6 -110 -8 -200" />
+            <path d="M446 440 q-40 -6 -44 -44 q38 2 44 44z M448 440 q40 -10 40 -48 q-38 6 -40 48z M444 380 q-38 -8 -40 -44 q36 4 40 44z M446 380 q38 -12 36 -48 q-36 8 -36 48z M440 322 q-14 -30 4 -56 q16 28 -4 56z" />
+          </g>
+          <g fill="none" stroke="#fff1dc" stroke-width="7" stroke-linecap="round" opacity="0.9">
+            <path d="M300 60 q22 -26 44 0" />
+            <path d="M40 330 q-6 34 24 44" />
+            <path d="M330 300 q30 10 26 42" />
+            <path d="M500 250 q24 22 4 46" />
+            <path d="M250 520 q26 -20 48 4" />
+            <path d="M30 40 q20 18 6 40" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="1680" height="2520" fill="url(#pr-tile)" />
+    </svg>
+
+    <div id="pr-dusk" data-layout-ignore></div>
+    <div id="pr-beam" data-layout-ignore></div>
+    <div id="pr-halo" data-layout-ignore></div>
+
+    <div id="pr-cardwrap">
+      <div id="pr-card">
+        <div id="pr-rays" data-layout-ignore></div>
+        <div id="pr-ring" data-layout-ignore></div>
+        <div id="pr-med">
+          <img class="pr-photo" id="pr-photo-0" src="assets/productos/pan.webp" alt="Pan" />
+          <img class="pr-photo" id="pr-photo-1" src="assets/productos/facturas.webp" alt="Facturas" />
+          <img class="pr-photo" id="pr-photo-2" src="assets/productos/tortafrita.webp" alt="Tortas fritas" />
+          <img class="pr-photo" id="pr-photo-3" src="assets/productos/bizcocho.webp" alt="Bizcocho con chicharrón" />
+          <img class="pr-photo" id="pr-photo-4" src="assets/productos/matera.webp" alt="Materas" />
+          <img class="pr-photo" id="pr-photo-5" src="assets/productos/raspadita.webp" alt="Raspaditas" />
+          <img class="pr-photo" id="pr-photo-6" src="assets/productos/fajitas.webp" alt="Fajitas" />
+          <img class="pr-photo" id="pr-photo-7" src="assets/productos/mas.webp" alt="Y mucho más" />
+        </div>
+        <div id="pr-chip" data-layout-allow-overlap>
+          <div class="pr-chiptxt" id="pr-chiptxt-0" data-layout-allow-overlap>PAN</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-1" data-layout-allow-overlap>FACTURAS</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-2" data-layout-allow-overlap>TORTAS FRITAS</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-3" data-layout-allow-overlap>BIZCOCHO CON CHICHARRÓN</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-4" data-layout-allow-overlap>MATERAS</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-5" data-layout-allow-overlap>RASPADITAS</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-6" data-layout-allow-overlap>FAJITAS</div>
+          <div class="pr-chiptxt" id="pr-chiptxt-7" data-layout-allow-overlap>¡Y MUCHO MÁS!</div>
+        </div>
+        <div id="pr-label" data-var-text="etiqueta">PANADERÍA ARTESANAL</div>
+        <div id="pr-title" data-layout-allow-overflow>EL FARO</div>
+        <div id="pr-cta" data-layout-allow-overflow>¡Hacé tu pedido ahora!</div>
+        <div id="pr-shine" data-layout-ignore></div>
+      </div>
+    </div>
+
+    <div id="pr-arrow">
+      <div id="pr-arrow-in">
+        <svg width="78" height="78" viewBox="0 0 78 78" fill="none" stroke="#7a3e14" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M24 24 l15 14 l15 -14" />
+          <path d="M24 42 l15 14 l15 -14" />
+        </svg>
+      </div>
+    </div>
+
+    <div id="pr-pill">
+      <div id="pr-pill-in" data-layout-allow-overflow>ELFAROPANIFICACION.COM</div>
+    </div>
+
+    <div id="pr-logo-ring" data-layout-ignore></div>
+    <div id="pr-logo">
+      <div id="pr-logo-in">
+        <img id="pr-logo-img" src="assets/logo.png" alt="El Faro" />
+      </div>
+    </div>
+
+    <div id="pr-fx" data-layout-ignore></div>
+  </div>
+
+  <script>
+    (function () {
+      const vars =
+        (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      const TITLE = vars.titulo || "EL FARO";
+      const CTA = vars.cta || "¡Hacé tu pedido ahora!";
+      const URL_TXT = vars.url || "ELFAROPANIFICACION.COM";
+
+      // PRNG con semilla: mismo resultado en cada render
+      let seed = 20261114;
+      const rnd = () => {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const rr = (a, b) => a + (b - a) * rnd();
+
+      const split = (id, text) => {
+        const el = document.getElementById(id);
+        el.textContent = "";
+        return Array.from(text).map((c) => {
+          const s = document.createElement("span");
+          s.className = "pr-ch";
+          s.textContent = c;
+          el.appendChild(s);
+          return s;
+        });
+      };
+      const titleCh = split("pr-title", TITLE);
+      const ctaCh = split("pr-cta", CTA);
+      const urlCh = split("pr-pill-in", URL_TXT);
+
+      const tl = gsap.timeline({ paused: true });
+      const D = 10;
+
+      // ---------- fondo ----------
+      tl.fromTo("#pr-pattern", { x: 0, y: 0 }, { x: -280, y: -420, duration: D, ease: "none" }, 0);
+      tl.fromTo("#pr-rays", { rotation: 0 }, { rotation: 140, duration: D, ease: "none" }, 0);
+
+      // ---------- tarjeta ----------
+      tl.fromTo(
+        "#pr-card",
+        { scale: 0.88, rotation: -6, y: 60 },
+        { scale: 1, rotation: 0, y: 0, duration: 0.9, ease: "elastic.out(1, 0.55)" },
+        0,
+      );
+      tl.fromTo("#pr-cardwrap", { y: 0 }, { y: -14, duration: 1.25, ease: "sine.inOut", repeat: 7, yoyo: true }, 0);
+      tl.fromTo(
+        "#pr-med",
+        { scale: 0.78 },
+        { scale: 1, duration: 0.8, ease: "elastic.out(1, 0.5)" },
+        0,
+      );
+
+      // etiqueta
+      tl.fromTo(
+        "#pr-label",
+        { opacity: 0, scaleX: 1.5 },
+        { opacity: 1, scaleX: 1, duration: 0.6, ease: "power3.out" },
+        0.15,
+      );
+
+      // título: letras que caen desordenadas
+      titleCh.forEach((ch, i) => {
+        tl.fromTo(
+          ch,
+          { opacity: 0, y: -300, rotation: rr(-70, 70), scale: 0.4 },
+          { opacity: 1, y: 0, rotation: 0, scale: 1, duration: 0.6, ease: "back.out(2.4)" },
+          0.25 + i * 0.07,
+        );
+      });
+
+      // CTA: letras mezcladas que se acomodan
+      ctaCh.forEach((ch, i) => {
+        tl.fromTo(
+          ch,
+          { opacity: 0, x: rr(-40, 40), y: rr(30, 90), rotation: rr(-110, 110) },
+          { opacity: 1, x: 0, y: 0, rotation: 0, duration: 0.45, ease: "back.out(2)" },
+          1.1 + i * 0.035,
+        );
+      });
+
+      // ---------- flecha ----------
+      tl.fromTo(
+        "#pr-arrow",
+        { scale: 0, rotation: -180 },
+        { scale: 1, rotation: 0, duration: 0.55, ease: "back.out(2.2)" },
+        1.75,
+      );
+      tl.fromTo(
+        "#pr-arrow-in",
+        { y: -8 },
+        { y: 10, duration: 0.45, ease: "sine.inOut", repeat: 17, yoyo: true },
+        1.9,
+      );
+
+      // ---------- píldora con la web ----------
+      tl.fromTo(
+        "#pr-pill-in",
+        { clipPath: "inset(0% 100% 0% 0% round 49px)" },
+        { clipPath: "inset(0% 0% 0% 0% round 49px)", duration: 0.65, ease: "power3.inOut" },
+        2.05,
+      );
+      urlCh.forEach((ch, i) => {
+        tl.fromTo(
+          ch,
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.3, ease: "back.out(2.5)" },
+          2.2 + i * 0.022,
+        );
+      });
+
+      // ---------- logo ----------
+      tl.fromTo(
+        "#pr-logo",
+        { y: 520, scale: 0.3, rotation: -200 },
+        { y: 0, scale: 1, rotation: 0, duration: 0.85, ease: "back.out(1.5)" },
+        2.45,
+      );
+      tl.fromTo("#pr-logo-in", { y: 0 }, { y: -12, duration: 1.05, ease: "sine.inOut", repeat: 5, yoyo: true }, 3.4);
+
+      // el faro se enciende
+      tl.fromTo("#pr-halo", { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, 3.0);
+      tl.fromTo(
+        "#pr-halo",
+        { scale: 1 },
+        { scale: 1.16, duration: 0.8, ease: "sine.inOut", repeat: 7, yoyo: true, immediateRender: false },
+        3.5,
+      );
+      tl.fromTo("#pr-dusk", { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power2.out" }, 2.9);
+      tl.fromTo("#pr-beam", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 3.0);
+      tl.fromTo("#pr-beam", { rotation: -120 }, { rotation: 600, duration: 6.8, ease: "none" }, 3.0);
+      tl.fromTo(
+        "#pr-logo-ring",
+        { scale: 1, opacity: 0.95 },
+        { scale: 2.6, opacity: 0, duration: 0.9, ease: "power2.out", immediateRender: false },
+        3.0,
+      );
+
+      // destello en la tarjeta cada vez que el haz pasa por arriba
+      [4.0, 5.7, 7.4, 9.1].forEach((t, i) => {
+        tl.fromTo(
+          "#pr-shine",
+          { x: 0, rotation: 18 },
+          { x: 1500, rotation: 18, duration: 0.75, ease: "power2.inOut", immediateRender: i === 0 },
+          t,
+        );
+      });
+
+      // ---------- carrusel de productos ----------
+      const fx = document.getElementById("pr-fx");
+      const burstSets = {};
+      const burstAt = (t, cx, cy, radius) => {
+        const key = cx + "-" + cy;
+        if (!burstSets[key]) {
+          burstSets[key] = [];
+          for (let i = 0; i < 12; i++) {
+            const b = document.createElement("div");
+            b.className = "pr-burst" + (i % 3 === 0 ? " pr-w" : "");
+            b.style.left = cx - 28 + "px";
+            b.style.top = cy - 28 + "px";
+            fx.appendChild(b);
+            burstSets[key].push(b);
+          }
+        }
+        const bursts = burstSets[key];
+        bursts.forEach((b, i) => {
+          const a = (i / bursts.length) * Math.PI * 2 + rr(-0.2, 0.2);
+          const r = radius * rr(0.8, 1.25);
+          const s = rr(0.6, 1.3);
+          tl.fromTo(
+            b,
+            { x: 0, y: 0, scale: 0, opacity: 1, rotation: 0 },
+            {
+              x: Math.cos(a) * r,
+              y: Math.sin(a) * r,
+              scale: s,
+              rotation: 200,
+              duration: 0.5,
+              ease: "power3.out",
+              immediateRender: false,
+            },
+            t,
+          );
+          tl.fromTo(
+            b,
+            { scale: s, opacity: 1 },
+            { scale: 0, opacity: 0, duration: 0.3, ease: "power2.in", immediateRender: false },
+            t + 0.5,
+          );
+        });
+      };
+
+      // 7 productos + cierre: cada uno ocupa 1,2 s exactos (el último, 1,6 s)
+      const N = 8;
+      const STEP = 1.2;
+      const SLOT = Array.from({ length: N }, (_, k) => k * STEP);
+      const SWAP = 0.15; // instante del cambio dentro del giro
+      // zoom lento de cada foto durante su turno
+      for (let k = 0; k < N; k++) {
+        const start = k === 0 ? 0 : SLOT[k] + SWAP;
+        const end = k < N - 1 ? SLOT[k + 1] + SWAP + 0.1 : D;
+        tl.fromTo(
+          "#pr-photo-" + k,
+          { scale: 1, rotation: k % 2 ? 3 : -3 },
+          { scale: 1.1, rotation: k % 2 ? -3 : 3, duration: end - start, ease: "none", immediateRender: k === 0 },
+          start,
+        );
+      }
+      for (let k = 1; k < N; k++) {
+        const t = SLOT[k];
+        const from = k - 1;
+        const to = k;
+        // giro rápido del medallón
+        tl.fromTo(
+          "#pr-med",
+          { rotation: 0 },
+          { rotation: 360, duration: 0.42, ease: "power2.inOut", immediateRender: false },
+          t,
+        );
+        tl.fromTo(
+          "#pr-med",
+          { scale: 1 },
+          { scale: 0.8, duration: 0.16, ease: "power2.in", immediateRender: false },
+          t,
+        );
+        tl.fromTo(
+          "#pr-med",
+          { scale: 0.8 },
+          { scale: 1, duration: 0.34, ease: "back.out(2.6)", immediateRender: false },
+          t + 0.16,
+        );
+        // cambio de foto en el medio del giro
+        tl.fromTo(
+          "#pr-photo-" + from,
+          { opacity: 1 },
+          { opacity: 0, duration: 0.08, ease: "none", immediateRender: false },
+          t + SWAP,
+        );
+        tl.fromTo(
+          "#pr-photo-" + to,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.08, ease: "none", immediateRender: false },
+          t + SWAP,
+        );
+        // nombre del producto
+        tl.fromTo(
+          "#pr-chiptxt-" + from,
+          { yPercent: 0, opacity: 1 },
+          { yPercent: -110, opacity: 0, duration: 0.14, ease: "power2.in", immediateRender: false },
+          t + 0.04,
+        );
+        tl.fromTo(
+          "#pr-chiptxt-" + to,
+          { yPercent: 110, opacity: 0 },
+          { yPercent: 0, opacity: 1, duration: 0.28, ease: "back.out(2.2)", immediateRender: false },
+          t + 0.19,
+        );
+        tl.fromTo(
+          "#pr-chip",
+          { scale: 1 },
+          { scale: 1.12, duration: 0.13, ease: "power2.out", repeat: 1, yoyo: true, immediateRender: false },
+          t + 0.19,
+        );
+        // onda y chispas
+        tl.fromTo(
+          "#pr-ring",
+          { scale: 1, opacity: 0.95 },
+          { scale: 1.75, opacity: 0, duration: 0.55, ease: "power2.out", immediateRender: false },
+          t + 0.18,
+        );
+        tl.fromTo(
+          "#pr-rays",
+          { scale: 1 },
+          { scale: 1.16, duration: 0.2, ease: "power2.out", repeat: 1, yoyo: true, immediateRender: false },
+          t + 0.18,
+        );
+        burstAt(t + 0.18, 540, 440, 330);
+      }
+
+      // ---------- remate final ----------
+      const T = 8.8;
+      tl.fromTo(
+        "#pr-title",
+        { scale: 1 },
+        { scale: 1.05, transformOrigin: "50% 100%", duration: 0.18, ease: "power2.out", repeat: 1, yoyo: true },
+        T,
+      );
+      titleCh.forEach((ch, i) => {
+        tl.fromTo(
+          ch,
+          { y: 0 },
+          { y: -14, duration: 0.2, ease: "power2.out", repeat: 1, yoyo: true, immediateRender: false },
+          T + 0.05 + i * 0.045,
+        );
+      });
+      tl.fromTo(
+        "#pr-pill",
+        { scale: 1 },
+        { scale: 1.09, duration: 0.2, ease: "power2.out", repeat: 3, yoyo: true },
+        T + 0.15,
+      );
+      tl.fromTo(
+        "#pr-logo",
+        { scale: 1, rotation: 0 },
+        { scale: 1.22, rotation: 360, duration: 0.75, ease: "back.out(1.8)", immediateRender: false },
+        T + 0.1,
+      );
+      tl.fromTo(
+        "#pr-logo-ring",
+        { scale: 1, opacity: 0.95 },
+        { scale: 3, opacity: 0, duration: 1.0, ease: "power2.out", immediateRender: false },
+        T + 0.2,
+      );
+      burstAt(T + 0.2, 540, 1507, 300);
+
+      // ---------- harina y destellos flotando ----------
+      for (let i = 0; i < 34; i++) {
+        const star = i % 4 === 0;
+        const el = document.createElement("div");
+        el.className = star ? "pr-star" : "pr-dot";
+        const size = star ? rr(26, 54) : rr(7, 20);
+        el.style.width = size + "px";
+        el.style.height = size + "px";
+        el.style.left = rr(20, 1040) + "px";
+        el.style.top = rr(140, 1900) + "px";
+        fx.appendChild(el);
+        const t0 = rr(0, 1.2);
+        tl.fromTo(el, { y: 0 }, { y: -rr(160, 480), duration: D - t0, ease: "none" }, t0);
+        tl.fromTo(
+          el,
+          { x: -rr(10, 40) },
+          { x: rr(10, 40), duration: rr(1.1, 2), ease: "sine.inOut", repeat: 8, yoyo: true },
+          t0,
+        );
+        const tw = rr(0.5, 1.1);
+        tl.fromTo(
+          el,
+          { opacity: 0, scale: 0.3, rotation: 0 },
+          {
+            opacity: star ? 1 : 0.85,
+            scale: 1,
+            rotation: star ? 90 : 0,
+            duration: tw,
+            ease: "sine.inOut",
+            repeat: Math.ceil((D - t0) / tw) | 1,
+            yoyo: true,
+          },
+          t0,
+        );
+      }
+
+      window.__timelines["promo"] = tl;
+    })();
+  </script>
+</template>

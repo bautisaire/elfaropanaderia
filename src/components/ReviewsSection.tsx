@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { FaStar, FaUserCircle, FaTrash } from "react-icons/fa";
 import LoginRequiredModal from "./LoginRequiredModal";
+import "./ReviewsSection.css";
 
 interface Review {
     id: string;
@@ -143,176 +144,99 @@ export default function ReviewsSection({ productId }: ReviewsSectionProps) {
     const displayedReviews = reviews.slice(0, visibleCount);
 
     return (
-        <div className="reviews-section" style={{ marginTop: "32px", borderTop: "1px solid #eee", paddingTop: "24px" }}>
-            {/* Review Input Section */}
+        <div className="reviews-section rv">
+            <div className="rv-head">
+                <h3 className="rv-title">Opiniones</h3>
+                {reviews.length > 0 && (
+                    <span className="rv-avg">
+                        <FaStar color="#fbbf24" /> <b>{averageRating.toFixed(1)}</b> ({reviews.length})
+                    </span>
+                )}
+            </div>
+
+            {/* Calificar */}
             {!userHasReviewed ? (
-                <div style={{ backgroundColor: "#f9f9f9", padding: "16px", borderRadius: "12px", marginBottom: "24px" }}>
-                    <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "#444" }}>
-                        Calificar
-                    </h4>
-                    
-                    <div style={{ display: "flex", gap: "8px", fontSize: showForm ? "1.8rem" : "2.5rem", justifyContent: "center", marginBottom: showForm ? "16px" : "0", transition: "font-size 0.3s ease" }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                                key={star}
-                                type="button"
-                                onClick={() => handleStarClick(star)}
-                                onMouseEnter={() => setHoverRating(star)}
-                                onMouseLeave={() => setHoverRating(0)}
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    padding: 0,
-                                    cursor: "pointer",
-                                    fontSize: "inherit",
-                                    color: star <= (hoverRating || rating) ? "#fbbf24" : "rgba(0,0,0,0.1)",
-                                    transition: "color 0.2s, transform 0.1s",
-                                    transform: star <= (hoverRating || rating) ? "scale(1.1)" : "scale(1)"
-                                }}
-                            >
-                                <FaStar />
-                            </button>
-                        ))}
+                <div className={`rv-rate ${showForm ? "open" : ""}`}>
+                    <div className="rv-rate-row">
+                        <span className="rv-rate-label">{showForm ? "Tu calificación" : "¿Lo probaste? Calificalo"}</span>
+                        <div className="rv-stars" onMouseLeave={() => setHoverRating(0)}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                    key={star}
+                                    type="button"
+                                    className={star <= (hoverRating || rating) ? "on" : ""}
+                                    onClick={() => handleStarClick(star)}
+                                    onMouseEnter={() => setHoverRating(star)}
+                                    aria-label={`${star} estrella${star > 1 ? "s" : ""}`}
+                                >
+                                    <FaStar />
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {showForm && (
-                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px", animation: "fadeIn 0.3s" }}>
+                        <form onSubmit={handleSubmit} className="rv-form">
                             <textarea
-                                placeholder="Escribe tu reseña aquí (Opcional)"
+                                placeholder="Contanos qué te pareció (opcional)"
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
                                 rows={3}
                                 maxLength={500}
-                                style={{
-                                    width: "100%",
-                                    padding: "12px",
-                                    borderRadius: "8px",
-                                    border: "1px solid #ddd",
-                                    resize: "none",
-                                    fontFamily: "inherit",
-                                    boxSizing: "border-box",
-                                    fontSize: "0.95rem"
-                                }}
                             />
-                            <div style={{ fontSize: "0.8rem", color: "#888", textAlign: "right", marginTop: "-8px" }}>
-                                {comment.length}/500
+                            <div className="rv-form-foot">
+                                <span>{comment.length}/500</span>
+                                <button type="submit" disabled={submitting}>
+                                    {submitting ? "Enviando..." : "Enviar reseña"}
+                                </button>
                             </div>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                style={{
-                                    alignSelf: "flex-end",
-                                    padding: "10px 24px",
-                                    backgroundColor: "#1f2937",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    fontWeight: "500",
-                                    cursor: submitting ? "not-allowed" : "pointer",
-                                    opacity: submitting ? 0.7 : 1,
-                                    transition: "background 0.2s"
-                                }}
-                            >
-                                {submitting ? "Enviando..." : "Enviar reseña"}
-                            </button>
                         </form>
                     )}
                 </div>
             ) : (
-                <div style={{ padding: "16px", backgroundColor: "#ecfdf5", color: "#065f46", borderRadius: "12px", marginBottom: "24px", fontSize: "0.95rem", textAlign: "center" }}>
-                    ¡Gracias por tu reseña! Ya has calificado este producto.
-                </div>
+                <div className="rv-thanks">¡Gracias por tu reseña!</div>
             )}
 
-            <h3 style={{ fontSize: "1.25rem", marginBottom: "16px", color: "#333", display: "flex", alignItems: "center", gap: "8px" }}>
-                Opiniones de este producto
-                {reviews.length > 0 && (
-                    <span style={{ fontSize: "1rem", fontWeight: "normal", color: "#666", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <FaStar color="#fbbf24" /> {averageRating.toFixed(1)} ({reviews.length})
-                    </span>
-                )}
-            </h3>
-
-            {/* Reviews List */}
+            {/* Lista */}
             {loading ? (
-                <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>Cargando reseñas...</div>
+                <div className="rv-empty">Cargando reseñas...</div>
             ) : reviews.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "30px 20px", backgroundColor: "#f9f9f9", borderRadius: "12px", color: "#666" }}>
-                    Este producto no tiene reseñas. ¡Sé el primero en opinar!
-                </div>
+                <div className="rv-empty">Todavía no hay opiniones. ¡Sé el primero!</div>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div className="rv-list">
                     {displayedReviews.map((rev) => (
-                        <div key={rev.id} style={{ padding: "16px", border: "1px solid #eaeaea", borderRadius: "12px", position: "relative" }}>
-                            {(isAdmin || (user && user.uid === rev.userId)) && (
-                                <button
-                                    onClick={() => setReviewToDelete(rev.id)}
-                                    style={{
-                                        position: "absolute",
-                                        top: "16px",
-                                        right: "16px",
-                                        background: "none",
-                                        border: "none",
-                                        color: "#ef4444",
-                                        cursor: "pointer",
-                                        padding: "4px",
-                                        opacity: 0.7,
-                                        transition: "opacity 0.2s"
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
-                                    onMouseLeave={(e) => e.currentTarget.style.opacity = "0.7"}
-                                    title="Eliminar reseña"
-                                >
-                                    <FaTrash />
-                                </button>
-                            )}
-                            
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                        <div key={rev.id} className="rv-item">
+                            <div className="rv-item-head">
                                 {rev.userPhoto ? (
-                                    <img src={rev.userPhoto} alt={rev.userName} style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }} />
+                                    <img src={rev.userPhoto} alt="" className="rv-avatar" />
                                 ) : (
-                                    <FaUserCircle size={32} color="#ccc" />
+                                    <FaUserCircle size={32} color="#d6d3d1" />
                                 )}
-                                <div>
-                                    <div style={{ fontWeight: "600", fontSize: "0.95rem", color: "#333" }}>{rev.userName}</div>
-                                    <div style={{ fontSize: "0.8rem", color: "#888" }}>
-                                        {rev.createdAt instanceof Date ? rev.createdAt.toLocaleDateString() : ""}
-                                    </div>
+                                <div className="rv-who">
+                                    <b>{rev.userName}</b>
+                                    <span>
+                                        <span className="rv-item-stars">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <FaStar key={star} color={star <= rev.rating ? "#fbbf24" : "#e7e5e4"} />
+                                            ))}
+                                        </span>
+                                        {rev.createdAt instanceof Date ? rev.createdAt.toLocaleDateString("es-AR") : ""}
+                                    </span>
                                 </div>
+                                {(isAdmin || (user && user.uid === rev.userId)) && (
+                                    <button className="rv-delete" onClick={() => setReviewToDelete(rev.id)} title="Eliminar reseña" aria-label="Eliminar reseña">
+                                        <FaTrash />
+                                    </button>
+                                )}
                             </div>
-                            <div style={{ display: "flex", gap: "2px", marginBottom: "8px", color: "#fbbf24", fontSize: "0.9rem" }}>
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                    <FaStar key={star} color={star <= rev.rating ? "#fbbf24" : "#e5e7eb"} />
-                                ))}
-                            </div>
-                            {rev.comment && (
-                                <p style={{ margin: 0, color: "#444", fontSize: "0.95rem", lineHeight: "1.5", wordBreak: "break-word" }}>
-                                    {rev.comment}
-                                </p>
-                            )}
+                            {rev.comment && <p className="rv-comment">{rev.comment}</p>}
                         </div>
                     ))}
-                    
+
                     {reviews.length > visibleCount && (
-                        <div style={{ textAlign: "center", marginTop: "8px" }}>
-                            <button
-                                onClick={() => setVisibleCount(prev => prev + 10)}
-                                style={{
-                                    padding: "10px 24px",
-                                    backgroundColor: "white",
-                                    border: "1px solid #ddd",
-                                    borderRadius: "8px",
-                                    fontWeight: "500",
-                                    cursor: "pointer",
-                                    color: "#333",
-                                    transition: "background 0.2s",
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f9f9f9"}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "white"}
-                            >
-                                Cargar más reseñas
-                            </button>
-                        </div>
+                        <button className="rv-more" onClick={() => setVisibleCount(prev => prev + 10)}>
+                            Ver más opiniones
+                        </button>
                     )}
                 </div>
             )}
@@ -327,7 +251,7 @@ export default function ReviewsSection({ productId }: ReviewsSectionProps) {
                         right: 0,
                         bottom: 0,
                         backgroundColor: "rgba(0,0,0,0.5)",
-                        zIndex: 3000,
+                        zIndex: 10050,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -372,12 +296,6 @@ export default function ReviewsSection({ productId }: ReviewsSectionProps) {
                 </div>
             )}
 
-            <style>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(-5px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-            `}</style>
 
             <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
         </div>

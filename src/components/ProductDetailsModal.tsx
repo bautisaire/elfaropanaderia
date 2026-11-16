@@ -1,25 +1,38 @@
-import { useState, useEffect } from "react";
-import { FaArrowLeft, FaShoppingBag } from "react-icons/fa";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { FaArrowLeft, FaHeart, FaRegHeart, FaMinus, FaPlus, FaCheck, FaShoppingCart, FaClock } from "react-icons/fa";
 import { Product, useCart } from "../context/CartContext";
 import { getVariantPrice } from "../utils/cartStock";
 import ReviewsSection from "./ReviewsSection";
-import "./ProductCard.css"; // Reuse some styles for variants/buttons
+import "./ProductCard.css"; // estilos de las etiquetas de variantes
 import "./ProductDetailsModal.css";
 import ComboSelectionModal from "./ComboSelectionModal";
 import VariantSelectionModal from "./VariantSelectionModal";
+import LoginRequiredModal from "./LoginRequiredModal";
 
 interface ProductDetailsModalProps {
     product: Product;
     onClose: () => void;
 }
 
+const money = (n: number) => `$${Math.floor(n).toLocaleString("es-AR")}`;
+const fmtQty = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
+
+// Tiempo que se muestra "Agregado" antes de cerrar el detalle
+const ADDED_FEEDBACK_MS = 650;
+
 export default function ProductDetailsModal({ product, onClose }: ProductDetailsModalProps) {
     const {
         addToCart,
-        removeFromCart,
         cart,
         getCatalogProduct,
         getStockForProduct,
+        isStoreOpen,
+        isAdmin,
+        closedMessage,
+        setIsSidebarOpen,
+        user,
+        isFavorite: checkIsFavorite,
+        toggleFavorite,
     } = useCart();
 
     const liveProduct = getCatalogProduct(String(product.id)) ?? product;
@@ -27,7 +40,13 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     const [overrideImage, setOverrideImage] = useState<string | null>(null);
     const [showComboModal, setShowComboModal] = useState(false);
     const [showVariantModal, setShowVariantModal] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
     const [descExpanded, setDescExpanded] = useState(false);
+    const [qty, setQty] = useState(1);
+    const [added, setAdded] = useState(false);
+    const [closing, setClosing] = useState(false);
+    const galleryRef = useRef<HTMLDivElement>(null);
+    const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const variantHasStock = (v: { stock?: boolean; stockQuantity?: number }) =>
         v.stockQuantity !== undefined ? v.stockQuantity > 0 : !!v.stock;
@@ -43,6 +62,7 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
     // Con variantes (y no combo), la elección de sabor/tipo y la cantidad se hacen
     // en el modal (VariantSelectionModal), igual que con los combos.
     const hasSelectableVariants = !!(liveProduct.variants && liveProduct.variants.length > 0 && !liveProduct.isCombo);
+    const needsOptions = !!liveProduct.isCombo || hasSelectableVariants;
 
     useEffect(() => {
         if (hasSelectableVariants) return;
@@ -53,247 +73,306 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
         if (fallback) setSelectedVariant(fallback.name);
     }, [liveProduct.variants, selectedVariant, hasSelectableVariants]);
 
-    const cartItemId = selectedVariant
-        ? `${product.id}-${selectedVariant}`
-        : String(product.id);
+    const cartItemId = selectedVariant ? `${product.id}-${selectedVariant}` : String(product.id);
 
-    let quantity = 0;
-    if (liveProduct.isCombo || hasSelectableVariants) {
-        quantity = cart
-            .filter((item) => item.baseProductId === liveProduct.id)
-            .reduce((sum, item) => sum + (item.quantity ?? 1), 0);
-    } else {
-        const cartItem = cart.find((item) => item.id === cartItemId);
-        quantity = cartItem?.quantity ?? 0;
-    }
+    const inCart = needsOptions
+        ? cart.filter((item) => item.baseProductId === liveProduct.id).reduce((sum, item) => sum + (item.quantity ?? 1), 0)
+        : cart.find((item) => item.id === cartItemId)?.quantity ?? 0;
 
     useEffect(() => {
-        if (selectedVariant && liveProduct.variants) {
-            const v = liveProduct.variants.find(v => v.name === selectedVariant);
-            if (v && v.image) {
-                setOverrideImage(v.image);
-            } else {
-                setOverrideImage(null);
-            }
-        } else {
-            setOverrideImage(null);
-        }
+        const v = selectedVariant ? liveProduct.variants?.find((x) => x.name === selectedVariant) : undefined;
+        setOverrideImage(v?.image || null);
     }, [selectedVariant, liveProduct.variants]);
 
-    const images = liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images : [liveProduct.image];
-    const currentImage = overrideImage || images[currentImageIndex];
+    const images = (liveProduct.images && liveProduct.images.length > 0 ? liveProduct.images : [liveProduct.image]).filter(Boolean);
 
     const selectedVariantObj = hasSelectableVariants ? undefined : liveProduct.variants?.find((v) => v.name === selectedVariant);
     const variantPrice = getVariantPrice(liveProduct.price, selectedVariantObj);
     const hasDiscount = (liveProduct.discount || 0) > 0;
-    const finalPrice = hasDiscount
-        ? variantPrice * (1 - (liveProduct.discount! / 100))
-        : variantPrice;
+    const finalPrice = hasDiscount ? variantPrice * (1 - liveProduct.discount! / 100) : variantPrice;
 
     const maxStock = hasSelectableVariants
         ? (liveProduct.variants || []).reduce((sum, v) => sum + (v.stockQuantity !== undefined ? Math.max(0, v.stockQuantity) : (v.stock ? 999 : 0)), 0)
         : getStockForProduct(liveProduct.id, selectedVariant);
-    const atMaxQuantity = quantity > 0 && quantity >= maxStock;
 
-    const isOutOfStock =
-        liveProduct.variants && liveProduct.variants.length > 0
-            ? liveProduct.variants.every((v) => !variantHasStock(v))
-            : maxStock <= 0;
+    const isOutOfStock = liveProduct.variants && liveProduct.variants.length > 0
+        ? liveProduct.variants.every((v) => !variantHasStock(v))
+        : maxStock <= 0;
 
-    const isLongDescription = (liveProduct.description || "").length > 140;
+    // Cuánto más se puede sumar al carrito (lo que ya está adentro descuenta stock)
+    const remaining = Math.max(0, maxStock - inCart);
+    const maxPick = remaining > 0 ? Math.max(1, Math.floor(remaining)) : 0;
+    const storeClosed = !isStoreOpen && !isAdmin;
 
-    const handleAddToCart = () => {
-        if (maxStock <= 0) return;
-        if (quantity >= maxStock) return;
+    useEffect(() => {
+        setQty((q) => Math.min(Math.max(1, q), Math.max(1, maxPick)));
+    }, [maxPick]);
 
-        if (product.isCombo) {
-            setShowComboModal(true);
-            return;
+    const isPreparationDelayed = !!liveProduct.availableAt && new Date(liveProduct.availableAt) > new Date();
+    const readyTime = isPreparationDelayed
+        ? new Date(liveProduct.availableAt!).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+        : null;
+    const lowStock = !isOutOfStock && !hasSelectableVariants && maxStock > 0 && maxStock <= 5;
+    const isLongDescription = (liveProduct.description || "").length > 160;
+    const isFav = checkIsFavorite(liveProduct.id);
+
+    // ---- Cierre: el botón "atrás" del celular también cierra el detalle ----
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
+
+    useEffect(() => {
+        if (!window.history.state?.pdModal) {
+            window.history.pushState({ ...(window.history.state || {}), pdModal: true }, "");
         }
+        const onPop = () => onCloseRef.current();
+        window.addEventListener("popstate", onPop);
+        return () => window.removeEventListener("popstate", onPop);
+    }, []);
 
-        if (hasSelectableVariants) {
-            setShowVariantModal(true);
-            return;
+    const close = useCallback(() => {
+        setClosing(true);
+        window.setTimeout(() => {
+            if (window.history.state?.pdModal) window.history.back();
+            else onCloseRef.current();
+        }, 160);
+    }, []);
+
+    useEffect(() => {
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+        window.addEventListener("keydown", onKey);
+        return () => {
+            document.body.style.overflow = prev;
+            window.removeEventListener("keydown", onKey);
+            if (addedTimer.current) clearTimeout(addedTimer.current);
+        };
+    }, [close]);
+
+    // ---- Galería ----
+    const onGalleryScroll = () => {
+        const el = galleryRef.current;
+        if (!el) return;
+        const idx = Math.round(el.scrollLeft / el.clientWidth);
+        if (idx !== currentImageIndex) {
+            setCurrentImageIndex(idx);
+            setOverrideImage(null);
         }
+    };
 
-        const productToAdd = {
+    const goToImage = (idx: number) => {
+        setOverrideImage(null);
+        setCurrentImageIndex(idx);
+        galleryRef.current?.scrollTo({ left: idx * galleryRef.current.clientWidth, behavior: "smooth" });
+    };
+
+    // ---- Acciones ----
+    const flashAddedAndClose = () => {
+        setAdded(true);
+        addedTimer.current = setTimeout(close, ADDED_FEEDBACK_MS);
+    };
+
+    const handleAdd = () => {
+        if (storeClosed) { addToCart(liveProduct); return; } // muestra el aviso de tienda cerrada
+        if (isOutOfStock || remaining <= 0 || added) return;
+        if (liveProduct.isCombo) { setShowComboModal(true); return; }
+        if (hasSelectableVariants) { setShowVariantModal(true); return; }
+
+        addToCart({
             ...liveProduct,
             id: cartItemId,
             baseProductId: liveProduct.id,
             selectedVariant: selectedVariant || undefined,
             price: finalPrice,
             name: selectedVariant ? `${liveProduct.name} (${selectedVariant})` : liveProduct.name,
-        };
-
-        addToCart(productToAdd);
+        }, Math.min(qty, maxPick));
+        flashAddedAndClose();
     };
 
-    const handleRemoveOne = () => {
-        removeFromCart(cartItemId);
+    const handleFavorite = () => {
+        if (!user) { setShowLoginModal(true); return; }
+        toggleFavorite(liveProduct.id);
     };
 
-    useEffect(() => {
-        document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = ''; };
-    }, []);
+    const openCart = () => {
+        close();
+        window.setTimeout(() => setIsSidebarOpen(true), 220);
+    };
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [onClose]);
+    let buttonLabel: React.ReactNode;
+    if (added) buttonLabel = <><FaCheck /> Agregado</>;
+    else if (storeClosed) buttonLabel = "Tienda cerrada";
+    else if (isOutOfStock) buttonLabel = "Sin stock";
+    else if (remaining <= 0) buttonLabel = "Ya tenés todo el stock";
+    else if (needsOptions) buttonLabel = liveProduct.isCombo ? "Armar mi combo" : "Elegir opciones";
+    else buttonLabel = <><span>Agregar</span><span className="pd-add-total">{money(finalPrice * qty)}</span></>;
+
+    const addDisabled = !storeClosed && (isOutOfStock || remaining <= 0);
 
     return (
-        <div className="pd-screen">
-            <div className="pd-hero">
-                <img
-                    src={currentImage}
-                    alt={liveProduct.name}
-                    className="pd-hero-img"
-                />
-
-                {hasDiscount && !isOutOfStock && (
-                    <div className="pd-discount-badge">-{Math.round(liveProduct.discount || 0)}% OFF</div>
-                )}
-
-                <button className="pd-back-btn" onClick={onClose} aria-label="Volver">
-                    <FaArrowLeft />
-                </button>
-
-                {images.length > 1 && (
-                    <div className="pd-hero-dots">
-                        {images.map((_, idx) => (
-                            <button
-                                key={idx}
-                                className={`pd-hero-dot ${currentImageIndex === idx && !overrideImage ? "active" : ""}`}
-                                onClick={() => {
-                                    setOverrideImage(null);
-                                    setCurrentImageIndex(idx);
-                                }}
-                                aria-label={`Ver imagen ${idx + 1}`}
-                            />
+        <div className={`pd-overlay ${closing ? "closing" : ""}`} onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+            <div className="pd-screen" role="dialog" aria-modal="true" aria-label={liveProduct.name}>
+                <div className="pd-media">
+                    <div className="pd-gallery" ref={galleryRef} onScroll={onGalleryScroll}>
+                        {(overrideImage ? [overrideImage] : images).map((src, idx) => (
+                            <div className="pd-slide" key={`${src}-${idx}`}>
+                                <div className="pd-slide-bg" style={{ backgroundImage: `url("${src}")` }} />
+                                <img
+                                    src={src}
+                                    alt={idx === 0 ? liveProduct.name : `${liveProduct.name} (${idx + 1})`}
+                                    className={`pd-slide-img ${isOutOfStock ? "grayscale" : ""}`}
+                                    draggable={false}
+                                />
+                            </div>
                         ))}
                     </div>
-                )}
-            </div>
 
-            <div className="pd-sheet">
-                <div className="pd-sheet-scroll">
-                    <h1 className="pd-title">{liveProduct.name}</h1>
+                    <button className="pd-round-btn pd-back-btn" onClick={close} aria-label="Volver">
+                        <FaArrowLeft />
+                    </button>
+                    <button
+                        className={`pd-round-btn pd-fav-btn ${isFav ? "active" : ""}`}
+                        onClick={handleFavorite}
+                        aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+                    >
+                        {isFav ? <FaHeart /> : <FaRegHeart />}
+                    </button>
 
-                    <div className="pd-stats-row">
-                        <div className="pd-stat">
-                            <strong>
-                                ${Math.floor(finalPrice)}
-                                {hasDiscount && <span className="pd-stat-strike">${Math.floor(variantPrice)}</span>}
-                            </strong>
-                            <span>Precio</span>
-                        </div>
-                        <div className="pd-stat">
-                            <strong>{isOutOfStock ? "Agotado" : Math.round(maxStock * 100) / 100}</strong>
-                            <span>Stock</span>
-                        </div>
-                        {hasDiscount && (
-                            <div className="pd-stat pd-stat-highlight">
-                                <strong>-{liveProduct.discount}%</strong>
-                                <span>Descuento</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {hasSelectableVariants && (
-                        <div className="variant-tags">
-                            {liveProduct.variants!.map((variant, idx) => {
-                                const outOfStock = !variantHasStock(variant);
-                                return (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        className={`variant-tag ${outOfStock ? "variant-tag-out-of-stock" : ""} ${selectedVariant === variant.name ? "variant-tag-active" : ""}`}
-                                        onClick={() => setSelectedVariant(variant.name)}
-                                        title={outOfStock ? `${variant.name} (Sin stock)` : variant.name}
-                                    >
-                                        {variant.name}
-                                    </button>
-                                );
-                            })}
+                    {!overrideImage && images.length > 1 && (
+                        <div className="pd-dots">
+                            {images.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    className={`pd-dot ${currentImageIndex === idx ? "active" : ""}`}
+                                    onClick={() => goToImage(idx)}
+                                    aria-label={`Ver imagen ${idx + 1}`}
+                                />
+                            ))}
                         </div>
                     )}
+                </div>
 
-                    {liveProduct.description && (
-                        <div className="pd-description-block">
-                            <h3 className="pd-section-title">Descripción</h3>
-                            <p className={`pd-description ${!isLongDescription || descExpanded ? "expanded" : ""}`}>
-                                {liveProduct.description}
-                            </p>
-                            {isLongDescription && (
-                                <button className="pd-show-more" onClick={() => setDescExpanded((v) => !v)}>
-                                    {descExpanded ? "Mostrar menos" : "Mostrar más"}
-                                </button>
+                <div className="pd-panel">
+                    <div className="pd-scroll">
+                        {liveProduct.categoria && <span className="pd-category">{liveProduct.categoria}</span>}
+                        <h1 className="pd-title">{liveProduct.name}</h1>
+
+                        <div className="pd-price-row">
+                            <span className={`pd-price ${hasDiscount ? "discounted" : ""}`}>{money(finalPrice)}</span>
+                            {hasDiscount && <span className="pd-price-old">{money(variantPrice)}</span>}
+                            {hasDiscount && <span className="pd-chip pd-chip-sale">-{Math.round(liveProduct.discount || 0)}%</span>}
+                        </div>
+
+                        <div className="pd-chips">
+                            {isOutOfStock ? (
+                                <span className="pd-chip pd-chip-out">Agotado</span>
+                            ) : lowStock ? (
+                                <span className="pd-chip pd-chip-low">¡Quedan {fmtQty(maxStock)}!</span>
+                            ) : !hasSelectableVariants ? (
+                                <span className="pd-chip pd-chip-ok">{fmtQty(maxStock)} disponibles</span>
+                            ) : null}
+                            {readyTime && <span className="pd-chip pd-chip-time"><FaClock /> Listo desde las {readyTime}</span>}
+                            {liveProduct.customBadgeEnabled && liveProduct.customBadgeText && (
+                                <span className="pd-chip pd-chip-custom">{liveProduct.customBadgeText}</span>
                             )}
                         </div>
-                    )}
 
-                    <div className="pd-reviews">
-                        <ReviewsSection productId={String(liveProduct.id)} />
+                        {hasSelectableVariants && (
+                            <div className="pd-block">
+                                <h3 className="pd-section-title">Opciones</h3>
+                                <div className="variant-tags pd-variant-tags">
+                                    {liveProduct.variants!.map((variant, idx) => {
+                                        const outOfStock = !variantHasStock(variant);
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                className={`variant-tag ${outOfStock ? "variant-tag-out-of-stock" : ""} ${selectedVariant === variant.name ? "variant-tag-active" : ""}`}
+                                                onClick={() => setSelectedVariant(variant.name)}
+                                                title={outOfStock ? `${variant.name} (Sin stock)` : variant.name}
+                                            >
+                                                {variant.name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="pd-hint">Elegís sabores y cantidades en el siguiente paso.</p>
+                            </div>
+                        )}
+
+                        {liveProduct.description && (
+                            <div className="pd-block">
+                                <h3 className="pd-section-title">Descripción</h3>
+                                <p className={`pd-description ${!isLongDescription || descExpanded ? "expanded" : ""}`}>
+                                    {liveProduct.description}
+                                </p>
+                                {isLongDescription && (
+                                    <button className="pd-show-more" onClick={() => setDescExpanded((v) => !v)}>
+                                        {descExpanded ? "Mostrar menos" : "Mostrar más"}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="pd-block pd-reviews">
+                            <ReviewsSection productId={String(liveProduct.id)} />
+                        </div>
+                    </div>
+
+                    <div className="pd-bar">
+                        {storeClosed && <div className="pd-bar-note closed">{closedMessage || "La tienda está cerrada en este momento."}</div>}
+                        {!storeClosed && inCart > 0 && !added && (
+                            <button className="pd-bar-note" onClick={openCart}>
+                                <FaShoppingCart /> Ya tenés {fmtQty(inCart)} en el carrito · <b>Ver carrito</b>
+                            </button>
+                        )}
+
+                        <div className="pd-bar-row">
+                            {!needsOptions && !storeClosed && !isOutOfStock && remaining > 0 && (
+                                <div className="pd-stepper" aria-label="Cantidad">
+                                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} disabled={qty <= 1 || added} aria-label="Quitar uno">
+                                        <FaMinus />
+                                    </button>
+                                    <span aria-live="polite">{qty}</span>
+                                    <button onClick={() => setQty((q) => Math.min(maxPick, q + 1))} disabled={qty >= maxPick || added} aria-label="Sumar uno">
+                                        <FaPlus />
+                                    </button>
+                                </div>
+                            )}
+                            <button
+                                className={`pd-add-btn ${added ? "added" : ""}`}
+                                onClick={handleAdd}
+                                disabled={addDisabled}
+                            >
+                                {buttonLabel}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div className="pd-bottom-bar">
-                <div className="pd-bag-indicator">
-                    <FaShoppingBag />
-                    {quantity > 0 && <span className="pd-bag-badge">{quantity}</span>}
-                </div>
-
-                {quantity === 0 || liveProduct.isCombo || hasSelectableVariants ? (
-                    <button
-                        className="btn-add pd-buy-btn"
-                        onClick={handleAddToCart}
-                        disabled={isOutOfStock || quantity >= maxStock}
-                    >
-                        {isOutOfStock ? "Sin Stock" : quantity >= maxStock ? "Stock Máximo" : "Agregar al carrito"}
-                    </button>
-                ) : (
-                    <div className="quantity-controls pd-buy-btn">
-                        <button className="btn-qty minus" onClick={handleRemoveOne}>−</button>
-                        <span className="quantity-display">{quantity}</span>
-                        <button
-                            className="btn-qty plus"
-                            onClick={handleAddToCart}
-                            disabled={atMaxQuantity}
-                        >
-                            +
-                        </button>
-                    </div>
-                )}
             </div>
 
             {showComboModal && (
                 <ComboSelectionModal
-                    product={product}
+                    product={liveProduct}
                     isOpen={showComboModal}
                     maxQuantity={maxStock}
                     onClose={() => setShowComboModal(false)}
                     onAddToCart={(_, comboItems) => {
-                        const uniqueCartItemId = `${cartItemId}-combo-${Date.now()}`;
-                        const isSingleChoiceCombo = (product.comboItemsCount || 0) === 1;  // incluye el modo de elección libre
+                        const isSingleChoiceCombo = (liveProduct.comboItemsCount || 0) === 1; // incluye el modo de elección libre
                         const totalQty = isSingleChoiceCombo
-                            ? comboItems.reduce((sum, item) => sum + item.quantity, 0)
+                            ? Math.max(1, comboItems.reduce((sum, item) => sum + item.quantity, 0))
                             : 1;
-                        const productToAdd = {
-                            ...product,
-                            id: uniqueCartItemId,
-                            baseProductId: product.id,
+                        addToCart({
+                            ...liveProduct,
+                            id: `${cartItemId}-combo-${Date.now()}`,
+                            baseProductId: liveProduct.id,
                             selectedVariant: selectedVariant || undefined,
                             price: finalPrice,
-                            name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name,
-                            selectedComboItems: comboItems
-                        };
-                        addToCart(productToAdd, totalQty);
-                        onClose(); // Optional: close details modal too
+                            name: selectedVariant ? `${liveProduct.name} (${selectedVariant})` : liveProduct.name,
+                            selectedComboItems: comboItems,
+                        }, totalQty);
+                        setShowComboModal(false);
+                        flashAddedAndClose();
                     }}
                 />
             )}
@@ -304,11 +383,10 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                     isOpen={showVariantModal}
                     onClose={() => setShowVariantModal(false)}
                     onAddToCart={(selections) => {
-                        selections.forEach(({ variantName, quantity: qty }) => {
+                        selections.forEach(({ variantName, quantity: q }) => {
                             const variantObj = liveProduct.variants?.find((v) => v.name === variantName);
                             const price = getVariantPrice(liveProduct.price, variantObj);
-                            const priceWithDiscount = hasDiscount ? price * (1 - (liveProduct.discount! / 100)) : price;
-
+                            const priceWithDiscount = hasDiscount ? price * (1 - liveProduct.discount! / 100) : price;
                             addToCart({
                                 ...liveProduct,
                                 id: `${liveProduct.id}-${variantName}`,
@@ -316,11 +394,21 @@ export default function ProductDetailsModal({ product, onClose }: ProductDetails
                                 selectedVariant: variantName,
                                 price: priceWithDiscount,
                                 name: `${liveProduct.name} (${variantName})`,
-                            }, qty);
+                            }, q);
                         });
+                        if (selections.length > 0) {
+                            setShowVariantModal(false);
+                            flashAddedAndClose();
+                        }
                     }}
                 />
             )}
+
+            <LoginRequiredModal
+                isOpen={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+                message="Necesitas iniciar sesión para guardar favoritos."
+            />
         </div>
     );
 }

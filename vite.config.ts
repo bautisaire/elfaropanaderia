@@ -8,6 +8,8 @@ const vendorChunks: Array<[RegExp, string]> = [
   [/node_modules[\\/](firebase|@firebase)[\\/]/, 'firebase'],
   [/node_modules[\\/](recharts|d3-[^\\/]+|victory-[^\\/]+|react-datepicker|date-fns)[\\/]/, 'charts'],
   [/node_modules[\\/](leaflet|react-leaflet|@react-leaflet)[\\/]/, 'maps'],
+  // Solo se importa dinámicamente al exportar a Excel; en su propio chunk no se carga al arrancar.
+  [/node_modules[\\/]exceljs[\\/]/, 'excel'],
 ]
 
 // https://vitejs.dev/config/
