@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import DatePicker, { registerLocale } from "react-datepicker";
 import { es } from 'date-fns/locale/es';
 import "./Dashboard.css";
-import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice, FaFileExcel } from "react-icons/fa";
+import { FaMoneyBillWave, FaShoppingCart, FaEye, FaEyeSlash, FaCalendarDay, FaCalendarWeek, FaCalendarAlt, FaCalendarPlus, FaInfoCircle, FaChartLine, FaStar, FaStickyNote, FaTimes, FaClipboardList, FaCheck, FaCopy, FaSearch, FaCalculator, FaUsers, FaBreadSlice, FaFileExcel, FaTrashAlt } from "react-icons/fa";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { FaUserPlus } from "react-icons/fa6";
 import { useCart } from "../context/CartContext";
@@ -93,6 +93,8 @@ export default function Dashboard() {
     const [rawReviews, setRawReviews] = useState<any[]>([]);
     const [rawExpenses, setRawExpenses] = useState<any[]>([]);
     const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
+    // Pérdidas del cierre de jornada (Stock): solo se usa el costo de materia prima/insumos
+    const [wasteLogs, setWasteLogs] = useState<{ date: Date; rawMaterialCost: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const [visitsData, setVisitsData] = useState<{
         total: number;
@@ -251,6 +253,10 @@ export default function Dashboard() {
     })();
 
 
+    const wasteInTimeframe = wasteLogs
+        .filter(w => isInTimeframe(w.date, timeframe))
+        .reduce((acc, w) => ({ total: acc.total + w.rawMaterialCost, count: acc.count + 1 }), { total: 0, count: 0 });
+
     useEffect(() => {
         let unsubOrders: () => void;
         let unsubStats: () => void;
@@ -260,6 +266,7 @@ export default function Dashboard() {
         let unsubProducts: () => void; // New listener for products
         let unsubRawMaterials: () => void;
         let unsubReviews: () => void;
+        let unsubWaste: () => void;
 
         const setupListeners = async () => {
             try {
@@ -346,6 +353,16 @@ export default function Dashboard() {
                     setRawTimeEntries(entries);
                 });
 
+                unsubWaste = onSnapshot(collection(db, "waste_logs"), (snapshot) => {
+                    setWasteLogs(snapshot.docs
+                        .map(d => d.data())
+                        .filter(w => w.type === 'cierre_jornada')
+                        .map(w => ({
+                            date: w.date && typeof w.date.toDate === 'function' ? w.date.toDate() : new Date(w.date || 0),
+                            rawMaterialCost: Number(w.rawMaterialCost) || 0,
+                        })));
+                }, (error) => console.error("Error cargando pérdidas de cierre:", error));
+
                 unsubReviews = onSnapshot(collectionGroup(db, "reviews"), (snapshot) => {
                     const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setRawReviews(reviews);
@@ -370,6 +387,7 @@ export default function Dashboard() {
             if (unsubExpenses) unsubExpenses();
             if (unsubTimeEntries) unsubTimeEntries();
             if (unsubReviews) unsubReviews();
+            if (unsubWaste) unsubWaste();
         };
     }, []);
 
@@ -1390,6 +1408,19 @@ export default function Dashboard() {
                     <div className="stat-info">
                         <h3>Costos estimado ({getTimeframeLabel()})</h3>
                         <p style={{ color: '#ef4444' }}>{renderAmount(topProducts.reduce((sum, p) => sum + p.totalCost, 0))}</p>
+                    </div>
+                </div>
+
+                {/* Pérdida por cierre de jornada (solo materia prima / insumos) */}
+                <div
+                    className="stat-card orders"
+                    style={{ position: 'relative' }}
+                >
+                    <div className="stat-icon" style={{ color: '#dc2626', backgroundColor: '#fee2e2' }}><FaTrashAlt /></div>
+                    <div className="stat-info">
+                        <h3>Pérdida por cierre ({getTimeframeLabel()})</h3>
+                        <p style={{ color: '#dc2626' }}>{renderAmount(wasteInTimeframe.total)}</p>
+                        <span className="stat-sub">Materia prima/insumos · {wasteInTimeframe.count} {wasteInTimeframe.count === 1 ? 'cierre' : 'cierres'}</span>
                     </div>
                 </div>
 

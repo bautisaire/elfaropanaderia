@@ -676,6 +676,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                 <div className="caja-info-bubble" onClick={(e) => e.stopPropagation()}>
                                     <div className="caja-bubble-pointer" />
                                     <h4>Pagos online</h4>
+                                    {carry.online !== 0 && <div className="caja-bubble-row"><span><FaLock /> Monto inicial (contado al cierre)</span><strong>{fmt(carry.online)}</strong></div>}
                                     <div className="caja-bubble-row"><span><FaExchangeAlt /> Transferencia</span><strong>{fmt(stats.transferencia)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaCreditCard /> Débito</span><strong>{fmt(stats.debito)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaQrcode /> QR</span><strong>{fmt(stats.qr)}</strong></div>
