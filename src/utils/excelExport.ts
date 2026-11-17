@@ -237,6 +237,63 @@ export async function exportRecordsToExcel({ inRange, periodLabel }: ExcelExport
         ];
     });
 
+    // ---------- Pedidos de local y deliveries (misma separación que Pedidos del panel) ----------
+    // Incluyen cancelados (columna Estado) para poder auditarlos; los de prueba se excluyen.
+    const periodOrders = withDate(orders, 'date')
+        .filter(o => o.isTestOrder !== true && within(o._date))
+        .sort(byDateDesc);
+    const isLocalOrder = (o: AnyDoc) => POS_SOURCES.includes(o.source);
+    const orderBase = (o: DatedDoc) => {
+        const items: any[] = Array.isArray(o.items) ? o.items : [];
+        const shipping = items.filter(isShippingItem).reduce((s, it) => s + num(it.price) * (num(it.quantity) || 1), 0);
+        const productItems = items.filter(it => !isShippingItem(it));
+        const d = toExcelDate(o._date as Date);
+        return { items, shipping, productItems, d };
+    };
+
+    const localRows = periodOrders.filter(isLocalOrder).map(o => {
+        const { shipping, productItems, d } = orderBase(o);
+        return [
+            d,
+            d,
+            o.id,
+            originLabel(o),
+            STATUS_LABELS[o.status] || o.status || 'Pendiente',
+            o.cliente?.nombre || '',
+            paymentsText(o),
+            o.subtotal !== undefined ? num(o.subtotal) : null,
+            num(o.discountAmount) || null,
+            shipping || null,
+            num(o.total),
+            productItems.reduce((s, it) => s + num(it.quantity), 0),
+            productItems.map(it => `${num(it.quantity)} x ${it.name}`).join(', '),
+        ];
+    });
+
+    const deliveryRows = periodOrders.filter(o => !isLocalOrder(o)).map(o => {
+        const { shipping, productItems, d } = orderBase(o);
+        const pickup = orderIsPickup(o);
+        return [
+            d,
+            d,
+            o.id,
+            pickup ? 'Retiro en local' : 'Envío a domicilio',
+            STATUS_LABELS[o.status] || o.status || 'Pendiente',
+            o.cliente?.nombre || '',
+            o.cliente?.telefono || '',
+            pickup ? '' : (o.cliente?.direccion || ''),
+            o.cliente?.indicaciones || '',
+            o.cliente?.mapsLink || '',
+            o.assignedRider || '',
+            paymentsText(o),
+            o.transferenciaEstado === 'pagado' ? 'Pagado' : o.transferenciaEstado === 'pendiente' ? 'Pendiente' : '',
+            shipping || null,
+            num(o.total),
+            productItems.reduce((s, it) => s + num(it.quantity), 0),
+            productItems.map(it => `${num(it.quantity)} x ${it.name}`).join(', '),
+        ];
+    });
+
     // ---------- Ventas por producto ----------
     const productSales = new Map<string, { name: string; variant: string; category: string; qty: number; total: number; orders: Set<string> }>();
     sales.forEach(o => {
@@ -435,6 +492,42 @@ export async function exportRecordsToExcel({ inRange, periodLabel }: ExcelExport
         { header: 'Productos', width: 60 },
     ], salesRows, '10B981');
 
+    addSheet(wb, 'Pedidos local', [
+        { header: 'Fecha', width: 12, type: 'date' },
+        { header: 'Hora', width: 8, type: 'time' },
+        { header: 'Pedido', width: 22 },
+        { header: 'Origen', width: 17 },
+        { header: 'Estado', width: 13 },
+        { header: 'Cliente', width: 22 },
+        { header: 'Pago', width: 26 },
+        { header: 'Subtotal', width: 13, type: 'money', total: true },
+        { header: 'Descuento', width: 12, type: 'money', total: true },
+        { header: 'Envío', width: 11, type: 'money', total: true },
+        { header: 'Total', width: 14, type: 'money', total: true },
+        { header: 'Unidades', width: 10, type: 'number', total: true },
+        { header: 'Productos', width: 60 },
+    ], localRows, '059669');
+
+    addSheet(wb, 'Deliveries', [
+        { header: 'Fecha', width: 12, type: 'date' },
+        { header: 'Hora', width: 8, type: 'time' },
+        { header: 'Pedido', width: 22 },
+        { header: 'Entrega', width: 18 },
+        { header: 'Estado', width: 13 },
+        { header: 'Cliente', width: 22 },
+        { header: 'Teléfono', width: 15 },
+        { header: 'Dirección', width: 30 },
+        { header: 'Indicaciones', width: 28 },
+        { header: 'Mapa', width: 24 },
+        { header: 'Repartidor', width: 26 },
+        { header: 'Pago', width: 26 },
+        { header: 'Transferencia', width: 14 },
+        { header: 'Envío', width: 11, type: 'money', total: true },
+        { header: 'Total', width: 14, type: 'money', total: true },
+        { header: 'Unidades', width: 10, type: 'number', total: true },
+        { header: 'Productos', width: 60 },
+    ], deliveryRows, '2563EB');
+
     addSheet(wb, 'Ventas por producto', [
         { header: 'Producto', width: 32 },
         { header: 'Variante', width: 18 },
@@ -545,6 +638,8 @@ export async function exportRecordsToExcel({ inRange, periodLabel }: ExcelExport
         ['Generado', toExcelDate(new Date())],
         [],
         ['Ventas', 'Pedidos del período sin cancelados ni pedidos de prueba.'],
+        ['Pedidos local', 'Pedidos del POS/local (público y despensa) del período, incluye cancelados.'],
+        ['Deliveries', 'Pedidos online y delivery del local (envío y retiro) del período, incluye cancelados.'],
         ['Ventas por producto', 'Unidades y montos por producto/variante (sin envíos).'],
         ['Clientes', 'Pedidos online del período agrupados por teléfono.'],
         ['Stock / Productos / Materias primas', 'Valores actuales al momento de exportar.'],

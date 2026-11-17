@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaPrint, FaMotorcycle } from 'react-icons/fa';
-import { generateOrderMessage, generateOrderMessageShort } from "../utils/orderMessage";
+import { FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaPrint, FaMotorcycle, FaPaperPlane } from 'react-icons/fa';
+import { generateOrderMessage, generateOrderMessageShort, buildWhatsAppSendLink } from "../utils/orderMessage";
 import { db } from "../firebase/firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
 import { printTicket } from "../utils/printTicket";
@@ -284,6 +284,17 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                     className="copy-btn-inline"
                                 >
                                     <FaCopy />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(buildWhatsAppSendLink(order, generateOrderMessage(order)), '_blank', 'noopener,noreferrer');
+                                    }}
+                                    title="Enviar resumen por WhatsApp"
+                                    className="copy-btn-inline"
+                                    style={{ color: '#25D366' }}
+                                >
+                                    <FaPaperPlane />
                                 </button>
                                 <button
                                     onClick={(e) => {

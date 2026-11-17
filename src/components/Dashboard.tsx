@@ -58,6 +58,9 @@ export default function Dashboard() {
     const [showNotes, setShowNotes] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const todayKey = getArgentinaDateKey();
+    const [exportFrom, setExportFrom] = useState(todayKey);
+    const [exportTo, setExportTo] = useState(todayKey);
     const [stockListCopied, setStockListCopied] = useState(false);
     // Orden de categorías de la tienda (colección "categories"), para armar las listas copiadas
     const [categoryOrderMap, setCategoryOrderMap] = useState<Record<string, number>>({});
@@ -1065,13 +1068,29 @@ export default function Dashboard() {
         }
     };
 
-    const handleExportExcel = async (scope: 'period' | 'all') => {
+    const handleExportExcel = async (scope: 'period' | 'range' | 'all') => {
+        let inRange: ((d: Date) => boolean) | null = null;
+        let periodLabel = 'Todo el historial';
+
+        if (scope === 'period') {
+            inRange = (d: Date) => isInTimeframe(d, timeframe);
+            periodLabel = getTimeframeLabel();
+        } else if (scope === 'range') {
+            const [fy, fm, fd] = exportFrom.split('-').map(Number);
+            const [ty, tm, td] = exportTo.split('-').map(Number);
+            const start = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
+            const end = new Date(ty, tm - 1, td, 23, 59, 59, 999);
+            inRange = (d: Date) => {
+                const dateArg = getArgentinaDate(d);
+                return dateArg >= start && dateArg <= end;
+            };
+            const fmt = (k: string) => k.split('-').reverse().join('-');
+            periodLabel = `Del ${fmt(exportFrom)} al ${fmt(exportTo)}`;
+        }
+
         setExporting(true);
         try {
-            await exportRecordsToExcel({
-                inRange: scope === 'all' ? null : (d: Date) => isInTimeframe(d, timeframe),
-                periodLabel: scope === 'all' ? 'Todo el historial' : getTimeframeLabel(),
-            });
+            await exportRecordsToExcel({ inRange, periodLabel });
             setShowExportModal(false);
         } catch (error) {
             console.error('Error exportando a Excel:', error);
@@ -1226,15 +1245,46 @@ export default function Dashboard() {
                             <FaFileExcel color="#047857" /> Exportar a Excel
                         </h3>
                         <p style={{ margin: '0 0 16px 0', color: '#64748b', fontSize: '0.9rem', lineHeight: 1.4 }}>
-                            Un archivo .xlsx con una pestaña para cada registro: Ventas, Ventas por producto, Caja, Cierres de caja, Gastos, Stock, Movimientos de stock, Materias primas, Clientes y Productos.
+                            Un archivo .xlsx con una pestaña para cada registro: Ventas, Pedidos local, Deliveries, Ventas por producto, Caja, Cierres de caja, Gastos, Stock, Movimientos de stock, Materias primas, Clientes y Productos.
                         </p>
                         <button
                             onClick={() => handleExportExcel('period')}
                             disabled={exporting || (timeframe === 'custom' && (!customRange.start || !customRange.end))}
-                            style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '8px', background: '#047857', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '0.95rem', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.7 : 1 }}
+                            style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '8px', background: '#fff', color: '#047857', border: '1px solid #047857', borderRadius: '10px', fontWeight: 600, fontSize: '0.95rem', cursor: exporting ? 'wait' : 'pointer', opacity: exporting ? 0.7 : 1 }}
                         >
-                            {exporting ? 'Generando...' : `Período seleccionado (${getTimeframeLabel()})`}
+                            {`Período del resumen (${getTimeframeLabel()})`}
                         </button>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', marginBottom: '8px', padding: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', flexWrap: 'wrap' }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: '#475569', fontWeight: 600, flex: '1 1 130px' }}>
+                                Desde
+                                <input
+                                    type="date"
+                                    value={exportFrom}
+                                    max={exportTo || undefined}
+                                    onChange={e => setExportFrom(e.target.value)}
+                                    disabled={exporting}
+                                    style={{ padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', color: '#1e293b' }}
+                                />
+                            </label>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: '#475569', fontWeight: 600, flex: '1 1 130px' }}>
+                                Hasta
+                                <input
+                                    type="date"
+                                    value={exportTo}
+                                    min={exportFrom || undefined}
+                                    onChange={e => setExportTo(e.target.value)}
+                                    disabled={exporting}
+                                    style={{ padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', color: '#1e293b' }}
+                                />
+                            </label>
+                            <button
+                                onClick={() => handleExportExcel('range')}
+                                disabled={exporting || !exportFrom || !exportTo || exportFrom > exportTo}
+                                style={{ flex: '1 1 100%', padding: '10px', background: '#047857', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '0.95rem', cursor: exporting ? 'wait' : 'pointer', opacity: (exporting || !exportFrom || !exportTo || exportFrom > exportTo) ? 0.6 : 1 }}
+                            >
+                                {exporting ? 'Generando...' : 'Exportar rango Desde – Hasta'}
+                            </button>
+                        </div>
                         <button
                             onClick={() => handleExportExcel('all')}
                             disabled={exporting}

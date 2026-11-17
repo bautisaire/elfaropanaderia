@@ -12,6 +12,12 @@ import { RawMaterial } from './CostManager';
 import './CostManager.css';
 import './BillsManager.css';
 
+const nowLocalInput = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function BillsManager() {
     const { "*": tab } = useParams();
     const navigate = useNavigate();
@@ -52,18 +58,25 @@ export default function BillsManager() {
     const [egresoAmount, setEgresoAmount] = useState('');
     const [egresoDescription, setEgresoDescription] = useState('');
     const [egresoType, setEgresoType] = useState<string>(FALLBACK_CATEGORY_KEY);
+    const [egresoDate, setEgresoDate] = useState<string>(nowLocalInput());
     const [savingEgreso, setSavingEgreso] = useState(false);
 
     const handleSaveEgreso = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!egresoAmount || Number(egresoAmount) <= 0) return;
 
+        const parsedDate = egresoDate ? new Date(egresoDate) : new Date();
+        if (isNaN(parsedDate.getTime())) {
+            alert('Fecha inválida.');
+            return;
+        }
+
         setSavingEgreso(true);
         try {
             await addDoc(collection(db, 'expenses'), {
                 description: egresoDescription.trim() || 'Egreso',
                 totalAmount: Number(egresoAmount),
-                date: Timestamp.now(),
+                date: Timestamp.fromDate(parsedDate),
                 type: egresoType,
                 createdByEmail: auth.currentUser?.email || 'admin'
             });
@@ -71,6 +84,7 @@ export default function BillsManager() {
             setEgresoAmount('');
             setEgresoDescription('');
             setEgresoType(FALLBACK_CATEGORY_KEY);
+            setEgresoDate(nowLocalInput());
         } catch (error) {
             console.error('Error al registrar egreso:', error);
             alert('Ocurrió un error al registrar el egreso.');
@@ -424,6 +438,10 @@ export default function BillsManager() {
                             <div className="bills-form-group">
                                 <label>Monto ($)</label>
                                 <input type="number" required min="1" autoFocus value={egresoAmount} onChange={(e) => setEgresoAmount(e.target.value)} placeholder="Ej: 5000" />
+                            </div>
+                            <div className="bills-form-group">
+                                <label>Fecha y hora</label>
+                                <input type="datetime-local" required value={egresoDate} onChange={(e) => setEgresoDate(e.target.value)} />
                             </div>
                             <div className="bills-form-group">
                                 <label>Tipo</label>

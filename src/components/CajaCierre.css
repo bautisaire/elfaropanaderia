@@ -1,0 +1,116 @@
+/* Cierre de caja: modales (cierre, resumen, detalles) con estilo El Faro */
+.cc-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 12px; }
+.cc-overlay-top { z-index: 10000; }
+.cc-modal { background: #fff; border-radius: 12px; width: 100%; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+.cc-modal-close { max-width: 800px; }
+.cc-modal-close .cc-body { padding: 14px 20px 16px; scrollbar-width: none; }
+.cc-modal-close .cc-body::-webkit-scrollbar { display: none; }
+.cc-count-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+.cc-count-grid .cc-count-block { margin-bottom: 0; }
+.cc-total-block { border: 2px solid #065f46; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; background: #f0fdf4; }
+.cc-total-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cc-total-grid > div { display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; color: #475569; }
+.cc-total-grid b { font-size: 1.15rem; color: #0f172a; }
+.cc-total-diff.ok b { color: #059669; }
+.cc-total-diff.neg b { color: #dc2626; }
+.cc-total-diff.pos b { color: #d97706; }
+@media (max-width: 700px) { .cc-count-grid, .cc-total-grid { grid-template-columns: 1fr; } }
+.cc-modal-summary { max-width: 580px; }
+.cc-modal-details { max-width: 960px; }
+
+.cc-banner { display: flex; align-items: center; gap: 12px; background: #1f2937; color: #fff; padding: 14px 20px; border-left: 8px solid #065f46; font-size: 1.4rem; flex: 0 0 auto; }
+.cc-banner h3 { margin: 0; font-size: 1.25rem; font-weight: 800; flex: 1; color: #fff; }
+.cc-banner h3 small { font-weight: 500; font-size: 0.8rem; opacity: 0.75; margin-left: 6px; }
+.cc-x { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 1.1rem; padding: 4px; opacity: 0.8; }
+.cc-x:hover { opacity: 1; }
+
+.cc-body { padding: 18px 22px 20px; overflow-y: auto; }
+.cc-meta { color: #64748b; font-size: 0.85rem; margin-bottom: 10px; }
+.cc-empty { color: #94a3b8; font-size: 0.85rem; padding: 4px 0; }
+
+.cc-line { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 0.92rem; color: #334155; }
+.cc-line b { color: #0f172a; }
+.cc-strong { border-top: 1px dashed #cbd5e1; margin-top: 4px; padding-top: 6px; font-weight: 700; }
+.cc-green { color: #059669 !important; }
+
+.cc-count-block { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; background: #f8fafc; }
+.cc-count-title { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #065f46; margin-bottom: 6px; }
+.cc-label { display: block; font-weight: 700; font-size: 0.9rem; color: #334155; margin: 12px 0 6px; }
+.cc-input { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 1.1rem; border: 2px solid #c2410c; border-radius: 6px; background: #fff; }
+.cc-input:focus { outline: none; border-color: #065f46; box-shadow: 0 0 0 3px rgba(6,95,70,0.15); }
+
+.cc-diff { margin-top: 8px; font-weight: 800; font-size: 0.95rem; padding: 6px 10px; border-radius: 6px; }
+.cc-diff.ok, .cc-diff-line.ok b { color: #059669; }
+.cc-diff.neg, .cc-diff-line.neg b { color: #dc2626; }
+.cc-diff.pos, .cc-diff-line.pos b { color: #d97706; }
+.cc-diff.ok { background: #ecfdf5; }
+.cc-diff.neg { background: #fef2f2; }
+.cc-diff.pos { background: #fffbeb; }
+.cc-diff-line { font-weight: 700; }
+
+.cc-confirm { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; background: #065f46; color: #fff; border: none; border-radius: 6px; padding: 14px; font-size: 1.1rem; font-weight: 800; cursor: pointer; }
+.cc-confirm:hover:not(:disabled) { background: #047857; }
+.cc-confirm:disabled { background: #94a3b8; cursor: not-allowed; }
+.cc-hint { color: #94a3b8; font-size: 0.78rem; text-align: center; margin: 8px 0 0; }
+
+.cc-footer { border-top: 1px solid #e2e8f0; margin-top: 16px; padding-top: 14px; display: flex; justify-content: flex-end; }
+.cc-footer-split { justify-content: space-between; }
+.cc-footer-end { justify-content: flex-end; }
+.cc-cancel, .cc-details-btn { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 9px 18px; font-weight: 700; color: #334155; cursor: pointer; }
+.cc-cancel:hover:not(:disabled), .cc-details-btn:hover:not(:disabled) { background: #e2e8f0; }
+.cc-details-btn { background: #065f46; border-color: #065f46; color: #fff; }
+.cc-details-btn:hover:not(:disabled) { background: #047857; }
+.cc-details-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Resumen estilo ticket */
+.cc-receipt-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 2px solid #065f46; padding-bottom: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.cc-business { font-size: 1.35rem; font-weight: 800; color: #065f46; }
+.cc-period { text-align: right; font-size: 0.85rem; color: #334155; }
+.cc-period span { color: #94a3b8; margin-right: 4px; }
+.cc-section { margin: 16px 0 6px; font-size: 1rem; font-weight: 800; color: #0f172a; }
+.cc-manual { display: grid; grid-template-columns: 52px 76px 1fr auto; gap: 8px; align-items: center; font-size: 0.88rem; padding: 3px 0; color: #334155; }
+.cc-manual em { color: #94a3b8; font-style: normal; font-size: 0.8rem; }
+.cc-time { color: #64748b; }
+.cc-tag { font-size: 0.72rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-align: center; }
+.cc-tag.ingreso { background: #d1fae5; color: #065f46; }
+.cc-tag.egreso { background: #fee2e2; color: #b91c1c; }
+
+/* Detalles */
+.cc-groupby { display: flex; flex-direction: column; font-size: 0.7rem; font-weight: 700; gap: 2px; }
+.cc-groupby select { padding: 4px 6px; border-radius: 4px; border: 1px solid #94a3b8; font-size: 0.8rem; }
+.cc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.cc-tile { background: #f3f4f6; border-radius: 6px; padding: 10px 12px 0; border-bottom: 5px solid #93c5fd; }
+.cc-tile.green { border-bottom-color: #15803d; }
+.cc-tile.red { border-bottom-color: #dc2626; }
+.cc-tile.blue { border-bottom-color: #93c5fd; }
+.cc-tile-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cc-tile-icon { color: #c2410c; font-size: 1.1rem; }
+.cc-tile-value { font-weight: 800; font-size: 1.05rem; color: #0f172a; text-align: right; }
+.cc-tile-label { text-align: right; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; color: #334155; padding: 6px 0 8px; }
+.cc-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.cc-col { background: #2f2f2f; border-radius: 4px; padding: 0 6px 6px; display: flex; flex-direction: column; min-height: 180px; }
+.cc-col-title { color: #fff; font-weight: 800; padding: 10px 6px; }
+.cc-col-body { background: #fff; border-radius: 2px; flex: 1; padding: 6px; max-height: 280px; overflow-y: auto; }
+.cc-group { background: #f3f4f6; border-radius: 3px; padding: 8px 10px; margin-bottom: 6px; }
+.cc-group-name { font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.9rem; }
+.cc-group-sub { color: #64748b; font-size: 0.82rem; margin-top: 2px; }
+
+@media (max-width: 700px) {
+    .cc-cols { grid-template-columns: 1fr; }
+    .cc-manual { grid-template-columns: 46px 1fr auto; }
+    .cc-manual .cc-tag { display: none; }
+    .cc-banner { padding: 12px 14px; }
+}
+
+/* Historial */
+.cc-history-row { cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.cc-history-row:hover { border-color: #065f46; box-shadow: 0 2px 10px rgba(6,95,70,0.12); }
+.cc-history-num { background: #065f46; color: #fff; font-weight: 800; border-radius: 6px; padding: 2px 8px; margin-right: 8px; font-size: 0.85rem; }
+.cc-history-diff { font-weight: 800; font-size: 0.8rem; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+.cc-history-diff.ok { background: #d1fae5; color: #065f46; }
+.cc-history-diff.neg { background: #fee2e2; color: #b91c1c; }
+.cc-history-diff.pos { background: #fef3c7; color: #b45309; }
+
+/* Sin flechas de subir/bajar en los inputs numéricos */
+.cc-input::-webkit-outer-spin-button, .cc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cc-input { -moz-appearance: textfield; appearance: textfield; }

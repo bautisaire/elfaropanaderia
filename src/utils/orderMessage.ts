@@ -81,3 +81,9 @@ export const generateOrderMessageShort = (order: any): string => {
 
     return message;
 };
+
+/** Link de WhatsApp al chat del cliente con el mensaje ya escrito (solo falta tocar "enviar"). */
+export const buildWhatsAppSendLink = (order: any, message: string): string => {
+    const digits = String(order?.cliente?.telefono || '').replace(/\D/g, '');
+    return `https://wa.me/+549${digits}?text=${encodeURIComponent(message)}`;
+};

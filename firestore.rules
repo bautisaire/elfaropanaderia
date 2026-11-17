@@ -160,6 +160,14 @@ service cloud.firestore {
     match /caja_sessions/{document=**} {
       allow read, write: if canPosSales();
     }
+    // Pagos: superadmin o admins con el permiso "pagos"
+    match /finance_config/pagos/{document=**} {
+      allow read, write: if isSuperAdmin() || (
+        request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('pagos', false) == true
+      );
+    }
     // Finanzas: solo superadmin
     match /finance_config/{document=**} {
       allow read, write: if isSuperAdmin();

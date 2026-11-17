@@ -18,6 +18,7 @@ interface AdminRole {
   costs: boolean;
   products_stock_only?: boolean;
   bills?: boolean;
+  pagos?: boolean;
   stock: boolean;
   settings: boolean;
   employees: boolean;
@@ -43,6 +44,7 @@ const PERMISSIONS_MAP = [
   { key: 'costs', label: 'Productos, Costos y Recetas' },
   { key: 'products_stock_only', label: 'Productos: solo ver y editar stock (sin crear, editar ni borrar)' },
   { key: 'bills', label: 'Gastos y Tickets' },
+  { key: 'pagos', label: 'Pagos (Finanzas)' },
   { key: 'stock', label: 'Gestión de Stock' },
   { key: 'raffle', label: 'Sorteos' },
   { key: 'settings', label: 'Configuración (Delivery, etc.)' },
@@ -101,6 +103,7 @@ export default function AdminRolesManager() {
         costs: false,
         products_stock_only: false,
         bills: false,
+        pagos: false,
         stock: false,
         settings: false,
         employees: false,

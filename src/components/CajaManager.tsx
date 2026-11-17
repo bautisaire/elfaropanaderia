@@ -5,6 +5,7 @@ import { FaCashRegister, FaArrowDown, FaArrowUp, FaMoneyBillWave, FaCreditCard, 
 import { useCart } from '../context/CartContext';
 import CajaVentaTabs from './CajaVentaTabs';
 import CajaStockAdjust from './CajaStockAdjust';
+import { CerrarCajaModal, SessionSummaryModal, SessionDetailsModal, summarizeMovements, type SnapMovement, type SessionView } from './CajaCierre';
 import './CajaManager.css';
 
 type MovementType = 'venta' | 'ingreso' | 'egreso';
@@ -32,10 +33,20 @@ interface CajaSessionStats {
     debito: number;
     qr?: number;
     cantidad: number;
+    // Arqueo al cerrar (cajas anteriores a esta función no lo tienen)
+    efectivoEsperado?: number;
+    onlineEsperado?: number;
+    efectivoContado?: number;
+    onlineContado?: number;
+    diferenciaEfectivo?: number;
+    diferenciaOnline?: number;
+    diferencia?: number;
 }
 
 interface CajaSession {
     id: string;
+    number?: number;
+    movements?: SnapMovement[];
     closedAt?: Timestamp | Date;
     closedByEmail?: string;
     periodStart?: Timestamp | Date | null;
@@ -88,6 +99,9 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     const [sessions, setSessions] = useState<CajaSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [closing, setClosing] = useState(false);
+    const [closeModalOpen, setCloseModalOpen] = useState(false);
+    const [summarySessionId, setSummarySessionId] = useState<string | null>(null);
+    const [detailsSessionId, setDetailsSessionId] = useState<string | null>(null);
 
     const [movementModal, setMovementModal] = useState<'ingreso' | 'egreso' | null>(null);
     const [formAmount, setFormAmount] = useState('');
@@ -146,6 +160,14 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     // The current register session runs from the last close (if any) until now.
     // With no prior close yet, it falls back to "today" (Argentina time), same as before.
     const lastSession = sessions[0];
+
+    // Al cerrar, lo contado queda como monto inicial de la caja siguiente (no se vuelve a contar).
+    // Se reinician solo ventas, ingresos y egresos.
+    const carry = useMemo(() => {
+        const st = lastSession?.stats;
+        if (st && st.efectivoContado !== undefined) return { efectivo: st.efectivoContado, online: st.onlineContado ?? 0 };
+        return { efectivo: 0, online: 0 };
+    }, [lastSession]);
 
     const isInCurrentSession = (d: Date) => {
         const closedAtDate = toDate(lastSession?.closedAt);
@@ -234,7 +256,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         let ingresos = 0;
         let egresos = 0;
         let ventas = 0;
-        let efectivo = 0;
+        let efectivo = carry.efectivo;
         let transferencia = 0;
         let debito = 0;
         let qr = 0;
@@ -267,7 +289,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         });
 
         return {
-            enCaja: ventas + ingresos - egresos,
+            enCaja: carry.efectivo + carry.online + ventas + ingresos - egresos,
             ingresos,
             egresos,
             ventas,
@@ -282,11 +304,11 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             transferencia,
             debito,
             qr,
-            online: transferencia + debito + qr + onlineGen,
+            online: carry.online + transferencia + debito + qr + onlineGen,
             onlineGen,
             cantidad: currentSessionMovements.length
         };
-    }, [currentSessionMovements]);
+    }, [currentSessionMovements, carry]);
 
     const filteredMovements = useMemo(() => currentSessionMovements.filter(m => {
         if (filterType !== 'all' && m.type !== filterType) return false;
@@ -395,18 +417,53 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
-    const handleCloseCaja = async () => {
+    // Movimientos de la caja actual en formato compacto (se guardan en el cierre para poder ver el detalle después)
+    const currentSnapshot = useMemo<SnapMovement[]>(() => currentSessionMovements.map(m => {
+        const snap: SnapMovement = {
+            type: m.type,
+            amount: m.amount,
+            method: normalizePaymentMethod(m.paymentMethod),
+            time: toDate(m.date)?.getTime() || Date.now(),
+        };
+        if (m.description) snap.description = m.description;
+        if (m.orderId) snap.orderId = m.orderId;
+        if (m.itemCount !== undefined) snap.itemCount = m.itemCount;
+        return snap;
+    }), [currentSessionMovements]);
+
+    const currentSummary = useMemo(() => summarizeMovements(currentSnapshot, carry), [currentSnapshot, carry]);
+
+    // Cajas cerradas numeradas (las viejas sin número se numeran por orden de cierre)
+    const sessionViews = useMemo<SessionView[]>(() => sessions.map((s, idx) => ({
+        id: s.id,
+        number: s.number ?? (sessions.length - idx),
+        closedAt: toDate(s.closedAt),
+        periodStart: toDate(s.periodStart),
+        closedByEmail: s.closedByEmail,
+        stats: s.stats,
+        movements: s.movements,
+    })), [sessions]);
+
+    const summarySession = sessionViews.find(s => s.id === summarySessionId) || null;
+    const detailsSession = sessionViews.find(s => s.id === detailsSessionId) || null;
+
+    const handleCloseCaja = () => {
         if (stats.cantidad === 0) {
             alert('No hay movimientos para cerrar en esta caja.');
             return;
         }
-        if (!window.confirm(`¿Cerrar la caja actual?\n\nEn caja: ${fmt(stats.enCaja)}\nMovimientos: ${stats.cantidad}\n\nLos contadores volverán a cero y se guardará este resumen en el historial.`)) {
-            return;
-        }
+        setCloseModalOpen(true);
+    };
+
+    const confirmCloseCaja = async (countedEfectivo: number, countedOnline: number) => {
+        const expectedEfectivo = currentSummary.efectivo.esperado;
+        const expectedOnline = currentSummary.online.esperado;
+        const nextNumber = (sessionViews[0]?.number || 0) + 1;
 
         setClosing(true);
         try {
             await addDoc(collection(db, 'caja_sessions'), {
+                number: nextNumber,
                 closedAt: serverTimestamp(),
                 closedByEmail: user?.email || 'admin',
                 periodStart: lastSession?.closedAt || null,
@@ -419,9 +476,20 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     transferencia: stats.transferencia + stats.onlineGen,
                     debito: stats.debito,
                     qr: stats.qr,
-                    cantidad: stats.cantidad
-                }
+                    cantidad: stats.cantidad,
+                    efectivoInicial: carry.efectivo,
+                    onlineInicial: carry.online,
+                    efectivoEsperado: expectedEfectivo,
+                    onlineEsperado: expectedOnline,
+                    efectivoContado: countedEfectivo,
+                    onlineContado: countedOnline,
+                    diferenciaEfectivo: countedEfectivo - expectedEfectivo,
+                    diferenciaOnline: countedOnline - expectedOnline,
+                    diferencia: (countedEfectivo + countedOnline) - (expectedEfectivo + expectedOnline)
+                },
+                movements: currentSnapshot
             });
+            setCloseModalOpen(false);
         } catch (error) {
             console.error('Error cerrando caja:', error);
             alert('Error al cerrar la caja.');
@@ -429,6 +497,36 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
             setClosing(false);
         }
     };
+
+    const cierreModals = (
+        <>
+            {closeModalOpen && (
+                <CerrarCajaModal
+                    summary={currentSummary}
+                    cantidad={stats.cantidad}
+                    fmt={fmt}
+                    saving={closing}
+                    onCancel={() => setCloseModalOpen(false)}
+                    onConfirm={confirmCloseCaja}
+                />
+            )}
+            {summarySession && (
+                <SessionSummaryModal
+                    session={summarySession}
+                    fmt={fmt}
+                    onClose={() => setSummarySessionId(null)}
+                    onDetails={() => setDetailsSessionId(summarySession.id)}
+                />
+            )}
+            {detailsSession && (
+                <SessionDetailsModal
+                    session={detailsSession}
+                    fmt={fmt}
+                    onClose={() => setDetailsSessionId(null)}
+                />
+            )}
+        </>
+    );
 
     if (view === 'historial') {
         return (
@@ -444,25 +542,40 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     {sessions.length === 0 ? (
                         <p className="caja-empty">Todavía no se cerró ninguna caja.</p>
                     ) : (
-                        sessions.map(s => (
-                            <div key={s.id} className="caja-history-row">
-                                <div className="caja-history-top">
-                                    <span className="caja-history-date">{formatDateTime(s.closedAt)}</span>
-                                    <span className="caja-history-enCaja">{fmt(s.stats?.enCaja || 0)}</span>
+                        sessionViews.map(s => {
+                            const st = s.stats;
+                            const hasCount = st?.efectivoContado !== undefined && st?.onlineContado !== undefined;
+                            const diff = st?.diferencia ?? 0;
+                            const total = hasCount ? (st.efectivoContado! + st.onlineContado!) : (st?.enCaja || 0);
+                            return (
+                                <div key={s.id} className="caja-history-row cc-history-row" onClick={() => setSummarySessionId(s.id)} title="Ver resumen de esta caja">
+                                    <div className="caja-history-top">
+                                        <span className="caja-history-date">
+                                            <span className="cc-history-num">N° {s.number}</span>
+                                            {formatDateTime(s.closedAt)}
+                                            {hasCount && (
+                                                <span className={`cc-history-diff ${diff === 0 ? 'ok' : diff < 0 ? 'neg' : 'pos'}`}>
+                                                    {diff === 0 ? 'Cuadra' : `${diff < 0 ? 'Faltante' : 'Sobrante'} ${fmt(Math.abs(diff))}`}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="caja-history-enCaja" title={hasCount ? 'Total contado' : 'Total esperado'}>{fmt(total)}</span>
+                                    </div>
+                                    <div className="caja-history-stats">
+                                        <span>{st?.cantidad || 0} movimientos</span>
+                                        <span>Ventas: {fmt(st?.ventas || 0)}</span>
+                                        <span>Ingresos: {fmt(st?.ingresos || 0)}</span>
+                                        <span>Egresos: {fmt(st?.egresos || 0)}</span>
+                                        <span>Efectivo: {fmt(hasCount ? st.efectivoContado! : (st?.efectivo || 0))}</span>
+                                        <span title={`Transf. ${fmt(st?.transferencia || 0)} · Débito ${fmt(st?.debito || 0)} · QR ${fmt(st?.qr || 0)}`}>Online: {fmt(hasCount ? st.onlineContado! : ((st?.transferencia || 0) + (st?.debito || 0) + (st?.qr || 0)))}</span>
+                                    </div>
+                                    {s.closedByEmail && <div className="caja-history-closedby">Cerrado por {s.closedByEmail}</div>}
                                 </div>
-                                <div className="caja-history-stats">
-                                    <span>Ventas: {fmt(s.stats?.ventas || 0)}</span>
-                                    <span>Ingresos: {fmt(s.stats?.ingresos || 0)}</span>
-                                    <span>Egresos: {fmt(s.stats?.egresos || 0)}</span>
-                                    <span>Efectivo: {fmt(s.stats?.efectivo || 0)}</span>
-                                    <span title={`Transf. ${fmt(s.stats?.transferencia || 0)} · Débito ${fmt(s.stats?.debito || 0)} · QR ${fmt(s.stats?.qr || 0)}`}>Online: {fmt((s.stats?.transferencia || 0) + (s.stats?.debito || 0) + (s.stats?.qr || 0))}</span>
-                                    <span>{s.stats?.cantidad || 0} mov.</span>
-                                </div>
-                                {s.closedByEmail && <div className="caja-history-closedby">Cerrado por {s.closedByEmail}</div>}
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
+                {cierreModals}
             </div>
         );
     }
@@ -728,6 +841,8 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     })
                 )}
             </div>
+
+            {cierreModals}
 
             {movementModal && (
                 <div className="caja-modal-overlay" onClick={() => setMovementModal(null)}>

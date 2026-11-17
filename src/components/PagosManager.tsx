@@ -79,7 +79,8 @@ interface FormState {
 }
 
 export default function PagosManager() {
-    const { user, isSuperAdmin } = useCart();
+    const { user, adminPermissions } = useCart();
+    const canAccess = adminPermissions?.pagos === true;
     const [pagos, setPagos] = useState<Pago[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -93,7 +94,7 @@ export default function PagosManager() {
     const col = useMemo(() => collection(db, 'finance_config', 'pagos', 'items'), []);
 
     useEffect(() => {
-        if (!isSuperAdmin) return;
+        if (!canAccess) return;
         return onSnapshot(col, snap => {
             setPagos(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Pago, 'id'>) })));
             setLoading(false);
@@ -103,7 +104,7 @@ export default function PagosManager() {
             setLoading(false);
             setLoadError(true);
         });
-    }, [isSuperAdmin, col]);
+    }, [canAccess, col]);
 
     const pending = useMemo(
         () => pagos.filter(p => p.status === 'pending').sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
@@ -217,8 +218,8 @@ export default function PagosManager() {
         }
     };
 
-    if (!isSuperAdmin) {
-        return <div className="pg-container"><p>Esta sección es solo para el administrador principal.</p></div>;
+    if (!canAccess) {
+        return <div className="pg-container"><p>No tenés acceso a esta sección.</p></div>;
     }
 
     return (

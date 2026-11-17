@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck } from 'react-icons/fa';
-import { generateOrderMessage, generateOrderMessageShort } from "../utils/orderMessage";
+import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaPaperPlane } from 'react-icons/fa';
+import { generateOrderMessage, generateOrderMessageShort, buildWhatsAppSendLink } from "../utils/orderMessage";
 
 interface OrderDetailsModalProps {
     order: any;
@@ -115,6 +115,15 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                                 style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
                             >
                                 <FaCopy />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    window.open(buildWhatsAppSendLink(order, generateOrderMessage(order)), '_blank', 'noopener,noreferrer');
+                                }}
+                                title="Enviar resumen por WhatsApp"
+                                style={{ marginLeft: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#25D366' }}
+                            >
+                                <FaPaperPlane />
                             </button>
                             <button
                                 onClick={() => {

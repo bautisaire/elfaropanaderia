@@ -48,7 +48,7 @@ export default function Editor() {
   const [message, setMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const { adminPermissions, isSuperAdmin, hasSecondaryProfile, activeProfile, profileNames, switchProfile } = useCart();
+  const { adminPermissions, hasSecondaryProfile, activeProfile, profileNames, switchProfile } = useCart();
   const [switchOpen, setSwitchOpen] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<'primary' | 'secondary' | null>(null);
   const [switchCode, setSwitchCode] = useState('');
@@ -206,7 +206,7 @@ export default function Editor() {
     {
       label: "Finanzas",
       items: [
-        { key: "finanzas", label: "Pagos", icon: <FaWallet />, color: '#16a34a', path: "/editor/finanzas", visible: isSuperAdmin, active: currentPath === "finanzas" },
+        { key: "finanzas", label: "Pagos", icon: <FaWallet />, color: '#16a34a', path: "/editor/finanzas", visible: adminPermissions?.pagos === true, active: currentPath === "finanzas" },
         { key: "bills", label: "Gastos", icon: <FaFileInvoiceDollar />, color: '#dc2626', path: "/editor/bills/gastos", visible: adminPermissions?.bills === true, active: currentPath === "bills" },
       ]
     },
@@ -398,7 +398,7 @@ export default function Editor() {
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
               {(adminPermissions?.costs !== false || adminPermissions?.products_stock_only === true) && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
-              {isSuperAdmin && <Route path="/finanzas" element={<PagosManager />} />}
+              <Route path="/finanzas" element={<PagosManager />} />
               <Route path="/employees" element={<Navigate to="/editor/finanzas" replace />} />
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
