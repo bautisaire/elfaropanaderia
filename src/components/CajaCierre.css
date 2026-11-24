@@ -52,6 +52,9 @@
 .cc-confirm:hover:not(:disabled) { background: #047857; }
 .cc-confirm:disabled { background: #94a3b8; cursor: not-allowed; }
 .cc-hint { color: #94a3b8; font-size: 0.78rem; text-align: center; margin: 8px 0 0; }
+.cc-queda { margin-top: 8px; }
+.cc-queda b { color: #065f46; }
+.cc-note { margin-top: 10px; color: #64748b; font-size: 0.8rem; }
 
 .cc-footer { border-top: 1px solid #e2e8f0; margin-top: 16px; padding-top: 14px; display: flex; justify-content: flex-end; }
 .cc-footer-split { justify-content: space-between; }

@@ -36,8 +36,13 @@ interface CajaSessionStats {
     // Arqueo al cerrar (cajas anteriores a esta función no lo tienen)
     efectivoEsperado?: number;
     onlineEsperado?: number;
+    efectivoInicial?: number;
+    onlineInicial?: number;
     efectivoContado?: number;
     onlineContado?: number;
+    // Efectivo que se sacó al cerrar y lo que quedó (= monto inicial de la caja siguiente)
+    retiroEfectivo?: number;
+    efectivoFinal?: number;
     diferenciaEfectivo?: number;
     diferenciaOnline?: number;
     diferencia?: number;
@@ -161,11 +166,14 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
     // With no prior close yet, it falls back to "today" (Argentina time), same as before.
     const lastSession = sessions[0];
 
-    // Al cerrar, lo contado queda como monto inicial de la caja siguiente (no se vuelve a contar).
-    // Se reinician solo ventas, ingresos y egresos.
+    // Al cerrar, el efectivo que quedó en la caja (contado − retiro) es el monto inicial de la siguiente.
+    // El online no se arrastra: cada caja arranca con online en $0.
     const carry = useMemo(() => {
         const st = lastSession?.stats;
-        if (st && st.efectivoContado !== undefined) return { efectivo: st.efectivoContado, online: st.onlineContado ?? 0 };
+        if (st && st.efectivoContado !== undefined) {
+            const efectivo = st.efectivoFinal ?? (st.efectivoContado - (st.retiroEfectivo || 0));
+            return { efectivo, online: 0 };
+        }
         return { efectivo: 0, online: 0 };
     }, [lastSession]);
 
@@ -455,7 +463,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
         setCloseModalOpen(true);
     };
 
-    const confirmCloseCaja = async (countedEfectivo: number, countedOnline: number) => {
+    const confirmCloseCaja = async (countedEfectivo: number, countedOnline: number, retiroEfectivo: number) => {
         const expectedEfectivo = currentSummary.efectivo.esperado;
         const expectedOnline = currentSummary.online.esperado;
         const nextNumber = (sessionViews[0]?.number || 0) + 1;
@@ -483,6 +491,8 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     onlineEsperado: expectedOnline,
                     efectivoContado: countedEfectivo,
                     onlineContado: countedOnline,
+                    retiroEfectivo,
+                    efectivoFinal: countedEfectivo - retiroEfectivo,
                     diferenciaEfectivo: countedEfectivo - expectedEfectivo,
                     diferenciaOnline: countedOnline - expectedOnline,
                     diferencia: (countedEfectivo + countedOnline) - (expectedEfectivo + expectedOnline)
@@ -568,6 +578,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                         <span>Egresos: {fmt(st?.egresos || 0)}</span>
                                         <span>Efectivo: {fmt(hasCount ? st.efectivoContado! : (st?.efectivo || 0))}</span>
                                         <span title={`Transf. ${fmt(st?.transferencia || 0)} · Débito ${fmt(st?.debito || 0)} · QR ${fmt(st?.qr || 0)}`}>Online: {fmt(hasCount ? st.onlineContado! : ((st?.transferencia || 0) + (st?.debito || 0) + (st?.qr || 0)))}</span>
+                                        {st?.retiroEfectivo !== undefined && st.retiroEfectivo > 0 && <span>Retiro: {fmt(st.retiroEfectivo)}</span>}
                                     </div>
                                     {s.closedByEmail && <div className="caja-history-closedby">Cerrado por {s.closedByEmail}</div>}
                                 </div>
@@ -676,7 +687,6 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                                 <div className="caja-info-bubble" onClick={(e) => e.stopPropagation()}>
                                     <div className="caja-bubble-pointer" />
                                     <h4>Pagos online</h4>
-                                    {carry.online !== 0 && <div className="caja-bubble-row"><span><FaLock /> Monto inicial (contado al cierre)</span><strong>{fmt(carry.online)}</strong></div>}
                                     <div className="caja-bubble-row"><span><FaExchangeAlt /> Transferencia</span><strong>{fmt(stats.transferencia)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaCreditCard /> Débito</span><strong>{fmt(stats.debito)}</strong></div>
                                     <div className="caja-bubble-row"><span><FaQrcode /> QR</span><strong>{fmt(stats.qr)}</strong></div>
@@ -699,7 +709,7 @@ export default function CajaManager({ active = true, onPendingSalesChange }: { a
                     </span>
                     <span className="caja-stat-value">{fmt(stats.online)}</span>
                 </div>
-                <div className="caja-stat">
+                <div className="caja-stat" title={carry.efectivo !== 0 ? `Incluye ${fmt(carry.efectivo)} que quedaron en caja al cierre anterior` : undefined}>
                     <span className="caja-stat-label"><FaMoneyBillWave /> Efectivo</span>
                     <span className="caja-stat-value">{fmt(stats.efectivo)}</span>
                 </div>

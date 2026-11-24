@@ -352,6 +352,9 @@ export async function exportRecordsToExcel({ inRange, periodLabel }: ExcelExport
                 num(st.debito),
                 num(st.qr),
                 num(st.enCaja),
+                // Retiro de efectivo al cerrar y lo que quedó en caja (cierres anteriores no lo tienen)
+                num(st.retiroEfectivo),
+                st.efectivoFinal !== undefined ? num(st.efectivoFinal) : null,
                 num(st.cantidad),
                 s.closedByEmail || '',
             ];
@@ -560,6 +563,8 @@ export async function exportRecordsToExcel({ inRange, periodLabel }: ExcelExport
         { header: 'Débito', width: 13, type: 'money', total: true },
         { header: 'QR', width: 12, type: 'money', total: true },
         { header: 'En caja', width: 13, type: 'money' },
+        { header: 'Retiro', width: 13, type: 'money', total: true },
+        { header: 'Quedó en caja', width: 14, type: 'money' },
         { header: 'Operaciones', width: 12, type: 'number', total: true },
         { header: 'Cerrado por', width: 28 },
     ], cierresRows, 'A78BFA');

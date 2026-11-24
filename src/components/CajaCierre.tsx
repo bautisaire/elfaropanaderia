@@ -30,6 +30,9 @@ export interface SessionStatsView {
     onlineEsperado?: number;
     efectivoContado?: number;
     onlineContado?: number;
+    // Efectivo que se sacó de la caja al cerrar y lo que quedó (= inicial de la caja siguiente)
+    retiroEfectivo?: number;
+    efectivoFinal?: number;
     diferenciaEfectivo?: number;
     diferenciaOnline?: number;
     diferencia?: number;
@@ -132,10 +135,11 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
     fmt: Fmt;
     saving: boolean;
     onCancel: () => void;
-    onConfirm: (countedEfectivo: number, countedOnline: number) => void;
+    onConfirm: (countedEfectivo: number, countedOnline: number, retiroEfectivo: number) => void;
 }) {
     const [efectivoInput, setEfectivoInput] = useState('');
     const [onlineInput, setOnlineInput] = useState('');
+    const [retiroInput, setRetiroInput] = useState('');
 
     const expEfectivo = summary.efectivo.esperado;
     const expOnline = summary.online.esperado;
@@ -145,7 +149,11 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
     const onlineFilled = onlineInput.trim() !== '' || expOnline === 0;
     const countedEfectivo = Number(efectivoInput) || 0;
     const countedOnline = Number(onlineInput) || 0;
-    const valid = efectivoFilled && onlineFilled && countedEfectivo >= 0 && countedOnline >= 0;
+    // Retiro: efectivo que se saca al cerrar. Lo que queda es el monto inicial de la caja siguiente.
+    const retiro = Number(retiroInput) || 0;
+    const retiroInvalid = retiro < 0 || retiro > countedEfectivo;
+    const quedaEfectivo = countedEfectivo - retiro;
+    const valid = efectivoFilled && onlineFilled && countedEfectivo >= 0 && countedOnline >= 0 && !retiroInvalid;
 
     const diffEfectivo = countedEfectivo - expEfectivo;
     const diffOnline = countedOnline - expOnline;
@@ -157,7 +165,7 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!valid || saving) return;
-        onConfirm(countedEfectivo, countedOnline);
+        onConfirm(countedEfectivo, countedOnline, retiro);
     };
 
     return (
@@ -189,11 +197,24 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
                         {efectivoFilled && (efectivoInput.trim() !== '') && (
                             <div className={`cc-diff ${diffClass(diffEfectivo)}`}>{diffLabel(diffEfectivo)}: {signed(fmt, diffEfectivo)}</div>
                         )}
+                        <label className="cc-label">Retiro</label>
+                        <input
+                            className="cc-input"
+                            type="number" min="0" step="any" inputMode="decimal"
+                            value={retiroInput}
+                            onChange={e => setRetiroInput(e.target.value)}
+                            placeholder="¿Cuánto efectivo sacás de la caja?"
+                        />
+                        {retiroInvalid ? (
+                            <div className="cc-diff neg">El retiro no puede ser mayor al efectivo contado.</div>
+                        ) : (
+                            <div className="cc-line cc-strong cc-queda"><span>Queda en caja (inicial de la próxima)</span><b>{fmt(quedaEfectivo)}</b></div>
+                        )}
                     </div>
 
                     <div className="cc-count-block">
                         <div className="cc-count-title"><FaExchangeAlt /> Online (transferencia, débito, QR)</div>
-                        <div className="cc-line"><span>Monto inicial</span><b>{fmt(summary.online.inicial)}</b></div>
+                        {summary.online.inicial !== 0 && <div className="cc-line"><span>Monto inicial</span><b>{fmt(summary.online.inicial)}</b></div>}
                         <div className="cc-line"><span>Ventas online</span><b>{fmt(summary.online.ventas)}</b></div>
                         <div className="cc-line"><span>Ingresos</span><b>{fmt(summary.online.ingresos)}</b></div>
                         <div className="cc-line"><span>Egresos</span><b>{fmt(summary.online.egresos)}</b></div>
@@ -209,6 +230,7 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
                         {onlineFilled && (onlineInput.trim() !== '') && (
                             <div className={`cc-diff ${diffClass(diffOnline)}`}>{diffLabel(diffOnline)}: {signed(fmt, diffOnline)}</div>
                         )}
+                        <div className="cc-note">Al cerrar, el online vuelve a {fmt(0)}: la caja siguiente no arrastra este monto.</div>
                     </div>
 
                     </div>
@@ -227,7 +249,7 @@ export function CerrarCajaModal({ summary, cantidad, fmt, saving, onCancel, onCo
                     <button type="submit" className="cc-confirm" disabled={!valid || saving}>
                         <FaCheckCircle /> {saving ? 'Cerrando...' : 'Cerrar caja'}
                     </button>
-                    <p className="cc-hint">Los contadores vuelven a cero y la caja queda guardada en el historial con lo que contaste.</p>
+                    <p className="cc-hint">La caja queda guardada en el historial con lo que contaste y el retiro. La próxima arranca con {fmt(retiroInvalid ? countedEfectivo : quedaEfectivo)} en efectivo y {fmt(0)} online.</p>
                     <div className="cc-footer">
                         <button type="button" className="cc-cancel" onClick={onCancel} disabled={saving}><FaTimes /> Cancelar</button>
                     </div>
@@ -303,6 +325,12 @@ export function SessionSummaryModal({ session, fmt, onClose, onDetails }: {
                         <>
                             <div className="cc-line"><span>Efectivo contado</span><b>{fmt(st.efectivoContado!)}</b></div>
                             <div className={`cc-line cc-diff-line ${diffClass(diffEfectivo)}`}><span>Diferencia</span><b>{signed(fmt, diffEfectivo)}</b></div>
+                            {st.retiroEfectivo !== undefined && (
+                                <>
+                                    <div className="cc-line"><span>Retiro</span><b>-{fmt(st.retiroEfectivo)}</b></div>
+                                    <div className="cc-line cc-strong"><span>Quedó en caja</span><b>{fmt(st.efectivoFinal ?? (st.efectivoContado! - st.retiroEfectivo))}</b></div>
+                                </>
+                            )}
                         </>
                     ) : (
                         <div className="cc-empty">Esta caja se cerró sin arqueo.</div>
@@ -311,7 +339,7 @@ export function SessionSummaryModal({ session, fmt, onClose, onDetails }: {
                     <h4 className="cc-section">Arqueo online</h4>
                     {summary && (
                         <>
-                            <div className="cc-line"><span>Monto inicial</span><b>{fmt(summary.online.inicial)}</b></div>
+                            {summary.online.inicial !== 0 && <div className="cc-line"><span>Monto inicial</span><b>{fmt(summary.online.inicial)}</b></div>}
                             <div className="cc-line"><span>Ventas online</span><b>{fmt(summary.online.ventas)}</b></div>
                             <div className="cc-line"><span>Ingresos</span><b>{fmt(summary.online.ingresos)}</b></div>
                             <div className="cc-line"><span>Egresos</span><b>{fmt(summary.online.egresos)}</b></div>
