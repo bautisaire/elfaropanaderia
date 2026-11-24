@@ -442,3 +442,23 @@ button.pg-body { cursor: pointer; }
         padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
     }
 }
+
+/* Repetición por días de la semana */
+.pg-days button { min-width: 46px; justify-content: center; }
+.pg-hint { display: block; color: #64748b; font-size: 0.8rem; font-weight: 400; margin-top: 6px; line-height: 1.4; }
+
+/* "No vino": el día queda registrado sin pago */
+.pg-actions button.pg-skip:hover { background: #fef3c7; color: #b45309; }
+.pg-actions button.pg-skip:disabled { opacity: 0.5; }
+.pg-check.done.skipped { border-color: #f59e0b; background: #fef3c7; color: #b45309; }
+.pg-item.skipped .pg-title { color: #64748b; }
+
+/* Confirmación propia (useConfirm) */
+.cf-overlay { z-index: 6000; }
+.pg-modal.cf-modal { max-width: 380px; gap: 16px; }
+.cf-message { margin: 0; font-size: 1rem; line-height: 1.45; white-space: pre-line; color: #1e293b; }
+.cf-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.cf-actions button { border: none; border-radius: 10px; padding: 11px 18px; font: inherit; font-weight: 700; cursor: pointer; }
+.cf-cancel { background: #f1f5f9; color: #334155; }
+.cf-ok { background: #16a34a; color: #fff; }
+.cf-ok.danger { background: #dc2626; }

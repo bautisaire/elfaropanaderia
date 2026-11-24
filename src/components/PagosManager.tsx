@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { db } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { FaPlus, FaCheck, FaUndo, FaTrash, FaTimes, FaSyncAlt, FaWallet, FaLock } from 'react-icons/fa';
+import { FaPlus, FaCheck, FaUndo, FaTrash, FaTimes, FaSyncAlt, FaWallet, FaLock, FaUserSlash, FaUsers } from 'react-icons/fa';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import EmpleadosPanel from './EmpleadosPanel';
+import { useConfirm } from './useConfirm';
+import { todayKey, parts, utc, diffDays, addDays, nextMonth, nextWeekDay, WEEK_DAYS, weekDaysText } from '../utils/pagosDates';
 import './PagosManager.css';
 
 // Sección "Pagos": una agenda simple de lo que hay que pagar.
@@ -11,6 +15,8 @@ import './PagosManager.css';
 
 type Category = 'proveedores' | 'servicios' | 'sueldos' | 'impuestos' | 'alquiler' | 'otro';
 type View = 'pendientes' | 'pagados';
+// 'monthly': todos los meses el mismo día · 'weekdays': los días de la semana elegidos (ej. sueldo por día).
+type Repeat = 'none' | 'monthly' | 'weekdays';
 
 interface Pago {
     id: string;
@@ -18,12 +24,21 @@ interface Pago {
     amount: number; // 0 = monto a definir
     dueDate: string; // yyyy-mm-dd
     category: Category;
-    recurring: boolean; // se repite todos los meses
+    recurring: boolean; // se repite (true sin `repeat` = todos los meses, pagos cargados antes)
+    repeat?: Repeat;
+    weekDays?: number[]; // con repeat 'weekdays': 0 = domingo … 6 = sábado
     recurDay?: number; // día del mes original (para no "correr" el vencimiento en meses cortos)
     note?: string;
-    status: 'pending' | 'paid';
+    // 'skipped': ese día/mes no se pagó (ej. el empleado no vino). No suma en ningún total.
+    status: 'pending' | 'paid' | 'skipped';
     paidDate?: string; // yyyy-mm-dd
+    skippedDate?: string; // yyyy-mm-dd, cuándo se marcó
+    employeeId?: string; // sueldo creado desde el perfil del empleado (pestaña Empleados)
 }
+
+const repeatOf = (p: Pick<Pago, 'recurring' | 'repeat'>): Repeat => p.repeat || (p.recurring ? 'monthly' : 'none');
+
+const DEFAULT_WEEK_DAYS = [1, 2, 3, 4, 5, 6];
 
 const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
     { key: 'proveedores', label: 'Proveedores', emoji: '🚚' },
@@ -35,21 +50,6 @@ const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
 ];
 const catOf = (k: string) => CATEGORIES.find(c => c.key === k) || CATEGORIES[CATEGORIES.length - 1];
 
-const AR_TZ = 'America/Argentina/Buenos_Aires';
-const todayKey = () =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: AR_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-const pad = (n: number) => String(n).padStart(2, '0');
-const parts = (key: string) => key.split('-').map(Number) as [number, number, number];
-const utc = (key: string) => { const [y, m, d] = parts(key); return Date.UTC(y, m - 1, d); };
-const diffDays = (a: string, b: string) => Math.round((utc(a) - utc(b)) / 86400000);
-const addDays = (key: string, n: number) => new Date(utc(key) + n * 86400000).toISOString().slice(0, 10);
-const nextMonth = (key: string, day: number) => {
-    const [y, m] = parts(key);
-    const ny = m === 12 ? y + 1 : y;
-    const nm = m === 12 ? 1 : m + 1;
-    const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
-    return `${ny}-${pad(nm)}-${pad(Math.min(day, last))}`;
-};
 const fmtDate = (key: string) =>
     new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(utc(key)));
 const fmtMonth = (key: string) => {
@@ -74,13 +74,20 @@ interface FormState {
     amount: string;
     dueDate: string;
     category: Category;
-    recurring: boolean;
+    repeat: Repeat;
+    weekDays: number[];
     note: string;
 }
 
 export default function PagosManager() {
     const { user, adminPermissions } = useCart();
+    const { "*": subPath } = useParams();
+    const navigate = useNavigate();
+    // Dos permisos independientes: "pagos" (esta agenda) y "employees" (pestaña Empleados).
     const canAccess = adminPermissions?.pagos === true;
+    const canEmployees = adminPermissions?.employees === true;
+    const { confirm, dialog: confirmDialog } = useConfirm();
+    const section: 'pagos' | 'empleados' = canEmployees && (subPath === 'empleados' || !canAccess) ? 'empleados' : 'pagos';
     const [pagos, setPagos] = useState<Pago[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
@@ -114,6 +121,12 @@ export default function PagosManager() {
         () => pagos.filter(p => p.status === 'paid').sort((a, b) => (b.paidDate || b.dueDate).localeCompare(a.paidDate || a.dueDate)),
         [pagos]
     );
+    // Historial: lo pagado y los días que no se pagaron (no vino), por fecha.
+    const history = useMemo(
+        () => pagos.filter(p => p.status === 'paid' || p.status === 'skipped')
+            .sort((a, b) => (b.paidDate || b.dueDate).localeCompare(a.paidDate || a.dueDate)),
+        [pagos]
+    );
 
     const sum = (l: Pago[]) => l.reduce((s, p) => s + (p.amount || 0), 0);
     const overdue = pending.filter(p => p.dueDate < today);
@@ -137,30 +150,38 @@ export default function PagosManager() {
 
     const paidGroups = useMemo(() => {
         const map = new Map<string, Pago[]>();
-        byCat(paid).slice(0, 150).forEach(p => {
+        byCat(history).slice(0, 150).forEach(p => {
             const k = (p.paidDate || p.dueDate).slice(0, 7);
             map.set(k, [...(map.get(k) || []), p]);
         });
         return Array.from(map.entries());
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paid, catFilter]);
+    }, [history, catFilter]);
+    const sumPaid = (l: Pago[]) => sum(l.filter(p => p.status === 'paid'));
 
-    const openNew = () => setForm({ title: '', amount: '', dueDate: today, category: 'proveedores', recurring: false, note: '' });
+    const openNew = () => setForm({ title: '', amount: '', dueDate: today, category: 'proveedores', repeat: 'none', weekDays: DEFAULT_WEEK_DAYS, note: '' });
     const openEdit = (p: Pago) => setForm({
         id: p.id, title: p.title, amount: p.amount ? String(p.amount) : '', dueDate: p.dueDate,
-        category: p.category, recurring: !!p.recurring, note: p.note || ''
+        category: p.category, repeat: repeatOf(p),
+        weekDays: p.weekDays && p.weekDays.length ? p.weekDays : DEFAULT_WEEK_DAYS, note: p.note || ''
     });
 
     const save = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form || !form.title.trim() || !form.dueDate) return;
+        if (form.repeat === 'weekdays' && form.weekDays.length === 0) {
+            alert('Elegí al menos un día de la semana.');
+            return;
+        }
         setSaving(true);
         const data = {
             title: form.title.trim(),
             amount: Math.max(0, num(form.amount)),
             dueDate: form.dueDate,
             category: form.category,
-            recurring: form.recurring,
+            recurring: form.repeat !== 'none',
+            repeat: form.repeat,
+            weekDays: form.repeat === 'weekdays' ? form.weekDays : null,
             recurDay: parts(form.dueDate)[2],
             note: form.note.trim(),
         };
@@ -176,18 +197,28 @@ export default function PagosManager() {
         }
     };
 
+    // Crea el próximo vencimiento de un pago que se repite.
+    const createNext = async (p: Pago) => {
+        const repeat = repeatOf(p);
+        const weekDays = p.weekDays && p.weekDays.length ? p.weekDays : null;
+        if (repeat === 'none' || (repeat === 'weekdays' && !weekDays)) return;
+        const recurDay = p.recurDay || parts(p.dueDate)[2];
+        await addDoc(col, {
+            title: p.title, amount: p.amount || 0, category: p.category, recurring: true,
+            repeat, weekDays: repeat === 'weekdays' ? weekDays : null,
+            recurDay, note: p.note || '',
+            // El siguiente sale de la fecha de vencimiento, no de hoy: si se paga atrasado,
+            // los días que faltan siguen apareciendo como vencidos.
+            dueDate: repeat === 'weekdays' ? nextWeekDay(p.dueDate, weekDays!) : nextMonth(p.dueDate, recurDay),
+            status: 'pending', createdAt: serverTimestamp(), createdByEmail: user?.email || 'admin'
+        });
+    };
+
     const markPaid = async (p: Pago) => {
         setBusyId(p.id);
         try {
             await updateDoc(doc(col, p.id), { status: 'paid', paidDate: today, paidAt: serverTimestamp() });
-            if (p.recurring) {
-                await addDoc(col, {
-                    title: p.title, amount: p.amount || 0, category: p.category, recurring: true,
-                    recurDay: p.recurDay || parts(p.dueDate)[2], note: p.note || '',
-                    dueDate: nextMonth(p.dueDate, p.recurDay || parts(p.dueDate)[2]),
-                    status: 'pending', createdAt: serverTimestamp(), createdByEmail: user?.email || 'admin'
-                });
-            }
+            await createNext(p);
         } catch (err) {
             console.error(err);
             alert('No se pudo marcar como pagado.');
@@ -196,11 +227,25 @@ export default function PagosManager() {
         }
     };
 
-    const undoPaid = async (p: Pago) => {
-        const extra = p.recurring ? '\n\nOjo: el pago del mes siguiente que se creó automáticamente no se borra.' : '';
-        if (!window.confirm(`¿Volver "${p.title}" a pendientes?${extra}`)) return;
+    // "No vino": ese día no se paga, queda registrado en el historial y sigue el próximo.
+    const markSkipped = async (p: Pago) => {
+        setBusyId(p.id);
         try {
-            await updateDoc(doc(col, p.id), { status: 'pending', paidDate: null, paidAt: null });
+            await updateDoc(doc(col, p.id), { status: 'skipped', skippedDate: today });
+            await createNext(p);
+        } catch (err) {
+            console.error(err);
+            alert('No se pudo registrar.');
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const undoPaid = async (p: Pago) => {
+        const extra = p.recurring ? '\n\nOjo: el pago siguiente que se creó automáticamente no se borra.' : '';
+        if (!(await confirm(`¿Volver "${p.title}" a pendientes?${extra}`, { confirmLabel: 'Volver a pendientes', danger: false }))) return;
+        try {
+            await updateDoc(doc(col, p.id), { status: 'pending', paidDate: null, paidAt: null, skippedDate: null });
         } catch (err) {
             console.error(err);
             alert('No se pudo deshacer.');
@@ -208,7 +253,7 @@ export default function PagosManager() {
     };
 
     const remove = async (id: string, title: string) => {
-        if (!window.confirm(`¿Eliminar "${title}"? No se puede deshacer.`)) return;
+        if (!(await confirm(`¿Eliminar "${title}"? No se puede deshacer.`, { confirmLabel: 'Eliminar' }))) return;
         try {
             await deleteDoc(doc(col, id));
             setForm(null);
@@ -218,12 +263,35 @@ export default function PagosManager() {
         }
     };
 
-    if (!canAccess) {
+    if (!canAccess && !canEmployees) {
         return <div className="pg-container"><p>No tenés acceso a esta sección.</p></div>;
+    }
+
+    // Las pestañas solo aparecen si tiene los dos permisos.
+    const sectionTabs = canAccess && canEmployees && (
+        <div className="pg-tabs pg-section-tabs" role="tablist">
+            <button role="tab" aria-selected={section === 'pagos'} className={section === 'pagos' ? 'active' : ''} onClick={() => navigate('/editor/finanzas')}>
+                <FaWallet /> Pagos
+            </button>
+            <button role="tab" aria-selected={section === 'empleados'} className={section === 'empleados' ? 'active' : ''} onClick={() => navigate('/editor/finanzas/empleados')}>
+                <FaUsers /> Empleados
+            </button>
+        </div>
+    );
+
+    if (section === 'empleados') {
+        return (
+            <div className="pg-container">
+                {sectionTabs}
+                <EmpleadosPanel pagos={pagos} canPagos={canAccess} />
+            </div>
+        );
     }
 
     return (
         <div className="pg-container">
+            {confirmDialog}
+            {sectionTabs}
             <header className="pg-header">
                 <div>
                     <h2><FaWallet /> Pagos <span className="pg-badge"><FaLock /> Solo admin</span></h2>
@@ -261,7 +329,7 @@ export default function PagosManager() {
                         Pendientes <b>{pending.length}</b>
                     </button>
                     <button role="tab" aria-selected={view === 'pagados'} className={view === 'pagados' ? 'active' : ''} onClick={() => setView('pagados')}>
-                        Pagados
+                        Historial
                     </button>
                 </div>
                 {usedCats.length > 1 && (
@@ -306,13 +374,25 @@ export default function PagosManager() {
                                             onClick={() => markPaid(p)}
                                         ><FaCheck /></button>
                                         <button className="pg-body" onClick={() => openEdit(p)} title="Editar">
-                                            <span className="pg-title">{p.title}{p.recurring && <FaSyncAlt className="pg-rec" title="Se repite todos los meses" />}</span>
+                                            <span className="pg-title">{p.title}{p.recurring && <FaSyncAlt className="pg-rec" title={repeatOf(p) === 'weekdays' ? `Se repite: ${weekDaysText(p.weekDays)}` : 'Se repite todos los meses'} />}</span>
                                             <span className="pg-meta">
                                                 {c.emoji} {c.label} · {fmtDate(p.dueDate)} · <em>{whenLabel(p.dueDate, today)}</em>
+                                                {repeatOf(p) === 'weekdays' && <> · {weekDaysText(p.weekDays)}</>}
                                             </span>
                                             {p.note && <span className="pg-note">{p.note}</span>}
                                         </button>
                                         <span className={`pg-amount ${p.amount ? '' : 'tbd'}`}>{p.amount ? fmt(p.amount) : 'A definir'}</span>
+                                        {p.recurring && (
+                                            <div className="pg-actions">
+                                                <button
+                                                    className="pg-skip"
+                                                    title={repeatOf(p) === 'weekdays' ? 'No vino: ese día no se paga' : 'Esta vez no se paga'}
+                                                    aria-label={`${p.title}: no se paga esta vez`}
+                                                    disabled={busyId === p.id}
+                                                    onClick={() => markSkipped(p)}
+                                                ><FaUserSlash /></button>
+                                            </div>
+                                        )}
                                     </li>
                                 );
                             })}
@@ -326,18 +406,23 @@ export default function PagosManager() {
                     <div className="pg-empty"><strong>Todavía no hay pagos realizados</strong></div>
                 ) : paidGroups.map(([month, items]) => (
                     <section key={month} className="pg-group">
-                        <h3>{fmtMonth(`${month}-01`)} <span>{fmt(sum(items))}</span></h3>
+                        <h3>{fmtMonth(`${month}-01`)} <span>{fmt(sumPaid(items))}</span></h3>
                         <ul>
                             {items.map(p => {
                                 const c = catOf(p.category);
+                                const skipped = p.status === 'skipped';
                                 return (
-                                    <li key={p.id} className="pg-item done">
-                                        <span className="pg-check done"><FaCheck /></span>
+                                    <li key={p.id} className={`pg-item done ${skipped ? 'skipped' : ''}`}>
+                                        <span className={`pg-check done ${skipped ? 'skipped' : ''}`}>{skipped ? <FaUserSlash /> : <FaCheck />}</span>
                                         <div className="pg-body">
                                             <span className="pg-title">{p.title}</span>
-                                            <span className="pg-meta">{c.emoji} {c.label} · Pagado {p.paidDate ? fmtDate(p.paidDate) : ''}</span>
+                                            <span className="pg-meta">
+                                                {c.emoji} {c.label} · {skipped
+                                                    ? <>No se pagó ({repeatOf(p) === 'weekdays' ? 'no vino' : 'salteado'}) · {fmtDate(p.dueDate)}</>
+                                                    : <>Pagado {p.paidDate ? fmtDate(p.paidDate) : ''}</>}
+                                            </span>
                                         </div>
-                                        <span className="pg-amount">{p.amount ? fmt(p.amount) : '—'}</span>
+                                        <span className={`pg-amount ${skipped ? 'tbd' : ''}`}>{skipped ? '$0' : p.amount ? fmt(p.amount) : '—'}</span>
                                         <div className="pg-actions">
                                             <button title="Volver a pendientes" aria-label="Volver a pendientes" onClick={() => undoPaid(p)}><FaUndo /></button>
                                             <button title="Eliminar" aria-label="Eliminar" className="danger" onClick={() => remove(p.id, p.title)}><FaTrash /></button>
@@ -364,7 +449,7 @@ export default function PagosManager() {
                         </label>
 
                         <div className="pg-row">
-                            <label className="pg-field">Monto
+                            <label className="pg-field">{form.repeat === 'weekdays' ? 'Monto por día' : 'Monto'}
                                 <input type="text" inputMode="decimal" value={form.amount} placeholder="$ (opcional)"
                                     onChange={e => setForm({ ...form, amount: e.target.value.replace(/[^\d.,]/g, '') })} />
                             </label>
@@ -382,13 +467,42 @@ export default function PagosManager() {
                             </div>
                         </div>
 
-                        <label className="pg-switch">
-                            <input type="checkbox" checked={form.recurring} onChange={e => setForm({ ...form, recurring: e.target.checked })} />
-                            <span>
-                                <b>Se repite todos los meses</b>
-                                <small>Al marcarlo pagado se crea solo el del mes siguiente.</small>
-                            </span>
-                        </label>
+                        <div className="pg-field">¿Se repite?
+                            <div className="pg-chips pick">
+                                {([['none', 'No'], ['monthly', 'Todos los meses'], ['weekdays', 'Por día / días de la semana']] as [Repeat, string][]).map(([k, l]) => (
+                                    <button type="button" key={k} className={form.repeat === k ? 'active' : ''}
+                                        onClick={() => setForm({ ...form, repeat: k })}>{l}</button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {form.repeat === 'weekdays' && (
+                            <div className="pg-field">Días que se paga
+                                <div className="pg-chips pick pg-days">
+                                    {WEEK_DAYS.map(({ day, label }) => {
+                                        const on = form.weekDays.includes(day);
+                                        return (
+                                            <button type="button" key={day} className={on ? 'active' : ''}
+                                                onClick={() => setForm({ ...form, weekDays: on ? form.weekDays.filter(d => d !== day) : [...form.weekDays, day] })}>
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <small className="pg-hint">
+                                    {form.weekDays.length === 0
+                                        ? 'Elegí al menos un día.'
+                                        : num(form.amount) > 0
+                                            ? `${fmt(num(form.amount))} cada día marcado = ${fmt(num(form.amount) * form.weekDays.length)} por semana · ≈ ${fmt(num(form.amount) * form.weekDays.length * 52 / 12)} por mes.`
+                                            : 'El monto es por cada día marcado. Marcá un solo día para pagar una vez por semana.'}
+                                    {' '}Al marcarlo pagado se crea solo el del próximo día marcado.
+                                </small>
+                            </div>
+                        )}
+
+                        {form.repeat === 'monthly' && (
+                            <small className="pg-hint">Al marcarlo pagado se crea solo el del mes siguiente.</small>
+                        )}
 
                         <label className="pg-field">Nota (opcional)
                             <input value={form.note} placeholder="N° de factura, alias, etc." onChange={e => setForm({ ...form, note: e.target.value })} />

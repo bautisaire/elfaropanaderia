@@ -1,0 +1,31 @@
+/* Pérdida por productos (/editor/perdidas). Base visual: CustomersRanking.css (cr-*) + selector de período del Dashboard. */
+.pp-page .pp-timeframe { align-items: flex-start; margin-bottom: 18px; }
+.pp-page .pp-timeframe .custom-picker-popup { left: 0; right: auto; }
+.pp-kpi-main { background: #fef2f2; border: 1px solid #fca5a5; }
+.pp-kpi-main strong { color: #dc2626; }
+.pp-kpi-main span { color: #7f1d1d; }
+.pp-wrap { flex-wrap: wrap; }
+.pp-title { margin: 22px 0 8px; font-size: 1.05rem; color: #1e293b; }
+.pp-nowrap { white-space: nowrap; }
+.pp-loss { font-weight: 700; color: #dc2626; }
+.pp-sort-btn { background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-transform: inherit; display: inline-flex; align-items: center; gap: 5px; }
+.pp-row-click { cursor: pointer; }
+.pp-row-click:hover td { background: #f8fafc; }
+.pp-chevron { display: inline-flex; color: #94a3b8; font-size: 0.7rem; margin-right: 6px; vertical-align: middle; }
+.pp-badge { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pp-cierre { background: #fee2e2; color: #b91c1c; }
+.pp-merma { background: #ffedd5; color: #c2410c; }
+.pp-consumo { background: #dbeafe; color: #1d4ed8; }
+.pp-tag-est { background: #fef3c7; color: #92400e; }
+.pp-detail td { background: #f8fafc; padding: 8px 14px 10px 32px; }
+.pp-detail-line { display: flex; justify-content: space-between; gap: 12px; font-size: 0.85rem; color: #334155; padding: 2px 0; }
+.pp-total td { font-weight: 800; color: #1e293b; border-top: 2px solid #e2e8f0; padding: 10px 8px; }
+.pp-bar div { background: linear-gradient(90deg, #ef4444, #f87171); }
+.pp-page .pp-timeframe { max-width: 100%; }
+@media (max-width: 640px) {
+    .pp-page .timeframe-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; box-sizing: border-box; overflow: visible; }
+    .pp-page .tf-btn { justify-content: center; padding: 8px 10px; }
+    .pp-page .pp-timeframe .custom-picker-popup { left: 50%; transform: translateX(-50%); }
+}
+/* Como pestaña de Gastos: sin el margen de página suelta. */
+.cr-section.pp-page { margin: 0 auto; border: none; box-shadow: none; padding: 4px 0 0; }

@@ -165,24 +165,37 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
                 try {
                     const recipe = product.recipe as CostingRecipe | undefined;
                     const yieldQty = recipe?.yield && recipe.yield > 0 ? recipe.yield : 0;
-                    let rawCost = 0;
+                    // Detalle por insumo (mismo formato que el cierre de jornada) para la sección "Pérdida por productos".
+                    const ingredients: { rawMaterialId: string; name: string; unit: string; quantity: number; cost: number }[] = [];
                     if (recipe && yieldQty) {
                         const rawSnap = await getDocs(collection(db, 'raw_materials'));
-                        const rawMaterials = rawSnap.docs.map(d => ({ id: d.id, ...d.data() })) as CostingRawMaterial[];
-                        rawCost = (recipe.ingredients || []).reduce(
-                            (s, ing) => s + (calculateIngredientCost(ing, rawMaterials, recipe.merma || 0) / yieldQty) * qty, 0);
+                        const rawMaterials = rawSnap.docs.map(d => ({ id: d.id, ...d.data() })) as (CostingRawMaterial & { name?: string; unit?: string })[];
+                        for (const ing of recipe.ingredients || []) {
+                            const mat = rawMaterials.find(m => m.id === ing.rawMaterialId);
+                            if (!mat) continue;
+                            ingredients.push({
+                                rawMaterialId: mat.id,
+                                name: mat.name || '',
+                                unit: mat.unit || '',
+                                quantity: Math.round((ing.quantity / yieldQty) * qty * 1000) / 1000,
+                                cost: Math.round((calculateIngredientCost(ing, rawMaterials, recipe.merma || 0) / yieldQty) * qty * 100) / 100,
+                            });
+                        }
                     }
+                    const rawCost = Math.round(ingredients.reduce((s, i) => s + i.cost, 0) * 100) / 100;
                     await addDoc(collection(db, 'waste_logs'), {
                         date: new Date(),
                         type: 'perdida_producto',
                         reason,
-                        rawMaterialCost: Math.round(rawCost * 100) / 100,
+                        rawMaterialCost: rawCost,
                         items: [{
                             productId: product.id,
                             name: product.nombre + (variantName ? ` (${variantName})` : ''),
                             quantity: qty,
-                            rawMaterialCost: Math.round(rawCost * 100) / 100,
+                            rawMaterialCost: rawCost,
+                            ingredients,
                         }],
+                        rawMaterials: ingredients,
                     });
                 } catch (wasteError) {
                     console.error('Error registrando pérdida por producto:', wasteError);

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
 import { collection, doc, addDoc, deleteDoc, updateDoc, onSnapshot, orderBy, query, where, limit, Timestamp } from 'firebase/firestore';
-import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags, FaBuilding } from 'react-icons/fa';
+import { FaSync, FaTrash, FaChevronDown, FaReceipt, FaArrowUp, FaTags, FaBuilding, FaTrashAlt } from 'react-icons/fa';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import VoiceAIPurchases from './VoiceAIPurchases';
 import ExpenseCategoryManager from './ExpenseCategoryManager';
 import CifManager from './CifManager';
+import PerdidasPage from './PerdidasPage';
 import { useExpenseCategories, FALLBACK_CATEGORY_KEY } from '../hooks/useExpenseCategories';
 import { RawMaterial } from './CostManager';
 import './CostManager.css';
@@ -21,7 +22,7 @@ const nowLocalInput = () => {
 export default function BillsManager() {
     const { "*": tab } = useParams();
     const navigate = useNavigate();
-    const activeTab = tab === 'fijos' ? 'fijos' : 'gastos';
+    const activeTab = tab === 'fijos' ? 'fijos' : tab === 'perdidas' ? 'perdidas' : 'gastos';
 
     const { isSuperAdmin: contextIsSuperAdmin } = useCart();
     const isSuperAdmin = contextIsSuperAdmin || auth.currentUser?.email === 'sairebautista@gmail.com';
@@ -209,11 +210,18 @@ export default function BillsManager() {
                     >
                         <FaBuilding /> Gastos Fijos
                     </button>
+                    <button
+                        className={`cm-tab ${activeTab === 'perdidas' ? 'active' : ''}`}
+                        onClick={() => navigate('/editor/bills/perdidas')}
+                    >
+                        <FaTrashAlt /> Pérdida por productos
+                    </button>
                 </div>
             </header>
 
             <main className="cm-content">
                 {activeTab === 'fijos' && <CifManager />}
+                {activeTab === 'perdidas' && <PerdidasPage />}
                 {activeTab === 'gastos' && (
                 <div className="orders-table-container">
                         <div className="bills-actions">

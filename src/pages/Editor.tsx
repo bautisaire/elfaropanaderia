@@ -206,7 +206,7 @@ export default function Editor() {
     {
       label: "Finanzas",
       items: [
-        { key: "finanzas", label: "Pagos", icon: <FaWallet />, color: '#16a34a', path: "/editor/finanzas", visible: adminPermissions?.pagos === true, active: currentPath === "finanzas" },
+        { key: "finanzas", label: adminPermissions?.pagos === true ? "Pagos" : "Empleados", icon: <FaWallet />, color: '#16a34a', path: adminPermissions?.pagos === true ? "/editor/finanzas" : "/editor/finanzas/empleados", visible: adminPermissions?.pagos === true || adminPermissions?.employees === true, active: currentPath === "finanzas" },
         { key: "bills", label: "Gastos", icon: <FaFileInvoiceDollar />, color: '#dc2626', path: "/editor/bills/gastos", visible: adminPermissions?.bills === true, active: currentPath === "bills" },
       ]
     },
@@ -388,6 +388,7 @@ export default function Editor() {
               {adminPermissions?.dashboard !== false && <Route path="/clientes" element={<CustomersPage />} />}
               {adminPermissions?.dashboard !== false && <Route path="/ranking-productos" element={<ProductsRankingPage />} />}
               {adminPermissions?.dashboard !== false && <Route path="/mejores-periodos" element={<BestPeriodsPage />} />}
+              <Route path="/perdidas" element={<Navigate to="/editor/bills/perdidas" replace />} />
               {/* El POS de venta se reemplazó por Stock → Productos (Caja es donde se vende) */}
               <Route path="/pos" element={<Navigate to="/editor/stock" replace />} />
               {adminPermissions?.pos_sales !== false && <Route path="/caja" element={null} />}
@@ -398,7 +399,7 @@ export default function Editor() {
               {adminPermissions?.costs !== false && <Route path="/costs/*" element={<CostManager />} />}
               {(adminPermissions?.costs !== false || adminPermissions?.products_stock_only === true) && <Route path="/products/*" element={<ProductsSection />} />}
               {adminPermissions?.bills === true && <Route path="/bills/*" element={<BillsManager />} />}
-              <Route path="/finanzas" element={<PagosManager />} />
+              <Route path="/finanzas/*" element={<PagosManager />} />
               <Route path="/employees" element={<Navigate to="/editor/finanzas" replace />} />
               {adminPermissions?.is_rider === true && <Route path="/rider" element={<RiderDashboard />} />}
               {adminPermissions?.is_rider === true && <Route path="/rider-settings" element={<RiderSettings />} />}
@@ -413,6 +414,8 @@ export default function Editor() {
                   if (adminPermissions?.stock !== false) return <Navigate to="/editor/stock" replace />;
                   if (adminPermissions?.store_editor !== false) return <Navigate to="/editor/store_editor" replace />;
                   if (adminPermissions?.bills === true) return <Navigate to="/editor/bills/gastos" replace />;
+                  if (adminPermissions?.pagos === true) return <Navigate to="/editor/finanzas" replace />;
+                  if (adminPermissions?.employees === true) return <Navigate to="/editor/finanzas/empleados" replace />;
                   if (adminPermissions?.settings !== false) return <Navigate to="/editor/settings" replace />;
                   return <div style={{ padding: '50px', textAlign: 'center' }}>No tienes permiso para ver ninguna sección.</div>;
                 })()

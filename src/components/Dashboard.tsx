@@ -1420,7 +1420,9 @@ export default function Dashboard() {
                 {/* Pérdida por productos: cierre de jornada + merma/consumo interno (solo materia prima) */}
                 <div
                     className="stat-card orders"
-                    style={{ position: 'relative' }}
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    onClick={() => navigate('/editor/bills/perdidas')}
+                    title="Ver detalle de pérdidas por producto y materia prima"
                 >
                     <div className="stat-icon" style={{ color: '#dc2626', backgroundColor: '#fee2e2' }}><FaTrashAlt /></div>
                     <div className="stat-info">

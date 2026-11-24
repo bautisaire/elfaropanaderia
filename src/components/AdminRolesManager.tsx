@@ -45,6 +45,7 @@ const PERMISSIONS_MAP = [
   { key: 'products_stock_only', label: 'Productos: solo ver y editar stock (sin crear, editar ni borrar)' },
   { key: 'bills', label: 'Gastos y Tickets' },
   { key: 'pagos', label: 'Pagos (Finanzas)' },
+  { key: 'employees', label: 'Empleados (perfiles, horarios, sueldos y costo)' },
   { key: 'stock', label: 'Gestión de Stock' },
   { key: 'raffle', label: 'Sorteos' },
   { key: 'settings', label: 'Configuración (Delivery, etc.)' },

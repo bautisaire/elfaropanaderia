@@ -168,6 +168,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('pagos', false) == true
       );
     }
+    // Perfiles de empleados: además de quien tiene "pagos" (regla de arriba), quien tiene "employees"
+    match /finance_config/pagos/empleados/{document=**} {
+      allow read, write: if isSuperAdmin() || (
+        request.auth != null && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('employees', false) == true
+      );
+    }
     // Finanzas: solo superadmin
     match /finance_config/{document=**} {
       allow read, write: if isSuperAdmin();
