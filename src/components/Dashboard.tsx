@@ -15,6 +15,7 @@ import "./CustomersRanking.css";
 import { normalizeForSearch } from "../utils/textSearch";
 import { getArgentinaDateKey } from "../utils/visitTracker";
 import { exportRecordsToExcel } from "../utils/excelExport";
+import { getUnitCostAt } from "../utils/historicPrice";
 
 registerLocale('es', es);
 
@@ -356,7 +357,7 @@ export default function Dashboard() {
                 unsubWaste = onSnapshot(collection(db, "waste_logs"), (snapshot) => {
                     setWasteLogs(snapshot.docs
                         .map(d => d.data())
-                        .filter(w => w.type === 'cierre_jornada')
+                        .filter(w => w.type === 'cierre_jornada' || w.type === 'perdida_producto')
                         .map(w => ({
                             date: w.date && typeof w.date.toDate === 'function' ? w.date.toDate() : new Date(w.date || 0),
                             rawMaterialCost: Number(w.rawMaterialCost) || 0,
@@ -679,7 +680,12 @@ export default function Dashboard() {
                                 if (matData) {
                                     const qtyPerUnit = ing.quantity / yieldRatio;
                                     const totalQtyUsed = qtyPerUnit * finalQty;
-                                    const costPerBaseUnit = matData.price / (matData.baseQuantity || 1);
+                                    // Costo vigente al momento de la venta: el congelado en la venta si
+                                    // existe; si no (ventas viejas), el del historial de precios a esa fecha.
+                                    // Nunca el precio de hoy, o un aumento revalúa todo el pasado.
+                                    const costPerBaseUnit = typeof ing.unitCost === 'number'
+                                        ? ing.unitCost
+                                        : getUnitCostAt(matData, order.dateTyped);
                                     const totalCost = totalQtyUsed * costPerBaseUnit;
 
                                     tm.quantity += totalQtyUsed;
@@ -1411,16 +1417,16 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Pérdida por cierre de jornada (solo materia prima / insumos) */}
+                {/* Pérdida por productos: cierre de jornada + merma/consumo interno (solo materia prima) */}
                 <div
                     className="stat-card orders"
                     style={{ position: 'relative' }}
                 >
                     <div className="stat-icon" style={{ color: '#dc2626', backgroundColor: '#fee2e2' }}><FaTrashAlt /></div>
                     <div className="stat-info">
-                        <h3>Pérdida por cierre ({getTimeframeLabel()})</h3>
+                        <h3>Pérdida por productos ({getTimeframeLabel()})</h3>
                         <p style={{ color: '#dc2626' }}>{renderAmount(wasteInTimeframe.total)}</p>
-                        <span className="stat-sub">Materia prima/insumos · {wasteInTimeframe.count} {wasteInTimeframe.count === 1 ? 'cierre' : 'cierres'}</span>
+                        <span className="stat-sub">Solo materia prima · {wasteInTimeframe.count} {wasteInTimeframe.count === 1 ? 'registro' : 'registros'}</span>
                     </div>
                 </div>
 

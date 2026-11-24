@@ -8,6 +8,7 @@ import { getDeviceId } from '../utils/deviceId';
 import { calculateTieredTotal, type PriceTier } from '../utils/priceTiers';
 import { getVariantPrice } from '../utils/cartStock';
 import { normalizeForSearch } from '../utils/textSearch';
+import { freezeIngredientUnitCosts, type PricedMaterial } from '../utils/historicPrice';
 import { useCart } from '../context/CartContext';
 import POSModal from './POSModal';
 import WeightEntryModal from './WeightEntryModal';
@@ -222,6 +223,15 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
         const unsub = onSnapshot(collection(db, 'products'), (snap) => {
             setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Product)));
         });
+        return () => unsub();
+    }, []);
+
+    // Precios de insumos, para congelar en cada venta el costo vigente de cada ingrediente.
+    const rawMaterialsRef = useRef<Map<string, PricedMaterial>>(new Map());
+    useEffect(() => {
+        const unsub = onSnapshot(collection(db, 'raw_materials'), (snap) => {
+            rawMaterialsRef.current = new Map(snap.docs.map(d => [d.id, d.data() as PricedMaterial]));
+        }, (err) => console.warn('No se pudieron leer los insumos para congelar costos:', err));
         return () => unsub();
     }, []);
 
@@ -1018,7 +1028,7 @@ export default function CajaVenta({ onSaleComplete, active = true, onCartCountCh
                             unitType: row.unitType,
                             historicCost: originalDoc.recipe?.costPerUnit || 0,
                             historicIngredients: originalDoc.recipe?.ingredients ? {
-                                ingredients: originalDoc.recipe.ingredients,
+                                ingredients: freezeIngredientUnitCosts(originalDoc.recipe.ingredients, rawMaterialsRef.current),
                                 yield: originalDoc.recipe.yield || 1
                             } : null
                         };

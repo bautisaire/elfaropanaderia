@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/firebaseConfig';
-import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, getDocs } from 'firebase/firestore';
+import { calculateIngredientCost, type CostingRecipe, type CostingRawMaterial } from '../utils/costing';
 import { syncChildProducts } from "../utils/stockUtils";
 import { FaPlus, FaMinus, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import './StockAdjustmentModal.css';
@@ -157,6 +158,36 @@ export default function StockAdjustmentModal({ isOpen, onClose, product, onSucce
             });
 
 
+
+            // 3. Merma/Desperdicio o Consumo Interno: se suma a "Pérdida por productos"
+            //    (solo materia prima, sin mano de obra ni costos fijos).
+            if (adjustmentType === 'OUT' && (reason === 'Merma/Desperdicio' || reason === 'Consumo Interno')) {
+                try {
+                    const recipe = product.recipe as CostingRecipe | undefined;
+                    const yieldQty = recipe?.yield && recipe.yield > 0 ? recipe.yield : 0;
+                    let rawCost = 0;
+                    if (recipe && yieldQty) {
+                        const rawSnap = await getDocs(collection(db, 'raw_materials'));
+                        const rawMaterials = rawSnap.docs.map(d => ({ id: d.id, ...d.data() })) as CostingRawMaterial[];
+                        rawCost = (recipe.ingredients || []).reduce(
+                            (s, ing) => s + (calculateIngredientCost(ing, rawMaterials, recipe.merma || 0) / yieldQty) * qty, 0);
+                    }
+                    await addDoc(collection(db, 'waste_logs'), {
+                        date: new Date(),
+                        type: 'perdida_producto',
+                        reason,
+                        rawMaterialCost: Math.round(rawCost * 100) / 100,
+                        items: [{
+                            productId: product.id,
+                            name: product.nombre + (variantName ? ` (${variantName})` : ''),
+                            quantity: qty,
+                            rawMaterialCost: Math.round(rawCost * 100) / 100,
+                        }],
+                    });
+                } catch (wasteError) {
+                    console.error('Error registrando pérdida por producto:', wasteError);
+                }
+            }
 
             setShowSuccess(true);
             if (onSuccess) onSuccess();

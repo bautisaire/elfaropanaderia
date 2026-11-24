@@ -535,6 +535,32 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
             const orderIdString = currentOrderId.toString();
             const orderRef = db.collection("orders").doc(orderIdString);
 
+            // Congelamos el costo por unidad base de cada insumo, para que un aumento posterior
+            // (ej. la hora del panadero) no revalúe las ventas pasadas. Lectura fuera de la
+            // transacción: no hace falta bloquear los insumos y si falla, el pedido sigue igual.
+            const rawMaterialUnitCosts = {};
+            try {
+                const rawIds = new Set();
+                Object.values(productDocsMap).forEach(p => {
+                    (p.recipe?.ingredients || []).forEach(ing => { if (ing?.rawMaterialId) rawIds.add(String(ing.rawMaterialId)); });
+                });
+                if (rawIds.size > 0) {
+                    const rawSnaps = await db.getAll(...Array.from(rawIds).map(id => db.collection("raw_materials").doc(id)));
+                    rawSnaps.forEach(s => {
+                        if (!s.exists) return;
+                        const m = s.data();
+                        rawMaterialUnitCosts[s.id] = (Number(m.price) || 0) / (Number(m.baseQuantity) || 1);
+                    });
+                }
+            } catch (e) {
+                console.warn("No se pudieron congelar los costos de insumos", e);
+            }
+            const freezeIngredients = (ingredients) => ingredients.map(ing =>
+                rawMaterialUnitCosts[ing?.rawMaterialId] !== undefined
+                    ? { ...ing, unitCost: rawMaterialUnitCosts[ing.rawMaterialId] }
+                    : ing
+            );
+
             const finalItems = cart.map(item => {
                 const baseId = getBaseId(item);
                 const originalDoc = productDocsMap[baseId] || {};
@@ -542,7 +568,7 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
                     ...item,
                     historicCost: originalDoc.recipe?.costPerUnit || 0,
                     historicIngredients: originalDoc.recipe?.ingredients ? {
-                        ingredients: originalDoc.recipe.ingredients,
+                        ingredients: freezeIngredients(originalDoc.recipe.ingredients),
                         yield: originalDoc.recipe.yield || 1
                     } : null
                 };
