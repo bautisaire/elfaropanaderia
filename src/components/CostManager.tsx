@@ -28,6 +28,8 @@ export interface RawMaterial {
     category?: 'materia prima' | 'mano de obra' | 'gasto por ventas' | 'impuestos' | 'cif';
 }
 
+type MatSortKey = 'name' | 'category' | 'qty' | 'price' | 'date';
+
 export interface RecipeIngredient {
     rawMaterialId: string;
     quantity: number;
@@ -106,7 +108,7 @@ export default function CostManager() {
     const [newMaterial, setNewMaterial] = useState<Partial<RawMaterial>>({ name: '', baseQuantity: 1000, unit: 'g', price: 0, description: '', category: 'materia prima' });
 
     // Sort & Search State
-    const [matSortBy, setMatSortBy] = useState<'name_asc' | 'date_desc' | 'price_asc' | 'price_desc' | 'qty_asc' | 'qty_desc'>('name_asc');
+    const [matSortBy, setMatSortBy] = useState<`${MatSortKey}_${'asc' | 'desc'}`>('name_asc');
     const [matSearchTerm, setMatSearchTerm] = useState('');
     const [ingredientSearch, setIngredientSearch] = useState('');
     const [showIngredientDropdown, setShowIngredientDropdown] = useState(false);
@@ -210,7 +212,7 @@ export default function CostManager() {
 
                 updatedHistory = [
                     ...updatedHistory,
-                    { price: editMaterialForm.price || 0, baseQuantity: editMaterialForm.baseQuantity, unit: editMaterialForm.unit, date: new Date().toISOString() }
+                    { price: editMaterialForm.price || 0, baseQuantity: editMaterialForm.baseQuantity, unit: editMaterialForm.unit, date: new Date().toISOString(), ...(editMaterialForm.ivaRate !== undefined ? { ivaRate: editMaterialForm.ivaRate } : {}) }
                 ];
                 // Limit history to last 10 changes to avoid massive docs
                 if (updatedHistory.length > 10) updatedHistory.shift();
@@ -219,8 +221,10 @@ export default function CostManager() {
             // Si se edita el costo a mano, el neto tiene que acompañarlo: si no, el próximo ticket
             // autocompletaría con un neto viejo.
             const netUpdate: Partial<RawMaterial> = {};
-            if (currentMat && currentMat.ivaRate !== undefined && editMaterialForm.price !== currentMat.price) {
-                const factor = 1 + (currentMat.ivaRate + (currentMat.perceptionRate || 0)) / 100;
+            // Se usa la alícuota del formulario: si se quitó el IVA, el neto se recalcula sin él.
+            const formIvaRate = editMaterialForm.ivaRate ?? currentMat?.ivaRate;
+            if (currentMat && formIvaRate !== undefined && editMaterialForm.price !== currentMat.price) {
+                const factor = 1 + (formIvaRate + (currentMat.perceptionRate || 0)) / 100;
                 netUpdate.netPrice = Math.round(((editMaterialForm.price || 0) / factor) * 100) / 100;
             }
 
@@ -698,15 +702,40 @@ export default function CostManager() {
         return `${qty} ${unit}`;
     };
 
+    const [matSortKey, matSortDir] = matSortBy.split('_') as [MatSortKey, 'asc' | 'desc'];
+
     const sortedMaterials = [...rawMaterials].sort((a, b) => {
-        if (matSortBy === 'name_asc') return a.name.localeCompare(b.name);
-        if (matSortBy === 'date_desc') return (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0);
-        if (matSortBy === 'price_asc') return a.price - b.price;
-        if (matSortBy === 'price_desc') return b.price - a.price;
-        if (matSortBy === 'qty_asc') return a.baseQuantity - b.baseQuantity;
-        if (matSortBy === 'qty_desc') return b.baseQuantity - a.baseQuantity;
-        return 0;
+        let cmp = 0;
+        if (matSortKey === 'name') cmp = a.name.localeCompare(b.name);
+        else if (matSortKey === 'category') cmp = (a.category || 'materia prima').localeCompare(b.category || 'materia prima') || a.name.localeCompare(b.name);
+        else if (matSortKey === 'qty') cmp = a.baseQuantity - b.baseQuantity;
+        else if (matSortKey === 'price') cmp = a.price - b.price;
+        else if (matSortKey === 'date') cmp = (a.lastUpdated?.seconds || 0) - (b.lastUpdated?.seconds || 0);
+        return matSortDir === 'asc' ? cmp : -cmp;
     });
+
+    // Click en el título de la columna: primer click usa la dirección "natural"
+    // (fecha y precio: mayor primero; texto y cantidad: menor primero), el siguiente invierte.
+    const handleMatHeaderSort = (key: MatSortKey) => {
+        if (key === matSortKey) {
+            setMatSortBy(`${key}_${matSortDir === 'asc' ? 'desc' : 'asc'}`);
+        } else {
+            setMatSortBy(`${key}_${key === 'date' || key === 'price' ? 'desc' : 'asc'}`);
+        }
+    };
+
+    const renderMatSortHeader = (key: MatSortKey, label: string) => (
+        <th
+            onClick={() => handleMatHeaderSort(key)}
+            style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+            title="Click para ordenar"
+        >
+            {label}{' '}
+            <span style={{ fontSize: '0.75em', color: matSortKey === key ? '#0f172a' : '#cbd5e1' }}>
+                {matSortKey === key ? (matSortDir === 'asc' ? '▲' : '▼') : '⇅'}
+            </span>
+        </th>
+    );
 
     // --- RENDER ---
     const validProductsForSim = products.filter(p => p.requiresRecipe !== false && ((p.recipe && p.recipe.ingredients && p.recipe.ingredients.length > 0) || p.stockDependency?.productId));
@@ -812,6 +841,40 @@ export default function CostManager() {
                                         onKeyDown={e => e.key === 'Enter' && handleUpdateMaterial()}
                                     />
                                 </div>
+                                {(() => {
+                                    const currentMat = rawMaterials.find(m => m.id === isEditingMaterial);
+                                    if (!currentMat || !currentMat.ivaRate || currentMat.netPrice === undefined) return null;
+                                    const ivaRemoved = editMaterialForm.ivaRate === 0;
+                                    if (ivaRemoved) {
+                                        return (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#b45309' }}>
+                                                IVA {currentMat.ivaRate.toLocaleString('es-AR')}% quitado (se aplica al guardar)
+                                                <button
+                                                    type="button"
+                                                    className="cm-btn-secondary"
+                                                    style={{ padding: '4px 10px' }}
+                                                    onClick={() => setEditMaterialForm({ ...editMaterialForm, ivaRate: currentMat.ivaRate, price: currentMat.price })}
+                                                >
+                                                    Deshacer
+                                                </button>
+                                            </span>
+                                        );
+                                    }
+                                    return (
+                                        <button
+                                            type="button"
+                                            className="cm-btn-secondary"
+                                            style={{ padding: '6px 12px' }}
+                                            title={`Deja el costo en el neto $${currentMat.netPrice.toLocaleString('es-AR', { maximumFractionDigits: 2 })}${currentMat.perceptionRate ? ' + percepciones' : ''}, sin IVA`}
+                                            onClick={() => {
+                                                const priceWithoutIva = Math.round(currentMat.netPrice! * (1 + (currentMat.perceptionRate || 0) / 100) * 100) / 100;
+                                                setEditMaterialForm({ ...editMaterialForm, ivaRate: 0, price: priceWithoutIva });
+                                            }}
+                                        >
+                                            Quitar IVA {currentMat.ivaRate.toLocaleString('es-AR')}%
+                                        </button>
+                                    );
+                                })()}
                                 <input
                                     type="text"
                                     placeholder="Descripción (opcional)"
@@ -915,9 +978,13 @@ export default function CostManager() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <label style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 'bold' }}>Ordenar por:</label>
-                                <select value={matSortBy} onChange={e => setMatSortBy(e.target.value as any)} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
+                                <select value={matSortBy} onChange={e => setMatSortBy(e.target.value as typeof matSortBy)} style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
                                     <option value="name_asc">A-Z</option>
+                                    <option value="name_desc">Z-A</option>
+                                    <option value="category_asc">Categoría (A-Z)</option>
+                                    <option value="category_desc">Categoría (Z-A)</option>
                                     <option value="date_desc">Más Recientes</option>
+                                    <option value="date_asc">Más Antiguos</option>
                                     <option value="price_desc">Mayor Precio</option>
                                     <option value="price_asc">Menor Precio</option>
                                     <option value="qty_desc">Mayor Cantidad</option>
@@ -985,11 +1052,11 @@ export default function CostManager() {
                             <table className="cm-table">
                                 <thead>
                                     <tr>
-                                        <th>Materia Prima / Concepto</th>
-                                        <th>Categoría</th>
-                                        <th>Cantidad Base</th>
-                                        <th>Precio</th>
-                                        <th>Última Act.</th>
+                                        {renderMatSortHeader('name', 'Materia Prima / Concepto')}
+                                        {renderMatSortHeader('category', 'Categoría')}
+                                        {renderMatSortHeader('qty', 'Cantidad Base')}
+                                        {renderMatSortHeader('price', 'Precio')}
+                                        {renderMatSortHeader('date', 'Última Act.')}
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>

@@ -10,6 +10,7 @@ import CifManager from './CifManager';
 import PerdidasPage from './PerdidasPage';
 import { useExpenseCategories, FALLBACK_CATEGORY_KEY } from '../hooks/useExpenseCategories';
 import { RawMaterial } from './CostManager';
+import { normalizeForSearch } from '../utils/textSearch';
 import './CostManager.css';
 import './BillsManager.css';
 
@@ -53,6 +54,12 @@ export default function BillsManager() {
     const [expenseCustomStart, setExpenseCustomStart] = useState<string>('');
     const [expenseCustomEnd, setExpenseCustomEnd] = useState<string>('');
     const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+    const [expenseSearch, setExpenseSearch] = useState('');
+    // El buscador filtra sobre los tickets ya cargados del periodo elegido.
+    const expenseSearchTerm = normalizeForSearch(expenseSearch.trim());
+    const visibleExpenses = expenseSearchTerm
+        ? expenses.filter(exp => normalizeForSearch(exp.description || 'Gasto Sin Título').includes(expenseSearchTerm))
+        : expenses;
 
     // Registrar Egreso (quick manual expense entry)
     const [isEgresoModalOpen, setIsEgresoModalOpen] = useState(false);
@@ -282,11 +289,26 @@ export default function BillsManager() {
                                     )}
                                 </div>
 
-                                {expenses.length === 0 ? (
-                                    <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>No hay gastos registrados en este periodo.</p>
-                                ) : (
+                                <div style={{ position: 'relative', marginBottom: '15px' }}>
+                                    <input
+                                        type="search"
+                                        placeholder="Buscar por título del ticket..."
+                                        value={expenseSearch}
+                                        onChange={(e) => setExpenseSearch(e.target.value)}
+                                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.95rem' }}
+                                    />
+                                </div>
+
+                                {(() => {
+                                    if (expenses.length === 0) {
+                                        return <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>No hay gastos registrados en este periodo.</p>;
+                                    }
+                                    if (visibleExpenses.length === 0) {
+                                        return <p style={{ color: '#9ca3af', textAlign: 'center', padding: '40px' }}>Ningún ticket coincide con "{expenseSearch.trim()}" en este periodo.</p>;
+                                    }
+                                    return (
                                     <div className="tickets-list" style={{ marginBottom: '30px' }}>
-                                        {expenses.map((exp) => {
+                                        {visibleExpenses.map((exp) => {
                                             const cat = categoryByKey[exp.type];
                                             const typeLabel = cat ? `${cat.icon} ${cat.label}` : (exp.type || '📦 Otro');
                                             const dateObj = exp.date?.seconds ? new Date(exp.date.seconds * 1000) : null;
@@ -413,15 +435,16 @@ export default function BillsManager() {
                                             );
                                         })}
                                     </div>
-                                )}
+                                    );
+                                })()}
 
                                 {/* Total Section Footer */}
                                 <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                                     <span style={{ fontSize: '1.2rem', color: '#64748b', fontWeight: '700', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        TOTAL GASTOS ({expenseFilter})
+                                        TOTAL GASTOS ({expenseFilter}){expenseSearchTerm && ` · "${expenseSearch.trim()}"`}
                                     </span>
                                     <span style={{ fontSize: '2rem', color: '#ef4444', fontWeight: '800' }}>
-                                        ${expenses.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0).toLocaleString('es-AR')}
+                                        ${visibleExpenses.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0).toLocaleString('es-AR')}
                                     </span>
                                 </div>
                             </div>
