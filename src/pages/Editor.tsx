@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import "./Editor.css";
 import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
-import { signInWithRedirect, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { signInWithRedirect, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
 import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaWallet } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
@@ -155,6 +155,19 @@ export default function Editor() {
   }, [currentUser]);
 
   const handleLogin = async () => {
+    // Abierto desde la pantalla de inicio del iPhone ("Abrir como app web"): la redirección
+    // a Google sale de la app y el resultado nunca vuelve, así que usamos ventana emergente.
+    const isStandalone = (navigator as any).standalone === true
+      || window.matchMedia?.('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      try {
+        await signInWithPopup(auth, googleProvider);
+        return;
+      } catch (error: any) {
+        if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') return;
+        console.warn("Login con ventana emergente falló, probando redirección:", error);
+      }
+    }
     try {
       // Using signInWithRedirect to bypass Cross-Origin-Opener-Policy (COOP) blocks
       await signInWithRedirect(auth, googleProvider);
