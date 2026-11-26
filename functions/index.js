@@ -26,13 +26,18 @@ const getMpClient = () => {
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
+// Chats de repartidores (deben estar también en CHAT_ID). No reciben los pedidos de retiro en el local.
+const RIDER_CHAT_ID = process.env.RIDER_CHAT_ID || "";
 
 const sendTelegramNotification = async (orderData) => {
     if (!BOT_TOKEN || !CHAT_ID) return;
-    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/rider`;
+    const isPickup = orderData.isPickup === true;
+    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || '?'} de *${orderData.cliente?.nombre || ''}*${isPickup ? ' (🏪 retiro en el local)' : ''}. Visitar https://www.elfaropanificacion.com/editor/rider`;
 
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-    const chatIds = CHAT_ID.split(",");
+    const riderIds = new Set(RIDER_CHAT_ID.split(",").map((id) => id.trim()).filter(Boolean));
+    const chatIds = CHAT_ID.split(",").map((id) => id.trim()).filter(Boolean)
+        .filter((id) => !(isPickup && riderIds.has(id)));
 
     const promises = chatIds.map(async (id) => {
         try {
@@ -683,9 +688,11 @@ exports.processOrder = onCall({ minInstances: 1, memory: "512MiB" }, async (requ
         }
 
         // Send Telegram notification (don't await so it doesn't block response)
-        sendTelegramNotification({ 
-            id: result.orderId, 
-            cliente: { nombre: formData.nombre || 'Cliente Web' } 
+        sendTelegramNotification({
+            id: result.orderId,
+            cliente: { nombre: formData.nombre || 'Cliente Web' },
+            // Retiro en el local: no se avisa a los repartidores (RIDER_CHAT_ID)
+            isPickup: orderIsPickup({ cliente: formData }),
         }).catch(e => console.error("Error sending Telegram:", e));
 
         return {
