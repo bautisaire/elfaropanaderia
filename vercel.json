@@ -5,6 +5,10 @@
             "destination": "https://el-faro-panaderia.firebaseapp.com/__/auth/:path*"
         },
         {
+            "source": "/__/firebase/:path*",
+            "destination": "https://el-faro-panaderia.firebaseapp.com/__/firebase/:path*"
+        },
+        {
             "source": "/(.*)",
             "destination": "/"
         }
