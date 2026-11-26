@@ -10,9 +10,9 @@ import { getFunctions } from "firebase/functions";
 // En producción el login con Google pasa por nuestro propio dominio (vercel.json reenvía
 // /__/auth/* a firebaseapp.com). Con el dominio de Firebase, Safari/iPhone bloquea el
 // almacenamiento de terceros y el login por redirección vuelve sin sesión.
-// DESACTIVADO hasta registrar https://www.elfaropanificacion.com/__/auth/handler en el cliente
-// OAuth de Google (si no, Google responde redirect_uri_mismatch). Para activarlo, borrar "false &&".
-const isProdDomain = false && typeof window !== "undefined" && /(^|\.)elfaropanificacion\.com$/.test(window.location.hostname);
+// Requiere https://www.elfaropanificacion.com/__/auth/handler (y sin www) en las redirect URIs
+// del cliente OAuth de Google; si falta, Google responde redirect_uri_mismatch.
+const isProdDomain = typeof window !== "undefined" && /(^|\.)elfaropanificacion\.com$/.test(window.location.hostname);
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
