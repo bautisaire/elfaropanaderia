@@ -98,7 +98,10 @@ export default function Editor() {
           setCurrentUser(user);
           setCheckingAuth(false);
         } else {
-          roleUnsub = onSnapshot(doc(db, "admin_roles", user.email.toLowerCase()), (roleDoc) => {
+          roleUnsub = onSnapshot(doc(db, "admin_roles", user.email.toLowerCase()), { includeMetadataChanges: true }, (roleDoc) => {
+            // Si el caché local no tiene el rol (app recién abierta, sin señal, caché borrado)
+            // esperamos la respuesta del servidor: antes esto cerraba la sesión y mostraba el login.
+            if (!roleDoc.exists() && roleDoc.metadata.fromCache) return;
             if (roleDoc.exists()) {
               setCurrentUser(user);
             } else {

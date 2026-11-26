@@ -7,9 +7,14 @@ import { getMessaging, isSupported } from "firebase/messaging";
 import { getFunctions } from "firebase/functions";
 
 
+// En producción el login con Google pasa por nuestro propio dominio (vercel.json reenvía
+// /__/auth/* a firebaseapp.com). Con el dominio de Firebase, Safari/iPhone bloquea el
+// almacenamiento de terceros y el login por redirección vuelve sin sesión.
+const isProdDomain = typeof window !== "undefined" && /(^|\.)elfaropanificacion\.com$/.test(window.location.hostname);
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
-  authDomain: import.meta.env.VITE_AUTH_DOMAIN,
+  authDomain: isProdDomain ? window.location.host : import.meta.env.VITE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
