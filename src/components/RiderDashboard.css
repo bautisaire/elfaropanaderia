@@ -657,3 +657,37 @@
     color: #b91c1c;
     border-color: #fecaca;
 }
+
+.rider-gps-banner.is-needs-permission {
+    background: #eff6ff;
+    color: #1e3a8a;
+    border-color: #bfdbfe;
+}
+
+.rider-gps-banner.is-needs-permission,
+.rider-gps-banner.is-denied,
+.rider-gps-banner.is-unavailable {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rider-gps-btn {
+    align-self: stretch;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #16a34a;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.rider-gps-help {
+    margin: 0;
+    padding-left: 18px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}

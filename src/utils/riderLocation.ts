@@ -30,7 +30,13 @@ const metersBetween = (a: { lat: number; lng: number }, b: { lat: number; lng: n
     return 2 * R * Math.asin(Math.sqrt(h));
 };
 
-export type SharingStatus = 'off' | 'starting' | 'sharing' | 'denied' | 'unavailable';
+export type SharingStatus = 'off' | 'needs-permission' | 'starting' | 'sharing' | 'denied' | 'unavailable';
+
+// El permiso se pide con un botón: Safari (iPhone) solo muestra el cartel de "Permitir"
+// de forma confiable cuando la persona toca algo. Una vez permitido, se recuerda.
+const GPS_OK_KEY = 'rider_gps_enabled';
+const readGpsOk = () => { try { return localStorage.getItem(GPS_OK_KEY) === '1'; } catch { return false; } };
+const writeGpsOk = (ok: boolean) => { try { if (ok) localStorage.setItem(GPS_OK_KEY, '1'); else localStorage.removeItem(GPS_OK_KEY); } catch { /* sin almacenamiento */ } };
 
 /**
  * Lado repartidor: mientras `active` sea true, sigue el GPS y lo publica en Firestore.
@@ -40,6 +46,32 @@ export const useRiderLocationSharing = (email: string, name: string, active: boo
     const [position, setPosition] = useState<RiderPosition | null>(null);
     const [status, setStatus] = useState<SharingStatus>('off');
     const lastWrite = useRef<{ at: number; lat: number; lng: number } | null>(null);
+    const [enabled, setEnabled] = useState(readGpsOk);
+
+    // Si el navegador ya tiene el permiso concedido, arrancar sin pedir el botón
+    useEffect(() => {
+        if (!active || enabled || !navigator.permissions?.query) return;
+        navigator.permissions.query({ name: 'geolocation' as PermissionName })
+            .then((p) => {
+                if (p.state === 'granted') { writeGpsOk(true); setEnabled(true); }
+                else if (p.state === 'denied') setStatus('denied');
+            })
+            .catch(() => { /* Safari viejo: queda el botón */ });
+    }, [active, enabled]);
+
+    /** Llamar desde un toque del usuario: abre el cartel de permiso del teléfono. */
+    const requestPermission = () => {
+        if (!('geolocation' in navigator)) { setStatus('unavailable'); return; }
+        setStatus('starting');
+        navigator.geolocation.getCurrentPosition(
+            () => { writeGpsOk(true); setEnabled(true); },
+            (err) => {
+                console.warn('Permiso de ubicación:', err);
+                setStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable');
+            },
+            { enableHighAccuracy: true, timeout: 30_000 }
+        );
+    };
 
     useEffect(() => {
         if (!email || !active) {
@@ -49,6 +81,10 @@ export const useRiderLocationSharing = (email: string, name: string, active: boo
         }
         if (!('geolocation' in navigator)) {
             setStatus('unavailable');
+            return;
+        }
+        if (!enabled) {
+            setStatus((prev) => (prev === 'denied' || prev === 'starting' || prev === 'unavailable' ? prev : 'needs-permission'));
             return;
         }
 
@@ -86,7 +122,14 @@ export const useRiderLocationSharing = (email: string, name: string, active: boo
             },
             (err) => {
                 console.warn('GPS del repartidor:', err);
-                setStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable');
+                if (err.code === err.PERMISSION_DENIED) {
+                    // Se quitó el permiso desde los ajustes: volver a mostrar el botón
+                    writeGpsOk(false);
+                    setEnabled(false);
+                    setStatus('denied');
+                } else {
+                    setStatus('unavailable');
+                }
             },
             { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 }
         );
@@ -96,9 +139,9 @@ export const useRiderLocationSharing = (email: string, name: string, active: boo
             // Al terminar los pedidos en camino (o salir de la pantalla) se borra la ubicación
             deleteDoc(docRef).catch(() => { /* sin permiso o sin conexión: queda vencida sola */ });
         };
-    }, [email, name, active]);
+    }, [email, name, active, enabled]);
 
-    return { position, status };
+    return { position, status, requestPermission };
 };
 
 /** Lado admin: ubicaciones de todos los repartidores en camino (solo mientras `enabled`). */

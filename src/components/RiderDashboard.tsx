@@ -207,7 +207,7 @@ export default function RiderDashboard() {
 
     // GPS en vivo: solo mientras hay al menos un pedido "enviado" (en camino). Sin pedidos en camino no se comparte nada.
     const hasOrdersOnTheWay = orders.some(o => o.status === 'enviado');
-    const { position: myPosition, status: gpsStatus } = useRiderLocationSharing(
+    const { position: myPosition, status: gpsStatus, requestPermission } = useRiderLocationSharing(
         currentUserEmail,
         auth.currentUser?.displayName || '',
         hasOrdersOnTheWay
@@ -250,9 +250,29 @@ export default function RiderDashboard() {
             {hasOrdersOnTheWay && (
                 <div className={`rider-gps-banner is-${gpsStatus}`}>
                     {gpsStatus === 'sharing' && '📍 Compartiendo tu ubicación mientras tenés pedidos en camino'}
-                    {gpsStatus === 'starting' && '📍 Activando GPS…'}
-                    {gpsStatus === 'denied' && '⚠️ Permití la ubicación en el navegador para que el local vea por dónde vas'}
-                    {gpsStatus === 'unavailable' && '⚠️ No se pudo obtener tu ubicación. Revisá que el GPS esté activado'}
+                    {gpsStatus === 'starting' && '📍 Activando GPS… si aparece el cartel, tocá "Permitir"'}
+                    {gpsStatus === 'needs-permission' && (
+                        <>
+                            <span>Tenés pedidos en camino. Activá tu ubicación para que el local vea por dónde vas.</span>
+                            <button type="button" className="rider-gps-btn" onClick={requestPermission}>📍 Activar ubicación</button>
+                        </>
+                    )}
+                    {gpsStatus === 'unavailable' && (
+                        <>
+                            <span>⚠️ No se pudo obtener tu ubicación. Revisá que el GPS del teléfono esté prendido.</span>
+                            <button type="button" className="rider-gps-btn" onClick={requestPermission}>Reintentar</button>
+                        </>
+                    )}
+                    {gpsStatus === 'denied' && (
+                        <>
+                            <span>⚠️ La ubicación está bloqueada para esta página. Para activarla:</span>
+                            <ul className="rider-gps-help">
+                                <li><strong>iPhone:</strong> Ajustes → Privacidad y seguridad → Localización → Safari → "Al usar la app". Después, en Safari tocá <strong>aA</strong> → Configuración del sitio web → Ubicación → Permitir.</li>
+                                <li><strong>Android:</strong> en Chrome tocá el ícono a la izquierda de la dirección → Permisos → Ubicación → Permitir.</li>
+                            </ul>
+                            <button type="button" className="rider-gps-btn" onClick={requestPermission}>Ya lo activé, reintentar</button>
+                        </>
+                    )}
                 </div>
             )}
 
