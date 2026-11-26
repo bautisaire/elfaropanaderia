@@ -9,6 +9,7 @@ import PriceEditModal from "./PriceEditModal";
 import TextEditModal from "./TextEditModal";
 import MapLocationPickerModal from "./MapLocationPickerModal";
 import { orderIsPickup, adminStatusLabel } from "../utils/orderPickup";
+import { mapsLinkForAddress } from '../utils/mapsLink';
 
 
 
@@ -181,7 +182,7 @@ export default function OrderDetailsExpanded({ order, onClose, onEdit, onSourceC
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <a
-                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
+                                            href={mapsLinkForAddress(order.cliente.direccion)}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             onClick={(e) => e.stopPropagation()}

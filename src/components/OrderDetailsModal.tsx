@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaCalendarAlt, FaUser, FaMapMarkerAlt, FaPhone, FaCreditCard, FaEdit, FaCopy, FaTimes, FaCheck, FaPaperPlane } from 'react-icons/fa';
 import { generateOrderMessage, generateOrderMessageShort, buildWhatsAppSendLink } from "../utils/orderMessage";
+import { mapsLinkForAddress } from '../utils/mapsLink';
 
 interface OrderDetailsModalProps {
     order: any;
@@ -87,7 +88,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onClose, o
                         <div className="info-row">
                             <FaMapMarkerAlt className="icon-muted" />
                             <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`}
+                                href={mapsLinkForAddress(order.cliente.direccion)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{ color: 'inherit', textDecoration: 'underline' }}
