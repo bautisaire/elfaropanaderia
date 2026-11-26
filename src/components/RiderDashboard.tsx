@@ -4,6 +4,8 @@ import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, limit } 
 import { FaMotorcycle, FaChartLine, FaCheckCircle, FaMoneyBillWave, FaCalendarAlt, FaMapMarkerAlt, FaPhone, FaUser, FaClock, FaCopy, FaChevronDown, FaChevronUp, FaDollarSign } from 'react-icons/fa';
 import GlobalDeliveriesMapModal from './GlobalDeliveriesMapModal';
 import './RiderDashboard.css';
+import { mapsLinkForAddress, mapsLinkForCoords } from '../utils/mapsLink';
+import { useRiderLocationSharing } from '../utils/riderLocation';
 
 interface Order {
     id: string;
@@ -203,6 +205,14 @@ export default function RiderDashboard() {
     const activeOrders = orders.filter(o => o.status !== 'entregado' && o.status !== 'cancelado').reverse();
     const historyOrders = orders.filter(o => o.status === 'entregado' || o.status === 'cancelado');
 
+    // GPS en vivo: solo mientras hay al menos un pedido "enviado" (en camino). Sin pedidos en camino no se comparte nada.
+    const hasOrdersOnTheWay = orders.some(o => o.status === 'enviado');
+    const { position: myPosition, status: gpsStatus } = useRiderLocationSharing(
+        currentUserEmail,
+        auth.currentUser?.displayName || '',
+        hasOrdersOnTheWay
+    );
+
     const formatTime = (timestamp: any) => {
         if (!timestamp) return '';
         const d = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -237,6 +247,15 @@ export default function RiderDashboard() {
                 </button>
             </div>
 
+            {hasOrdersOnTheWay && (
+                <div className={`rider-gps-banner is-${gpsStatus}`}>
+                    {gpsStatus === 'sharing' && '📍 Compartiendo tu ubicación mientras tenés pedidos en camino'}
+                    {gpsStatus === 'starting' && '📍 Activando GPS…'}
+                    {gpsStatus === 'denied' && '⚠️ Permití la ubicación en el navegador para que el local vea por dónde vas'}
+                    {gpsStatus === 'unavailable' && '⚠️ No se pudo obtener tu ubicación. Revisá que el GPS esté activado'}
+                </div>
+            )}
+
             <div className="rider-content">
                 {activeTab === 'pedidos' && (
                     <div className="rider-pedidos-section">
@@ -256,7 +275,12 @@ export default function RiderDashboard() {
                         </div>
                         
                         {pedidosTab === 'mapa' ? (
-                            <GlobalDeliveriesMapModal inline={true} orders={orders} />
+                            <GlobalDeliveriesMapModal
+                                inline={true}
+                                orders={orders}
+                                riders={myPosition ? [myPosition] : []}
+                                routeOrigin={myPosition}
+                            />
                         ) : (
                             <>
                                 <h3>Pedidos Activos</h3>
@@ -287,14 +311,14 @@ export default function RiderDashboard() {
                                                 <FaMapMarkerAlt />
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                                     <div key={`dir-${order.cliente.direccion}`} className="animate-highlight" style={{ display: 'inline-block' }}>
-                                                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.cliente.direccion + ", Senillosa, Neuquen, Argentina")}`} target="_blank" rel="noreferrer" className="rider-link">
+                                                        <a href={mapsLinkForAddress(order.cliente.direccion)} target="_blank" rel="noreferrer" className="rider-link">
                                                             {order.cliente.direccion}
                                                         </a>
                                                     </div>
                                                     {order.cliente.location && (
                                                         <div key={`loc-${order.cliente.location.lat}-${order.cliente.location.lng}`} className="animate-pop-in">
                                                             <a
-                                                                href={`https://www.google.com/maps/search/?api=1&query=${order.cliente.location.lat},${order.cliente.location.lng}`}
+                                                                href={mapsLinkForCoords(order.cliente.location.lat, order.cliente.location.lng)}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 style={{

@@ -11,6 +11,7 @@ import OrderDetailsExpanded from "./OrderDetailsExpanded";
 import { orderIsPickup, adminStatusLabel } from "../utils/orderPickup";
 import GlobalDeliveriesMapModal from "./GlobalDeliveriesMapModal";
 import { useCart } from "../context/CartContext";
+import { useRiderLocations } from "../utils/riderLocation";
 import "./OrdersManager.css";
 
 interface Order {
@@ -159,6 +160,8 @@ export default function OrdersManager() {
 
     // Global Map State
     const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
+    // Repartidores en camino: se escuchan solo con el mapa abierto
+    const liveRiders = useRiderLocations(isGlobalMapOpen);
 
     useEffect(() => {
         setLoading(true);
@@ -1526,6 +1529,7 @@ export default function OrdersManager() {
             <GlobalDeliveriesMapModal
                 isOpen={isGlobalMapOpen}
                 onClose={() => setIsGlobalMapOpen(false)}
+                riders={liveRiders}
                 orders={orders.filter(o => {
                     const isPos = o.source === 'pos' || o.source === 'pos_public' || o.source === 'pos_wholesale';
                     return !isPos;

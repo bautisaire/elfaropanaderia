@@ -203,6 +203,19 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Ubicación en vivo del repartidor (solo mientras tiene pedidos "enviado").
+    // Cada repartidor escribe y borra únicamente su propio documento; los admins lo leen.
+    match /rider_locations/{riderEmail} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.token.email.lower() == riderEmail);
+      allow delete: if isAdmin() || (request.auth != null && request.auth.token.email.lower() == riderEmail);
+      allow create, update: if request.auth != null
+        && request.auth.token.email.lower() == riderEmail
+        && (isRider() || isAdmin())
+        && request.resource.data.keys().hasOnly(['email', 'name', 'lat', 'lng', 'accuracy', 'updatedAt'])
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number;
+    }
+
     match /admin_roles/{roleId} {
       allow read: if request.auth != null && (request.auth.token.email != null && request.auth.token.email.lower() == roleId || isSuperAdmin());
       allow write: if isSuperAdmin();

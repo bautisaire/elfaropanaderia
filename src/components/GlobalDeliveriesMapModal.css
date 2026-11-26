@@ -131,3 +131,300 @@
         transform: scale(1);
     }
 }
+
+/* Marcador del local en el mapa global */
+.custom-bakery-icon {
+    background: transparent;
+    border: none;
+}
+
+.bakery-marker {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #eab308;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+/* Aviso cuando no hay pedidos: flota sobre el mapa sin taparlo */
+.global-map-empty {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    color: #475569;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    max-width: calc(100% - 24px);
+}
+
+/* Ruta marcada: resumen abajo del mapa */
+.global-map-route-info {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: #ffffff;
+    color: #1e293b;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 24px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.map-popup-route-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.map-popup-route-btn.is-active {
+    background: #dbeafe;
+    color: #1d4ed8;
+    cursor: default;
+}
+
+/* ---------- Modo prueba (solo admins) ---------- */
+.custom-test-pin-icon {
+    background: transparent;
+    border: none;
+}
+
+.test-pin-marker {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f97316;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.map-test-toolbar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 70px);
+}
+
+.map-test-toggle,
+.map-test-small {
+    border: none;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    background: #ffffff;
+    color: #9a3412;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.map-test-toggle.is-on {
+    background: #f97316;
+    color: #ffffff;
+}
+
+.map-test-small.is-danger {
+    color: #b91c1c;
+}
+
+.map-test-hint {
+    position: absolute;
+    top: 58px;
+    right: 12px;
+    z-index: 1000;
+    background: #fff7ed;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Con la barra de prueba arriba, el aviso de "sin pedidos" baja para no chocar */
+.map-test-toolbar ~ .global-map-empty,
+.global-map-empty:has(~ .map-test-toolbar) {
+    top: auto;
+    bottom: 16px;
+}
+
+.map-test-form {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 1100;
+    max-width: 420px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.map-test-form h4 {
+    margin: 0 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #1e293b;
+}
+
+.map-test-form input,
+.map-test-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 16px; /* 16px evita que el iPhone haga zoom al escribir */
+    font-family: inherit;
+    resize: none;
+}
+
+.map-test-form-note {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.map-test-form-error {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.map-test-form-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.map-test-form-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.map-test-form-actions button.is-primary {
+    background: #f97316;
+    border-color: #f97316;
+    color: #ffffff;
+}
+
+.map-test-badge {
+    background: #f97316;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.map-popup-delete-btn {
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px 10px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+/* ---------- Repartidor en vivo ---------- */
+.custom-rider-icon {
+    background: transparent;
+    border: none;
+}
+
+.rider-live-marker {
+    position: relative;
+    width: 40px;
+    height: 40px;
+}
+
+.rider-live-dot {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: #16a34a;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.rider-live-pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(22, 163, 74, 0.35);
+    animation: rider-live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes rider-live-pulse {
+    0% { transform: scale(0.7); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
+}

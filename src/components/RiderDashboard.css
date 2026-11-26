@@ -632,3 +632,28 @@
     margin: -2px -4px;
     display: inline-block;
 }
+
+/* Aviso de GPS en vivo (solo con pedidos en camino) */
+.rider-gps-banner {
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.rider-gps-banner.is-starting {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.rider-gps-banner.is-denied,
+.rider-gps-banner.is-unavailable {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
