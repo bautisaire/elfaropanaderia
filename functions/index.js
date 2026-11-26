@@ -29,7 +29,7 @@ const CHAT_ID = process.env.CHAT_ID;
 
 const sendTelegramNotification = async (orderData) => {
     if (!BOT_TOKEN || !CHAT_ID) return;
-    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/orders/deliveries`;
+    const adminMessage = `Tienes un nuevo pedido N° ${orderData.id || '?'} de *${orderData.cliente?.nombre || ''}*. Visitar https://www.elfaropanificacion.com/editor/rider`;
 
     const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
     const chatIds = CHAT_ID.split(",");
