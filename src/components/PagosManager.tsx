@@ -8,6 +8,7 @@ import EmpleadosPanel from './EmpleadosPanel';
 import { useConfirm } from './useConfirm';
 import { todayKey, parts, utc, diffDays, addDays, nextMonth, nextWeekDay, WEEK_DAYS, weekDaysText } from '../utils/pagosDates';
 import './PagosManager.css';
+import { useRiders } from '../utils/riders';
 
 // Sección "Pagos": una agenda simple de lo que hay que pagar.
 // Es independiente del resto del panel (no toca Caja ni Gastos).
@@ -34,6 +35,10 @@ interface Pago {
     paidDate?: string; // yyyy-mm-dd
     skippedDate?: string; // yyyy-mm-dd, cuándo se marcó
     employeeId?: string; // sueldo creado desde el perfil del empleado (pestaña Empleados)
+    // Extra para delivery: se suma en "Extras" del dashboard del repartidor (colección rider_extras)
+    riderEmail?: string;
+    riderExtraId?: string;
+    extraReason?: string;
 }
 
 const repeatOf = (p: Pick<Pago, 'recurring' | 'repeat'>): Repeat => p.repeat || (p.recurring ? 'monthly' : 'none');
@@ -70,6 +75,9 @@ const whenLabel = (due: string, today: string) => {
 
 interface FormState {
     id?: string;
+    kind: 'pago' | 'riderExtra';
+    riderEmail: string;
+    riderExtraId?: string;
     title: string;
     amount: string;
     dueDate: string;
@@ -80,7 +88,7 @@ interface FormState {
 }
 
 export default function PagosManager() {
-    const { user, adminPermissions } = useCart();
+    const { user, adminPermissions, isSuperAdmin } = useCart();
     const { "*": subPath } = useParams();
     const navigate = useNavigate();
     // Dos permisos independientes: "pagos" (esta agenda) y "employees" (pestaña Empleados).
@@ -99,6 +107,25 @@ export default function PagosManager() {
 
     const today = todayKey();
     const col = useMemo(() => collection(db, 'finance_config', 'pagos', 'items'), []);
+
+    // Repartidores para "Extra para delivery": cuentas con rol repartidor + nombre de su perfil de empleado
+    // La lista de repartidores la ve el superadmin o quien tenga el permiso "Ver lista de repartidores"
+    const canSeeRiders = isSuperAdmin || adminPermissions?.riders_view === true;
+    const riderAccounts = useRiders(canAccess && canSeeRiders);
+    const [riderNames, setRiderNames] = useState<Record<string, string>>({});
+    useEffect(() => {
+        if (!canAccess) return;
+        return onSnapshot(collection(db, 'finance_config', 'pagos', 'empleados'), snap => {
+            const map: Record<string, string> = {};
+            snap.docs.forEach(d => {
+                const e = d.data();
+                if (e.riderEmail && !e.deleted && e.name) map[String(e.riderEmail).toLowerCase()] = String(e.name);
+            });
+            setRiderNames(map);
+        }, () => setRiderNames({}));
+    }, [canAccess]);
+    const riderOptions = riderAccounts.map(r => ({ email: r.email, name: riderNames[r.email] || r.name }));
+    const riderName = (email: string) => riderOptions.find(r => r.email === email)?.name || email;
 
     useEffect(() => {
         if (!canAccess) return;
@@ -159,15 +186,60 @@ export default function PagosManager() {
     }, [history, catFilter]);
     const sumPaid = (l: Pago[]) => sum(l.filter(p => p.status === 'paid'));
 
-    const openNew = () => setForm({ title: '', amount: '', dueDate: today, category: 'proveedores', repeat: 'none', weekDays: DEFAULT_WEEK_DAYS, note: '' });
+    const openNew = () => setForm({ kind: 'pago', riderEmail: '', title: '', amount: '', dueDate: today, category: 'proveedores', repeat: 'none', weekDays: DEFAULT_WEEK_DAYS, note: '' });
     const openEdit = (p: Pago) => setForm({
-        id: p.id, title: p.title, amount: p.amount ? String(p.amount) : '', dueDate: p.dueDate,
+        id: p.id,
+        kind: p.riderExtraId ? 'riderExtra' : 'pago',
+        riderEmail: p.riderEmail || '',
+        riderExtraId: p.riderExtraId,
+        title: p.riderExtraId ? (p.extraReason || '') : p.title,
+        amount: p.amount ? String(p.amount) : '', dueDate: p.dueDate,
         category: p.category, repeat: repeatOf(p),
         weekDays: p.weekDays && p.weekDays.length ? p.weekDays : DEFAULT_WEEK_DAYS, note: p.note || ''
     });
 
+    // Extra para delivery: crea (o actualiza) el extra del repartidor y su pago pendiente en la agenda
+    const saveRiderExtra = async (f: FormState) => {
+        const amount = Math.max(0, num(f.amount));
+        if (!f.riderEmail) { alert('Elegí el repartidor.'); return; }
+        if (amount <= 0) { alert('Poné el monto del extra.'); return; }
+        const reason = f.title.trim() || 'Extra';
+        const extraFields = { riderEmail: f.riderEmail, amount, date: f.dueDate, description: reason };
+        const pagoFields = {
+            title: `Extra delivery · ${riderName(f.riderEmail)}: ${reason}`,
+            amount, dueDate: f.dueDate, category: 'sueldos' as Category,
+            recurring: false, repeat: 'none' as Repeat, weekDays: null, recurDay: parts(f.dueDate)[2],
+            note: f.note.trim(), riderEmail: f.riderEmail, extraReason: reason,
+        };
+        if (f.id && f.riderExtraId) {
+            await updateDoc(doc(db, 'rider_extras', f.riderExtraId), extraFields);
+            await updateDoc(doc(col, f.id), pagoFields);
+        } else {
+            const extraRef = await addDoc(collection(db, 'rider_extras'), {
+                ...extraFields, paidToRider: false, createdAt: serverTimestamp(), createdByEmail: user?.email || 'admin',
+            });
+            await addDoc(col, {
+                ...pagoFields, riderExtraId: extraRef.id,
+                status: 'pending', createdAt: serverTimestamp(), createdByEmail: user?.email || 'admin',
+            });
+        }
+    };
+
     const save = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (form?.kind === 'riderExtra') {
+            setSaving(true);
+            try {
+                await saveRiderExtra(form);
+                setForm(null);
+            } catch (err) {
+                console.error(err);
+                alert('No se pudo guardar el extra.');
+            } finally {
+                setSaving(false);
+            }
+            return;
+        }
         if (!form || !form.title.trim() || !form.dueDate) return;
         if (form.repeat === 'weekdays' && form.weekDays.length === 0) {
             alert('Elegí al menos un día de la semana.');
@@ -218,6 +290,7 @@ export default function PagosManager() {
         setBusyId(p.id);
         try {
             await updateDoc(doc(col, p.id), { status: 'paid', paidDate: today, paidAt: serverTimestamp() });
+            if (p.riderExtraId) await updateDoc(doc(db, 'rider_extras', p.riderExtraId), { paidToRider: true });
             await createNext(p);
         } catch (err) {
             console.error(err);
@@ -246,6 +319,7 @@ export default function PagosManager() {
         if (!(await confirm(`¿Volver "${p.title}" a pendientes?${extra}`, { confirmLabel: 'Volver a pendientes', danger: false }))) return;
         try {
             await updateDoc(doc(col, p.id), { status: 'pending', paidDate: null, paidAt: null, skippedDate: null });
+            if (p.riderExtraId) await updateDoc(doc(db, 'rider_extras', p.riderExtraId), { paidToRider: false });
         } catch (err) {
             console.error(err);
             alert('No se pudo deshacer.');
@@ -253,8 +327,13 @@ export default function PagosManager() {
     };
 
     const remove = async (id: string, title: string) => {
-        if (!(await confirm(`¿Eliminar "${title}"? No se puede deshacer.`, { confirmLabel: 'Eliminar' }))) return;
+        const extraId = pagos.find(p => p.id === id)?.riderExtraId;
+        const msg = extraId
+            ? `¿Eliminar "${title}"? También se le quita el extra al repartidor. No se puede deshacer.`
+            : `¿Eliminar "${title}"? No se puede deshacer.`;
+        if (!(await confirm(msg, { confirmLabel: 'Eliminar' }))) return;
         try {
+            if (extraId) await deleteDoc(doc(db, 'rider_extras', extraId));
             await deleteDoc(doc(col, id));
             setForm(null);
         } catch (err) {
@@ -439,10 +518,50 @@ export default function PagosManager() {
                 <div className="pg-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setForm(null); }}>
                     <form className="pg-modal" onSubmit={save}>
                         <div className="pg-modal-head">
-                            <h3>{form.id ? 'Editar pago' : 'Nuevo pago'}</h3>
+                            <h3>{form.kind === 'riderExtra' ? (form.id ? 'Editar extra para delivery' : 'Extra para delivery') : (form.id ? 'Editar pago' : 'Nuevo pago')}</h3>
                             <button type="button" className="pg-close" aria-label="Cerrar" onClick={() => setForm(null)}><FaTimes /></button>
                         </div>
 
+                        {!form.id && (
+                            <div className="pg-chips pick pg-kind">
+                                <button type="button" className={form.kind === 'pago' ? 'active' : ''}
+                                    onClick={() => setForm({ ...form, kind: 'pago' })}>💳 Pago</button>
+                                <button type="button" className={form.kind === 'riderExtra' ? 'active' : ''}
+                                    onClick={() => setForm({ ...form, kind: 'riderExtra', category: 'sueldos', repeat: 'none' })}>🛵 Extra para delivery</button>
+                            </div>
+                        )}
+
+                        {form.kind === 'riderExtra' ? (
+                            <>
+                                <label className="pg-field">Repartidor
+                                    <select required value={form.riderEmail} onChange={e => setForm({ ...form, riderEmail: e.target.value })}>
+                                        <option value="">Elegí el repartidor…</option>
+                                        {riderOptions.map(r => <option key={r.email} value={r.email}>{r.name}</option>)}
+                                    </select>
+                                    {riderOptions.length === 0 && (
+                                        <small className="pg-hint">
+                                            {canSeeRiders
+                                                ? 'No hay repartidores. Marcá a alguien como repartidor en Configuración → Roles y Permisos.'
+                                                : 'Para ver la lista te falta el permiso "Ver lista de repartidores". Pedíselo al superadmin.'}
+                                        </small>
+                                    )}
+                                </label>
+                                <label className="pg-field">Motivo
+                                    <input value={form.title} placeholder="Ej: Nafta, bono lluvia, viaje extra"
+                                        onChange={e => setForm({ ...form, title: e.target.value })} />
+                                </label>
+                                <div className="pg-row">
+                                    <label className="pg-field">Monto
+                                        <input type="text" inputMode="decimal" required value={form.amount} placeholder="$"
+                                            onChange={e => setForm({ ...form, amount: e.target.value.replace(/[^\d.,]/g, '') })} />
+                                    </label>
+                                    <label className="pg-field">Fecha
+                                        <input type="date" required value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+                                    </label>
+                                </div>
+                                <small className="pg-hint">Se le suma en <strong>Extras</strong> en su dashboard y queda como pago pendiente acá. Al marcarlo pagado, el extra queda pagado.</small>
+                            </>
+                        ) : (<>
                         <label className="pg-field">¿Qué hay que pagar?
                             <input autoFocus={!form.id} required value={form.title} placeholder="Ej: Harina Calsa, luz, alquiler"
                                 onChange={e => setForm({ ...form, title: e.target.value })} />
@@ -503,6 +622,7 @@ export default function PagosManager() {
                         {form.repeat === 'monthly' && (
                             <small className="pg-hint">Al marcarlo pagado se crea solo el del mes siguiente.</small>
                         )}
+                        </>)}
 
                         <label className="pg-field">Nota (opcional)
                             <input value={form.note} placeholder="N° de factura, alias, etc." onChange={e => setForm({ ...form, note: e.target.value })} />

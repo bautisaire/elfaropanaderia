@@ -22,6 +22,7 @@ interface AdminRole {
   stock: boolean;
   settings: boolean;
   employees: boolean;
+  riders_view?: boolean;
   notes?: boolean;
   raffle: boolean;
   is_rider: boolean;
@@ -46,6 +47,7 @@ const PERMISSIONS_MAP = [
   { key: 'bills', label: 'Gastos y Tickets' },
   { key: 'pagos', label: 'Pagos (Finanzas)' },
   { key: 'employees', label: 'Empleados (perfiles, horarios, sueldos y costo)' },
+  { key: 'riders_view', label: 'Ver lista de repartidores (extras de delivery y perfiles de reparto)' },
   { key: 'stock', label: 'Gestión de Stock' },
   { key: 'raffle', label: 'Sorteos' },
   { key: 'settings', label: 'Configuración (Delivery, etc.)' },
@@ -108,6 +110,7 @@ export default function AdminRolesManager() {
         stock: false,
         settings: false,
         employees: false,
+        riders_view: false,
         raffle: false,
         is_rider: false,
         auto_assign_orders: false

@@ -346,7 +346,8 @@ button.pg-body { cursor: pointer; }
     min-width: 0;
 }
 
-.pg-field input {
+.pg-field input,
+.pg-field select {
     width: 100%;
     padding: 11px 12px;
     border: 1px solid #cbd5e1;
@@ -357,7 +358,8 @@ button.pg-body { cursor: pointer; }
     background: #fff;
 }
 
-.pg-field input:focus { outline: 2px solid #16a34a; outline-offset: -1px; border-color: #16a34a; }
+.pg-field input:focus,
+.pg-field select:focus { outline: 2px solid #16a34a; outline-offset: -1px; border-color: #16a34a; }
 .pg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .pg-switch {
@@ -462,3 +464,6 @@ button.pg-body { cursor: pointer; }
 .cf-cancel { background: #f1f5f9; color: #334155; }
 .cf-ok { background: #16a34a; color: #fff; }
 .cf-ok.danger { background: #dc2626; }
+
+/* Selector "Pago" / "Extra para delivery" arriba del formulario */
+.pg-kind { margin-bottom: 4px; }

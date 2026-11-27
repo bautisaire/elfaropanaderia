@@ -217,7 +217,13 @@ service cloud.firestore {
     }
 
     match /admin_roles/{roleId} {
-      allow read: if request.auth != null && (request.auth.token.email != null && request.auth.token.email.lower() == roleId || isSuperAdmin());
+      // Cada uno lee su rol y el superadmin lee todos. Con el permiso "riders_view" se pueden
+      // leer SOLO los roles de repartidores (para elegirlos en los extras de delivery).
+      allow read: if request.auth != null && (request.auth.token.email != null && request.auth.token.email.lower() == roleId || isSuperAdmin() || (
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())) &&
+        get(/databases/$(database)/documents/admin_roles/$(request.auth.token.email.lower())).data.get('riders_view', false) == true &&
+        resource.data.is_rider == true
+      ));
       allow write: if isSuperAdmin();
     }
 

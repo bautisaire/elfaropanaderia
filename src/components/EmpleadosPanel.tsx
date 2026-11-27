@@ -7,6 +7,7 @@ import { useConfirm } from './useConfirm';
 import { todayKey, parts, pad, addDays, weekDayOf, nextMonth, WEEK_DAYS, WEEKS_PER_MONTH, weekDaysText } from '../utils/pagosDates';
 import './PagosManager.css';
 import './EmpleadosPanel.css';
+import { useRiders, riderProfileId } from '../utils/riders';
 
 // Perfil de cada empleado: dónde trabaja, horario, cómo se le paga, su costo y las horas que
 // trabajó de verdad. Vive en finance_config/pagos/empleados (permisos "pagos" o "employees");
@@ -60,8 +61,12 @@ interface EmployeeProfile {
     payMonthDay?: number;
     notes?: string;
     syncPago: boolean;
+    /** Cuenta de repartidor vinculada (mail con el que entra al panel). Sirve para los extras de delivery. */
+    riderEmail?: string;
     /** Solo en pantalla: viene del módulo anterior y todavía no se guardó acá. */
     legacy?: boolean;
+    /** Solo en pantalla: perfil por defecto de un repartidor que todavía no se completó. */
+    newRider?: boolean;
 }
 
 /** Un día trabajado (horas reales). */
@@ -202,9 +207,11 @@ interface EntryDraft { date: string; from: string; to: string; hours: string; no
 
 // `canPagos`: sin el permiso de Pagos no se leen ni se crean pagos (solo el perfil y las horas).
 export default function EmpleadosPanel({ pagos, canPagos }: { pagos: PagoLite[]; canPagos: boolean }) {
-    const { user } = useCart();
+    const { user, isSuperAdmin, adminPermissions } = useCart();
     const [profiles, setProfiles] = useState<EmployeeProfile[]>([]);
     const [legacy, setLegacy] = useState<LegacyEmployee[]>([]);
+    // Cada repartidor tiene un perfil por defecto (área Reparto) para completar
+    const riders = useRiders(isSuperAdmin || adminPermissions?.riders_view === true);
     const [laborRate, setLaborRate] = useState<{ name: string; perHour: number } | null>(null);
     const [loading, setLoading] = useState(true);
     const [form, setForm] = useState<EmployeeProfile | null>(null);
@@ -268,8 +275,22 @@ export default function EmpleadosPanel({ pagos, canPagos }: { pagos: PagoLite[];
                 payAmount: Number(l.paymentMode === 'daily' ? l.dailyRate : l.hourlyRate) || 0,
                 legacy: true,
             }));
-        return [...profiles.filter(p => !p.deleted), ...fromLegacy].sort((a, b) => a.name.localeCompare(b.name));
-    }, [profiles, legacy]);
+        // Perfil por defecto de cada repartidor que todavía no tiene uno (incluidos los borrados, para no revivirlos)
+        const linked = new Set(profiles.map(p => (p.riderEmail || '').toLowerCase()).filter(Boolean));
+        const fromRiders = riders
+            .filter(r => !linked.has(r.email) && !known.has(riderProfileId(r.email)))
+            .map(r => ({
+                ...emptyProfile(),
+                id: riderProfileId(r.email),
+                name: r.name,
+                riderEmail: r.email,
+                areas: [{ area: 'reparto' as Area, percent: 100 }],
+                syncPago: false, // al repartidor se le paga por envío: el sueldo fijo se activa si hace falta
+                legacy: true,
+                newRider: true,
+            }));
+        return [...profiles.filter(p => !p.deleted), ...fromLegacy, ...fromRiders].sort((a, b) => a.name.localeCompare(b.name));
+    }, [profiles, legacy, riders]);
 
     const active = employees.filter(e => e.active);
     const inactive = employees.filter(e => !e.active);
@@ -292,7 +313,8 @@ export default function EmpleadosPanel({ pagos, canPagos }: { pagos: PagoLite[];
             paid: acc.paid + monthStats(e.id).pagado,
         };
     }, { worked: 0, expected: 0, cost: 0, paid: 0 });
-    const pendingLegacy = employees.filter(e => e.legacy).length;
+    const pendingLegacy = employees.filter(e => e.legacy && !e.newRider).length;
+    const pendingRiders = employees.filter(e => e.newRider).length;
 
     const save = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -302,7 +324,7 @@ export default function EmpleadosPanel({ pagos, canPagos }: { pagos: PagoLite[];
             const id = form.id || doc(col).id;
             // Sin `id`/`legacy` (solo de pantalla) ni campos vacíos: Firestore no acepta `undefined`.
             const data = Object.fromEntries(
-                Object.entries({ ...form, name: form.name.trim() }).filter(([k, v]) => k !== 'id' && k !== 'legacy' && v !== undefined)
+                Object.entries({ ...form, name: form.name.trim() }).filter(([k, v]) => k !== 'id' && k !== 'legacy' && k !== 'newRider' && v !== undefined)
             );
             await setDoc(doc(col, id), { ...data, updatedAt: serverTimestamp() });
 
@@ -409,6 +431,7 @@ Si solo dejó de trabajar, mejor marcalo como inactivo para conservar su histori
                         <span>{scheduleText(e)}</span>
                     </div>
                     {e.legacy && <span className="em-tag warn">Para completar</span>}
+                    {e.riderEmail && <span className="em-tag">🛵 Repartidor</span>}
                     {!e.active && <span className="em-tag">Inactivo</span>}
                 </div>
                 {e.areas.length > 0 && (
@@ -510,6 +533,10 @@ Si solo dejó de trabajar, mejor marcalo como inactivo para conservar su histori
                 <div className="pg-stat"><span>Costo por mes</span><strong>{fmt(totals.cost)}</strong><small>según horario y paga</small></div>
                 {canPagos && <div className="pg-stat good"><span>Pagado este mes</span><strong>{fmt(totals.paid)}</strong><small>desde Pagos</small></div>}
             </div>
+
+            {pendingRiders > 0 && (
+                <div className="em-alert warn">{pendingRiders} {pendingRiders === 1 ? 'repartidor tiene' : 'repartidores tienen'} un perfil creado por defecto. Abrilo para completar sus datos y guardarlo.</div>
+            )}
 
             {pendingLegacy > 0 && (
                 <div className="em-alert warn">{pendingLegacy} {pendingLegacy === 1 ? 'empleado viene' : 'empleados vienen'} del registro anterior con su valor hora viejo. Abrilos para completar el perfil y guardarlos.</div>
