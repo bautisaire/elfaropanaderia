@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../firebase/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, limit, serverTimestamp } from 'firebase/firestore';
 import { FaMotorcycle, FaChartLine, FaCheckCircle, FaMoneyBillWave, FaCalendarAlt, FaMapMarkerAlt, FaPhone, FaUser, FaClock, FaCopy, FaChevronDown, FaChevronUp, FaDollarSign } from 'react-icons/fa';
 import GlobalDeliveriesMapModal from './GlobalDeliveriesMapModal';
 import './RiderDashboard.css';
@@ -121,12 +121,31 @@ export default function RiderDashboard() {
         navigator.clipboard.writeText(text);
     };
 
+    // Punto donde se marcó "entregado": GPS del repartidor si lo tiene; si no, la ubicación
+    // del cliente. Desde ahí arranca la ruta hacia el pedido siguiente.
+    const getDeliveryPoint = async (order: Order): Promise<{ lat: number; lng: number; source: 'gps' | 'cliente' } | null> => {
+        if (myPosition) return { lat: myPosition.lat, lng: myPosition.lng, source: 'gps' };
+        if ('geolocation' in navigator) {
+            try {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 4000, maximumAge: 60_000 })
+                );
+                return { lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'gps' };
+            } catch { /* sin permiso o sin señal: usar la del cliente */ }
+        }
+        const loc = order.cliente?.location;
+        return loc ? { lat: loc.lat, lng: loc.lng, source: 'cliente' } : null;
+    };
+
     const handleConfirmDelivery = async () => {
         if (!confirmOrder) return;
         try {
+            const point = await getDeliveryPoint(confirmOrder);
             await updateDoc(doc(db, "orders", confirmOrder.id), {
                 status: "entregado",
-                paidToRider: false
+                paidToRider: false,
+                deliveredAt: serverTimestamp(),
+                ...(point ? { deliveredLocation: point } : {}),
             });
             setConfirmOrder(null);
         } catch (error) {

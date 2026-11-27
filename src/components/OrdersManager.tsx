@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase/firebaseConfig";
-import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc } from "firebase/firestore";
+import { collection, updateDoc, doc, orderBy, query, getDoc, addDoc, limit, getDocs, where, Timestamp, onSnapshot, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { FaPhone, FaSync, FaCheckCircle, FaClock, FaMotorcycle, FaTimesCircle, FaBoxOpen, FaPlus, FaMinus, FaTrash, FaSave, FaMapMarkerAlt, FaShoppingBag, FaSearch, FaTimes, FaCheck } from 'react-icons/fa';
 import { syncChildProducts } from "../utils/stockUtils";
 import { getItemVariantName } from "../utils/cartStock";
@@ -29,8 +29,10 @@ interface Order {
         indicaciones?: string;
         metodoPago: string;
         mapsLink?: string;
+        location?: { lat: number; lng: number };
     };
     transferenciaEstado?: "pendiente" | "pagado";
+    deliveredLocation?: { lat: number; lng: number; source?: string };
     date: any;
     status: "pendiente" | "preparando" | "enviado" | "entregado" | "cancelado" | "pending_payment";
     source?: string;
@@ -302,7 +304,22 @@ export default function OrdersManager() {
             await deductOrderStock(orderToCancel, `Reactivación Pedido #${idDisplay}`);
         }
 
-        await updateDoc(doc(db, "orders", id), { status });
+        // Al marcar entregado desde el panel se guarda la hora y, como punto de entrega,
+        // la ubicación del cliente (el repartidor guarda su GPS cuando lo marca él).
+        const deliveryExtras: Record<string, unknown> = {};
+        // Hora en que salió con el repartidor: marca el inicio de la tanda (el mapa la usa
+        // para saber qué entregas son de la tanda actual).
+        if (status === 'enviado' && orderToCancel?.status !== 'enviado') {
+            deliveryExtras.sentAt = serverTimestamp();
+        }
+        if (status === 'entregado' && orderToCancel?.status !== 'entregado') {
+            deliveryExtras.deliveredAt = serverTimestamp();
+            const loc = orderToCancel?.cliente?.location;
+            if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && !orderToCancel?.deliveredLocation) {
+                deliveryExtras.deliveredLocation = { lat: loc.lat, lng: loc.lng, source: 'cliente' };
+            }
+        }
+        await updateDoc(doc(db, "orders", id), { status, ...deliveryExtras });
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status as any } : o));
     };
 

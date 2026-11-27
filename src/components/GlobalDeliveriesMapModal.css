@@ -428,3 +428,66 @@
     0% { transform: scale(0.7); opacity: 0.9; }
     100% { transform: scale(1.6); opacity: 0; }
 }
+
+/* Número de parada sobre cada pedido cuando la ruta tiene varias paradas */
+.leaflet-tooltip.map-stop-number {
+    background: #2563eb;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    font-weight: 800;
+    font-size: 0.8rem;
+    line-height: 18px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.leaflet-tooltip.map-stop-number::before {
+    display: none;
+}
+
+/* Punto de la última entrega (origen de la ruta cuando no hay GPS en vivo) */
+.custom-last-delivery-icon {
+    background: transparent;
+    border: none;
+}
+
+.last-delivery-marker {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #10b981;
+    color: #ffffff;
+    border: 3px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+
+.global-map-route-origin {
+    color: #64748b;
+}
+
+/* Tandas: lo pendiente / en preparación es de la próxima tanda */
+.global-map-route-next {
+    color: #b45309;
+    font-weight: 700;
+}
+
+.map-next-batch-badge {
+    margin: 4px 0 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
