@@ -216,6 +216,13 @@ service cloud.firestore {
         && request.resource.data.lng is number;
     }
 
+    // Clientes (id = teléfono normalizado): notas y ubicaciones fijadas por dirección.
+    // Los repartidores solo leen, para ver en su mapa la ubicación guardada.
+    match /customers/{phone} {
+      allow read: if isAdmin() || isRider();
+      allow write: if isAdmin();
+    }
+
     match /admin_roles/{roleId} {
       // Cada uno lee su rol y el superadmin lee todos. Con el permiso "riders_view" se pueden
       // leer SOLO los roles de repartidores (para elegirlos en los extras de delivery).

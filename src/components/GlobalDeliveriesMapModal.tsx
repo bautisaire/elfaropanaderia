@@ -14,6 +14,7 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { mapsLinkForCoords } from '../utils/mapsLink';
 import { useCart } from '../context/CartContext';
 import type { RiderPosition } from '../utils/riderLocation';
+import { useCustomerDocs, pinForOrder } from '../utils/customers';
 
 const DefaultIcon = L.icon({
     iconUrl,
@@ -291,13 +292,22 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
         cliente: { nombre: p.nombre, direccion: 'Pin de prueba', mapsLink: p.mapsLink, indicaciones: p.indicaciones, location: { lat: p.lat, lng: p.lng } },
     })) : [];
 
-    // Obtener ubicación efectiva (de location o mapsLink) y filtrar
+    // Ubicaciones fijadas en la sección Clientes (por teléfono + dirección)
+    const customerDocs = useCustomerDocs();
+
+    // Obtener ubicación efectiva: la del pedido, la de su link de Maps o, si no tiene,
+    // la fijada para ese cliente en esa MISMA dirección (otra dirección no se ubica).
     const validOrders = [...orders, ...testOrders].map(o => {
         let loc = o.cliente?.location;
         if (!loc && o.cliente?.mapsLink) {
             loc = extractCoordinatesFromUrl(o.cliente.mapsLink);
         }
-        return { ...o, effectiveLocation: loc };
+        let fromCustomerPin = false;
+        if (!loc) {
+            const pin = pinForOrder(customerDocs, o.cliente);
+            if (pin) { loc = { lat: pin.lat, lng: pin.lng }; fromCustomerPin = true; }
+        }
+        return { ...o, effectiveLocation: loc, fromCustomerPin };
     }).filter(o =>
         o.effectiveLocation &&
         o.status !== 'cancelado' &&
@@ -511,6 +521,9 @@ export default function GlobalDeliveriesMapModal({ isOpen = true, onClose = () =
                                     </div>
                                 )}
                                 <p><FaMapMarkerAlt /> {order.cliente.direccion}</p>
+                                {order.fromCustomerPin && (
+                                    <p style={{ fontSize: '0.78rem', color: '#166534' }}>📍 Ubicación guardada del cliente</p>
+                                )}
                                 {order.cliente.telefono && (
                                     <p>
                                         <FaPhone />

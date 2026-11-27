@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FaUsers, FaTrophy, FaSearch, FaWhatsapp } from 'react-icons/fa';
 import './CustomersRanking.css';
+import { normalizePhone } from '../utils/customers';
 
 export interface OrderLike {
     status?: string;
@@ -26,12 +27,7 @@ interface Customer {
 
 const POS_SOURCES = ['pos', 'pos_public', 'pos_wholesale'];
 
-// El teléfono es el ID del cliente: se normaliza a los últimos 10 dígitos
-// para que "+54 9 299 520-6821", "0299 15 5206821" y "2995206821" no se separen.
-const normalizePhone = (raw: unknown): string => {
-    const digits = String(raw ?? '').replace(/\D/g, '');
-    return digits.length > 10 ? digits.slice(-10) : digits;
-};
+// El teléfono es el ID del cliente (misma normalización que la sección Clientes).
 
 const waLink = (phone: string) => `https://wa.me/549${phone}`;
 

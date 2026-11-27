@@ -4,7 +4,7 @@ import { auth, googleProvider, db } from "../firebase/firebaseConfig";
 import { collection, query, onSnapshot, doc } from "firebase/firestore";
 import { signInWithRedirect, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { useNavigate, useLocation, Routes, Route, Navigate } from "react-router-dom";
-import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaWallet } from "react-icons/fa";
+import { FaHome, FaSignOutAlt, FaStore, FaClipboardCheck, FaChartPie, FaBars, FaTimes, FaChevronLeft, FaChevronRight, FaClipboardList, FaCog, FaMotorcycle, FaHeadset, FaFileInvoiceDollar, FaMoneyBillWave, FaBreadSlice, FaCalculator, FaWallet, FaUsers } from "react-icons/fa";
 import OrdersManager from "../components/OrdersManager";
 import StockManager from "../components/StockManager";
 import Dashboard from "../components/Dashboard";
@@ -201,7 +201,7 @@ export default function Editor() {
   const navGroups: NavGroup[] = [
     {
       items: [
-        { key: "dashboard", label: "Resumen", icon: <FaChartPie />, color: '#3b82f6', path: "/editor/", visible: adminPermissions?.dashboard !== false, active: currentPath === "dashboard" || currentPath === "" || currentPath === "clientes" || currentPath === "ranking-productos" || currentPath === "mejores-periodos" },
+        { key: "dashboard", label: "Resumen", icon: <FaChartPie />, color: '#3b82f6', path: "/editor/", visible: adminPermissions?.dashboard !== false, active: currentPath === "dashboard" || currentPath === "" || currentPath === "ranking-productos" || currentPath === "mejores-periodos" },
       ]
     },
     {
@@ -209,6 +209,7 @@ export default function Editor() {
       items: [
         { key: "stock", label: "Stock", icon: <FaClipboardCheck />, color: '#eab308', path: "/editor/stock", visible: adminPermissions?.stock !== false, active: currentPath === "stock" },
         { key: "orders", label: "Pedidos", icon: <FaClipboardList />, color: '#a855f7', path: "/editor/orders/pos", visible: adminPermissions?.orders !== false, active: currentPath === "orders", badge: pendingOrdersCount },
+        { key: "clientes", label: "Clientes", icon: <FaUsers />, color: '#0ea5e9', path: "/editor/clientes", visible: adminPermissions?.dashboard !== false, active: currentPath === "clientes" },
         { key: "caja", label: "Caja", icon: <FaMoneyBillWave />, color: '#8b5cf6', path: "/editor/caja", visible: adminPermissions?.pos_sales !== false, active: currentPath === "caja", badge: pendingSalesCount },
       ]
     },
