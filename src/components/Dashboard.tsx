@@ -96,6 +96,8 @@ export default function Dashboard() {
     const [rawTimeEntries, setRawTimeEntries] = useState<any[]>([]);
     // Pérdidas del cierre de jornada (Stock): solo se usa el costo de materia prima/insumos
     const [wasteLogs, setWasteLogs] = useState<{ date: Date; rawMaterialCost: number }[]>([]);
+    // Extras para delivery (Pagos > Extra para delivery): se suman a "Recolección delivery"
+    const [riderExtras, setRiderExtras] = useState<{ date: Date; amount: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const [visitsData, setVisitsData] = useState<{
         total: number;
@@ -128,7 +130,7 @@ export default function Dashboard() {
         delivery: 0,     // Online
         deliveryHomeCount: 0,   // Online: envío a domicilio
         deliveryPickupCount: 0, // Online: retiro en el local
-        deliveryShippingTotal: 0, // Suma de los costos de envío cobrados (línea "Envío" de cada pedido)
+        deliveryShippingTotal: 0, // Costos de envío cobrados (línea "Envío" de cada pedido) + extras para delivery del período
         totalEgresos: 0,
         egresosCount: 0,
         totalSueldosPendientes: 0,
@@ -268,6 +270,7 @@ export default function Dashboard() {
         let unsubRawMaterials: () => void;
         let unsubReviews: () => void;
         let unsubWaste: () => void;
+        let unsubRiderExtras: () => void;
 
         const setupListeners = async () => {
             try {
@@ -364,6 +367,16 @@ export default function Dashboard() {
                         })));
                 }, (error) => console.error("Error cargando pérdidas de cierre:", error));
 
+                unsubRiderExtras = onSnapshot(collection(db, "rider_extras"), (snapshot) => {
+                    setRiderExtras(snapshot.docs.map(d => {
+                        const data = d.data();
+                        // date viene como 'YYYY-MM-DD' (fecha Argentina); mediodía UTC-3 para no correr el día
+                        const [y, m, day] = String(data.date || '').split('-').map(Number);
+                        const date = y && m && day ? new Date(Date.UTC(y, m - 1, day, 15)) : new Date(0);
+                        return { date, amount: Number(data.amount) || 0 };
+                    }));
+                }, (error) => console.error("Error cargando extras de delivery:", error));
+
                 unsubReviews = onSnapshot(collectionGroup(db, "reviews"), (snapshot) => {
                     const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     setRawReviews(reviews);
@@ -389,6 +402,7 @@ export default function Dashboard() {
             if (unsubTimeEntries) unsubTimeEntries();
             if (unsubReviews) unsubReviews();
             if (unsubWaste) unsubWaste();
+            if (unsubRiderExtras) unsubRiderExtras();
         };
     }, []);
 
@@ -775,6 +789,11 @@ export default function Dashboard() {
             }
         });
 
+        // Extras para delivery del período (Pagos > Extra para delivery) suman a la recolección
+        riderExtras.forEach(extra => {
+            if (isInTimeframe(extra.date, timeframe)) deliveryShippingTotal += extra.amount;
+        });
+
         setStats(prev => ({
             ...prev,
             totalSales: plata,
@@ -907,7 +926,7 @@ export default function Dashboard() {
             { name: 'Delivery', value: delivery }
         ].filter(d => d.value > 0));
 
-    }, [rawOrders, rawExpenses, timeframe, productData, customRange]);
+    }, [rawOrders, rawExpenses, timeframe, productData, customRange, riderExtras]);
 
     const handleCustomDateChange = (dates: [Date | null, Date | null]) => {
         const [start, end] = dates;
