@@ -6,11 +6,13 @@ import 'leaflet/dist/leaflet.css';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-import { FaSearch, FaWhatsapp, FaTimes, FaMapMarkerAlt, FaGlobe, FaCashRegister, FaStar, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSearch, FaWhatsapp, FaTimes, FaMapMarkerAlt, FaGlobe, FaCashRegister, FaStar, FaExclamationTriangle, FaCommentDots } from 'react-icons/fa';
 import { db } from '../firebase/firebaseConfig';
 import { normalizePhone, isValidPhone, addressKey, useCustomerDocs, type CustomerDoc } from '../utils/customers';
 import { orderIsPickup } from '../utils/orderPickup';
 import './CustomersManager.css';
+import { useTemplates, segmentOf, SEGMENTS, type Segment, type MessageTemplate } from '../utils/marketing';
+import { SendMessageCard, TemplatesEditor } from './CustomerMessages';
 
 // Sección Clientes: todo se arma a partir de los pedidos (el teléfono es el ID).
 // Lo único que se guarda aparte (colección customers) son las notas y las
@@ -167,6 +169,14 @@ function buildCustomers(orders: CustomerOrder[]): Customer[] {
     return out;
 }
 
+/** Caso del cliente para marketing (favorito, te extrañamos, primera compra). */
+const segmentOfCustomer = (c: Customer): Segment => {
+    const n = c.orders.length;
+    const everyDays = n >= 3 ? Math.round(Math.max(1, (c.lastDate.getTime() - c.firstDate.getTime()) / 86_400_000) / (n - 1)) : null;
+    return segmentOf({ orders: n, daysSinceLast: daysSince(c.lastDate), everyDays });
+};
+const firstName = (name: string) => (name === 'Sin nombre' ? '' : name.split(' ')[0]);
+
 /** Detalles a tener en cuenta, armados solos a partir del historial. */
 function insightsOf(c: Customer): { text: string; tone: 'info' | 'warn' | 'good' }[] {
     const list: { text: string; tone: 'info' | 'warn' | 'good' }[] = [];
@@ -244,15 +254,20 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
     const [notesDraft, setNotesDraft] = useState<string | null>(null);
     const [savingNotes, setSavingNotes] = useState(false);
     const [limit, setLimit] = useState(60);
+    const [segmentFilter, setSegmentFilter] = useState<Segment | 'todos'>('todos');
+    const [editingTemplates, setEditingTemplates] = useState(false);
+    const templates = useTemplates();
 
     const money = (n: number) => (showAmounts ? fmtMoney(n) : '***');
     const customers = useMemo(() => buildCustomers(orders), [orders]);
+    const segments = useMemo(() => new Map(customers.map(c => [c.phone, segmentOfCustomer(c)])), [customers]);
 
     const list = useMemo(() => {
         const q = search.trim().toLowerCase();
         const qDigits = q.replace(/\D/g, '');
         return customers
             .filter(c => originFilter === 'todos' || (originFilter === 'web' ? c.web > 0 : c.pos > 0))
+            .filter(c => segmentFilter === 'todos' || segments.get(c.phone) === segmentFilter)
             .filter(c => !q
                 || c.name.toLowerCase().includes(q)
                 || (qDigits.length >= 3 && c.phone.includes(qDigits))
@@ -260,7 +275,7 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
             .sort((a, b) => sortBy === 'orders' ? b.orders.length - a.orders.length
                 : sortBy === 'total' ? b.total - a.total
                 : b.lastDate.getTime() - a.lastDate.getTime());
-    }, [customers, search, originFilter, sortBy]);
+    }, [customers, search, originFilter, sortBy, segmentFilter, segments]);
 
     const current = selected ? customers.find(c => c.phone === selected) || null : null;
     const currentDoc: CustomerDoc = (current && docs[current.phone]) || {};
@@ -274,6 +289,14 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
     const removePin = async (phone: string, key: string) => {
         await setDoc(doc(db, 'customers', phone), { pins: { [key]: deleteField() }, updatedAt: serverTimestamp() }, { merge: true });
     };
+    // Se registra el último mensaje enviado, para no repetirle la promo al mismo cliente
+    const markSent = (phone: string, t: MessageTemplate) => {
+        setDoc(doc(db, 'customers', phone), {
+            lastMessage: { templateId: t.id, title: t.title, at: serverTimestamp() },
+            updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(e => console.warn('No se pudo registrar el mensaje:', e));
+    };
+
     const saveNotes = async () => {
         if (!current || notesDraft === null) return;
         setSavingNotes(true);
@@ -319,6 +342,21 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
                     <option value="orders">Más pedidos</option>
                     <option value="total">Más gastó</option>
                 </select>
+                <button className="cm-tpl-open" onClick={() => setEditingTemplates(true)}><FaCommentDots /> Mensajes</button>
+            </div>
+
+            <div className="cm-segments">
+                <span className="cm-segments-label">Para contactar:</span>
+                <button className={segmentFilter === 'todos' ? 'active' : ''} onClick={() => setSegmentFilter('todos')}>Todos</button>
+                {SEGMENTS.map(sg => {
+                    const n = customers.filter(c => segments.get(c.phone) === sg.key).length;
+                    return (
+                        <button key={sg.key} className={`seg-${sg.key}${segmentFilter === sg.key ? ' active' : ''}`} title={sg.help}
+                            onClick={() => { setSegmentFilter(sg.key); setLimit(60); }}>
+                            {sg.emoji} {sg.label} <b>{n}</b>
+                        </button>
+                    );
+                })}
             </div>
 
             {list.length === 0 && <div className="cm-empty">No hay clientes que coincidan.</div>}
@@ -343,6 +381,10 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
                                     {c.web > 0 && <span className="cm-badge web">🌐 {c.web}</span>}
                                     {c.pos > 0 && <span className="cm-badge pos">🧾 {c.pos}</span>}
                                     {pinned > 0 && <span className="cm-badge pin">📍</span>}
+                                    {(() => {
+                                        const sg = SEGMENTS.find(x => x.key === segments.get(c.phone));
+                                        return sg ? <span className={`cm-badge seg-${sg.key}`} title={sg.label}>{sg.emoji}</span> : null;
+                                    })()}
                                 </span>
                             </div>
                         </button>
@@ -385,6 +427,21 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
                         <div className="cm-detail-grid">
                             {/* Columna izquierda: lo que hay que saber del cliente */}
                             <div className="cm-col">
+                                <SendMessageCard
+                                    key={current.phone}
+                                    phone={current.phone}
+                                    data={{
+                                        nombre: firstName(current.name),
+                                        producto: current.products[0]?.name || 'nuestros productos',
+                                        dias: daysSince(current.lastDate),
+                                        pedidos: current.orders.length,
+                                    }}
+                                    templates={templates}
+                                    suggested={segments.get(current.phone) || 'none'}
+                                    lastMessage={currentDoc.lastMessage ? { title: currentDoc.lastMessage.title, atMs: currentDoc.lastMessage.at?.toMillis?.() } : undefined}
+                                    onSent={t => markSent(current.phone, t)}
+                                />
+
                                 {insightsOf(current).length > 0 && (
                                     <div className="cm-card">
                                         <h4><FaExclamationTriangle /> Para tener en cuenta</h4>
@@ -499,6 +556,8 @@ export default function CustomersManager({ orders, showAmounts }: { orders: Cust
                     </div>
                 </div>
             )}
+
+            {editingTemplates && <TemplatesEditor templates={templates} onClose={() => setEditingTemplates(false)} />}
 
             {current && pinFor && (
                 <PinPicker

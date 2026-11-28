@@ -223,6 +223,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Plantillas de mensajes de marketing (Clientes → Mensajes)
+    match /marketing/{document} {
+      allow read, write: if isAdmin();
+    }
+
     match /admin_roles/{roleId} {
       // Cada uno lee su rol y el superadmin lee todos. Con el permiso "riders_view" se pueden
       // leer SOLO los roles de repartidores (para elegirlos en los extras de delivery).

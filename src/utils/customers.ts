@@ -43,6 +43,8 @@ export type CustomerDoc = {
     notes?: string;
     /** Ubicación fijada por dirección (clave: addressKey). */
     pins?: Record<string, CustomerPin>;
+    /** Último mensaje de marketing abierto en WhatsApp desde Clientes. */
+    lastMessage?: { templateId: string; title: string; at?: { toMillis?: () => number } };
 };
 
 /** Documentos de la colección customers (id = teléfono normalizado). */
